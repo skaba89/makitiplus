@@ -2,9 +2,11 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 export const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { user } = useAuth();
 
   const navLinks = [
     { name: "Fonctionnalités", href: "#features" },
@@ -42,8 +44,20 @@ export const Header = () => {
 
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-4">
-            <Button variant="ghost">Connexion</Button>
-            <Button variant="default">Essai gratuit</Button>
+            {user ? (
+              <Link to="/dashboard">
+                <Button variant="default">Tableau de bord</Button>
+              </Link>
+            ) : (
+              <>
+                <Link to="/auth">
+                  <Button variant="ghost">Connexion</Button>
+                </Link>
+                <Link to="/auth">
+                  <Button variant="default">Essai gratuit</Button>
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -75,8 +89,20 @@ export const Header = () => {
                 </a>
               ))}
               <div className="flex flex-col gap-2 mt-4 px-4">
-                <Button variant="outline" className="w-full">Connexion</Button>
-                <Button variant="default" className="w-full">Essai gratuit</Button>
+                {user ? (
+                  <Link to="/dashboard" onClick={() => setIsMenuOpen(false)}>
+                    <Button variant="default" className="w-full">Tableau de bord</Button>
+                  </Link>
+                ) : (
+                  <>
+                    <Link to="/auth" onClick={() => setIsMenuOpen(false)}>
+                      <Button variant="outline" className="w-full">Connexion</Button>
+                    </Link>
+                    <Link to="/auth" onClick={() => setIsMenuOpen(false)}>
+                      <Button variant="default" className="w-full">Essai gratuit</Button>
+                    </Link>
+                  </>
+                )}
               </div>
             </nav>
           </div>
