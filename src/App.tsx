@@ -8,6 +8,8 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
+import Products from "./pages/Products";
+import POS from "./pages/POS";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -27,6 +29,22 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/products"
+              element={
+                <ProtectedRoute allowedRoles={["admin", "manager", "vendeur"]}>
+                  <Products />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/pos"
+              element={
+                <ProtectedRoute allowedRoles={["admin", "manager", "vendeur"]}>
+                  <POS />
                 </ProtectedRoute>
               }
             />
