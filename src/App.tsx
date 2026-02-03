@@ -10,6 +10,8 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Products from "./pages/Products";
 import POS from "./pages/POS";
+import Categories from "./pages/Categories";
+import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -45,6 +47,22 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={["admin", "manager", "vendeur"]}>
                   <POS />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/categories"
+              element={
+                <ProtectedRoute allowedRoles={["admin", "manager"]}>
+                  <Categories />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/reports"
+              element={
+                <ProtectedRoute allowedRoles={["admin", "manager", "comptable"]}>
+                  <Reports />
                 </ProtectedRoute>
               }
             />
