@@ -3,8 +3,15 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   ChartContainer,
   ChartTooltip,
@@ -30,14 +37,19 @@ import {
   Calendar,
   ArrowUpRight,
   ArrowDownRight,
+  Download,
+  FileSpreadsheet,
 } from "lucide-react";
 import { format, subDays, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
 import { fr } from "date-fns/locale";
+import { exportSalesToCSV, exportExpensesToCSV } from "@/utils/exportUtils";
+import { useToast } from "@/hooks/use-toast";
 
 const COLORS = ["#E57E4D", "#F59E0B", "#10B981", "#3B82F6", "#8B5CF6", "#EC4899"];
 
 const Reports = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [period, setPeriod] = useState<"day" | "week" | "month">("day");
 
   const getDateRange = () => {
@@ -210,16 +222,69 @@ const Reports = () => {
             </p>
           </div>
 
-          <Tabs value={period} onValueChange={(v) => setPeriod(v as typeof period)}>
-            <TabsList>
-              <TabsTrigger value="day" className="gap-2">
-                <Calendar className="h-4 w-4" />
-                Aujourd'hui
-              </TabsTrigger>
-              <TabsTrigger value="week">Cette semaine</TabsTrigger>
-              <TabsTrigger value="month">Ce mois</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div className="flex flex-wrap items-center gap-2">
+            <Tabs value={period} onValueChange={(v) => setPeriod(v as typeof period)}>
+              <TabsList>
+                <TabsTrigger value="day" className="gap-2">
+                  <Calendar className="h-4 w-4" />
+                  Aujourd'hui
+                </TabsTrigger>
+                <TabsTrigger value="week">Cette semaine</TabsTrigger>
+                <TabsTrigger value="month">Ce mois</TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Download className="mr-2 h-4 w-4" />
+                  Exporter
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => {
+                    if (sales && sales.length > 0) {
+                      exportSalesToCSV(sales);
+                      toast({
+                        title: "Export réussi",
+                        description: `${sales.length} ventes exportées`,
+                      });
+                    } else {
+                      toast({
+                        variant: "destructive",
+                        title: "Aucune donnée",
+                        description: "Pas de ventes à exporter",
+                      });
+                    }
+                  }}
+                >
+                  <FileSpreadsheet className="mr-2 h-4 w-4" />
+                  Ventes (CSV)
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    if (expenses && expenses.length > 0) {
+                      exportExpensesToCSV(expenses);
+                      toast({
+                        title: "Export réussi",
+                        description: `${expenses.length} dépenses exportées`,
+                      });
+                    } else {
+                      toast({
+                        variant: "destructive",
+                        title: "Aucune donnée",
+                        description: "Pas de dépenses à exporter",
+                      });
+                    }
+                  }}
+                >
+                  <FileSpreadsheet className="mr-2 h-4 w-4" />
+                  Dépenses (CSV)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         {/* Stats Cards */}

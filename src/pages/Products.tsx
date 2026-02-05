@@ -8,7 +8,7 @@ import { ProductForm } from "@/components/products/ProductForm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Package } from "lucide-react";
+import { Plus, Search, Package, Download } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Database } from "@/integrations/supabase/types";
+import { exportProductsToCSV } from "@/utils/exportUtils";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
 type ProductInsert = Database["public"]["Tables"]["products"]["Insert"];
@@ -155,10 +156,44 @@ const Products = () => {
               Gérez votre inventaire de produits
             </p>
           </div>
-          <Button onClick={handleOpenForm} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Ajouter un produit
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (products && products.length > 0) {
+                  exportProductsToCSV(
+                    products.map((p) => ({
+                      name: p.name,
+                      category: (p as any).categories?.name || "",
+                      price: p.price,
+                      cost_price: p.cost_price,
+                      stock_quantity: p.stock_quantity,
+                      min_stock_alert: p.min_stock_alert,
+                      unit: p.unit,
+                      is_active: p.is_active,
+                    }))
+                  );
+                  toast({
+                    title: "Export réussi",
+                    description: `${products.length} produits exportés`,
+                  });
+                } else {
+                  toast({
+                    variant: "destructive",
+                    title: "Aucun produit",
+                    description: "Pas de produits à exporter",
+                  });
+                }
+              }}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Exporter
+            </Button>
+            <Button onClick={handleOpenForm} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Ajouter un produit
+            </Button>
+          </div>
         </div>
 
         {/* Search */}

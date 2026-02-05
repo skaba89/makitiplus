@@ -6,12 +6,13 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { POSProductGrid } from "@/components/pos/POSProductGrid";
 import { POSCart } from "@/components/pos/POSCart";
 import { POSPaymentDialog } from "@/components/pos/POSPaymentDialog";
+import { ReceiptActionsDialog } from "@/components/pos/ReceiptActionsDialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Search, ShoppingCart } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
-import { downloadReceipt } from "@/utils/receiptGenerator";
+import { ReceiptData } from "@/utils/receiptGenerator";
 
 type Product = Database["public"]["Tables"]["products"]["Row"] & {
   categories?: { name: string; color: string | null; icon: string | null } | null;
@@ -31,6 +32,8 @@ const POS = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+  const [isReceiptOpen, setIsReceiptOpen] = useState(false);
+  const [lastReceiptData, setLastReceiptData] = useState<ReceiptData | null>(null);
 
   const { data: products, isLoading } = useQuery({
     queryKey: ["products", user?.id],
@@ -144,8 +147,8 @@ const POS = () => {
       return { sale, changeAmount };
     },
     onSuccess: ({ sale, changeAmount }) => {
-      // Generate receipt
-      downloadReceipt({
+      // Prepare receipt data for dialog
+      const receiptData: ReceiptData = {
         saleNumber: sale.sale_number,
         date: new Date(),
         items: cart.map((item) => ({
@@ -164,19 +167,15 @@ const POS = () => {
         businessAddress: profile?.address || undefined,
         businessPhone: profile?.phone || undefined,
         sellerName: profile?.owner_name || undefined,
-      });
+      };
+
+      setLastReceiptData(receiptData);
+      setIsReceiptOpen(true);
 
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["sales"] });
       setCart([]);
       setIsPaymentOpen(false);
-      toast({
-        title: "Vente enregistrée !",
-        description:
-          changeAmount > 0
-            ? `Monnaie à rendre : ${new Intl.NumberFormat("fr-FR").format(changeAmount)} FCFA`
-            : "Paiement exact reçu",
-      });
     },
     onError: (error) => {
       toast({
@@ -344,6 +343,13 @@ const POS = () => {
             })
           }
           isLoading={createSaleMutation.isPending}
+        />
+
+        {/* Receipt Actions Dialog */}
+        <ReceiptActionsDialog
+          isOpen={isReceiptOpen}
+          onClose={() => setIsReceiptOpen(false)}
+          receiptData={lastReceiptData}
         />
       </div>
     </DashboardLayout>
