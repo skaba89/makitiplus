@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Search, ShoppingCart } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
+import { downloadReceipt } from "@/utils/receiptGenerator";
 
 type Product = Database["public"]["Tables"]["products"]["Row"] & {
   categories?: { name: string; color: string | null; icon: string | null } | null;
@@ -142,7 +143,29 @@ const POS = () => {
 
       return { sale, changeAmount };
     },
-    onSuccess: ({ changeAmount }) => {
+    onSuccess: ({ sale, changeAmount }) => {
+      // Generate receipt
+      downloadReceipt({
+        saleNumber: sale.sale_number,
+        date: new Date(),
+        items: cart.map((item) => ({
+          product_name: item.product.name,
+          quantity: item.quantity,
+          unit_price: item.product.price,
+          total_price: item.product.price * item.quantity,
+        })),
+        subtotal: cartTotal,
+        total: cartTotal,
+        paymentMethod: sale.payment_method,
+        amountPaid: sale.amount_paid,
+        change: changeAmount > 0 ? changeAmount : 0,
+        customerName: sale.customer_name || undefined,
+        businessName: profile?.business_name || "Ma Boutique",
+        businessAddress: profile?.address || undefined,
+        businessPhone: profile?.phone || undefined,
+        sellerName: profile?.owner_name || undefined,
+      });
+
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["sales"] });
       setCart([]);
