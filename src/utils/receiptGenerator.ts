@@ -7,7 +7,7 @@
    total_price: number;
  }
  
- interface ReceiptData {
+export interface ReceiptData {
    saleNumber: string;
    date: Date;
    items: ReceiptItem[];
@@ -165,6 +165,66 @@
    return doc;
  };
  
+export const generateReceiptText = (data: ReceiptData): string => {
+  const lines: string[] = [];
+  
+  // Header
+  lines.push(`*${data.businessName.toUpperCase()}*`);
+  if (data.businessAddress) lines.push(data.businessAddress);
+  if (data.businessPhone) lines.push(`Tél: ${data.businessPhone}`);
+  lines.push("");
+  lines.push("━━━━━━━━━━━━━━━━━");
+  lines.push(`📋 *Ticket N°:* ${data.saleNumber}`);
+  lines.push(`📅 ${data.date.toLocaleDateString("fr-FR")} ${data.date.toLocaleTimeString("fr-FR")}`);
+  if (data.sellerName) lines.push(`👤 Vendeur: ${data.sellerName}`);
+  if (data.customerName) lines.push(`🧑 Client: ${data.customerName}`);
+  lines.push("━━━━━━━━━━━━━━━━━");
+  lines.push("");
+  
+  // Items
+  lines.push("*ARTICLES:*");
+  data.items.forEach((item) => {
+    lines.push(`• ${item.product_name}`);
+    lines.push(`  ${item.quantity} x ${formatPrice(item.unit_price)} = *${formatPrice(item.total_price)}*`);
+  });
+  lines.push("");
+  lines.push("━━━━━━━━━━━━━━━━━");
+  
+  // Total
+  lines.push(`💰 *TOTAL: ${formatPrice(data.total)}*`);
+  lines.push(`💳 Paiement: ${paymentMethodLabels[data.paymentMethod] || data.paymentMethod}`);
+  
+  if (data.paymentMethod === "cash") {
+    lines.push(`💵 Reçu: ${formatPrice(data.amountPaid)}`);
+    if (data.change > 0) {
+      lines.push(`🔄 Monnaie: ${formatPrice(data.change)}`);
+    }
+  }
+  
+  lines.push("");
+  lines.push("━━━━━━━━━━━━━━━━━");
+  lines.push("✨ *Merci de votre confiance!* ✨");
+  lines.push("À bientôt!");
+  
+  return lines.join("\n");
+};
+
+export const shareViaWhatsApp = (data: ReceiptData, phoneNumber?: string): void => {
+  const text = generateReceiptText(data);
+  const encodedText = encodeURIComponent(text);
+  
+  // Clean phone number (remove spaces, dashes, etc.)
+  const cleanPhone = phoneNumber?.replace(/[\s\-\(\)]/g, "").replace(/^\+/, "") || "";
+  
+  // WhatsApp URL
+  const baseUrl = "https://wa.me/";
+  const url = cleanPhone 
+    ? `${baseUrl}${cleanPhone}?text=${encodedText}`
+    : `${baseUrl}?text=${encodedText}`;
+  
+  window.open(url, "_blank");
+};
+
  export const downloadReceipt = (data: ReceiptData): void => {
    const doc = generateReceiptPDF(data);
    doc.save(`ticket-${data.saleNumber}.pdf`);
