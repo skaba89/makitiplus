@@ -13,6 +13,7 @@ import POS from "./pages/POS";
 import Categories from "./pages/Categories";
 import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
+import Expenses from "./pages/Expenses";
 
 const queryClient = new QueryClient();
 
@@ -63,6 +64,14 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={["admin", "manager", "comptable"]}>
                   <Reports />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/expenses"
+              element={
+                <ProtectedRoute allowedRoles={["admin", "manager", "comptable"]}>
+                  <Expenses />
                 </ProtectedRoute>
               }
             />
