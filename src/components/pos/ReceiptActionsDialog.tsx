@@ -1,33 +1,42 @@
- import { useState } from "react";
- import { Button } from "@/components/ui/button";
- import { Input } from "@/components/ui/input";
- import { Label } from "@/components/ui/label";
- import {
-   Dialog,
-   DialogContent,
-   DialogHeader,
-   DialogTitle,
- } from "@/components/ui/dialog";
- import { Download, MessageCircle, Check, Copy } from "lucide-react";
- import { ReceiptData, downloadReceipt, shareViaWhatsApp, generateReceiptText } from "@/utils/receiptGenerator";
- import { useToast } from "@/hooks/use-toast";
- 
- interface ReceiptActionsDialogProps {
-   isOpen: boolean;
-   onClose: () => void;
-   receiptData: ReceiptData | null;
- }
- 
- export const ReceiptActionsDialog = ({
-   isOpen,
-   onClose,
-   receiptData,
- }: ReceiptActionsDialogProps) => {
-   const { toast } = useToast();
-   const [whatsappNumber, setWhatsappNumber] = useState("");
-   const [copied, setCopied] = useState(false);
- 
-   if (!receiptData) return null;
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Download, MessageCircle, Check, Copy } from "lucide-react";
+import { ReceiptData, downloadReceipt, shareViaWhatsApp, generateReceiptText, formatPriceWithCurrency } from "@/utils/receiptGenerator";
+import { useToast } from "@/hooks/use-toast";
+import { useCurrency } from "@/hooks/useCurrency";
+
+interface ReceiptActionsDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  receiptData: ReceiptData | null;
+}
+
+export const ReceiptActionsDialog = ({
+  isOpen,
+  onClose,
+  receiptData,
+}: ReceiptActionsDialogProps) => {
+  const { toast } = useToast();
+  const { currency, phoneCode } = useCurrency();
+  const [whatsappNumber, setWhatsappNumber] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  if (!receiptData) return null;
+
+  const formatPrice = (amount: number) => 
+    formatPriceWithCurrency(
+      amount, 
+      receiptData.currencySymbol || currency.symbol, 
+      receiptData.currencyPosition || currency.position
+    );
  
    const handleDownloadPDF = () => {
      downloadReceipt(receiptData);
@@ -65,31 +74,34 @@
  
          <div className="space-y-4">
            {/* Sale Summary */}
-           <div className="bg-muted/50 rounded-lg p-4 text-center">
-             <p className="text-sm text-muted-foreground">Ticket N°</p>
-             <p className="font-bold text-lg">{receiptData.saleNumber}</p>
-             <p className="text-2xl font-bold text-primary mt-2">
-               {new Intl.NumberFormat("fr-FR").format(receiptData.total)} FCFA
-             </p>
-           </div>
+            <div className="bg-muted/50 rounded-lg p-4 text-center">
+              <p className="text-sm text-muted-foreground">Ticket N°</p>
+              <p className="font-bold text-lg">{receiptData.saleNumber}</p>
+              <p className="text-2xl font-bold text-primary mt-2">
+                {formatPrice(receiptData.total)}
+              </p>
+            </div>
  
            {/* WhatsApp Share */}
-           <div className="space-y-3">
-             <Label>Envoyer via WhatsApp</Label>
-             <div className="flex gap-2">
-               <Input
-                 placeholder={receiptData.customerName || "+221 77 xxx xx xx"}
-                 value={whatsappNumber}
-                 onChange={(e) => setWhatsappNumber(e.target.value)}
-                 className="flex-1"
-               />
-               <Button
-                 onClick={handleShareWhatsApp}
-                 className="bg-[#25D366] hover:bg-[#128C7E] text-white"
-               >
-                 <MessageCircle className="h-4 w-4" />
-               </Button>
-             </div>
+            <div className="space-y-3">
+              <Label>Envoyer via WhatsApp</Label>
+              <div className="flex gap-2">
+                <div className="w-20 flex items-center justify-center px-2 bg-muted rounded-lg text-sm font-medium">
+                  {phoneCode}
+                </div>
+                <Input
+                  placeholder="77 xxx xx xx"
+                  value={whatsappNumber}
+                  onChange={(e) => setWhatsappNumber(e.target.value)}
+                  className="flex-1"
+                />
+                <Button
+                  onClick={handleShareWhatsApp}
+                  className="bg-[#25D366] hover:bg-[#128C7E] text-white"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                </Button>
+              </div>
              <p className="text-xs text-muted-foreground">
                Laissez vide pour choisir un contact
              </p>
