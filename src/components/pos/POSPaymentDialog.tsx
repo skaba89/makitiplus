@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/tabs";
 import { Loader2, Banknote, Smartphone, CreditCard, Clock } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
+import { useCurrency } from "@/hooks/useCurrency";
 
 type PaymentMethod = Database["public"]["Enums"]["payment_method"];
 
@@ -39,14 +40,16 @@ export const POSPaymentDialog = ({
   onConfirm,
   isLoading,
 }: POSPaymentDialogProps) => {
+  const { formatPrice, availablePaymentMethods, phoneCode } = useCurrency();
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [amountPaid, setAmountPaid] = useState<number>(total);
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("fr-FR").format(price) + " FCFA";
-  };
+  // Update amountPaid when total changes
+  useEffect(() => {
+    setAmountPaid(total);
+  }, [total]);
 
   const change = amountPaid - total;
   const canConfirm = paymentMethod === "credit" || amountPaid >= total;
@@ -67,13 +70,26 @@ export const POSPaymentDialog = ({
     Math.ceil(total / 5000) * 5000,
   ].filter((v, i, a) => a.indexOf(v) === i && v >= total);
 
-  const paymentMethods: { value: PaymentMethod; label: string; icon: React.ReactNode }[] = [
+  // Filter payment methods based on country
+  const allPaymentMethods: { value: PaymentMethod; label: string; icon: React.ReactNode }[] = [
     { value: "cash", label: "Espèces", icon: <Banknote className="h-4 w-4" /> },
     { value: "wave", label: "Wave", icon: <Smartphone className="h-4 w-4" /> },
     { value: "orange_money", label: "Orange Money", icon: <Smartphone className="h-4 w-4" /> },
+    { value: "mtn_money", label: "MTN Money", icon: <Smartphone className="h-4 w-4" /> },
+    { value: "moov_money", label: "Moov Money", icon: <Smartphone className="h-4 w-4" /> },
+    { value: "mpesa", label: "M-Pesa", icon: <Smartphone className="h-4 w-4" /> },
     { value: "card", label: "Carte", icon: <CreditCard className="h-4 w-4" /> },
     { value: "credit", label: "À crédit", icon: <Clock className="h-4 w-4" /> },
   ];
+
+  // Always show cash, card, credit + country-specific mobile payments
+  const paymentMethods = allPaymentMethods.filter(
+    (method) =>
+      method.value === "cash" ||
+      method.value === "card" ||
+      method.value === "credit" ||
+      availablePaymentMethods.includes(method.value)
+  );
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -172,11 +188,17 @@ export const POSPaymentDialog = ({
                 </div>
                 <div className="space-y-2">
                   <Label>Téléphone du client</Label>
-                  <Input
-                    value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
-                    placeholder="+221 77 000 00 00"
-                  />
+                  <div className="flex gap-2">
+                    <div className="w-20 flex items-center justify-center px-2 bg-muted rounded-lg text-sm font-medium">
+                      {phoneCode}
+                    </div>
+                    <Input
+                      value={customerPhone}
+                      onChange={(e) => setCustomerPhone(e.target.value)}
+                      placeholder="77 000 00 00"
+                      className="flex-1"
+                    />
+                  </div>
                 </div>
               </TabsContent>
             </Tabs>

@@ -10,6 +10,7 @@ import { ReceiptActionsDialog } from "@/components/pos/ReceiptActionsDialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useCurrency } from "@/hooks/useCurrency";
 import { Search, ShoppingCart } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
 import { ReceiptData } from "@/utils/receiptGenerator";
@@ -28,6 +29,7 @@ interface CartItem {
 const POS = () => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
+  const { currency, formatPrice } = useCurrency();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -167,6 +169,8 @@ const POS = () => {
         businessAddress: profile?.address || undefined,
         businessPhone: profile?.phone || undefined,
         sellerName: profile?.owner_name || undefined,
+        currencySymbol: currency.symbol,
+        currencyPosition: currency.position,
       };
 
       setLastReceiptData(receiptData);
