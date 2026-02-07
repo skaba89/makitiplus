@@ -41,6 +41,96 @@ export type Database = {
         }
         Relationships: []
       }
+      customer_credits: {
+        Row: {
+          amount: number
+          created_at: string
+          customer_id: string
+          description: string | null
+          id: string
+          sale_id: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          customer_id: string
+          description?: string | null
+          id?: string
+          sale_id?: string | null
+          type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          customer_id?: string
+          description?: string | null
+          id?: string
+          sale_id?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_credits_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_credits_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customers: {
+        Row: {
+          address: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          phone: string | null
+          total_credit: number
+          total_purchases: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+          total_credit?: number
+          total_purchases?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          total_credit?: number
+          total_purchases?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       expenses: {
         Row: {
           amount: number
@@ -246,6 +336,7 @@ export type Database = {
           amount_paid: number
           change_amount: number | null
           created_at: string
+          customer_id: string | null
           customer_name: string | null
           customer_phone: string | null
           discount_amount: number | null
@@ -264,6 +355,7 @@ export type Database = {
           amount_paid?: number
           change_amount?: number | null
           created_at?: string
+          customer_id?: string | null
           customer_name?: string | null
           customer_phone?: string | null
           discount_amount?: number | null
@@ -282,6 +374,7 @@ export type Database = {
           amount_paid?: number
           change_amount?: number | null
           created_at?: string
+          customer_id?: string | null
           customer_name?: string | null
           customer_phone?: string | null
           discount_amount?: number | null
@@ -296,7 +389,15 @@ export type Database = {
           total_amount?: number
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "sales_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       stock_movements: {
         Row: {

@@ -88,10 +88,10 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       roles: ["admin", "manager", "comptable"],
     },
     {
-      name: "Utilisateurs",
-      href: "/dashboard/users",
+      name: "Clients",
+      href: "/dashboard/customers",
       icon: Users,
-      roles: ["admin"],
+      roles: ["admin", "manager", "vendeur"],
     },
     {
       name: "Paramètres",

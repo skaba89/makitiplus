@@ -12,8 +12,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
+import { Loader2, Barcode } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
+import { BarcodeGenerator, generateBarcode } from "./BarcodeGenerator";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
 type ProductInsert = Database["public"]["Tables"]["products"]["Insert"];
@@ -201,13 +202,29 @@ export const ProductForm = ({ product, onSubmit, isLoading }: ProductFormProps) 
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="barcode">Code-barres (optionnel)</Label>
-        <Input
-          id="barcode"
-          value={formData.barcode}
-          onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
-          placeholder="Ex: 1234567890123"
-        />
+        <Label htmlFor="barcode">Code-barres</Label>
+        <div className="flex gap-2">
+          <Input
+            id="barcode"
+            value={formData.barcode}
+            onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
+            placeholder="Ex: 1234567890123"
+            className="flex-1"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setFormData({ ...formData, barcode: generateBarcode() })}
+          >
+            <Barcode className="h-4 w-4 mr-1" />
+            Générer
+          </Button>
+        </div>
+        {formData.barcode && (
+          <div className="flex justify-center p-3 bg-white rounded-lg border">
+            <BarcodeGenerator value={formData.barcode} />
+          </div>
+        )}
       </div>
 
       <Button type="submit" className="w-full" disabled={isLoading}>

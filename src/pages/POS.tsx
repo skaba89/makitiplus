@@ -250,7 +250,8 @@ const POS = () => {
   );
 
   const filteredProducts = products?.filter((product) =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase())
+    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (product.barcode && product.barcode.includes(searchQuery))
   );
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -269,7 +270,7 @@ const POS = () => {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Rechercher un produit..."
+                placeholder="Rechercher ou scanner un code-barres..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
