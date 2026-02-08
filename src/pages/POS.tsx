@@ -7,11 +7,12 @@ import { POSProductGrid } from "@/components/pos/POSProductGrid";
 import { POSCart } from "@/components/pos/POSCart";
 import { POSPaymentDialog } from "@/components/pos/POSPaymentDialog";
 import { ReceiptActionsDialog } from "@/components/pos/ReceiptActionsDialog";
+import { BarcodeScannerDialog } from "@/components/pos/BarcodeScannerDialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
-import { Search, ShoppingCart } from "lucide-react";
+import { Search, ShoppingCart, Camera } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
 import { ReceiptData } from "@/utils/receiptGenerator";
 
@@ -36,6 +37,7 @@ const POS = () => {
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
   const [lastReceiptData, setLastReceiptData] = useState<ReceiptData | null>(null);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   const { data: products, isLoading } = useQuery({
     queryKey: ["products", user?.id],
@@ -249,6 +251,21 @@ const POS = () => {
     0
   );
 
+  const handleBarcodeScan = (barcode: string) => {
+    // Find product by barcode and add to cart
+    const found = products?.find((p) => p.barcode === barcode);
+    if (found) {
+      addToCart(found);
+    } else {
+      setSearchQuery(barcode);
+      toast({
+        variant: "destructive",
+        title: "Produit non trouvé",
+        description: `Aucun produit avec le code-barres: ${barcode}`,
+      });
+    }
+  };
+
   const filteredProducts = products?.filter((product) =>
     product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (product.barcode && product.barcode.includes(searchQuery))
@@ -267,14 +284,24 @@ const POS = () => {
         <div className="flex-1 flex flex-col min-h-0">
           {/* Search and Categories */}
           <div className="space-y-4 mb-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Rechercher ou scanner un code-barres..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Rechercher ou scanner un code-barres..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setIsScannerOpen(true)}
+                title="Scanner un code-barres"
+              >
+                <Camera className="h-4 w-4" />
+              </Button>
             </div>
             
             {/* Category Filters */}
@@ -355,6 +382,13 @@ const POS = () => {
           isOpen={isReceiptOpen}
           onClose={() => setIsReceiptOpen(false)}
           receiptData={lastReceiptData}
+        />
+
+        {/* Barcode Scanner Dialog */}
+        <BarcodeScannerDialog
+          isOpen={isScannerOpen}
+          onClose={() => setIsScannerOpen(false)}
+          onScan={handleBarcodeScan}
         />
       </div>
     </DashboardLayout>

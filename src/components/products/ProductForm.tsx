@@ -15,6 +15,7 @@ import {
 import { Loader2, Barcode } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
 import { BarcodeGenerator, generateBarcode } from "./BarcodeGenerator";
+import { useCurrency } from "@/hooks/useCurrency";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
 type ProductInsert = Database["public"]["Tables"]["products"]["Insert"];
@@ -27,6 +28,7 @@ interface ProductFormProps {
 
 export const ProductForm = ({ product, onSubmit, isLoading }: ProductFormProps) => {
   const { user } = useAuth();
+  const { currency } = useCurrency();
   const [formData, setFormData] = useState({
     name: "",
     price: 0,
@@ -96,7 +98,7 @@ export const ProductForm = ({ product, onSubmit, isLoading }: ProductFormProps) 
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="price">Prix de vente (FCFA) *</Label>
+          <Label htmlFor="price">Prix de vente ({currency.symbol}) *</Label>
           <Input
             id="price"
             type="number"
@@ -109,7 +111,7 @@ export const ProductForm = ({ product, onSubmit, isLoading }: ProductFormProps) 
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="cost_price">Prix d'achat (FCFA)</Label>
+          <Label htmlFor="cost_price">Prix d'achat ({currency.symbol})</Label>
           <Input
             id="cost_price"
             type="number"

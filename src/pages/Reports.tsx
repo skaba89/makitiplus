@@ -44,12 +44,14 @@ import { format, subDays, startOfDay, endOfDay, startOfMonth, endOfMonth, startO
 import { fr } from "date-fns/locale";
 import { exportSalesToCSV, exportExpensesToCSV } from "@/utils/exportUtils";
 import { useToast } from "@/hooks/use-toast";
+import { useCurrency } from "@/hooks/useCurrency";
 
 const COLORS = ["#E57E4D", "#F59E0B", "#10B981", "#3B82F6", "#8B5CF6", "#EC4899"];
 
 const Reports = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { formatPrice } = useCurrency();
   const [period, setPeriod] = useState<"day" | "week" | "month">("day");
 
   const getDateRange = () => {
@@ -193,9 +195,7 @@ const Reports = () => {
     return data;
   };
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("fr-FR").format(price);
-  };
+  // formatPrice is now from useCurrency
 
   const chartConfig = {
     ventes: {
@@ -299,7 +299,7 @@ const Reports = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatPrice(totalSales)} FCFA</div>
+              <div className="text-2xl font-bold">{formatPrice(totalSales)}</div>
               <div className="flex items-center gap-1 mt-1">
                 <ArrowUpRight className="h-4 w-4 text-success" />
                 <span className="text-success text-sm">{totalTransactions} ventes</span>
@@ -320,7 +320,7 @@ const Reports = () => {
               <div className="text-2xl font-bold">{totalTransactions}</div>
               <div className="text-muted-foreground text-sm mt-1">
                 {totalTransactions > 0
-                  ? `Panier moyen: ${formatPrice(Math.round(totalSales / totalTransactions))} FCFA`
+                  ? `Panier moyen: ${formatPrice(Math.round(totalSales / totalTransactions))}`
                   : "Aucune vente"}
               </div>
             </CardContent>
@@ -336,7 +336,7 @@ const Reports = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatPrice(totalExpenses)} FCFA</div>
+              <div className="text-2xl font-bold">{formatPrice(totalExpenses)}</div>
               <div className="flex items-center gap-1 mt-1">
                 <ArrowDownRight className="h-4 w-4 text-destructive" />
                 <span className="text-destructive text-sm">
@@ -357,7 +357,7 @@ const Reports = () => {
             </CardHeader>
             <CardContent>
               <div className={`text-2xl font-bold ${netProfit >= 0 ? "text-success" : "text-destructive"}`}>
-                {formatPrice(netProfit)} FCFA
+                {formatPrice(netProfit)}
               </div>
               <div className="text-muted-foreground text-sm mt-1">
                 Ventes - Dépenses
@@ -454,7 +454,7 @@ const Reports = () => {
                     </div>
                     <div className="text-right">
                       <p className="font-bold text-primary">
-                        {formatPrice(product.revenue)} FCFA
+                        {formatPrice(product.revenue)}
                       </p>
                     </div>
                   </div>
