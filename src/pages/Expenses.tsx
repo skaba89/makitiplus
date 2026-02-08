@@ -38,10 +38,11 @@
  } from "@/components/ui/table";
  import { Badge } from "@/components/ui/badge";
  import { useToast } from "@/hooks/use-toast";
- import { Plus, Trash2, Wallet, TrendingDown, Calendar, Loader2 } from "lucide-react";
- import { format } from "date-fns";
- import { fr } from "date-fns/locale";
- import { Database } from "@/integrations/supabase/types";
+import { Plus, Trash2, Wallet, TrendingDown, Calendar, Loader2 } from "lucide-react";
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
+import { Database } from "@/integrations/supabase/types";
+import { useCurrency } from "@/hooks/useCurrency";
  
  type Expense = Database["public"]["Tables"]["expenses"]["Row"];
  type PaymentMethod = Database["public"]["Enums"]["payment_method"];
@@ -67,12 +68,13 @@
    { value: "card", label: "Carte bancaire" },
  ];
  
- const Expenses = () => {
-   const { user } = useAuth();
-   const { toast } = useToast();
-   const queryClient = useQueryClient();
-   const [isDialogOpen, setIsDialogOpen] = useState(false);
-   const [filterCategory, setFilterCategory] = useState<string>("all");
+const Expenses = () => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const { formatPrice } = useCurrency();
+  const queryClient = useQueryClient();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [filterCategory, setFilterCategory] = useState<string>("all");
  
    // Form state
    const [amount, setAmount] = useState("");
@@ -162,9 +164,7 @@
      createExpenseMutation.mutate();
    };
  
-   const formatPrice = (price: number) => {
-     return new Intl.NumberFormat("fr-FR").format(price) + " FCFA";
-   };
+  // formatPrice is now from useCurrency
  
    const getCategoryInfo = (categoryValue: string) => {
      return EXPENSE_CATEGORIES.find((c) => c.value === categoryValue) || {

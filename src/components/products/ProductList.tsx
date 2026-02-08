@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { Database } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash2, AlertTriangle } from "lucide-react";
+import { Edit, Trash2, AlertTriangle, Printer } from "lucide-react";
+import { BarcodeLabelPrinter } from "./BarcodeLabelPrinter";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,6 +16,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { useCurrency } from "@/hooks/useCurrency";
 
 type Product = Database["public"]["Tables"]["products"]["Row"] & {
   categories?: { name: string; color: string | null; icon: string | null } | null;
@@ -26,9 +29,8 @@ interface ProductListProps {
 }
 
 export const ProductList = ({ products, onEdit, onDelete }: ProductListProps) => {
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("fr-FR").format(price) + " FCFA";
-  };
+  const { formatPrice } = useCurrency();
+  const [labelProduct, setLabelProduct] = useState<Product | null>(null);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -86,6 +88,15 @@ export const ProductList = ({ products, onEdit, onDelete }: ProductListProps) =>
               </div>
 
               <div className="flex gap-2">
+                {product.barcode && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setLabelProduct(product)}
+                  >
+                    <Printer className="h-4 w-4" />
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -125,6 +136,15 @@ export const ProductList = ({ products, onEdit, onDelete }: ProductListProps) =>
           </Card>
         );
       })}
+
+      {/* Barcode Label Printer */}
+      {labelProduct && (
+        <BarcodeLabelPrinter
+          product={labelProduct}
+          isOpen={!!labelProduct}
+          onClose={() => setLabelProduct(null)}
+        />
+      )}
     </div>
   );
 };

@@ -4,6 +4,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Minus, Plus, Trash2, ShoppingCart, X } from "lucide-react";
+import { useCurrency } from "@/hooks/useCurrency";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
 
@@ -29,9 +30,7 @@ export const POSCart = ({
   onClear,
   onCheckout,
 }: POSCartProps) => {
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("fr-FR").format(price) + " FCFA";
-  };
+  const { formatPrice } = useCurrency();
 
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 

@@ -1,5 +1,6 @@
 import { Database } from "@/integrations/supabase/types";
 import { Card, CardContent } from "@/components/ui/card";
+import { useCurrency } from "@/hooks/useCurrency";
 
 type Product = Database["public"]["Tables"]["products"]["Row"] & {
   categories?: { name: string; color: string | null; icon: string | null } | null;
@@ -11,9 +12,7 @@ interface POSProductGridProps {
 }
 
 export const POSProductGrid = ({ products, onAddToCart }: POSProductGridProps) => {
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("fr-FR").format(price);
-  };
+  const { formatPrice } = useCurrency();
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-3">
