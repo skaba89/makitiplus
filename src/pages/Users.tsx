@@ -468,7 +468,7 @@ const Users = () => {
                               </TableCell>
                               <TableCell>
                                 {u.is_active ? (
-                                  <Badge variant="outline" className="border-green-500/50 text-green-700 dark:text-green-400">
+                                  <Badge variant="outline" className="border-primary/50 text-primary">
                                     <CheckCircle2 className="h-3 w-3 mr-1" /> Actif
                                   </Badge>
                                 ) : (
