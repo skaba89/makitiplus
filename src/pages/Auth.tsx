@@ -170,10 +170,12 @@ const Auth = () => {
         });
       } else {
         toast({
-          title: "Inscription réussie",
-          description: "Veuillez vérifier votre email pour confirmer votre compte",
+          title: "Compte créé avec succès",
+          description: "Connexion automatique...",
         });
-        setActiveTab("login");
+        // Auto-confirm is enabled, sign in directly
+        await signIn(signupEmail, signupPassword);
+        navigate("/dashboard");
       }
     } catch (error) {
       toast({
@@ -213,14 +215,18 @@ const Auth = () => {
           <CardHeader className="text-center pb-2">
             <CardTitle>Bienvenue</CardTitle>
             <CardDescription>
-              Connectez-vous ou créez un compte
+              {adminExists === false
+                ? "Créez votre compte Super Administrateur"
+                : "Connectez-vous à votre compte"}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsList className={`grid w-full mb-6 ${adminExists === false ? "grid-cols-2" : "grid-cols-1"}`}>
                 <TabsTrigger value="login">Connexion</TabsTrigger>
-                <TabsTrigger value="signup">Inscription</TabsTrigger>
+                {adminExists === false && (
+                  <TabsTrigger value="signup">Inscription</TabsTrigger>
+                )}
               </TabsList>
 
               <TabsContent value="login">
@@ -356,28 +362,11 @@ const Auth = () => {
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="role">Rôle</Label>
-                    <Select value={role} onValueChange={(value: AppRole) => setRole(value)}>
-                      <SelectTrigger className="w-full">
-                        <div className="flex items-center gap-2">
-                          <Shield className="h-4 w-4 text-muted-foreground" />
-                          <SelectValue placeholder="Sélectionnez un rôle" />
-                        </div>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(Object.keys(roleLabels) as AppRole[]).map((roleKey) => (
-                          <SelectItem key={roleKey} value={roleKey}>
-                            <div className="flex flex-col">
-                              <span className="font-medium">{roleLabels[roleKey].label}</span>
-                              <span className="text-xs text-muted-foreground">
-                                {roleLabels[roleKey].description}
-                              </span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 flex items-start gap-2">
+                    <Shield className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                    <p className="text-xs text-muted-foreground">
+                      Vous serez le <strong className="text-foreground">Super Administrateur</strong> de la boutique. Vous pourrez ensuite créer les comptes vendeurs, managers et comptables.
+                    </p>
                   </div>
 
                   <Button
