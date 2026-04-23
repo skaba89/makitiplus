@@ -125,7 +125,6 @@ const Auth = () => {
         businessName,
         ownerName,
         phone,
-        role,
       });
 
       if (!validation.success) {
@@ -138,11 +137,25 @@ const Auth = () => {
         return;
       }
 
+      // Re-check admin existence to prevent race
+      const { data: alreadyExists } = await supabase.rpc("admin_exists");
+      if (alreadyExists === true) {
+        toast({
+          variant: "destructive",
+          title: "Inscription fermée",
+          description: "Un administrateur existe déjà. Contactez-le pour obtenir un compte.",
+        });
+        setAdminExists(true);
+        setActiveTab("login");
+        setIsLoading(false);
+        return;
+      }
+
       const { error } = await signUp(signupEmail, signupPassword, {
         businessName,
         ownerName,
         phone,
-        role,
+        role: "admin",
       });
 
       if (error) {
