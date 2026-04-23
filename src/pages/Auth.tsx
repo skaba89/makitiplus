@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Store, User, Phone, Mail, Lock, Shield } from "lucide-react";
 import { z } from "zod";
 import { Database } from "@/integrations/supabase/types";
+import { supabase } from "@/integrations/supabase/client";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 
@@ -25,7 +26,6 @@ const signupSchema = z.object({
   businessName: z.string().min(2, "Nom de l'entreprise requis"),
   ownerName: z.string().min(2, "Nom du propriétaire requis"),
   phone: z.string().optional(),
-  role: z.enum(["admin", "manager", "vendeur", "comptable"]),
 });
 
 const Auth = () => {
@@ -34,18 +34,33 @@ const Auth = () => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("login");
+  const [adminExists, setAdminExists] = useState<boolean | null>(null);
 
   // Login form state
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
 
-  // Signup form state
+  // Signup form state (only for first super admin)
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [ownerName, setOwnerName] = useState("");
   const [phone, setPhone] = useState("");
-  const [role, setRole] = useState<AppRole>("vendeur");
+
+  useEffect(() => {
+    // Check if a super admin already exists
+    const checkAdmin = async () => {
+      const { data, error } = await supabase.rpc("admin_exists");
+      if (!error) {
+        setAdminExists(data === true);
+        if (data === true) setActiveTab("login");
+        else setActiveTab("signup");
+      } else {
+        setAdminExists(true); // safer fallback: hide signup
+      }
+    };
+    checkAdmin();
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
