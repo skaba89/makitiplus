@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Store, User, Phone, Mail, Lock, Shield } from "lucide-react";
 import { z } from "zod";
 import { Database } from "@/integrations/supabase/types";
+import { supabase } from "@/integrations/supabase/client";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 
@@ -25,7 +26,6 @@ const signupSchema = z.object({
   businessName: z.string().min(2, "Nom de l'entreprise requis"),
   ownerName: z.string().min(2, "Nom du propriétaire requis"),
   phone: z.string().optional(),
-  role: z.enum(["admin", "manager", "vendeur", "comptable"]),
 });
 
 const Auth = () => {
@@ -34,18 +34,33 @@ const Auth = () => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("login");
+  const [adminExists, setAdminExists] = useState<boolean | null>(null);
 
   // Login form state
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
 
-  // Signup form state
+  // Signup form state (only for first super admin)
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [ownerName, setOwnerName] = useState("");
   const [phone, setPhone] = useState("");
-  const [role, setRole] = useState<AppRole>("vendeur");
+
+  useEffect(() => {
+    // Check if a super admin already exists
+    const checkAdmin = async () => {
+      const { data, error } = await supabase.rpc("admin_exists");
+      if (!error) {
+        setAdminExists(data === true);
+        if (data === true) setActiveTab("login");
+        else setActiveTab("signup");
+      } else {
+        setAdminExists(true); // safer fallback: hide signup
+      }
+    };
+    checkAdmin();
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,7 +125,6 @@ const Auth = () => {
         businessName,
         ownerName,
         phone,
-        role,
       });
 
       if (!validation.success) {
@@ -123,11 +137,25 @@ const Auth = () => {
         return;
       }
 
+      // Re-check admin existence to prevent race
+      const { data: alreadyExists } = await supabase.rpc("admin_exists");
+      if (alreadyExists === true) {
+        toast({
+          variant: "destructive",
+          title: "Inscription fermée",
+          description: "Un administrateur existe déjà. Contactez-le pour obtenir un compte.",
+        });
+        setAdminExists(true);
+        setActiveTab("login");
+        setIsLoading(false);
+        return;
+      }
+
       const { error } = await signUp(signupEmail, signupPassword, {
         businessName,
         ownerName,
         phone,
-        role,
+        role: "admin",
       });
 
       if (error) {
@@ -142,10 +170,12 @@ const Auth = () => {
         });
       } else {
         toast({
-          title: "Inscription réussie",
-          description: "Veuillez vérifier votre email pour confirmer votre compte",
+          title: "Compte créé avec succès",
+          description: "Connexion automatique...",
         });
-        setActiveTab("login");
+        // Auto-confirm is enabled, sign in directly
+        await signIn(signupEmail, signupPassword);
+        navigate("/dashboard");
       }
     } catch (error) {
       toast({
@@ -185,14 +215,18 @@ const Auth = () => {
           <CardHeader className="text-center pb-2">
             <CardTitle>Bienvenue</CardTitle>
             <CardDescription>
-              Connectez-vous ou créez un compte
+              {adminExists === false
+                ? "Créez votre compte Super Administrateur"
+                : "Connectez-vous à votre compte"}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsList className={`grid w-full mb-6 ${adminExists === false ? "grid-cols-2" : "grid-cols-1"}`}>
                 <TabsTrigger value="login">Connexion</TabsTrigger>
-                <TabsTrigger value="signup">Inscription</TabsTrigger>
+                {adminExists === false && (
+                  <TabsTrigger value="signup">Inscription</TabsTrigger>
+                )}
               </TabsList>
 
               <TabsContent value="login">
@@ -328,28 +362,11 @@ const Auth = () => {
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="role">Rôle</Label>
-                    <Select value={role} onValueChange={(value: AppRole) => setRole(value)}>
-                      <SelectTrigger className="w-full">
-                        <div className="flex items-center gap-2">
-                          <Shield className="h-4 w-4 text-muted-foreground" />
-                          <SelectValue placeholder="Sélectionnez un rôle" />
-                        </div>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(Object.keys(roleLabels) as AppRole[]).map((roleKey) => (
-                          <SelectItem key={roleKey} value={roleKey}>
-                            <div className="flex flex-col">
-                              <span className="font-medium">{roleLabels[roleKey].label}</span>
-                              <span className="text-xs text-muted-foreground">
-                                {roleLabels[roleKey].description}
-                              </span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 flex items-start gap-2">
+                    <Shield className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                    <p className="text-xs text-muted-foreground">
+                      Vous serez le <strong className="text-foreground">Super Administrateur</strong> de la boutique. Vous pourrez ensuite créer les comptes vendeurs, managers et comptables.
+                    </p>
                   </div>
 
                   <Button

@@ -17,6 +17,7 @@ import {
   FolderOpen,
   ChevronDown,
   Store,
+  Shield,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -92,6 +93,12 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       href: "/dashboard/customers",
       icon: Users,
       roles: ["admin", "manager", "vendeur"],
+    },
+    {
+      name: "Utilisateurs",
+      href: "/dashboard/users",
+      icon: Shield,
+      roles: ["admin"],
     },
     {
       name: "Paramètres",
