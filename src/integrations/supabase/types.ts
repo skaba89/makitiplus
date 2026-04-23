@@ -237,7 +237,11 @@ export type Database = {
           country: string | null
           created_at: string
           currency: string | null
+          deactivated_at: string | null
+          deactivation_reason: string | null
           id: string
+          is_active: boolean
+          last_login_at: string | null
           owner_name: string
           phone: string | null
           subscription_expires_at: string | null
@@ -254,7 +258,11 @@ export type Database = {
           country?: string | null
           created_at?: string
           currency?: string | null
+          deactivated_at?: string | null
+          deactivation_reason?: string | null
           id?: string
+          is_active?: boolean
+          last_login_at?: string | null
           owner_name: string
           phone?: string | null
           subscription_expires_at?: string | null
@@ -271,7 +279,11 @@ export type Database = {
           country?: string | null
           created_at?: string
           currency?: string | null
+          deactivated_at?: string | null
+          deactivation_reason?: string | null
           id?: string
+          is_active?: boolean
+          last_login_at?: string | null
           owner_name?: string
           phone?: string | null
           subscription_expires_at?: string | null
@@ -446,6 +458,39 @@ export type Database = {
           },
         ]
       }
+      user_audit_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_name: string | null
+          created_at: string
+          details: Json | null
+          id: string
+          target_user_id: string | null
+          target_user_name: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_name?: string | null
+          created_at?: string
+          details?: Json | null
+          id?: string
+          target_user_id?: string | null
+          target_user_name?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_name?: string | null
+          created_at?: string
+          details?: Json | null
+          id?: string
+          target_user_id?: string | null
+          target_user_name?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -481,6 +526,8 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_user_active: { Args: { _user_id: string }; Returns: boolean }
+      touch_last_login: { Args: never; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "manager" | "vendeur" | "comptable"
