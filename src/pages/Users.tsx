@@ -59,6 +59,8 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Database } from "@/integrations/supabase/types";
+import { AuditLogPanel } from "@/components/users/AuditLogPanel";
+import { SecurityDiagnosticPanel } from "@/components/users/SecurityDiagnosticPanel";
 import {
   Loader2,
   UserPlus,
@@ -71,6 +73,7 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
+  ShieldCheck,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
