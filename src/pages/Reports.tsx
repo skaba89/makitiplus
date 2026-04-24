@@ -75,7 +75,6 @@ const Reports = () => {
       const { data, error } = await supabase
         .from("sales")
         .select("*, sale_items(*)")
-        .eq("user_id", user!.id)
         .gte("created_at", start.toISOString())
         .lte("created_at", end.toISOString())
         .order("created_at", { ascending: true });
@@ -93,7 +92,6 @@ const Reports = () => {
       const { data, error } = await supabase
         .from("expenses")
         .select("*")
-        .eq("user_id", user!.id)
         .gte("expense_date", format(start, "yyyy-MM-dd"))
         .lte("expense_date", format(end, "yyyy-MM-dd"));
 

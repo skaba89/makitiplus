@@ -29,7 +29,6 @@ export const CustomerDetailDialog = ({ customer, isOpen, onClose }: Props) => {
       const { data, error } = await supabase
         .from("sales")
         .select("*, sale_items(*)")
-        .eq("user_id", user!.id)
         .eq("customer_id", customer.id)
         .order("created_at", { ascending: false })
         .limit(20);

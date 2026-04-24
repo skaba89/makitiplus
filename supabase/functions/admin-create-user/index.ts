@@ -32,7 +32,7 @@ async function getAdminContext(req: Request) {
 
   const { data: actorProfile } = await adminClient
     .from('profiles')
-    .select('owner_name, business_name')
+    .select('owner_name, business_name, organization_id')
     .eq('user_id', user.id)
     .maybeSingle();
 
@@ -86,6 +86,7 @@ Deno.serve(async (req) => {
       owner_name: ownerName,
       phone: phone ?? null,
       is_active: true,
+      organization_id: actorProfile?.organization_id ?? null,
     });
 
     if (profileError) {

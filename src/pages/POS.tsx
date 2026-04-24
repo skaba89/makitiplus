@@ -45,7 +45,6 @@ const POS = () => {
       const { data, error } = await supabase
         .from("products")
         .select("*, categories(name, color, icon)")
-        .eq("user_id", user!.id)
         .eq("is_active", true)
         .gt("stock_quantity", 0)
         .order("name");
@@ -61,8 +60,7 @@ const POS = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("categories")
-        .select("*")
-        .eq("user_id", user!.id);
+        .select("*");
 
       if (error) throw error;
       return data;
