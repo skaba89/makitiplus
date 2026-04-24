@@ -73,8 +73,8 @@ describe("RLS sync_conflicts", () => {
       data: [{ id: "c1", entity_type: "stock" }],
       error: null,
     });
-    const { data, error } = await supabase.from("sync_conflicts").select("id");
+    const { data, error } = await supabase.from("sync_conflicts").select("id, entity_type");
     expect(error).toBeNull();
-    expect(data?.[0].entity_type).toBe("stock");
+    expect((data?.[0] as any)?.entity_type).toBe("stock");
   });
 });
