@@ -3,6 +3,8 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
+import { useAccountStatusGuard } from "@/hooks/useAccountStatusGuard";
+import { useQueryErrorGuard } from "@/hooks/useQueryErrorGuard";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 
@@ -10,6 +12,12 @@ interface ProtectedRouteProps {
   children: ReactNode;
   allowedRoles?: AppRole[];
 }
+
+const SessionGuards = ({ children }: { children: ReactNode }) => {
+  useAccountStatusGuard();
+  useQueryErrorGuard();
+  return <>{children}</>;
+};
 
 export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
   const { user, userRole, loading } = useAuth();
@@ -36,5 +44,5 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
     return <Navigate to="/dashboard" replace />;
   }
 
-  return <>{children}</>;
+  return <SessionGuards>{children}</SessionGuards>;
 };
