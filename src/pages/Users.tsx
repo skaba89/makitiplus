@@ -59,6 +59,8 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Database } from "@/integrations/supabase/types";
+import { AuditLogPanel } from "@/components/users/AuditLogPanel";
+import { SecurityDiagnosticPanel } from "@/components/users/SecurityDiagnosticPanel";
 import {
   Loader2,
   UserPlus,
@@ -71,6 +73,7 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
+  ShieldCheck,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -422,6 +425,9 @@ const Users = () => {
             <TabsTrigger value="audit">
               <History className="h-4 w-4 mr-2" /> Historique
             </TabsTrigger>
+            <TabsTrigger value="security">
+              <ShieldCheck className="h-4 w-4 mr-2" /> Sécurité
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="users" className="mt-4">
@@ -535,72 +541,13 @@ const Users = () => {
           </TabsContent>
 
           <TabsContent value="audit" className="mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Historique d'audit</CardTitle>
-                <CardDescription>
-                  Journal immuable des 100 dernières actions sur les utilisateurs
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {auditLoading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Quand</TableHead>
-                          <TableHead>Action</TableHead>
-                          <TableHead>Cible</TableHead>
-                          <TableHead>Par</TableHead>
-                          <TableHead>Détails</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {audit.map((a) => {
-                          const meta = actionLabels[a.action] ?? {
-                            label: a.action,
-                            tone: "bg-muted text-muted-foreground",
-                          };
-                          const detailsText: string[] = [];
-                          if (a.details?.role) detailsText.push(`Rôle: ${roleLabels[a.details.role as AppRole] ?? a.details.role}`);
-                          if (a.details?.email) detailsText.push(`Email: ${a.details.email}`);
-                          if (a.details?.reason) detailsText.push(`Raison: ${a.details.reason}`);
-                          if (a.details?.requireEmailVerification) detailsText.push("Vérif. email requise");
-                          return (
-                            <TableRow key={a.id}>
-                              <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                                {formatDate(a.created_at)}
-                              </TableCell>
-                              <TableCell>
-                                <Badge className={meta.tone} variant="outline">
-                                  {meta.label}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>{a.target_user_name || "—"}</TableCell>
-                              <TableCell>{a.actor_name || "—"}</TableCell>
-                              <TableCell className="text-xs text-muted-foreground">
-                                {detailsText.join(" · ") || "—"}
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                        {audit.length === 0 && (
-                          <TableRow>
-                            <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                              Aucune action enregistrée
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <AuditLogPanel
+              users={users.map((u) => ({ user_id: u.user_id, name: u.owner_name }))}
+            />
+          </TabsContent>
+
+          <TabsContent value="security" className="mt-4">
+            <SecurityDiagnosticPanel />
           </TabsContent>
         </Tabs>
       </div>

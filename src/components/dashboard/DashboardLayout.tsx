@@ -18,6 +18,7 @@ import {
   ChevronDown,
   Store,
   Shield,
+  GitMerge,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -98,6 +99,12 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       name: "Utilisateurs",
       href: "/dashboard/users",
       icon: Shield,
+      roles: ["admin"],
+    },
+    {
+      name: "Conflits sync",
+      href: "/dashboard/sync-conflicts",
+      icon: GitMerge,
       roles: ["admin"],
     },
     {

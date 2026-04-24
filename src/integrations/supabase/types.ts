@@ -458,6 +458,60 @@ export type Database = {
           },
         ]
       }
+      sync_conflicts: {
+        Row: {
+          acknowledged: boolean
+          acknowledged_at: string | null
+          created_at: string
+          device_id: string | null
+          entity_id: string | null
+          entity_label: string | null
+          entity_type: string
+          error_message: string | null
+          id: string
+          local_data: Json | null
+          remote_data: Json | null
+          resolution_strategy: string
+          resolved_data: Json | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          acknowledged?: boolean
+          acknowledged_at?: string | null
+          created_at?: string
+          device_id?: string | null
+          entity_id?: string | null
+          entity_label?: string | null
+          entity_type: string
+          error_message?: string | null
+          id?: string
+          local_data?: Json | null
+          remote_data?: Json | null
+          resolution_strategy: string
+          resolved_data?: Json | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          acknowledged?: boolean
+          acknowledged_at?: string | null
+          created_at?: string
+          device_id?: string | null
+          entity_id?: string | null
+          entity_label?: string | null
+          entity_type?: string
+          error_message?: string | null
+          id?: string
+          local_data?: Json | null
+          remote_data?: Json | null
+          resolution_strategy?: string
+          resolved_data?: Json | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_audit_log: {
         Row: {
           action: string
@@ -518,6 +572,13 @@ export type Database = {
     }
     Functions: {
       admin_exists: { Args: never; Returns: boolean }
+      check_account_status: {
+        Args: never
+        Returns: {
+          deactivation_reason: string
+          is_active: boolean
+        }[]
+      }
       generate_sale_number: { Args: never; Returns: string }
       has_role: {
         Args: {
@@ -527,6 +588,14 @@ export type Database = {
         Returns: boolean
       }
       is_user_active: { Args: { _user_id: string }; Returns: boolean }
+      resolve_stock_conflict: {
+        Args: {
+          local_new_qty: number
+          previous_qty: number
+          remote_new_qty: number
+        }
+        Returns: number
+      }
       touch_last_login: { Args: never; Returns: undefined }
     }
     Enums: {
