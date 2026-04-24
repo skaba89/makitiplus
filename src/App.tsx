@@ -17,6 +17,7 @@ import Expenses from "./pages/Expenses";
 import Settings from "./pages/Settings";
 import Customers from "./pages/Customers";
 import Users from "./pages/Users";
+import SyncConflicts from "./pages/SyncConflicts";
 
 const queryClient = new QueryClient();
 
@@ -91,6 +92,14 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={["admin"]}>
                   <Users />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/sync-conflicts"
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <SyncConflicts />
                 </ProtectedRoute>
               }
             />
