@@ -160,12 +160,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     if (data.user) {
-      // Create profile
+      // If admin: create organization first
+      let organizationId: string | null = null;
+      if (profileData.role === "admin") {
+        const { data: org, error: orgError } = await supabase
+          .from("organizations")
+          .insert({
+            name: profileData.businessName,
+            owner_user_id: data.user.id,
+          })
+          .select("id")
+          .single();
+
+        if (orgError) {
+          return { error: orgError };
+        }
+        organizationId = org.id;
+      }
+
+      // Create profile (linked to org if admin)
       const { error: profileError } = await supabase.from("profiles").insert({
         user_id: data.user.id,
         business_name: profileData.businessName,
         owner_name: profileData.ownerName,
         phone: profileData.phone || null,
+        organization_id: organizationId,
       });
 
       if (profileError) {
