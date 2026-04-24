@@ -56,7 +56,6 @@ const Categories = () => {
       const { data, error } = await supabase
         .from("categories")
         .select("*")
-        .eq("user_id", user!.id)
         .order("name");
 
       if (error) throw error;

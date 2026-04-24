@@ -45,8 +45,7 @@ export const ProductForm = ({ product, onSubmit, isLoading }: ProductFormProps) 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("categories")
-        .select("*")
-        .eq("user_id", user!.id);
+        .select("*");
 
       if (error) throw error;
       return data;

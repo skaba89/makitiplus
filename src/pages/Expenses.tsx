@@ -86,10 +86,9 @@ const Expenses = () => {
    const { data: expenses, isLoading } = useQuery({
      queryKey: ["expenses", user?.id],
      queryFn: async () => {
-       const { data, error } = await supabase
+         const { data, error } = await supabase
          .from("expenses")
          .select("*")
-         .eq("user_id", user!.id)
          .order("expense_date", { ascending: false });
  
        if (error) throw error;

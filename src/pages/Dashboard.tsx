@@ -37,7 +37,6 @@ const Dashboard = () => {
       const { data, error } = await supabase
         .from("sales")
         .select("total_amount")
-        .eq("user_id", user!.id)
         .gte("created_at", dayStart)
         .lte("created_at", dayEnd);
       if (error) throw error;
@@ -53,7 +52,6 @@ const Dashboard = () => {
       const { data, error } = await supabase
         .from("expenses")
         .select("amount")
-        .eq("user_id", user!.id)
         .gte("expense_date", format(startOfMonth(today), "yyyy-MM-dd"))
         .lte("expense_date", format(endOfMonth(today), "yyyy-MM-dd"));
       if (error) throw error;
@@ -69,7 +67,6 @@ const Dashboard = () => {
       const { data, error } = await supabase
         .from("products")
         .select("id, name, stock_quantity, min_stock_alert, categories(icon)")
-        .eq("user_id", user!.id)
         .eq("is_active", true);
       if (error) throw error;
       return data;
@@ -84,7 +81,6 @@ const Dashboard = () => {
       const { data, error } = await supabase
         .from("sales")
         .select("id, sale_number, total_amount, payment_method, created_at, customer_name")
-        .eq("user_id", user!.id)
         .order("created_at", { ascending: false })
         .limit(5);
       if (error) throw error;
