@@ -21,6 +21,7 @@ export type Database = {
           icon: string | null
           id: string
           name: string
+          organization_id: string | null
           user_id: string
         }
         Insert: {
@@ -29,6 +30,7 @@ export type Database = {
           icon?: string | null
           id?: string
           name: string
+          organization_id?: string | null
           user_id: string
         }
         Update: {
@@ -37,6 +39,7 @@ export type Database = {
           icon?: string | null
           id?: string
           name?: string
+          organization_id?: string | null
           user_id?: string
         }
         Relationships: []
@@ -48,6 +51,7 @@ export type Database = {
           customer_id: string
           description: string | null
           id: string
+          organization_id: string | null
           sale_id: string | null
           type: string
           user_id: string
@@ -58,6 +62,7 @@ export type Database = {
           customer_id: string
           description?: string | null
           id?: string
+          organization_id?: string | null
           sale_id?: string | null
           type: string
           user_id: string
@@ -68,6 +73,7 @@ export type Database = {
           customer_id?: string
           description?: string | null
           id?: string
+          organization_id?: string | null
           sale_id?: string | null
           type?: string
           user_id?: string
@@ -97,6 +103,7 @@ export type Database = {
           id: string
           name: string
           notes: string | null
+          organization_id: string | null
           phone: string | null
           total_credit: number
           total_purchases: number
@@ -110,6 +117,7 @@ export type Database = {
           id?: string
           name: string
           notes?: string | null
+          organization_id?: string | null
           phone?: string | null
           total_credit?: number
           total_purchases?: number
@@ -123,6 +131,7 @@ export type Database = {
           id?: string
           name?: string
           notes?: string | null
+          organization_id?: string | null
           phone?: string | null
           total_credit?: number
           total_purchases?: number
@@ -139,6 +148,7 @@ export type Database = {
           description: string | null
           expense_date: string
           id: string
+          organization_id: string | null
           payment_method: Database["public"]["Enums"]["payment_method"] | null
           user_id: string
         }
@@ -149,6 +159,7 @@ export type Database = {
           description?: string | null
           expense_date?: string
           id?: string
+          organization_id?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"] | null
           user_id: string
         }
@@ -159,8 +170,51 @@ export type Database = {
           description?: string | null
           expense_date?: string
           id?: string
+          organization_id?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"] | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      organizations: {
+        Row: {
+          country: string | null
+          created_at: string
+          currency: string | null
+          id: string
+          name: string
+          owner_user_id: string
+          subscription_expires_at: string | null
+          subscription_plan:
+            | Database["public"]["Enums"]["subscription_plan"]
+            | null
+          updated_at: string
+        }
+        Insert: {
+          country?: string | null
+          created_at?: string
+          currency?: string | null
+          id?: string
+          name: string
+          owner_user_id: string
+          subscription_expires_at?: string | null
+          subscription_plan?:
+            | Database["public"]["Enums"]["subscription_plan"]
+            | null
+          updated_at?: string
+        }
+        Update: {
+          country?: string | null
+          created_at?: string
+          currency?: string | null
+          id?: string
+          name?: string
+          owner_user_id?: string
+          subscription_expires_at?: string | null
+          subscription_plan?:
+            | Database["public"]["Enums"]["subscription_plan"]
+            | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -176,6 +230,7 @@ export type Database = {
           is_active: boolean | null
           min_stock_alert: number | null
           name: string
+          organization_id: string | null
           price: number
           stock_quantity: number
           sync_status: Database["public"]["Enums"]["sync_status"] | null
@@ -194,6 +249,7 @@ export type Database = {
           is_active?: boolean | null
           min_stock_alert?: number | null
           name: string
+          organization_id?: string | null
           price?: number
           stock_quantity?: number
           sync_status?: Database["public"]["Enums"]["sync_status"] | null
@@ -212,6 +268,7 @@ export type Database = {
           is_active?: boolean | null
           min_stock_alert?: number | null
           name?: string
+          organization_id?: string | null
           price?: number
           stock_quantity?: number
           sync_status?: Database["public"]["Enums"]["sync_status"] | null
@@ -242,6 +299,7 @@ export type Database = {
           id: string
           is_active: boolean
           last_login_at: string | null
+          organization_id: string | null
           owner_name: string
           phone: string | null
           subscription_expires_at: string | null
@@ -263,6 +321,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           last_login_at?: string | null
+          organization_id?: string | null
           owner_name: string
           phone?: string | null
           subscription_expires_at?: string | null
@@ -284,6 +343,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           last_login_at?: string | null
+          organization_id?: string | null
           owner_name?: string
           phone?: string | null
           subscription_expires_at?: string | null
@@ -299,6 +359,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          organization_id: string | null
           product_id: string | null
           product_name: string
           quantity: number
@@ -309,6 +370,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          organization_id?: string | null
           product_id?: string | null
           product_name: string
           quantity?: number
@@ -319,6 +381,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          organization_id?: string | null
           product_id?: string | null
           product_name?: string
           quantity?: number
@@ -354,6 +417,7 @@ export type Database = {
           discount_amount: number | null
           id: string
           notes: string | null
+          organization_id: string | null
           payment_method: Database["public"]["Enums"]["payment_method"]
           sale_number: string
           seller_name: string | null
@@ -373,6 +437,7 @@ export type Database = {
           discount_amount?: number | null
           id?: string
           notes?: string | null
+          organization_id?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
           sale_number: string
           seller_name?: string | null
@@ -392,6 +457,7 @@ export type Database = {
           discount_amount?: number | null
           id?: string
           notes?: string | null
+          organization_id?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
           sale_number?: string
           seller_name?: string | null
@@ -416,6 +482,7 @@ export type Database = {
           created_at: string
           id: string
           new_quantity: number
+          organization_id: string | null
           previous_quantity: number
           product_id: string
           quantity: number
@@ -428,6 +495,7 @@ export type Database = {
           created_at?: string
           id?: string
           new_quantity: number
+          organization_id?: string | null
           previous_quantity: number
           product_id: string
           quantity: number
@@ -440,6 +508,7 @@ export type Database = {
           created_at?: string
           id?: string
           new_quantity?: number
+          organization_id?: string | null
           previous_quantity?: number
           product_id?: string
           quantity?: number
@@ -580,6 +649,7 @@ export type Database = {
         }[]
       }
       generate_sale_number: { Args: never; Returns: string }
+      get_user_organization_id: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -587,6 +657,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_member_of_organization: { Args: { _org_id: string }; Returns: boolean }
       is_user_active: { Args: { _user_id: string }; Returns: boolean }
       resolve_stock_conflict: {
         Args: {
