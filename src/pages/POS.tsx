@@ -194,25 +194,29 @@ const POS = () => {
     },
   });
 
-  const addToCart = (product: Product) => {
+  const addToCart = (product: Product, addQty: number = 1) => {
     setCart((prev) => {
       const existing = prev.find((item) => item.product.id === product.id);
+      const currentQty = existing?.quantity || 0;
+      const targetQty = currentQty + addQty;
+
+      if (targetQty > product.stock_quantity) {
+        toast({
+          variant: "destructive",
+          title: "Stock insuffisant",
+          description: `Seulement ${product.stock_quantity} ${product.unit || "unité(s)"} disponible(s)`,
+        });
+        return prev;
+      }
+
       if (existing) {
-        if (existing.quantity >= product.stock_quantity) {
-          toast({
-            variant: "destructive",
-            title: "Stock insuffisant",
-            description: `Seulement ${product.stock_quantity} ${product.unit || "unité(s)"} disponible(s)`,
-          });
-          return prev;
-        }
         return prev.map((item) =>
           item.product.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
+            ? { ...item, quantity: targetQty }
             : item
         );
       }
-      return [...prev, { product, quantity: 1 }];
+      return [...prev, { product, quantity: addQty }];
     });
   };
 
