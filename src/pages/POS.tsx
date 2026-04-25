@@ -8,8 +8,11 @@ import { POSCart } from "@/components/pos/POSCart";
 import { POSPaymentDialog } from "@/components/pos/POSPaymentDialog";
 import { ReceiptActionsDialog } from "@/components/pos/ReceiptActionsDialog";
 import { BarcodeScannerDialog } from "@/components/pos/BarcodeScannerDialog";
+import { ProductAutocomplete } from "@/components/pos/ProductAutocomplete";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
 import { Search, ShoppingCart, Camera } from "lucide-react";
@@ -38,15 +41,15 @@ const POS = () => {
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
   const [lastReceiptData, setLastReceiptData] = useState<ReceiptData | null>(null);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [showOutOfStock, setShowOutOfStock] = useState(false);
 
   const { data: products, isLoading } = useQuery({
-    queryKey: ["products", user?.id],
+    queryKey: ["products", "pos"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
         .select("*, categories(name, color, icon)")
         .eq("is_active", true)
-        .gt("stock_quantity", 0)
         .order("name");
 
       if (error) throw error;
@@ -264,12 +267,16 @@ const POS = () => {
     }
   };
 
-  const filteredProducts = products?.filter((product) =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (product.barcode && product.barcode.includes(searchQuery))
-  );
-
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
+  const filteredProducts = products?.filter((product) => {
+    const matchesSearch =
+      !searchQuery ||
+      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (product.barcode && product.barcode.includes(searchQuery));
+    const matchesStock = showOutOfStock || product.stock_quantity > 0;
+    return matchesSearch && matchesStock;
+  });
 
   const displayedProducts = selectedCategory
     ? filteredProducts?.filter((p) => p.category_id === selectedCategory)
@@ -283,15 +290,21 @@ const POS = () => {
           {/* Search and Categories */}
           <div className="space-y-4 mb-4">
             <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Rechercher ou scanner un code-barres..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+              <ProductAutocomplete
+                products={products || []}
+                onSelect={(p) => {
+                  if (p.stock_quantity === 0) {
+                    toast({
+                      variant: "destructive",
+                      title: "Rupture de stock",
+                      description: `${p.name} n'est pas disponible`,
+                    });
+                    return;
+                  }
+                  addToCart(p);
+                }}
+                placeholder="Rechercher un produit (nom ou code-barres)..."
+              />
               <Button
                 variant="outline"
                 size="icon"
@@ -300,6 +313,23 @@ const POS = () => {
               >
                 <Camera className="h-4 w-4" />
               </Button>
+            </div>
+
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="text-xs text-muted-foreground">
+                {displayedProducts?.length || 0} produit(s) affiché(s)
+                {products && ` sur ${products.length}`}
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="show-out-of-stock"
+                  checked={showOutOfStock}
+                  onCheckedChange={setShowOutOfStock}
+                />
+                <Label htmlFor="show-out-of-stock" className="text-xs cursor-pointer">
+                  Afficher les ruptures
+                </Label>
+              </div>
             </div>
             
             {/* Category Filters */}

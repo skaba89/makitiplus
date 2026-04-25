@@ -26,6 +26,7 @@ const Products = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
@@ -37,6 +38,16 @@ const Products = () => {
         .select("*, categories(name, color, icon)")
         .order("created_at", { ascending: false });
 
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  const { data: categories } = useQuery({
+    queryKey: ["categories", "products-page"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("categories").select("*").order("name");
       if (error) throw error;
       return data;
     },
@@ -138,9 +149,17 @@ const Products = () => {
     setIsFormOpen(true);
   };
 
-  const filteredProducts = products?.filter((product) =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredProducts = products?.filter((product) => {
+    const q = searchQuery.toLowerCase();
+    const matchesSearch =
+      !q ||
+      product.name.toLowerCase().includes(q) ||
+      ((product as any).barcode &&
+        (product as any).barcode.toLowerCase().includes(q));
+    const matchesCategory =
+      !selectedCategory || product.category_id === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
 
   return (
     <DashboardLayout>
@@ -205,6 +224,38 @@ const Products = () => {
             className="pl-10"
           />
         </div>
+
+        {/* Category Filters */}
+        {categories && categories.length > 0 && (
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant={selectedCategory === null ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedCategory(null)}
+            >
+              Toutes ({products?.length || 0})
+            </Button>
+            {categories.map((category) => {
+              const count = products?.filter((p) => p.category_id === category.id).length || 0;
+              return (
+                <Button
+                  key={category.id}
+                  variant={selectedCategory === category.id ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedCategory(category.id)}
+                  style={{
+                    backgroundColor:
+                      selectedCategory === category.id
+                        ? category.color || undefined
+                        : undefined,
+                  }}
+                >
+                  {category.icon} {category.name} ({count})
+                </Button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Products List */}
         {isLoading ? (
