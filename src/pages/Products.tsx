@@ -26,6 +26,7 @@ const Products = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
@@ -37,6 +38,16 @@ const Products = () => {
         .select("*, categories(name, color, icon)")
         .order("created_at", { ascending: false });
 
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  const { data: categories } = useQuery({
+    queryKey: ["categories", "products-page"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("categories").select("*").order("name");
       if (error) throw error;
       return data;
     },
