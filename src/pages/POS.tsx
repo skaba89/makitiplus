@@ -8,8 +8,11 @@ import { POSCart } from "@/components/pos/POSCart";
 import { POSPaymentDialog } from "@/components/pos/POSPaymentDialog";
 import { ReceiptActionsDialog } from "@/components/pos/ReceiptActionsDialog";
 import { BarcodeScannerDialog } from "@/components/pos/BarcodeScannerDialog";
+import { ProductAutocomplete } from "@/components/pos/ProductAutocomplete";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
 import { Search, ShoppingCart, Camera } from "lucide-react";
@@ -38,15 +41,15 @@ const POS = () => {
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
   const [lastReceiptData, setLastReceiptData] = useState<ReceiptData | null>(null);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [showOutOfStock, setShowOutOfStock] = useState(false);
 
   const { data: products, isLoading } = useQuery({
-    queryKey: ["products", user?.id],
+    queryKey: ["products", "pos"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
         .select("*, categories(name, color, icon)")
         .eq("is_active", true)
-        .gt("stock_quantity", 0)
         .order("name");
 
       if (error) throw error;
