@@ -296,7 +296,7 @@ const POS = () => {
             <div className="flex gap-2">
               <ProductAutocomplete
                 products={products || []}
-                onSelect={(p) => {
+                onSelect={(p, qty) => {
                   if (p.stock_quantity === 0) {
                     toast({
                       variant: "destructive",
@@ -305,7 +305,7 @@ const POS = () => {
                     });
                     return;
                   }
-                  addToCart(p);
+                  addToCart(p, qty);
                 }}
                 placeholder="Rechercher un produit (nom ou code-barres)..."
               />
