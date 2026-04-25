@@ -15,6 +15,8 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useOrgTaxRate } from "@/hooks/useOrgTaxRate";
+import { computeTax } from "@/lib/taxUtils";
 import { Search, ShoppingCart, Camera } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
 import { ReceiptData } from "@/utils/receiptGenerator";
@@ -34,6 +36,7 @@ const POS = () => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const { currency, formatPrice } = useCurrency();
+  const orgTaxRate = useOrgTaxRate();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -90,6 +93,10 @@ const POS = () => {
         (sum, item) => sum + item.product.price * item.quantity,
         0
       );
+      const taxAmount = cart.reduce((sum, item) => {
+        const t = computeTax(item.product.price, (item.product as any).tax_rate, orgTaxRate);
+        return sum + t.taxAmount * item.quantity;
+      }, 0);
       const totalAmount = subtotal;
       const changeAmount = amountPaid - totalAmount;
 
@@ -100,6 +107,7 @@ const POS = () => {
           user_id: user!.id,
           sale_number: saleNumber,
           subtotal,
+          tax_amount: taxAmount,
           total_amount: totalAmount,
           payment_method: paymentMethod,
           amount_paid: amountPaid,
@@ -194,25 +202,29 @@ const POS = () => {
     },
   });
 
-  const addToCart = (product: Product) => {
+  const addToCart = (product: Product, addQty: number = 1) => {
     setCart((prev) => {
       const existing = prev.find((item) => item.product.id === product.id);
+      const currentQty = existing?.quantity || 0;
+      const targetQty = currentQty + addQty;
+
+      if (targetQty > product.stock_quantity) {
+        toast({
+          variant: "destructive",
+          title: "Stock insuffisant",
+          description: `Seulement ${product.stock_quantity} ${product.unit || "unité(s)"} disponible(s)`,
+        });
+        return prev;
+      }
+
       if (existing) {
-        if (existing.quantity >= product.stock_quantity) {
-          toast({
-            variant: "destructive",
-            title: "Stock insuffisant",
-            description: `Seulement ${product.stock_quantity} ${product.unit || "unité(s)"} disponible(s)`,
-          });
-          return prev;
-        }
         return prev.map((item) =>
           item.product.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
+            ? { ...item, quantity: targetQty }
             : item
         );
       }
-      return [...prev, { product, quantity: 1 }];
+      return [...prev, { product, quantity: addQty }];
     });
   };
 
@@ -292,7 +304,7 @@ const POS = () => {
             <div className="flex gap-2">
               <ProductAutocomplete
                 products={products || []}
-                onSelect={(p) => {
+                onSelect={(p, qty) => {
                   if (p.stock_quantity === 0) {
                     toast({
                       variant: "destructive",
@@ -301,7 +313,7 @@ const POS = () => {
                     });
                     return;
                   }
-                  addToCart(p);
+                  addToCart(p, qty);
                 }}
                 placeholder="Rechercher un produit (nom ou code-barres)..."
               />
