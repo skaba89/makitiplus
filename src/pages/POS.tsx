@@ -15,6 +15,8 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useOrgTaxRate } from "@/hooks/useOrgTaxRate";
+import { computeTax } from "@/lib/taxUtils";
 import { Search, ShoppingCart, Camera } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
 import { ReceiptData } from "@/utils/receiptGenerator";
