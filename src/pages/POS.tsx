@@ -36,6 +36,7 @@ const POS = () => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const { currency, formatPrice } = useCurrency();
+  const orgTaxRate = useOrgTaxRate();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -92,6 +93,10 @@ const POS = () => {
         (sum, item) => sum + item.product.price * item.quantity,
         0
       );
+      const taxAmount = cart.reduce((sum, item) => {
+        const t = computeTax(item.product.price, (item.product as any).tax_rate, orgTaxRate);
+        return sum + t.taxAmount * item.quantity;
+      }, 0);
       const totalAmount = subtotal;
       const changeAmount = amountPaid - totalAmount;
 
@@ -102,6 +107,7 @@ const POS = () => {
           user_id: user!.id,
           sale_number: saleNumber,
           subtotal,
+          tax_amount: taxAmount,
           total_amount: totalAmount,
           payment_method: paymentMethod,
           amount_paid: amountPaid,
