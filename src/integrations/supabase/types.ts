@@ -181,6 +181,7 @@ export type Database = {
           country: string | null
           created_at: string
           currency: string | null
+          default_tax_rate: number
           id: string
           name: string
           owner_user_id: string
@@ -194,6 +195,7 @@ export type Database = {
           country?: string | null
           created_at?: string
           currency?: string | null
+          default_tax_rate?: number
           id?: string
           name: string
           owner_user_id: string
@@ -207,6 +209,7 @@ export type Database = {
           country?: string | null
           created_at?: string
           currency?: string | null
+          default_tax_rate?: number
           id?: string
           name?: string
           owner_user_id?: string
@@ -234,6 +237,7 @@ export type Database = {
           price: number
           stock_quantity: number
           sync_status: Database["public"]["Enums"]["sync_status"] | null
+          tax_rate: number | null
           unit: string | null
           updated_at: string
           user_id: string
@@ -253,6 +257,7 @@ export type Database = {
           price?: number
           stock_quantity?: number
           sync_status?: Database["public"]["Enums"]["sync_status"] | null
+          tax_rate?: number | null
           unit?: string | null
           updated_at?: string
           user_id: string
@@ -272,6 +277,7 @@ export type Database = {
           price?: number
           stock_quantity?: number
           sync_status?: Database["public"]["Enums"]["sync_status"] | null
+          tax_rate?: number | null
           unit?: string | null
           updated_at?: string
           user_id?: string
