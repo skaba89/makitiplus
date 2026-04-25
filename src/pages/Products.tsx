@@ -149,9 +149,17 @@ const Products = () => {
     setIsFormOpen(true);
   };
 
-  const filteredProducts = products?.filter((product) =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredProducts = products?.filter((product) => {
+    const q = searchQuery.toLowerCase();
+    const matchesSearch =
+      !q ||
+      product.name.toLowerCase().includes(q) ||
+      ((product as any).barcode &&
+        (product as any).barcode.toLowerCase().includes(q));
+    const matchesCategory =
+      !selectedCategory || product.category_id === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
 
   return (
     <DashboardLayout>
@@ -216,6 +224,38 @@ const Products = () => {
             className="pl-10"
           />
         </div>
+
+        {/* Category Filters */}
+        {categories && categories.length > 0 && (
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant={selectedCategory === null ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedCategory(null)}
+            >
+              Toutes ({products?.length || 0})
+            </Button>
+            {categories.map((category) => {
+              const count = products?.filter((p) => p.category_id === category.id).length || 0;
+              return (
+                <Button
+                  key={category.id}
+                  variant={selectedCategory === category.id ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedCategory(category.id)}
+                  style={{
+                    backgroundColor:
+                      selectedCategory === category.id
+                        ? category.color || undefined
+                        : undefined,
+                  }}
+                >
+                  {category.icon} {category.name} ({count})
+                </Button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Products List */}
         {isLoading ? (
