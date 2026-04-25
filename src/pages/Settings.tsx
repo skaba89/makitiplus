@@ -19,6 +19,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { COUNTRIES, getCountryByCode } from "@/utils/currencies";
 import { useCurrency } from "@/hooks/useCurrency";
+import { TaxSettingsCard } from "@/components/settings/TaxSettingsCard";
 
 const Settings = () => {
   const { user, profile } = useAuth();
@@ -354,6 +355,8 @@ const Settings = () => {
             )}
           </Button>
         </form>
+
+        <TaxSettingsCard />
       </div>
     </DashboardLayout>
   );
