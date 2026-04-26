@@ -606,9 +606,25 @@ const Users = () => {
                           return (
                             <TableRow key={u.user_id} className={!u.is_active ? "opacity-60" : ""}>
                               <TableCell className="font-medium">
-                                {u.owner_name}
-                                {isSelf && (
-                                  <span className="ml-2 text-xs text-muted-foreground">(vous)</span>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span>{u.owner_name}</span>
+                                  {isSelf && (
+                                    <span className="text-xs text-muted-foreground">(vous)</span>
+                                  )}
+                                  {u.is_test_account && (
+                                    <Badge variant="outline" className="border-yellow-500 text-yellow-700 text-[10px]">
+                                      <Hourglass className="h-2.5 w-2.5 mr-1" />
+                                      Test
+                                      {u.test_expires_at && daysUntilExpiry(u.test_expires_at) !== null && (
+                                        <span className="ml-1">
+                                          ({daysUntilExpiry(u.test_expires_at)}j)
+                                        </span>
+                                      )}
+                                    </Badge>
+                                  )}
+                                </div>
+                                {u.email && (
+                                  <div className="text-xs text-muted-foreground mt-0.5">{u.email}</div>
                                 )}
                               </TableCell>
                               <TableCell>{u.phone || "—"}</TableCell>
