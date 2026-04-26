@@ -61,6 +61,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Database } from "@/integrations/supabase/types";
 import { AuditLogPanel } from "@/components/users/AuditLogPanel";
 import { SecurityDiagnosticPanel } from "@/components/users/SecurityDiagnosticPanel";
+import { PasswordStrengthMeter } from "@/components/users/PasswordStrengthMeter";
+import { checkPassword } from "@/lib/passwordPolicy";
 import {
   Loader2,
   UserPlus,
@@ -77,6 +79,11 @@ import {
   KeyRound,
   Download,
   Power,
+  Mail,
+  MessageSquare,
+  Hourglass,
+  Link as LinkIcon,
+  Copy,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -85,10 +92,14 @@ type AppRole = Database["public"]["Enums"]["app_role"];
 
 interface UserRow {
   user_id: string;
+  email: string | null;
   owner_name: string;
+  business_name: string | null;
   phone: string | null;
   role: AppRole;
   is_active: boolean;
+  is_test_account: boolean;
+  test_expires_at: string | null;
   last_login_at: string | null;
   deactivated_at: string | null;
   deactivation_reason: string | null;
@@ -147,8 +158,10 @@ const Users = () => {
   const [deactivateTarget, setDeactivateTarget] = useState<UserRow | null>(null);
   const [deactivationReason, setDeactivationReason] = useState("");
   const [resetTarget, setResetTarget] = useState<UserRow | null>(null);
+  const [resetMode, setResetMode] = useState<"manual" | "email" | "sms">("email");
   const [newPassword, setNewPassword] = useState("");
   const [resetting, setResetting] = useState(false);
+  const [magicLink, setMagicLink] = useState<string | null>(null);
 
   // Form state
   const [email, setEmail] = useState("");
@@ -169,20 +182,35 @@ const Users = () => {
       const userIds = (roles ?? []).map((r) => r.user_id);
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("user_id, owner_name, phone, is_active, last_login_at, deactivated_at, deactivation_reason")
+        .select("user_id, owner_name, business_name, phone, is_active, is_test_account, test_expires_at, last_login_at, deactivated_at, deactivation_reason")
         .in(
           "user_id",
           userIds.length ? userIds : ["00000000-0000-0000-0000-000000000000"]
         );
 
+      // Fetch emails via edge function (admin only)
+      let emailMap: Record<string, string> = {};
+      try {
+        const { data: emailRes } = await supabase.functions.invoke("admin-list-user-emails", {
+          body: { userIds },
+        });
+        if (emailRes?.emails) emailMap = emailRes.emails;
+      } catch {
+        // Non-blocking: emails are optional in the UI
+      }
+
       const merged: UserRow[] = (roles ?? []).map((r) => {
-        const p = profiles?.find((pp) => pp.user_id === r.user_id);
+        const p: any = profiles?.find((pp) => pp.user_id === r.user_id);
         return {
           user_id: r.user_id,
+          email: emailMap[r.user_id] ?? null,
           owner_name: p?.owner_name ?? "—",
+          business_name: p?.business_name ?? null,
           phone: p?.phone ?? null,
           role: r.role,
           is_active: p?.is_active ?? true,
+          is_test_account: p?.is_test_account ?? false,
+          test_expires_at: p?.test_expires_at ?? null,
           last_login_at: p?.last_login_at ?? null,
           deactivated_at: p?.deactivated_at ?? null,
           deactivation_reason: p?.deactivation_reason ?? null,
@@ -234,11 +262,12 @@ const Users = () => {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password.length < 6) {
+    const pwdCheck = checkPassword(password);
+    if (!pwdCheck.ok) {
       toast({
         variant: "destructive",
-        title: "Mot de passe trop court",
-        description: "Au moins 6 caractères requis",
+        title: "Mot de passe non conforme",
+        description: pwdCheck.errors.join(" • "),
       });
       return;
     }
@@ -315,8 +344,40 @@ const Users = () => {
 
   const handleResetPassword = async () => {
     if (!resetTarget) return;
-    if (newPassword.length < 6) {
-      toast({ variant: "destructive", title: "Mot de passe trop court", description: "Au moins 6 caractères" });
+
+    // Magic link mode (email or SMS)
+    if (resetMode === "email" || resetMode === "sms") {
+      setResetting(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("admin-send-reset-link", {
+          body: {
+            userId: resetTarget.user_id,
+            channel: resetMode,
+            redirectTo: `${window.location.origin}/auth`,
+          },
+        });
+        if (error || (data as any)?.error) {
+          throw new Error((data as any)?.error || error?.message || "Erreur");
+        }
+        if ((data as any)?.actionLink) setMagicLink((data as any).actionLink);
+        if ((data as any)?.manualLink) setMagicLink((data as any).manualLink);
+        toast({
+          title: "Lien envoyé",
+          description: (data as any)?.message ?? "Lien à usage unique envoyé",
+        });
+        loadAudit();
+      } catch (err: any) {
+        toast({ variant: "destructive", title: "Erreur", description: err.message });
+      } finally {
+        setResetting(false);
+      }
+      return;
+    }
+
+    // Manual mode
+    const pwdCheck = checkPassword(newPassword);
+    if (!pwdCheck.ok) {
+      toast({ variant: "destructive", title: "Mot de passe non conforme", description: pwdCheck.errors.join(" • ") });
       return;
     }
     setResetting(true);
@@ -333,6 +394,7 @@ const Users = () => {
       });
       setResetTarget(null);
       setNewPassword("");
+      setMagicLink(null);
       loadAudit();
     } catch (err: any) {
       toast({ variant: "destructive", title: "Erreur", description: err.message });
@@ -346,24 +408,23 @@ const Users = () => {
   };
 
   const exportTestCredentialsCSV = () => {
-    const testEmails = [
-      { email: "admin.test@sahelpos.local", role: "Administrateur", password: "(à définir)" },
-      { email: "manager.test@sahelpos.local", role: "Manager", password: "Test1234!" },
-      { email: "vendeur.test@sahelpos.local", role: "Vendeur", password: "Test1234!" },
-      { email: "comptable.test@sahelpos.local", role: "Comptable", password: "Test1234!" },
+    // Export ALL users with full details
+    const header = [
+      "Nom", "Email", "Téléphone", "Rôle", "Boutique",
+      "Statut", "Compte test", "Expiration test", "Dernière connexion", "Créé le",
     ];
-    // Also include all users with .test@ pattern from the loaded list
-    const knownByEmail = new Map<string, UserRow>();
-    const rows = testEmails.map((acc) => {
-      const u = users.find((x) =>
-        x.owner_name.toLowerCase().includes(acc.role.toLowerCase().slice(0, 5)) ||
-        x.owner_name.toLowerCase().includes("test")
-      );
-      const status = u ? (u.is_active ? "Actif" : "Inactif") : "Non créé";
-      const lastLogin = u?.last_login_at ?? "—";
-      return [acc.email, acc.role, acc.password, status, lastLogin];
-    });
-    const header = ["Email", "Rôle", "Mot de passe", "Statut", "Dernière connexion"];
+    const rows = users.map((u) => [
+      u.owner_name,
+      u.email ?? "—",
+      u.phone ?? "—",
+      roleLabels[u.role],
+      u.business_name ?? "—",
+      u.is_active ? "Actif" : "Inactif",
+      u.is_test_account ? "Oui" : "Non",
+      u.test_expires_at ? new Date(u.test_expires_at).toLocaleDateString("fr-FR") : "—",
+      u.last_login_at ? new Date(u.last_login_at).toLocaleString("fr-FR") : "Jamais",
+      new Date(u.created_at).toLocaleDateString("fr-FR"),
+    ]);
     const csv = [header, ...rows]
       .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
       .join("\n");
@@ -371,10 +432,16 @@ const Users = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `comptes-test-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `utilisateurs-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
-    toast({ title: "Export CSV téléchargé", description: `${testEmails.length} comptes de test exportés` });
+    toast({ title: "Export CSV téléchargé", description: `${users.length} utilisateurs exportés` });
+  };
+
+  const daysUntilExpiry = (iso: string | null) => {
+    if (!iso) return null;
+    const ms = new Date(iso).getTime() - Date.now();
+    return Math.ceil(ms / (1000 * 60 * 60 * 24));
   };
 
   return (
@@ -392,7 +459,7 @@ const Users = () => {
           </div>
           <div className="flex gap-2 flex-wrap">
             <Button size="lg" variant="outline" onClick={exportTestCredentialsCSV}>
-              <Download className="h-4 w-4 mr-2" /> Export CSV comptes test
+              <Download className="h-4 w-4 mr-2" /> Export CSV utilisateurs
             </Button>
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
@@ -425,9 +492,10 @@ const Users = () => {
                     type="text"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Au moins 6 caractères"
+                    placeholder="Min 8 car. avec maj/min/chiffre/symbole"
                     required
                   />
+                  <PasswordStrengthMeter password={password} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="ownerName">Nom complet</Label>
@@ -538,9 +606,25 @@ const Users = () => {
                           return (
                             <TableRow key={u.user_id} className={!u.is_active ? "opacity-60" : ""}>
                               <TableCell className="font-medium">
-                                {u.owner_name}
-                                {isSelf && (
-                                  <span className="ml-2 text-xs text-muted-foreground">(vous)</span>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span>{u.owner_name}</span>
+                                  {isSelf && (
+                                    <span className="text-xs text-muted-foreground">(vous)</span>
+                                  )}
+                                  {u.is_test_account && (
+                                    <Badge variant="outline" className="border-yellow-500 text-yellow-700 text-[10px]">
+                                      <Hourglass className="h-2.5 w-2.5 mr-1" />
+                                      Test
+                                      {u.test_expires_at && daysUntilExpiry(u.test_expires_at) !== null && (
+                                        <span className="ml-1">
+                                          ({daysUntilExpiry(u.test_expires_at)}j)
+                                        </span>
+                                      )}
+                                    </Badge>
+                                  )}
+                                </div>
+                                {u.email && (
+                                  <div className="text-xs text-muted-foreground mt-0.5">{u.email}</div>
                                 )}
                               </TableCell>
                               <TableCell>{u.phone || "—"}</TableCell>
@@ -641,13 +725,15 @@ const Users = () => {
         </Tabs>
       </div>
 
-      {/* Reset password dialog */}
+      {/* Reset password dialog with magic link options */}
       <Dialog
         open={!!resetTarget}
         onOpenChange={(o) => {
           if (!o) {
             setResetTarget(null);
             setNewPassword("");
+            setMagicLink(null);
+            setResetMode("email");
           }
         }}
       >
@@ -655,31 +741,100 @@ const Users = () => {
           <DialogHeader>
             <DialogTitle>Réinitialiser le mot de passe</DialogTitle>
             <DialogDescription>
-              Définir un nouveau mot de passe pour <strong>{resetTarget?.owner_name}</strong>.
-              Toutes ses sessions actives seront déconnectées.
+              Pour <strong>{resetTarget?.owner_name}</strong>. Choisissez la méthode d'envoi.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="newPwd">Nouveau mot de passe</Label>
-            <Input
-              id="newPwd"
-              type="text"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Au moins 6 caractères"
-              autoComplete="off"
-            />
-            <p className="text-xs text-muted-foreground">
-              Communiquez ce mot de passe en personne. Demandez à l'utilisateur de le changer après connexion.
-            </p>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-2">
+              <Button
+                type="button"
+                variant={resetMode === "email" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setResetMode("email")}
+              >
+                <Mail className="h-3.5 w-3.5 mr-1" /> Email
+              </Button>
+              <Button
+                type="button"
+                variant={resetMode === "sms" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setResetMode("sms")}
+                disabled={!resetTarget?.phone}
+                title={!resetTarget?.phone ? "Aucun téléphone enregistré" : ""}
+              >
+                <MessageSquare className="h-3.5 w-3.5 mr-1" /> SMS
+              </Button>
+              <Button
+                type="button"
+                variant={resetMode === "manual" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setResetMode("manual")}
+              >
+                <KeyRound className="h-3.5 w-3.5 mr-1" /> Manuel
+              </Button>
+            </div>
+
+            {resetMode === "email" && (
+              <div className="rounded-lg border bg-muted/30 p-3 text-sm">
+                Un lien à usage unique sera envoyé à <strong>{resetTarget?.email ?? "son email"}</strong>.
+                Valide 1h. L'utilisateur définira lui-même son nouveau mot de passe.
+              </div>
+            )}
+            {resetMode === "sms" && (
+              <div className="rounded-lg border bg-muted/30 p-3 text-sm">
+                Un SMS contenant un lien à usage unique sera envoyé au <strong>{resetTarget?.phone}</strong>.
+                Valide 30min. Nécessite que Twilio soit connecté dans Connecteurs.
+              </div>
+            )}
+            {resetMode === "manual" && (
+              <div className="space-y-2">
+                <Label htmlFor="newPwd">Nouveau mot de passe</Label>
+                <Input
+                  id="newPwd"
+                  type="text"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Min 8 car. avec maj/min/chiffre/symbole"
+                  autoComplete="off"
+                />
+                <PasswordStrengthMeter password={newPassword} />
+                <p className="text-xs text-muted-foreground">
+                  Sessions déconnectées. Communiquez ce mot de passe en personne.
+                </p>
+              </div>
+            )}
+
+            {magicLink && (
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
+                <div className="flex items-center gap-2 text-xs font-medium">
+                  <LinkIcon className="h-3.5 w-3.5 text-primary" />
+                  Lien généré (à transmettre si l'envoi a échoué)
+                </div>
+                <div className="flex gap-2">
+                  <Input value={magicLink} readOnly className="text-xs" />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      navigator.clipboard.writeText(magicLink);
+                      toast({ title: "Lien copié" });
+                    }}
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setResetTarget(null); setNewPassword(""); }}>
-              Annuler
+            <Button variant="outline" onClick={() => { setResetTarget(null); setNewPassword(""); setMagicLink(null); }}>
+              Fermer
             </Button>
-            <Button onClick={handleResetPassword} disabled={resetting || newPassword.length < 6}>
+            <Button onClick={handleResetPassword} disabled={resetting}>
               {resetting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              <KeyRound className="h-4 w-4 mr-2" /> Réinitialiser
+              {resetMode === "manual" ? <><KeyRound className="h-4 w-4 mr-2" /> Réinitialiser</> : <><LinkIcon className="h-4 w-4 mr-2" /> Envoyer le lien</>}
             </Button>
           </DialogFooter>
         </DialogContent>

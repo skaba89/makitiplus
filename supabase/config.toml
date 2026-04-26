@@ -1,1 +1,7 @@
 project_id = "eiquqawymbgfejwucvyt"
+
+[functions.redeem-reset-token]
+verify_jwt = false
+
+[functions.rotate-test-accounts]
+verify_jwt = false
