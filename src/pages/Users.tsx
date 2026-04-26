@@ -262,11 +262,12 @@ const Users = () => {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password.length < 6) {
+    const pwdCheck = checkPassword(password);
+    if (!pwdCheck.ok) {
       toast({
         variant: "destructive",
-        title: "Mot de passe trop court",
-        description: "Au moins 6 caractères requis",
+        title: "Mot de passe non conforme",
+        description: pwdCheck.errors.join(" • "),
       });
       return;
     }
@@ -343,8 +344,40 @@ const Users = () => {
 
   const handleResetPassword = async () => {
     if (!resetTarget) return;
-    if (newPassword.length < 6) {
-      toast({ variant: "destructive", title: "Mot de passe trop court", description: "Au moins 6 caractères" });
+
+    // Magic link mode (email or SMS)
+    if (resetMode === "email" || resetMode === "sms") {
+      setResetting(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("admin-send-reset-link", {
+          body: {
+            userId: resetTarget.user_id,
+            channel: resetMode,
+            redirectTo: `${window.location.origin}/auth`,
+          },
+        });
+        if (error || (data as any)?.error) {
+          throw new Error((data as any)?.error || error?.message || "Erreur");
+        }
+        if ((data as any)?.actionLink) setMagicLink((data as any).actionLink);
+        if ((data as any)?.manualLink) setMagicLink((data as any).manualLink);
+        toast({
+          title: "Lien envoyé",
+          description: (data as any)?.message ?? "Lien à usage unique envoyé",
+        });
+        loadAudit();
+      } catch (err: any) {
+        toast({ variant: "destructive", title: "Erreur", description: err.message });
+      } finally {
+        setResetting(false);
+      }
+      return;
+    }
+
+    // Manual mode
+    const pwdCheck = checkPassword(newPassword);
+    if (!pwdCheck.ok) {
+      toast({ variant: "destructive", title: "Mot de passe non conforme", description: pwdCheck.errors.join(" • ") });
       return;
     }
     setResetting(true);
@@ -361,6 +394,7 @@ const Users = () => {
       });
       setResetTarget(null);
       setNewPassword("");
+      setMagicLink(null);
       loadAudit();
     } catch (err: any) {
       toast({ variant: "destructive", title: "Erreur", description: err.message });
@@ -374,24 +408,23 @@ const Users = () => {
   };
 
   const exportTestCredentialsCSV = () => {
-    const testEmails = [
-      { email: "admin.test@sahelpos.local", role: "Administrateur", password: "(à définir)" },
-      { email: "manager.test@sahelpos.local", role: "Manager", password: "Test1234!" },
-      { email: "vendeur.test@sahelpos.local", role: "Vendeur", password: "Test1234!" },
-      { email: "comptable.test@sahelpos.local", role: "Comptable", password: "Test1234!" },
+    // Export ALL users with full details
+    const header = [
+      "Nom", "Email", "Téléphone", "Rôle", "Boutique",
+      "Statut", "Compte test", "Expiration test", "Dernière connexion", "Créé le",
     ];
-    // Also include all users with .test@ pattern from the loaded list
-    const knownByEmail = new Map<string, UserRow>();
-    const rows = testEmails.map((acc) => {
-      const u = users.find((x) =>
-        x.owner_name.toLowerCase().includes(acc.role.toLowerCase().slice(0, 5)) ||
-        x.owner_name.toLowerCase().includes("test")
-      );
-      const status = u ? (u.is_active ? "Actif" : "Inactif") : "Non créé";
-      const lastLogin = u?.last_login_at ?? "—";
-      return [acc.email, acc.role, acc.password, status, lastLogin];
-    });
-    const header = ["Email", "Rôle", "Mot de passe", "Statut", "Dernière connexion"];
+    const rows = users.map((u) => [
+      u.owner_name,
+      u.email ?? "—",
+      u.phone ?? "—",
+      roleLabels[u.role],
+      u.business_name ?? "—",
+      u.is_active ? "Actif" : "Inactif",
+      u.is_test_account ? "Oui" : "Non",
+      u.test_expires_at ? new Date(u.test_expires_at).toLocaleDateString("fr-FR") : "—",
+      u.last_login_at ? new Date(u.last_login_at).toLocaleString("fr-FR") : "Jamais",
+      new Date(u.created_at).toLocaleDateString("fr-FR"),
+    ]);
     const csv = [header, ...rows]
       .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
       .join("\n");
@@ -399,10 +432,16 @@ const Users = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `comptes-test-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `utilisateurs-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
-    toast({ title: "Export CSV téléchargé", description: `${testEmails.length} comptes de test exportés` });
+    toast({ title: "Export CSV téléchargé", description: `${users.length} utilisateurs exportés` });
+  };
+
+  const daysUntilExpiry = (iso: string | null) => {
+    if (!iso) return null;
+    const ms = new Date(iso).getTime() - Date.now();
+    return Math.ceil(ms / (1000 * 60 * 60 * 24));
   };
 
   return (
