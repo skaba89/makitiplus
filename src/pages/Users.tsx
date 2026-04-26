@@ -180,20 +180,35 @@ const Users = () => {
       const userIds = (roles ?? []).map((r) => r.user_id);
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("user_id, owner_name, phone, is_active, last_login_at, deactivated_at, deactivation_reason")
+        .select("user_id, owner_name, business_name, phone, is_active, is_test_account, test_expires_at, last_login_at, deactivated_at, deactivation_reason")
         .in(
           "user_id",
           userIds.length ? userIds : ["00000000-0000-0000-0000-000000000000"]
         );
 
+      // Fetch emails via edge function (admin only)
+      let emailMap: Record<string, string> = {};
+      try {
+        const { data: emailRes } = await supabase.functions.invoke("admin-list-user-emails", {
+          body: { userIds },
+        });
+        if (emailRes?.emails) emailMap = emailRes.emails;
+      } catch {
+        // Non-blocking: emails are optional in the UI
+      }
+
       const merged: UserRow[] = (roles ?? []).map((r) => {
-        const p = profiles?.find((pp) => pp.user_id === r.user_id);
+        const p: any = profiles?.find((pp) => pp.user_id === r.user_id);
         return {
           user_id: r.user_id,
+          email: emailMap[r.user_id] ?? null,
           owner_name: p?.owner_name ?? "—",
+          business_name: p?.business_name ?? null,
           phone: p?.phone ?? null,
           role: r.role,
           is_active: p?.is_active ?? true,
+          is_test_account: p?.is_test_account ?? false,
+          test_expires_at: p?.test_expires_at ?? null,
           last_login_at: p?.last_login_at ?? null,
           deactivated_at: p?.deactivated_at ?? null,
           deactivation_reason: p?.deactivation_reason ?? null,
