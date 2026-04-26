@@ -221,6 +221,45 @@ export type Database = {
         }
         Relationships: []
       }
+      password_reset_tokens: {
+        Row: {
+          channel: string
+          created_at: string
+          created_by: string
+          destination: string
+          expires_at: string
+          id: string
+          organization_id: string | null
+          token_hash: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          channel: string
+          created_at?: string
+          created_by: string
+          destination: string
+          expires_at: string
+          id?: string
+          organization_id?: string | null
+          token_hash: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          created_by?: string
+          destination?: string
+          expires_at?: string
+          id?: string
+          organization_id?: string | null
+          token_hash?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           barcode: string | null
@@ -304,6 +343,7 @@ export type Database = {
           deactivation_reason: string | null
           id: string
           is_active: boolean
+          is_test_account: boolean
           last_login_at: string | null
           organization_id: string | null
           owner_name: string
@@ -312,6 +352,7 @@ export type Database = {
           subscription_plan:
             | Database["public"]["Enums"]["subscription_plan"]
             | null
+          test_expires_at: string | null
           updated_at: string
           user_id: string
         }
@@ -326,6 +367,7 @@ export type Database = {
           deactivation_reason?: string | null
           id?: string
           is_active?: boolean
+          is_test_account?: boolean
           last_login_at?: string | null
           organization_id?: string | null
           owner_name: string
@@ -334,6 +376,7 @@ export type Database = {
           subscription_plan?:
             | Database["public"]["Enums"]["subscription_plan"]
             | null
+          test_expires_at?: string | null
           updated_at?: string
           user_id: string
         }
@@ -348,6 +391,7 @@ export type Database = {
           deactivation_reason?: string | null
           id?: string
           is_active?: boolean
+          is_test_account?: boolean
           last_login_at?: string | null
           organization_id?: string | null
           owner_name?: string
@@ -356,6 +400,7 @@ export type Database = {
           subscription_plan?:
             | Database["public"]["Enums"]["subscription_plan"]
             | null
+          test_expires_at?: string | null
           updated_at?: string
           user_id?: string
         }
