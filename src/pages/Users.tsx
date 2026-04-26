@@ -390,12 +390,16 @@ const Users = () => {
               Créer, désactiver et auditer les comptes de votre équipe
             </p>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="lg">
-                <UserPlus className="h-4 w-4 mr-2" /> Nouvel utilisateur
-              </Button>
-            </DialogTrigger>
+          <div className="flex gap-2 flex-wrap">
+            <Button size="lg" variant="outline" onClick={exportTestCredentialsCSV}>
+              <Download className="h-4 w-4 mr-2" /> Export CSV comptes test
+            </Button>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="lg">
+                  <UserPlus className="h-4 w-4 mr-2" /> Nouvel utilisateur
+                </Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Créer un utilisateur</DialogTitle>
@@ -484,7 +488,8 @@ const Users = () => {
                 </DialogFooter>
               </form>
             </DialogContent>
-          </Dialog>
+            </Dialog>
+          </div>
         </div>
 
         <Tabs defaultValue="users">
@@ -565,31 +570,45 @@ const Users = () => {
                                     {isAdmin && !isSelf ? "Protégé" : ""}
                                   </span>
                                 ) : (
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button variant="ghost" size="icon">
-                                        <MoreVertical className="h-4 w-4" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                      {u.is_active ? (
-                                        <DropdownMenuItem onClick={() => setDeactivateTarget(u)}>
-                                          <UserX className="h-4 w-4 mr-2" /> Désactiver
+                                  <div className="flex items-center justify-end gap-1">
+                                    <Button
+                                      size="sm"
+                                      variant={u.is_active ? "outline" : "default"}
+                                      onClick={() => handleToggleActive(u)}
+                                      title={u.is_active ? "Désactiver" : "Réactiver"}
+                                    >
+                                      <Power className="h-3.5 w-3.5 mr-1" />
+                                      {u.is_active ? "Désactiver" : "Réactiver"}
+                                    </Button>
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon">
+                                          <MoreVertical className="h-4 w-4" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => { setResetTarget(u); setNewPassword(""); }}>
+                                          <KeyRound className="h-4 w-4 mr-2" /> Réinitialiser le mot de passe
                                         </DropdownMenuItem>
-                                      ) : (
-                                        <DropdownMenuItem onClick={() => callManage(u, "reactivate")}>
-                                          <UserCheck className="h-4 w-4 mr-2" /> Réactiver
+                                        {u.is_active ? (
+                                          <DropdownMenuItem onClick={() => setDeactivateTarget(u)}>
+                                            <UserX className="h-4 w-4 mr-2" /> Désactiver (avec raison)
+                                          </DropdownMenuItem>
+                                        ) : (
+                                          <DropdownMenuItem onClick={() => callManage(u, "reactivate")}>
+                                            <UserCheck className="h-4 w-4 mr-2" /> Réactiver
+                                          </DropdownMenuItem>
+                                        )}
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                          onClick={() => setDeleteTarget(u)}
+                                          className="text-destructive focus:text-destructive"
+                                        >
+                                          <Trash2 className="h-4 w-4 mr-2" /> Supprimer définitivement
                                         </DropdownMenuItem>
-                                      )}
-                                      <DropdownMenuSeparator />
-                                      <DropdownMenuItem
-                                        onClick={() => setDeleteTarget(u)}
-                                        className="text-destructive focus:text-destructive"
-                                      >
-                                        <Trash2 className="h-4 w-4 mr-2" /> Supprimer définitivement
-                                      </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </div>
                                 )}
                               </TableCell>
                             </TableRow>
