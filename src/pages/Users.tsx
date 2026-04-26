@@ -641,6 +641,50 @@ const Users = () => {
         </Tabs>
       </div>
 
+      {/* Reset password dialog */}
+      <Dialog
+        open={!!resetTarget}
+        onOpenChange={(o) => {
+          if (!o) {
+            setResetTarget(null);
+            setNewPassword("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Réinitialiser le mot de passe</DialogTitle>
+            <DialogDescription>
+              Définir un nouveau mot de passe pour <strong>{resetTarget?.owner_name}</strong>.
+              Toutes ses sessions actives seront déconnectées.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="newPwd">Nouveau mot de passe</Label>
+            <Input
+              id="newPwd"
+              type="text"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Au moins 6 caractères"
+              autoComplete="off"
+            />
+            <p className="text-xs text-muted-foreground">
+              Communiquez ce mot de passe en personne. Demandez à l'utilisateur de le changer après connexion.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setResetTarget(null); setNewPassword(""); }}>
+              Annuler
+            </Button>
+            <Button onClick={handleResetPassword} disabled={resetting || newPassword.length < 6}>
+              {resetting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              <KeyRound className="h-4 w-4 mr-2" /> Réinitialiser
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Deactivate dialog with reason */}
       <Dialog
         open={!!deactivateTarget}
