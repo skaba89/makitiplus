@@ -459,7 +459,7 @@ const Users = () => {
           </div>
           <div className="flex gap-2 flex-wrap">
             <Button size="lg" variant="outline" onClick={exportTestCredentialsCSV}>
-              <Download className="h-4 w-4 mr-2" /> Export CSV comptes test
+              <Download className="h-4 w-4 mr-2" /> Export CSV utilisateurs
             </Button>
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
