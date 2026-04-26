@@ -492,9 +492,10 @@ const Users = () => {
                     type="text"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Au moins 6 caractères"
+                    placeholder="Min 8 car. avec maj/min/chiffre/symbole"
                     required
                   />
+                  <PasswordStrengthMeter password={password} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="ownerName">Nom complet</Label>
