@@ -313,6 +313,70 @@ const Users = () => {
     setDeleteTarget(null);
   };
 
+  const handleResetPassword = async () => {
+    if (!resetTarget) return;
+    if (newPassword.length < 6) {
+      toast({ variant: "destructive", title: "Mot de passe trop court", description: "Au moins 6 caractères" });
+      return;
+    }
+    setResetting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-manage-user", {
+        body: { userId: resetTarget.user_id, action: "reset_password", newPassword },
+      });
+      if (error || (data as any)?.error) {
+        throw new Error((data as any)?.error || error?.message || "Erreur");
+      }
+      toast({
+        title: "Mot de passe réinitialisé",
+        description: `Nouveau mot de passe défini pour ${resetTarget.owner_name}. Sessions déconnectées.`,
+      });
+      setResetTarget(null);
+      setNewPassword("");
+      loadAudit();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Erreur", description: err.message });
+    } finally {
+      setResetting(false);
+    }
+  };
+
+  const handleToggleActive = async (target: UserRow) => {
+    await callManage(target, target.is_active ? "deactivate" : "reactivate");
+  };
+
+  const exportTestCredentialsCSV = () => {
+    const testEmails = [
+      { email: "admin.test@sahelpos.local", role: "Administrateur", password: "(à définir)" },
+      { email: "manager.test@sahelpos.local", role: "Manager", password: "Test1234!" },
+      { email: "vendeur.test@sahelpos.local", role: "Vendeur", password: "Test1234!" },
+      { email: "comptable.test@sahelpos.local", role: "Comptable", password: "Test1234!" },
+    ];
+    // Also include all users with .test@ pattern from the loaded list
+    const knownByEmail = new Map<string, UserRow>();
+    const rows = testEmails.map((acc) => {
+      const u = users.find((x) =>
+        x.owner_name.toLowerCase().includes(acc.role.toLowerCase().slice(0, 5)) ||
+        x.owner_name.toLowerCase().includes("test")
+      );
+      const status = u ? (u.is_active ? "Actif" : "Inactif") : "Non créé";
+      const lastLogin = u?.last_login_at ?? "—";
+      return [acc.email, acc.role, acc.password, status, lastLogin];
+    });
+    const header = ["Email", "Rôle", "Mot de passe", "Statut", "Dernière connexion"];
+    const csv = [header, ...rows]
+      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `comptes-test-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "Export CSV téléchargé", description: `${testEmails.length} comptes de test exportés` });
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
