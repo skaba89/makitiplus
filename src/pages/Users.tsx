@@ -74,6 +74,9 @@ import {
   XCircle,
   Clock,
   ShieldCheck,
+  KeyRound,
+  Download,
+  Power,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -143,6 +146,9 @@ const Users = () => {
   const [deleteTarget, setDeleteTarget] = useState<UserRow | null>(null);
   const [deactivateTarget, setDeactivateTarget] = useState<UserRow | null>(null);
   const [deactivationReason, setDeactivationReason] = useState("");
+  const [resetTarget, setResetTarget] = useState<UserRow | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [resetting, setResetting] = useState(false);
 
   // Form state
   const [email, setEmail] = useState("");
