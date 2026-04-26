@@ -61,6 +61,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Database } from "@/integrations/supabase/types";
 import { AuditLogPanel } from "@/components/users/AuditLogPanel";
 import { SecurityDiagnosticPanel } from "@/components/users/SecurityDiagnosticPanel";
+import { PasswordStrengthMeter } from "@/components/users/PasswordStrengthMeter";
+import { checkPassword } from "@/lib/passwordPolicy";
 import {
   Loader2,
   UserPlus,
@@ -77,6 +79,11 @@ import {
   KeyRound,
   Download,
   Power,
+  Mail,
+  MessageSquare,
+  Hourglass,
+  Link as LinkIcon,
+  Copy,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -85,10 +92,14 @@ type AppRole = Database["public"]["Enums"]["app_role"];
 
 interface UserRow {
   user_id: string;
+  email: string | null;
   owner_name: string;
+  business_name: string | null;
   phone: string | null;
   role: AppRole;
   is_active: boolean;
+  is_test_account: boolean;
+  test_expires_at: string | null;
   last_login_at: string | null;
   deactivated_at: string | null;
   deactivation_reason: string | null;
