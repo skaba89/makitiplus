@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.93.3';
+import { validatePasswordServer } from '../_shared/passwordPolicy.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -57,6 +58,12 @@ Deno.serve(async (req) => {
 
     if (!email || !password || !ownerName || !role) {
       return new Response(JSON.stringify({ error: 'Champs requis manquants' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const policyCheck = validatePasswordServer(password);
+    if (!policyCheck.ok) {
+      return new Response(JSON.stringify({ error: policyCheck.error }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }

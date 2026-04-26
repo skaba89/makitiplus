@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.93.3';
+import { validatePasswordServer } from '../_shared/passwordPolicy.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -112,8 +113,9 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'reset_password') {
-      if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
-        return new Response(JSON.stringify({ error: 'Mot de passe invalide (min 6 caractères)' }), {
+      const policyCheck = validatePasswordServer(newPassword);
+      if (!policyCheck.ok) {
+        return new Response(JSON.stringify({ error: policyCheck.error }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
