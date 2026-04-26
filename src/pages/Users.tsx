@@ -74,6 +74,9 @@ import {
   XCircle,
   Clock,
   ShieldCheck,
+  KeyRound,
+  Download,
+  Power,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -143,6 +146,9 @@ const Users = () => {
   const [deleteTarget, setDeleteTarget] = useState<UserRow | null>(null);
   const [deactivateTarget, setDeactivateTarget] = useState<UserRow | null>(null);
   const [deactivationReason, setDeactivationReason] = useState("");
+  const [resetTarget, setResetTarget] = useState<UserRow | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [resetting, setResetting] = useState(false);
 
   // Form state
   const [email, setEmail] = useState("");
@@ -307,6 +313,70 @@ const Users = () => {
     setDeleteTarget(null);
   };
 
+  const handleResetPassword = async () => {
+    if (!resetTarget) return;
+    if (newPassword.length < 6) {
+      toast({ variant: "destructive", title: "Mot de passe trop court", description: "Au moins 6 caractères" });
+      return;
+    }
+    setResetting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-manage-user", {
+        body: { userId: resetTarget.user_id, action: "reset_password", newPassword },
+      });
+      if (error || (data as any)?.error) {
+        throw new Error((data as any)?.error || error?.message || "Erreur");
+      }
+      toast({
+        title: "Mot de passe réinitialisé",
+        description: `Nouveau mot de passe défini pour ${resetTarget.owner_name}. Sessions déconnectées.`,
+      });
+      setResetTarget(null);
+      setNewPassword("");
+      loadAudit();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Erreur", description: err.message });
+    } finally {
+      setResetting(false);
+    }
+  };
+
+  const handleToggleActive = async (target: UserRow) => {
+    await callManage(target, target.is_active ? "deactivate" : "reactivate");
+  };
+
+  const exportTestCredentialsCSV = () => {
+    const testEmails = [
+      { email: "admin.test@sahelpos.local", role: "Administrateur", password: "(à définir)" },
+      { email: "manager.test@sahelpos.local", role: "Manager", password: "Test1234!" },
+      { email: "vendeur.test@sahelpos.local", role: "Vendeur", password: "Test1234!" },
+      { email: "comptable.test@sahelpos.local", role: "Comptable", password: "Test1234!" },
+    ];
+    // Also include all users with .test@ pattern from the loaded list
+    const knownByEmail = new Map<string, UserRow>();
+    const rows = testEmails.map((acc) => {
+      const u = users.find((x) =>
+        x.owner_name.toLowerCase().includes(acc.role.toLowerCase().slice(0, 5)) ||
+        x.owner_name.toLowerCase().includes("test")
+      );
+      const status = u ? (u.is_active ? "Actif" : "Inactif") : "Non créé";
+      const lastLogin = u?.last_login_at ?? "—";
+      return [acc.email, acc.role, acc.password, status, lastLogin];
+    });
+    const header = ["Email", "Rôle", "Mot de passe", "Statut", "Dernière connexion"];
+    const csv = [header, ...rows]
+      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `comptes-test-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "Export CSV téléchargé", description: `${testEmails.length} comptes de test exportés` });
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -320,12 +390,16 @@ const Users = () => {
               Créer, désactiver et auditer les comptes de votre équipe
             </p>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="lg">
-                <UserPlus className="h-4 w-4 mr-2" /> Nouvel utilisateur
-              </Button>
-            </DialogTrigger>
+          <div className="flex gap-2 flex-wrap">
+            <Button size="lg" variant="outline" onClick={exportTestCredentialsCSV}>
+              <Download className="h-4 w-4 mr-2" /> Export CSV comptes test
+            </Button>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="lg">
+                  <UserPlus className="h-4 w-4 mr-2" /> Nouvel utilisateur
+                </Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Créer un utilisateur</DialogTitle>
@@ -414,7 +488,8 @@ const Users = () => {
                 </DialogFooter>
               </form>
             </DialogContent>
-          </Dialog>
+            </Dialog>
+          </div>
         </div>
 
         <Tabs defaultValue="users">
@@ -495,31 +570,45 @@ const Users = () => {
                                     {isAdmin && !isSelf ? "Protégé" : ""}
                                   </span>
                                 ) : (
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button variant="ghost" size="icon">
-                                        <MoreVertical className="h-4 w-4" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                      {u.is_active ? (
-                                        <DropdownMenuItem onClick={() => setDeactivateTarget(u)}>
-                                          <UserX className="h-4 w-4 mr-2" /> Désactiver
+                                  <div className="flex items-center justify-end gap-1">
+                                    <Button
+                                      size="sm"
+                                      variant={u.is_active ? "outline" : "default"}
+                                      onClick={() => handleToggleActive(u)}
+                                      title={u.is_active ? "Désactiver" : "Réactiver"}
+                                    >
+                                      <Power className="h-3.5 w-3.5 mr-1" />
+                                      {u.is_active ? "Désactiver" : "Réactiver"}
+                                    </Button>
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon">
+                                          <MoreVertical className="h-4 w-4" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => { setResetTarget(u); setNewPassword(""); }}>
+                                          <KeyRound className="h-4 w-4 mr-2" /> Réinitialiser le mot de passe
                                         </DropdownMenuItem>
-                                      ) : (
-                                        <DropdownMenuItem onClick={() => callManage(u, "reactivate")}>
-                                          <UserCheck className="h-4 w-4 mr-2" /> Réactiver
+                                        {u.is_active ? (
+                                          <DropdownMenuItem onClick={() => setDeactivateTarget(u)}>
+                                            <UserX className="h-4 w-4 mr-2" /> Désactiver (avec raison)
+                                          </DropdownMenuItem>
+                                        ) : (
+                                          <DropdownMenuItem onClick={() => callManage(u, "reactivate")}>
+                                            <UserCheck className="h-4 w-4 mr-2" /> Réactiver
+                                          </DropdownMenuItem>
+                                        )}
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                          onClick={() => setDeleteTarget(u)}
+                                          className="text-destructive focus:text-destructive"
+                                        >
+                                          <Trash2 className="h-4 w-4 mr-2" /> Supprimer définitivement
                                         </DropdownMenuItem>
-                                      )}
-                                      <DropdownMenuSeparator />
-                                      <DropdownMenuItem
-                                        onClick={() => setDeleteTarget(u)}
-                                        className="text-destructive focus:text-destructive"
-                                      >
-                                        <Trash2 className="h-4 w-4 mr-2" /> Supprimer définitivement
-                                      </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </div>
                                 )}
                               </TableCell>
                             </TableRow>
@@ -551,6 +640,50 @@ const Users = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Reset password dialog */}
+      <Dialog
+        open={!!resetTarget}
+        onOpenChange={(o) => {
+          if (!o) {
+            setResetTarget(null);
+            setNewPassword("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Réinitialiser le mot de passe</DialogTitle>
+            <DialogDescription>
+              Définir un nouveau mot de passe pour <strong>{resetTarget?.owner_name}</strong>.
+              Toutes ses sessions actives seront déconnectées.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="newPwd">Nouveau mot de passe</Label>
+            <Input
+              id="newPwd"
+              type="text"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Au moins 6 caractères"
+              autoComplete="off"
+            />
+            <p className="text-xs text-muted-foreground">
+              Communiquez ce mot de passe en personne. Demandez à l'utilisateur de le changer après connexion.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setResetTarget(null); setNewPassword(""); }}>
+              Annuler
+            </Button>
+            <Button onClick={handleResetPassword} disabled={resetting || newPassword.length < 6}>
+              {resetting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              <KeyRound className="h-4 w-4 mr-2" /> Réinitialiser
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Deactivate dialog with reason */}
       <Dialog

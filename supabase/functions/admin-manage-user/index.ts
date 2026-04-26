@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { userId, action, reason } = await req.json();
+    const { userId, action, reason, newPassword } = await req.json();
     if (!userId || !action) {
       return new Response(JSON.stringify({ error: 'Missing userId or action' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -104,6 +104,29 @@ Deno.serve(async (req) => {
         actor_id: user.id, actor_name: actorProfile?.owner_name ?? 'Admin',
         target_user_id: userId, target_user_name: targetProfile?.owner_name ?? '—',
         action: 'user_reactivated', details: {},
+      });
+
+      return new Response(JSON.stringify({ success: true }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (action === 'reset_password') {
+      if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
+        return new Response(JSON.stringify({ error: 'Mot de passe invalide (min 6 caractères)' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const { error } = await adminClient.auth.admin.updateUserById(userId, { password: newPassword });
+      if (error) throw error;
+
+      // Invalidate all sessions to force re-login with new password
+      await adminClient.auth.admin.signOut(userId, 'global').catch(() => {});
+
+      await adminClient.from('user_audit_log').insert({
+        actor_id: user.id, actor_name: actorProfile?.owner_name ?? 'Admin',
+        target_user_id: userId, target_user_name: targetProfile?.owner_name ?? '—',
+        action: 'user_password_reset', details: {},
       });
 
       return new Response(JSON.stringify({ success: true }), {
