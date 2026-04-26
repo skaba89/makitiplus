@@ -725,13 +725,15 @@ const Users = () => {
         </Tabs>
       </div>
 
-      {/* Reset password dialog */}
+      {/* Reset password dialog with magic link options */}
       <Dialog
         open={!!resetTarget}
         onOpenChange={(o) => {
           if (!o) {
             setResetTarget(null);
             setNewPassword("");
+            setMagicLink(null);
+            setResetMode("email");
           }
         }}
       >
@@ -739,31 +741,100 @@ const Users = () => {
           <DialogHeader>
             <DialogTitle>Réinitialiser le mot de passe</DialogTitle>
             <DialogDescription>
-              Définir un nouveau mot de passe pour <strong>{resetTarget?.owner_name}</strong>.
-              Toutes ses sessions actives seront déconnectées.
+              Pour <strong>{resetTarget?.owner_name}</strong>. Choisissez la méthode d'envoi.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="newPwd">Nouveau mot de passe</Label>
-            <Input
-              id="newPwd"
-              type="text"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Au moins 6 caractères"
-              autoComplete="off"
-            />
-            <p className="text-xs text-muted-foreground">
-              Communiquez ce mot de passe en personne. Demandez à l'utilisateur de le changer après connexion.
-            </p>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-2">
+              <Button
+                type="button"
+                variant={resetMode === "email" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setResetMode("email")}
+              >
+                <Mail className="h-3.5 w-3.5 mr-1" /> Email
+              </Button>
+              <Button
+                type="button"
+                variant={resetMode === "sms" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setResetMode("sms")}
+                disabled={!resetTarget?.phone}
+                title={!resetTarget?.phone ? "Aucun téléphone enregistré" : ""}
+              >
+                <MessageSquare className="h-3.5 w-3.5 mr-1" /> SMS
+              </Button>
+              <Button
+                type="button"
+                variant={resetMode === "manual" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setResetMode("manual")}
+              >
+                <KeyRound className="h-3.5 w-3.5 mr-1" /> Manuel
+              </Button>
+            </div>
+
+            {resetMode === "email" && (
+              <div className="rounded-lg border bg-muted/30 p-3 text-sm">
+                Un lien à usage unique sera envoyé à <strong>{resetTarget?.email ?? "son email"}</strong>.
+                Valide 1h. L'utilisateur définira lui-même son nouveau mot de passe.
+              </div>
+            )}
+            {resetMode === "sms" && (
+              <div className="rounded-lg border bg-muted/30 p-3 text-sm">
+                Un SMS contenant un lien à usage unique sera envoyé au <strong>{resetTarget?.phone}</strong>.
+                Valide 30min. Nécessite que Twilio soit connecté dans Connecteurs.
+              </div>
+            )}
+            {resetMode === "manual" && (
+              <div className="space-y-2">
+                <Label htmlFor="newPwd">Nouveau mot de passe</Label>
+                <Input
+                  id="newPwd"
+                  type="text"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Min 8 car. avec maj/min/chiffre/symbole"
+                  autoComplete="off"
+                />
+                <PasswordStrengthMeter password={newPassword} />
+                <p className="text-xs text-muted-foreground">
+                  Sessions déconnectées. Communiquez ce mot de passe en personne.
+                </p>
+              </div>
+            )}
+
+            {magicLink && (
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
+                <div className="flex items-center gap-2 text-xs font-medium">
+                  <LinkIcon className="h-3.5 w-3.5 text-primary" />
+                  Lien généré (à transmettre si l'envoi a échoué)
+                </div>
+                <div className="flex gap-2">
+                  <Input value={magicLink} readOnly className="text-xs" />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      navigator.clipboard.writeText(magicLink);
+                      toast({ title: "Lien copié" });
+                    }}
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setResetTarget(null); setNewPassword(""); }}>
-              Annuler
+            <Button variant="outline" onClick={() => { setResetTarget(null); setNewPassword(""); setMagicLink(null); }}>
+              Fermer
             </Button>
-            <Button onClick={handleResetPassword} disabled={resetting || newPassword.length < 6}>
+            <Button onClick={handleResetPassword} disabled={resetting}>
               {resetting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              <KeyRound className="h-4 w-4 mr-2" /> Réinitialiser
+              {resetMode === "manual" ? <><KeyRound className="h-4 w-4 mr-2" /> Réinitialiser</> : <><LinkIcon className="h-4 w-4 mr-2" /> Envoyer le lien</>}
             </Button>
           </DialogFooter>
         </DialogContent>
