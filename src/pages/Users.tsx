@@ -158,8 +158,10 @@ const Users = () => {
   const [deactivateTarget, setDeactivateTarget] = useState<UserRow | null>(null);
   const [deactivationReason, setDeactivationReason] = useState("");
   const [resetTarget, setResetTarget] = useState<UserRow | null>(null);
+  const [resetMode, setResetMode] = useState<"manual" | "email" | "sms">("email");
   const [newPassword, setNewPassword] = useState("");
   const [resetting, setResetting] = useState(false);
+  const [magicLink, setMagicLink] = useState<string | null>(null);
 
   // Form state
   const [email, setEmail] = useState("");
