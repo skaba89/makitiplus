@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.93.3';
+import { requireAdminContext } from '../_shared/orgScope.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -9,36 +10,13 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Missing authorization' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    const ctx = await requireAdminContext(req);
+    if (!ctx.ok) {
+      return new Response(JSON.stringify({ error: ctx.error }), {
+        status: ctx.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const anonKey = Deno.env.get('SUPABASE_PUBLISHABLE_KEY') ?? Deno.env.get('SUPABASE_ANON_KEY')!;
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: 'Invalid session' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const adminClient = createClient(supabaseUrl, serviceKey);
-    const { data: roleData } = await adminClient
-      .from('user_roles').select('role')
-      .eq('user_id', user.id).eq('role', 'admin').maybeSingle();
-    if (!roleData) {
-      return new Response(JSON.stringify({ error: 'Forbidden: admin only' }), {
-        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const { adminClient, actorProfile } = ctx;
 
     const { userIds } = await req.json();
     if (!Array.isArray(userIds)) {
@@ -47,18 +25,24 @@ Deno.serve(async (req) => {
       });
     }
 
+    // STRICT ORG SCOPE: only return emails for users in admin's organization
+    const { data: orgProfiles } = await adminClient
+      .from('profiles')
+      .select('user_id')
+      .eq('organization_id', actorProfile.organization_id!)
+      .in('user_id', userIds.length ? userIds : ['00000000-0000-0000-0000-000000000000']);
+
+    const allowed = new Set((orgProfiles ?? []).map((p) => p.user_id as string));
+    const filtered = userIds.filter((id: string) => allowed.has(id));
+
     const emails: Record<string, string> = {};
-    
-    // Fetch users in batches to handle large lists if necessary
-    // We iterate through pages to ensure we find all requested user IDs
     let page = 1;
     let hasMore = true;
-    const wanted = new Set(userIds);
+    const wanted = new Set(filtered);
 
     while (hasMore && wanted.size > 0) {
-      const { data: list } = await adminClient.auth.admin.listUsers({ page: page, perPage: 1000 });
+      const { data: list } = await adminClient.auth.admin.listUsers({ page, perPage: 1000 });
       const users = list?.users ?? [];
-      
       if (users.length === 0) {
         hasMore = false;
       } else {
