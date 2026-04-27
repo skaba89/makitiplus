@@ -1,51 +1,17 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.93.3';
 import { validatePasswordServer } from '../_shared/passwordPolicy.ts';
+import { requireAdminContext } from '../_shared/orgScope.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-async function getAdminContext(req: Request) {
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader) return { error: 'Missing authorization', status: 401 };
-
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const anonKey = Deno.env.get('SUPABASE_PUBLISHABLE_KEY') ?? Deno.env.get('SUPABASE_ANON_KEY')!;
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-  const userClient = createClient(supabaseUrl, anonKey, {
-    global: { headers: { Authorization: authHeader } },
-  });
-
-  const { data: { user }, error: userError } = await userClient.auth.getUser();
-  if (userError || !user) return { error: 'Invalid session', status: 401 };
-
-  const adminClient = createClient(supabaseUrl, serviceKey);
-  const { data: roleData } = await adminClient
-    .from('user_roles')
-    .select('role')
-    .eq('user_id', user.id)
-    .eq('role', 'admin')
-    .maybeSingle();
-
-  if (!roleData) return { error: 'Forbidden: admin only', status: 403 };
-
-  const { data: actorProfile } = await adminClient
-    .from('profiles')
-    .select('owner_name, business_name, organization_id')
-    .eq('user_id', user.id)
-    .maybeSingle();
-
-  return { user, adminClient, actorProfile };
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
-    const ctx = await getAdminContext(req);
-    if ('error' in ctx) {
+    const ctx = await requireAdminContext(req);
+    if (!ctx.ok) {
       return new Response(JSON.stringify({ error: ctx.error }), {
         status: ctx.status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -1,11 +1,10 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.93.3';
+import { requireAdminContext, loadTargetInSameOrg } from '../_shared/orgScope.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Hash a token using SHA-256 (Web Crypto)
 async function hashToken(token: string): Promise<string> {
   const buffer = new TextEncoder().encode(token);
   const digest = await crypto.subtle.digest('SHA-256', buffer);
@@ -17,9 +16,7 @@ async function hashToken(token: string): Promise<string> {
 function generateSecureToken(): string {
   const arr = new Uint8Array(32);
   crypto.getRandomValues(arr);
-  return Array.from(arr)
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
+  return Array.from(arr).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 async function sendSmsViaTwilio(to: string, body: string): Promise<{ ok: boolean; error?: string }> {
@@ -28,7 +25,10 @@ async function sendSmsViaTwilio(to: string, body: string): Promise<{ ok: boolean
   const TWILIO_FROM = Deno.env.get('TWILIO_FROM_NUMBER');
 
   if (!LOVABLE_API_KEY || !TWILIO_API_KEY || !TWILIO_FROM) {
-    return { ok: false, error: 'Twilio non configuré (connectez Twilio dans Connecteurs et ajoutez TWILIO_FROM_NUMBER)' };
+    return {
+      ok: false,
+      error: 'Twilio non configuré. Connectez Twilio dans Connecteurs et ajoutez le secret TWILIO_FROM_NUMBER.',
+    };
   }
 
   const response = await fetch('https://connector-gateway.lovable.dev/twilio/Messages.json', {
@@ -52,36 +52,13 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Missing authorization' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    const ctx = await requireAdminContext(req);
+    if (!ctx.ok) {
+      return new Response(JSON.stringify({ error: ctx.error }), {
+        status: ctx.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const anonKey = Deno.env.get('SUPABASE_PUBLISHABLE_KEY') ?? Deno.env.get('SUPABASE_ANON_KEY')!;
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: 'Invalid session' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const adminClient = createClient(supabaseUrl, serviceKey);
-    const { data: roleData } = await adminClient
-      .from('user_roles').select('role')
-      .eq('user_id', user.id).eq('role', 'admin').maybeSingle();
-    if (!roleData) {
-      return new Response(JSON.stringify({ error: 'Forbidden: admin only' }), {
-        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const { user, adminClient, actorProfile } = ctx;
 
     const body = await req.json();
     const { userId, channel, redirectTo } = body;
@@ -102,7 +79,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Block on other admins
+    // Block targeting other admins
     const { data: targetRole } = await adminClient
       .from('user_roles').select('role')
       .eq('user_id', userId).eq('role', 'admin').maybeSingle();
@@ -112,20 +89,24 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch target user
+    // STRICT ORG SCOPE
+    const scope = await loadTargetInSameOrg(adminClient, userId, actorProfile.organization_id!);
+    if (!scope.ok) {
+      return new Response(JSON.stringify({ error: scope.error }), {
+        status: scope.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const targetProfile = scope.targetProfile;
+
+    // Fetch target auth (for email)
     const { data: targetAuth, error: authErr } = await adminClient.auth.admin.getUserById(userId);
     if (authErr || !targetAuth.user) {
       return new Response(JSON.stringify({ error: 'Utilisateur introuvable' }), {
         status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    const { data: targetProfile } = await adminClient
-      .from('profiles').select('owner_name, phone, organization_id').eq('user_id', userId).maybeSingle();
 
-    const { data: actorProfile } = await adminClient
-      .from('profiles').select('owner_name').eq('user_id', user.id).maybeSingle();
-
-    // EMAIL channel: use Supabase native recovery link (zero-config)
+    // EMAIL channel
     if (channel === 'email') {
       const email = targetAuth.user.email;
       if (!email) {
@@ -140,10 +121,9 @@ Deno.serve(async (req) => {
       });
       if (linkErr) throw linkErr;
 
-      // Audit
       await adminClient.from('user_audit_log').insert({
-        actor_id: user.id, actor_name: actorProfile?.owner_name ?? 'Admin',
-        target_user_id: userId, target_user_name: targetProfile?.owner_name ?? '—',
+        actor_id: user.id, actor_name: actorProfile.owner_name ?? 'Admin',
+        target_user_id: userId, target_user_name: targetProfile.owner_name ?? '—',
         action: 'user_password_reset_link_sent',
         details: { channel: 'email', email },
       });
@@ -152,13 +132,12 @@ Deno.serve(async (req) => {
         success: true,
         channel: 'email',
         message: `Lien de réinitialisation envoyé à ${email}`,
-        // actionLink only returned for admin display (recovery link is also sent by Supabase)
         actionLink: linkData.properties?.action_link,
       }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // SMS channel: generate token, store hash, send via Twilio
-    const phone = targetProfile?.phone;
+    // SMS channel
+    const phone = targetProfile.phone;
     if (!phone) {
       return new Response(JSON.stringify({ error: 'Cet utilisateur n\'a pas de téléphone enregistré' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -167,7 +146,7 @@ Deno.serve(async (req) => {
 
     const token = generateSecureToken();
     const tokenHash = await hashToken(token);
-    const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString(); // 30 min
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
     const { error: insertErr } = await adminClient.from('password_reset_tokens').insert({
       user_id: userId,
@@ -176,7 +155,7 @@ Deno.serve(async (req) => {
       destination: phone,
       created_by: user.id,
       expires_at: expiresAt,
-      organization_id: targetProfile?.organization_id ?? null,
+      organization_id: actorProfile.organization_id,
     });
     if (insertErr) throw insertErr;
 
@@ -188,17 +167,18 @@ Deno.serve(async (req) => {
     );
 
     if (!sms.ok) {
+      // Twilio not configured or failed: still return manual link so admin can deliver
       return new Response(JSON.stringify({
         success: false,
         error: sms.error,
-        // Return link so admin can deliver it manually if SMS infra is down
         manualLink: link,
-      }), { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        message: 'SMS non envoyé. Copiez le lien ci-dessous et transmettez-le manuellement.',
+      }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     await adminClient.from('user_audit_log').insert({
-      actor_id: user.id, actor_name: actorProfile?.owner_name ?? 'Admin',
-      target_user_id: userId, target_user_name: targetProfile?.owner_name ?? '—',
+      actor_id: user.id, actor_name: actorProfile.owner_name ?? 'Admin',
+      target_user_id: userId, target_user_name: targetProfile.owner_name ?? '—',
       action: 'user_password_reset_link_sent',
       details: { channel: 'sms', phone },
     });
