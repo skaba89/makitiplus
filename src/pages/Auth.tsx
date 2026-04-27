@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,10 +8,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Store, User, Phone, Mail, Lock, Shield } from "lucide-react";
+import { Loader2, Store, User, Phone, Mail, Lock, Shield, KeyRound, CheckCircle2 } from "lucide-react";
 import { z } from "zod";
 import { Database } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
+import { PasswordStrengthMeter } from "@/components/users/PasswordStrengthMeter";
+import { checkPassword } from "@/lib/passwordPolicy";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 
@@ -32,9 +34,18 @@ const Auth = () => {
   const navigate = useNavigate();
   const { signIn, signUp } = useAuth();
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const resetToken = searchParams.get("reset_token");
+
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("login");
   const [adminExists, setAdminExists] = useState<boolean | null>(null);
+
+  // Reset (redemption) state
+  const [resetPwd, setResetPwd] = useState("");
+  const [resetPwd2, setResetPwd2] = useState("");
+  const [resetSubmitting, setResetSubmitting] = useState(false);
+  const [resetDone, setResetDone] = useState(false);
 
   // Login form state
   const [loginEmail, setLoginEmail] = useState("");
@@ -61,6 +72,43 @@ const Auth = () => {
     };
     checkAdmin();
   }, []);
+
+  const handleResetSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetToken) return;
+    if (resetPwd !== resetPwd2) {
+      toast({ variant: "destructive", title: "Erreur", description: "Les mots de passe ne correspondent pas" });
+      return;
+    }
+    const check = checkPassword(resetPwd);
+    if (!check.ok) {
+      toast({ variant: "destructive", title: "Mot de passe non conforme", description: check.errors.join(" • ") });
+      return;
+    }
+    setResetSubmitting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("redeem-reset-token", {
+        body: { token: resetToken, newPassword: resetPwd },
+      });
+      if (error || (data as any)?.error) {
+        throw new Error((data as any)?.error || error?.message || "Erreur");
+      }
+      setResetDone(true);
+      toast({ title: "Mot de passe mis à jour", description: "Vous pouvez maintenant vous connecter." });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Lien invalide", description: err.message });
+    } finally {
+      setResetSubmitting(false);
+    }
+  };
+
+  const clearResetToken = () => {
+    searchParams.delete("reset_token");
+    setSearchParams(searchParams, { replace: true });
+    setResetDone(false);
+    setResetPwd("");
+    setResetPwd2("");
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -194,6 +242,99 @@ const Auth = () => {
     vendeur: { label: "Vendeur", description: "Point de vente et stocks" },
     comptable: { label: "Comptable", description: "Finances et rapports" },
   };
+
+  // Render redemption screen when arriving via SMS magic link
+  if (resetToken) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-background flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 rounded-2xl bg-hero-gradient flex items-center justify-center mx-auto mb-4">
+              <KeyRound className="h-8 w-8 text-primary-foreground" />
+            </div>
+            <h1 className="text-2xl font-bold">Nouveau mot de passe</h1>
+            <p className="text-muted-foreground mt-2">
+              Lien à usage unique — définissez votre nouveau mot de passe
+            </p>
+          </div>
+
+          <Card className="card-elevated">
+            <CardContent className="pt-6">
+              {resetDone ? (
+                <div className="text-center space-y-4">
+                  <CheckCircle2 className="h-12 w-12 text-primary mx-auto" />
+                  <div>
+                    <h2 className="font-semibold text-lg">Mot de passe mis à jour</h2>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Toutes vos sessions ont été déconnectées. Connectez-vous avec votre nouveau mot de passe.
+                    </p>
+                  </div>
+                  <Button className="w-full" onClick={clearResetToken}>
+                    Se connecter
+                  </Button>
+                </div>
+              ) : (
+                <form onSubmit={handleResetSubmit} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="reset-pwd">Nouveau mot de passe</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="reset-pwd"
+                        type="password"
+                        value={resetPwd}
+                        onChange={(e) => setResetPwd(e.target.value)}
+                        className="pl-10"
+                        placeholder="Min 8 car. + maj/min/chiffre/symbole"
+                        required
+                        autoComplete="new-password"
+                      />
+                    </div>
+                    <PasswordStrengthMeter password={resetPwd} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="reset-pwd2">Confirmer le mot de passe</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="reset-pwd2"
+                        type="password"
+                        value={resetPwd2}
+                        onChange={(e) => setResetPwd2(e.target.value)}
+                        className="pl-10"
+                        required
+                        autoComplete="new-password"
+                      />
+                    </div>
+                  </div>
+                  <Button type="submit" className="w-full" size="lg" disabled={resetSubmitting}>
+                    {resetSubmitting ? (
+                      <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Validation…</>
+                    ) : (
+                      <>Réinitialiser le mot de passe</>
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full"
+                    onClick={clearResetToken}
+                    disabled={resetSubmitting}
+                  >
+                    Annuler
+                  </Button>
+                </form>
+              )}
+            </CardContent>
+          </Card>
+
+          <p className="text-center text-xs text-muted-foreground mt-6">
+            Lien valide 30 minutes — usage unique. Contactez votre administrateur si le lien a expiré.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-background flex items-center justify-center p-4">

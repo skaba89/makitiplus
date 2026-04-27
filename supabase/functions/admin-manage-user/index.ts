@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.93.3';
 import { validatePasswordServer } from '../_shared/passwordPolicy.ts';
+import { requireAdminContext, loadTargetInSameOrg } from '../_shared/orgScope.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -10,38 +11,13 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Missing authorization' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    const ctx = await requireAdminContext(req);
+    if (!ctx.ok) {
+      return new Response(JSON.stringify({ error: ctx.error }), {
+        status: ctx.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const anonKey = Deno.env.get('SUPABASE_PUBLISHABLE_KEY') ?? Deno.env.get('SUPABASE_ANON_KEY')!;
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: 'Invalid session' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const adminClient = createClient(supabaseUrl, serviceKey);
-    const { data: roleData } = await adminClient
-      .from('user_roles').select('role')
-      .eq('user_id', user.id).eq('role', 'admin').maybeSingle();
-
-    if (!roleData) {
-      return new Response(JSON.stringify({ error: 'Forbidden: admin only' }), {
-        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const { user, adminClient, actorProfile } = ctx;
 
     const { userId, action, reason, newPassword } = await req.json();
     if (!userId || !action) {
@@ -65,13 +41,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: targetProfile } = await adminClient
-      .from('profiles').select('owner_name')
-      .eq('user_id', userId).maybeSingle();
-
-    const { data: actorProfile } = await adminClient
-      .from('profiles').select('owner_name')
-      .eq('user_id', user.id).maybeSingle();
+    // STRICT ORG SCOPE: target must belong to actor's organization
+    const scope = await loadTargetInSameOrg(adminClient, userId, actorProfile.organization_id!);
+    if (!scope.ok) {
+      return new Response(JSON.stringify({ error: scope.error }), {
+        status: scope.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const targetProfile = scope.targetProfile;
 
     if (action === 'deactivate') {
       const { error } = await adminClient.from('profiles').update({
@@ -81,12 +58,11 @@ Deno.serve(async (req) => {
       }).eq('user_id', userId);
       if (error) throw error;
 
-      // Sign out all sessions
       await adminClient.auth.admin.signOut(userId, 'global').catch(() => {});
 
       await adminClient.from('user_audit_log').insert({
-        actor_id: user.id, actor_name: actorProfile?.owner_name ?? 'Admin',
-        target_user_id: userId, target_user_name: targetProfile?.owner_name ?? '—',
+        actor_id: user.id, actor_name: actorProfile.owner_name ?? 'Admin',
+        target_user_id: userId, target_user_name: targetProfile.owner_name ?? '—',
         action: 'user_deactivated', details: { reason: reason ?? null },
       });
 
@@ -102,8 +78,8 @@ Deno.serve(async (req) => {
       if (error) throw error;
 
       await adminClient.from('user_audit_log').insert({
-        actor_id: user.id, actor_name: actorProfile?.owner_name ?? 'Admin',
-        target_user_id: userId, target_user_name: targetProfile?.owner_name ?? '—',
+        actor_id: user.id, actor_name: actorProfile.owner_name ?? 'Admin',
+        target_user_id: userId, target_user_name: targetProfile.owner_name ?? '—',
         action: 'user_reactivated', details: {},
       });
 
@@ -122,12 +98,11 @@ Deno.serve(async (req) => {
       const { error } = await adminClient.auth.admin.updateUserById(userId, { password: newPassword });
       if (error) throw error;
 
-      // Invalidate all sessions to force re-login with new password
       await adminClient.auth.admin.signOut(userId, 'global').catch(() => {});
 
       await adminClient.from('user_audit_log').insert({
-        actor_id: user.id, actor_name: actorProfile?.owner_name ?? 'Admin',
-        target_user_id: userId, target_user_name: targetProfile?.owner_name ?? '—',
+        actor_id: user.id, actor_name: actorProfile.owner_name ?? 'Admin',
+        target_user_id: userId, target_user_name: targetProfile.owner_name ?? '—',
         action: 'user_password_reset', details: {},
       });
 
@@ -137,10 +112,9 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'delete') {
-      // Audit BEFORE deletion (target row will be gone)
       await adminClient.from('user_audit_log').insert({
-        actor_id: user.id, actor_name: actorProfile?.owner_name ?? 'Admin',
-        target_user_id: userId, target_user_name: targetProfile?.owner_name ?? '—',
+        actor_id: user.id, actor_name: actorProfile.owner_name ?? 'Admin',
+        target_user_id: userId, target_user_name: targetProfile.owner_name ?? '—',
         action: 'user_deleted_permanently', details: { reason: reason ?? null },
       });
 
