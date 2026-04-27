@@ -575,6 +575,9 @@ const Users = () => {
             <TabsTrigger value="users">
               <Shield className="h-4 w-4 mr-2" /> Utilisateurs
             </TabsTrigger>
+            <TabsTrigger value="reset">
+              <KeyRound className="h-4 w-4 mr-2" /> Liens reset
+            </TabsTrigger>
             <TabsTrigger value="audit">
               <History className="h-4 w-4 mr-2" /> Historique
             </TabsTrigger>
