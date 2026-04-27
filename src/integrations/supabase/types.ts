@@ -640,6 +640,7 @@ export type Database = {
           created_at: string
           details: Json | null
           id: string
+          ip_address: string | null
           target_user_id: string | null
           target_user_name: string | null
         }
@@ -650,6 +651,7 @@ export type Database = {
           created_at?: string
           details?: Json | null
           id?: string
+          ip_address?: string | null
           target_user_id?: string | null
           target_user_name?: string | null
         }
@@ -660,6 +662,7 @@ export type Database = {
           created_at?: string
           details?: Json | null
           id?: string
+          ip_address?: string | null
           target_user_id?: string | null
           target_user_name?: string | null
         }
