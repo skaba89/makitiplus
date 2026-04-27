@@ -726,6 +726,12 @@ const Users = () => {
             </Card>
           </TabsContent>
 
+          <TabsContent value="reset" className="mt-4">
+            <ResetTokensPanel
+              users={users.map((u) => ({ user_id: u.user_id, name: u.owner_name }))}
+            />
+          </TabsContent>
+
           <TabsContent value="audit" className="mt-4">
             <AuditLogPanel
               users={users.map((u) => ({ user_id: u.user_id, name: u.owner_name }))}
