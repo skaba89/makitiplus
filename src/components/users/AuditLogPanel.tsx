@@ -26,6 +26,7 @@ interface AuditRow {
   target_user_id: string | null;
   action: string;
   details: any;
+  ip_address: string | null;
   created_at: string;
 }
 
@@ -34,6 +35,10 @@ const actionLabels: Record<string, { label: string; tone: string }> = {
   user_deactivated: { label: "Désactivation", tone: "bg-destructive/10 text-destructive" },
   user_reactivated: { label: "Réactivation", tone: "bg-accent/10 text-accent-foreground" },
   user_deleted_permanently: { label: "Suppression définitive", tone: "bg-destructive/15 text-destructive" },
+  user_password_reset: { label: "Reset mot de passe (manuel)", tone: "bg-primary/10 text-primary" },
+  user_password_reset_link_sent: { label: "Lien reset envoyé", tone: "bg-accent/10 text-accent-foreground" },
+  user_password_reset_completed: { label: "Reset complété (lien magique)", tone: "bg-primary/15 text-primary" },
+  users_exported_csv: { label: "Export CSV utilisateurs", tone: "bg-muted text-foreground" },
 };
 
 const roleLabels: Record<AppRole, string> = {
@@ -68,7 +73,7 @@ export const AuditLogPanel = ({ users }: { users: UserOption[] }) => {
     try {
       let q = supabase
         .from("user_audit_log")
-        .select("id, actor_name, actor_id, target_user_name, target_user_id, action, details, created_at")
+        .select("id, actor_name, actor_id, target_user_name, target_user_id, action, details, ip_address, created_at")
         .order("created_at", { ascending: false })
         .limit(500);
       if (actionFilter !== "all") q = q.eq("action", actionFilter);
@@ -186,6 +191,7 @@ export const AuditLogPanel = ({ users }: { users: UserOption[] }) => {
                   <TableHead>Action</TableHead>
                   <TableHead>Cible</TableHead>
                   <TableHead>Par</TableHead>
+                  <TableHead>IP</TableHead>
                   <TableHead>Détails</TableHead>
                 </TableRow>
               </TableHeader>
@@ -195,6 +201,11 @@ export const AuditLogPanel = ({ users }: { users: UserOption[] }) => {
                   const detailsText: string[] = [];
                   if (a.details?.role) detailsText.push(`Rôle: ${roleLabels[a.details.role as AppRole] ?? a.details.role}`);
                   if (a.details?.email) detailsText.push(`Email: ${a.details.email}`);
+                  if (a.details?.phone) detailsText.push(`Tél: ${a.details.phone}`);
+                  if (a.details?.channel) detailsText.push(`Canal: ${a.details.channel}`);
+                  if (a.details?.delivery) detailsText.push(`Livraison: ${a.details.delivery}`);
+                  if (a.details?.mode) detailsText.push(`Mode: ${a.details.mode}`);
+                  if (a.details?.count != null) detailsText.push(`Lignes: ${a.details.count}`);
                   if (a.details?.reason) detailsText.push(`Raison: ${a.details.reason}`);
                   if (a.details?.requireEmailVerification) detailsText.push("Vérif. email requise");
                   return (
@@ -207,7 +218,8 @@ export const AuditLogPanel = ({ users }: { users: UserOption[] }) => {
                       </TableCell>
                       <TableCell>{a.target_user_name || "—"}</TableCell>
                       <TableCell>{a.actor_name || "—"}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
+                      <TableCell className="text-xs font-mono text-muted-foreground">{a.ip_address || "—"}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground max-w-xs truncate" title={detailsText.join(" · ")}>
                         {detailsText.join(" · ") || "—"}
                       </TableCell>
                     </TableRow>
@@ -215,7 +227,7 @@ export const AuditLogPanel = ({ users }: { users: UserOption[] }) => {
                 })}
                 {filtered.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                       Aucune entrée correspondante
                     </TableCell>
                   </TableRow>

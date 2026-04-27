@@ -61,6 +61,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Database } from "@/integrations/supabase/types";
 import { AuditLogPanel } from "@/components/users/AuditLogPanel";
 import { SecurityDiagnosticPanel } from "@/components/users/SecurityDiagnosticPanel";
+import { ResetTokensPanel } from "@/components/users/ResetTokensPanel";
 import { PasswordStrengthMeter } from "@/components/users/PasswordStrengthMeter";
 import { checkPassword } from "@/lib/passwordPolicy";
 import {
@@ -407,35 +408,44 @@ const Users = () => {
     await callManage(target, target.is_active ? "deactivate" : "reactivate");
   };
 
-  const exportTestCredentialsCSV = () => {
-    // Export ALL users with full details
-    const header = [
-      "Nom", "Email", "Téléphone", "Rôle", "Boutique",
-      "Statut", "Compte test", "Expiration test", "Dernière connexion", "Créé le",
-    ];
-    const rows = users.map((u) => [
-      u.owner_name,
-      u.email ?? "—",
-      u.phone ?? "—",
-      roleLabels[u.role],
-      u.business_name ?? "—",
-      u.is_active ? "Actif" : "Inactif",
-      u.is_test_account ? "Oui" : "Non",
-      u.test_expires_at ? new Date(u.test_expires_at).toLocaleDateString("fr-FR") : "—",
-      u.last_login_at ? new Date(u.last_login_at).toLocaleString("fr-FR") : "Jamais",
-      new Date(u.created_at).toLocaleDateString("fr-FR"),
-    ]);
-    const csv = [header, ...rows]
-      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
-      .join("\n");
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `utilisateurs-${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-    toast({ title: "Export CSV téléchargé", description: `${users.length} utilisateurs exportés` });
+  const exportTestCredentialsCSV = async () => {
+    // Server-side export: enforces admin role + organization scope + audit log + IP
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast({ variant: "destructive", title: "Non authentifié" });
+        return;
+      }
+      const projectId = (import.meta as any).env?.VITE_SUPABASE_PROJECT_ID;
+      const url = `https://${projectId}.supabase.co/functions/v1/admin-export-users-csv`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: "{}",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Erreur ${res.status}`);
+      }
+      const blob = await res.blob();
+      const objUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objUrl;
+      link.download = `utilisateurs-${new Date().toISOString().slice(0, 10)}.csv`;
+      link.click();
+      URL.revokeObjectURL(objUrl);
+      toast({ title: "Export CSV téléchargé", description: "Action enregistrée dans l'historique d'audit" });
+      loadAudit();
+    } catch (err: any) {
+      toast({
+        variant: "destructive",
+        title: "Export refusé",
+        description: err.message || "Vérifiez que vous êtes bien admin de la boutique",
+      });
+    }
   };
 
   const daysUntilExpiry = (iso: string | null) => {
@@ -564,6 +574,9 @@ const Users = () => {
           <TabsList>
             <TabsTrigger value="users">
               <Shield className="h-4 w-4 mr-2" /> Utilisateurs
+            </TabsTrigger>
+            <TabsTrigger value="reset">
+              <KeyRound className="h-4 w-4 mr-2" /> Liens reset
             </TabsTrigger>
             <TabsTrigger value="audit">
               <History className="h-4 w-4 mr-2" /> Historique
@@ -711,6 +724,12 @@ const Users = () => {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="reset" className="mt-4">
+            <ResetTokensPanel
+              users={users.map((u) => ({ user_id: u.user_id, name: u.owner_name }))}
+            />
           </TabsContent>
 
           <TabsContent value="audit" className="mt-4">

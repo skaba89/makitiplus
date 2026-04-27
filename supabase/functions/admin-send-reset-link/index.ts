@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
         status: ctx.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    const { user, adminClient, actorProfile } = ctx;
+    const { user, adminClient, actorProfile, ipAddress } = ctx;
 
     const body = await req.json();
     const { userId, channel, redirectTo } = body;
@@ -125,7 +125,8 @@ Deno.serve(async (req) => {
         actor_id: user.id, actor_name: actorProfile.owner_name ?? 'Admin',
         target_user_id: userId, target_user_name: targetProfile.owner_name ?? '—',
         action: 'user_password_reset_link_sent',
-        details: { channel: 'email', email },
+        details: { channel: 'email', email, organization_id: actorProfile.organization_id },
+        ip_address: ipAddress,
       });
 
       return new Response(JSON.stringify({
@@ -167,7 +168,14 @@ Deno.serve(async (req) => {
     );
 
     if (!sms.ok) {
-      // Twilio not configured or failed: still return manual link so admin can deliver
+      // Audit even when delivery failed (admin still has the manual link)
+      await adminClient.from('user_audit_log').insert({
+        actor_id: user.id, actor_name: actorProfile.owner_name ?? 'Admin',
+        target_user_id: userId, target_user_name: targetProfile.owner_name ?? '—',
+        action: 'user_password_reset_link_sent',
+        details: { channel: 'sms', phone, delivery: 'manual_fallback', error: sms.error, organization_id: actorProfile.organization_id },
+        ip_address: ipAddress,
+      });
       return new Response(JSON.stringify({
         success: false,
         error: sms.error,
@@ -180,7 +188,8 @@ Deno.serve(async (req) => {
       actor_id: user.id, actor_name: actorProfile.owner_name ?? 'Admin',
       target_user_id: userId, target_user_name: targetProfile.owner_name ?? '—',
       action: 'user_password_reset_link_sent',
-      details: { channel: 'sms', phone },
+      details: { channel: 'sms', phone, delivery: 'sms', organization_id: actorProfile.organization_id },
+      ip_address: ipAddress,
     });
 
     return new Response(JSON.stringify({

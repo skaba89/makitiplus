@@ -1,7 +1,5 @@
 // Shared helper to enforce strict admin + organization scope on edge functions.
 // Returns context with adminClient + actorProfile (incl. organization_id).
-// Used by admin-* functions to ensure an admin can only act on users from
-// their own boutique (organization).
 
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.93.3';
 
@@ -14,12 +12,33 @@ export interface AdminCtxOk {
     business_name: string | null;
     organization_id: string | null;
   };
+  ipAddress: string | null;
 }
 
 export interface AdminCtxErr {
   ok: false;
   error: string;
   status: number;
+}
+
+/**
+ * Best-effort client IP extraction from common proxy headers.
+ * Returns null when nothing usable is found.
+ */
+export function extractClientIp(req: Request): string | null {
+  const candidates = [
+    req.headers.get('cf-connecting-ip'),
+    req.headers.get('x-real-ip'),
+    req.headers.get('x-forwarded-for'),
+    req.headers.get('forwarded'),
+  ];
+  for (const raw of candidates) {
+    if (!raw) continue;
+    // x-forwarded-for can be a comma list — first entry is the originating client
+    const first = raw.split(',')[0]?.trim();
+    if (first && first.length <= 64) return first;
+  }
+  return null;
 }
 
 export async function requireAdminContext(req: Request): Promise<AdminCtxOk | AdminCtxErr> {
@@ -68,13 +87,10 @@ export async function requireAdminContext(req: Request): Promise<AdminCtxOk | Ad
       business_name: actorProfile.business_name ?? null,
       organization_id: actorProfile.organization_id,
     },
+    ipAddress: extractClientIp(req),
   };
 }
 
-/**
- * Loads target user profile and asserts it belongs to the same organization
- * as the admin actor. Returns null if not found or out of scope.
- */
 export async function loadTargetInSameOrg(
   adminClient: SupabaseClient,
   targetUserId: string,
