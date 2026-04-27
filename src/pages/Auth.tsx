@@ -34,9 +34,18 @@ const Auth = () => {
   const navigate = useNavigate();
   const { signIn, signUp } = useAuth();
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const resetToken = searchParams.get("reset_token");
+
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("login");
   const [adminExists, setAdminExists] = useState<boolean | null>(null);
+
+  // Reset (redemption) state
+  const [resetPwd, setResetPwd] = useState("");
+  const [resetPwd2, setResetPwd2] = useState("");
+  const [resetSubmitting, setResetSubmitting] = useState(false);
+  const [resetDone, setResetDone] = useState(false);
 
   // Login form state
   const [loginEmail, setLoginEmail] = useState("");
