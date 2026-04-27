@@ -227,7 +227,7 @@ export const AuditLogPanel = ({ users }: { users: UserOption[] }) => {
                 })}
                 {filtered.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                       Aucune entrée correspondante
                     </TableCell>
                   </TableRow>
