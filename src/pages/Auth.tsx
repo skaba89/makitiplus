@@ -243,6 +243,99 @@ const Auth = () => {
     comptable: { label: "Comptable", description: "Finances et rapports" },
   };
 
+  // Render redemption screen when arriving via SMS magic link
+  if (resetToken) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-background flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 rounded-2xl bg-hero-gradient flex items-center justify-center mx-auto mb-4">
+              <KeyRound className="h-8 w-8 text-primary-foreground" />
+            </div>
+            <h1 className="text-2xl font-bold">Nouveau mot de passe</h1>
+            <p className="text-muted-foreground mt-2">
+              Lien à usage unique — définissez votre nouveau mot de passe
+            </p>
+          </div>
+
+          <Card className="card-elevated">
+            <CardContent className="pt-6">
+              {resetDone ? (
+                <div className="text-center space-y-4">
+                  <CheckCircle2 className="h-12 w-12 text-primary mx-auto" />
+                  <div>
+                    <h2 className="font-semibold text-lg">Mot de passe mis à jour</h2>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Toutes vos sessions ont été déconnectées. Connectez-vous avec votre nouveau mot de passe.
+                    </p>
+                  </div>
+                  <Button className="w-full" onClick={clearResetToken}>
+                    Se connecter
+                  </Button>
+                </div>
+              ) : (
+                <form onSubmit={handleResetSubmit} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="reset-pwd">Nouveau mot de passe</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="reset-pwd"
+                        type="password"
+                        value={resetPwd}
+                        onChange={(e) => setResetPwd(e.target.value)}
+                        className="pl-10"
+                        placeholder="Min 8 car. + maj/min/chiffre/symbole"
+                        required
+                        autoComplete="new-password"
+                      />
+                    </div>
+                    <PasswordStrengthMeter password={resetPwd} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="reset-pwd2">Confirmer le mot de passe</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="reset-pwd2"
+                        type="password"
+                        value={resetPwd2}
+                        onChange={(e) => setResetPwd2(e.target.value)}
+                        className="pl-10"
+                        required
+                        autoComplete="new-password"
+                      />
+                    </div>
+                  </div>
+                  <Button type="submit" className="w-full" size="lg" disabled={resetSubmitting}>
+                    {resetSubmitting ? (
+                      <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Validation…</>
+                    ) : (
+                      <>Réinitialiser le mot de passe</>
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full"
+                    onClick={clearResetToken}
+                    disabled={resetSubmitting}
+                  >
+                    Annuler
+                  </Button>
+                </form>
+              )}
+            </CardContent>
+          </Card>
+
+          <p className="text-center text-xs text-muted-foreground mt-6">
+            Lien valide 30 minutes — usage unique. Contactez votre administrateur si le lien a expiré.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
