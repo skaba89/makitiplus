@@ -73,6 +73,43 @@ const Auth = () => {
     checkAdmin();
   }, []);
 
+  const handleResetSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetToken) return;
+    if (resetPwd !== resetPwd2) {
+      toast({ variant: "destructive", title: "Erreur", description: "Les mots de passe ne correspondent pas" });
+      return;
+    }
+    const check = checkPassword(resetPwd);
+    if (!check.ok) {
+      toast({ variant: "destructive", title: "Mot de passe non conforme", description: check.errors.join(" • ") });
+      return;
+    }
+    setResetSubmitting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("redeem-reset-token", {
+        body: { token: resetToken, newPassword: resetPwd },
+      });
+      if (error || (data as any)?.error) {
+        throw new Error((data as any)?.error || error?.message || "Erreur");
+      }
+      setResetDone(true);
+      toast({ title: "Mot de passe mis à jour", description: "Vous pouvez maintenant vous connecter." });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Lien invalide", description: err.message });
+    } finally {
+      setResetSubmitting(false);
+    }
+  };
+
+  const clearResetToken = () => {
+    searchParams.delete("reset_token");
+    setSearchParams(searchParams, { replace: true });
+    setResetDone(false);
+    setResetPwd("");
+    setResetPwd2("");
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
