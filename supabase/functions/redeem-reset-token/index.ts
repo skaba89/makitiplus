@@ -14,6 +14,20 @@ async function hashToken(token: string): Promise<string> {
     .join('');
 }
 
+function extractClientIp(req: Request): string | null {
+  const candidates = [
+    req.headers.get('cf-connecting-ip'),
+    req.headers.get('x-real-ip'),
+    req.headers.get('x-forwarded-for'),
+  ];
+  for (const raw of candidates) {
+    if (!raw) continue;
+    const first = raw.split(',')[0]?.trim();
+    if (first && first.length <= 64) return first;
+  }
+  return null;
+}
+
 // Public endpoint: user redeems a one-time token (from SMS) to set a new password.
 // No JWT required.
 Deno.serve(async (req) => {
@@ -23,6 +37,7 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const adminClient = createClient(supabaseUrl, serviceKey);
+    const ipAddress = extractClientIp(req);
 
     const { token, newPassword } = await req.json();
     if (!token || !newPassword) {
@@ -84,7 +99,8 @@ Deno.serve(async (req) => {
       target_user_id: tokenRow.user_id,
       target_user_name: '—',
       action: 'user_password_reset_completed',
-      details: {},
+      details: { token_id: tokenRow.id },
+      ip_address: ipAddress,
     });
 
     return new Response(JSON.stringify({ success: true }), {
