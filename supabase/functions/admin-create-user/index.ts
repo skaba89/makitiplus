@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
     // Audit log
     await adminClient.from('user_audit_log').insert({
       actor_id: user.id,
-      actor_name: actorProfile?.owner_name ?? 'Admin',
+      actor_name: actorProfile.owner_name ?? 'Admin',
       target_user_id: newUserId,
       target_user_name: ownerName,
       action: 'user_created',
