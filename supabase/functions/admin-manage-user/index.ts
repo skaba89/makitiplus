@@ -17,7 +17,7 @@ Deno.serve(async (req) => {
         status: ctx.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    const { user, adminClient, actorProfile } = ctx;
+    const { user, adminClient, actorProfile, ipAddress } = ctx;
 
     const { userId, action, reason, newPassword } = await req.json();
     if (!userId || !action) {
@@ -103,7 +103,8 @@ Deno.serve(async (req) => {
       await adminClient.from('user_audit_log').insert({
         actor_id: user.id, actor_name: actorProfile.owner_name ?? 'Admin',
         target_user_id: userId, target_user_name: targetProfile.owner_name ?? '—',
-        action: 'user_password_reset', details: {},
+        action: 'user_password_reset', details: { mode: 'manual', organization_id: actorProfile.organization_id },
+        ip_address: ipAddress,
       });
 
       return new Response(JSON.stringify({ success: true }), {
