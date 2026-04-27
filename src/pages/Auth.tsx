@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,10 +8,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Store, User, Phone, Mail, Lock, Shield } from "lucide-react";
+import { Loader2, Store, User, Phone, Mail, Lock, Shield, KeyRound, CheckCircle2 } from "lucide-react";
 import { z } from "zod";
 import { Database } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
+import { PasswordStrengthMeter } from "@/components/users/PasswordStrengthMeter";
+import { checkPassword } from "@/lib/passwordPolicy";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 
