@@ -55,11 +55,11 @@ Deno.serve(async (req) => {
 
     const { error: profileError } = await adminClient.from('profiles').insert({
       user_id: newUserId,
-      business_name: actorProfile?.business_name ?? 'Boutique',
+      business_name: actorProfile.business_name ?? 'Boutique',
       owner_name: ownerName,
       phone: phone ?? null,
       is_active: true,
-      organization_id: actorProfile?.organization_id ?? null,
+      organization_id: actorProfile.organization_id, // strict scope
     });
 
     if (profileError) {
