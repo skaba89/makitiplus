@@ -73,6 +73,7 @@ export const ResetTokensPanel = ({ users }: { users: UserOption[] }) => {
   const [loading, setLoading] = useState(true);
   const [channel, setChannel] = useState<ChannelFilter>("all");
   const [status, setStatus] = useState<StatusFilter>("all");
+  const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
   const userMap = new Map(users.map((u) => [u.user_id, u.name]));
