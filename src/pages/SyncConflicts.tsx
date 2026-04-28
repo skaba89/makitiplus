@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
+import { ConflictSimulationPanel } from "@/components/sync/ConflictSimulationPanel";
 
 interface ConflictRow {
   id: string;
@@ -207,6 +208,8 @@ const SyncConflicts = () => {
                 </CardHeader>
               </Card>
             </div>
+
+            <ConflictSimulationPanel />
 
             <Card>
               <CardHeader>

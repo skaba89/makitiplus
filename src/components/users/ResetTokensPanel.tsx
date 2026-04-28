@@ -8,6 +8,8 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Search } from "lucide-react";
 import {
   Pagination, PaginationContent, PaginationItem,
   PaginationLink, PaginationNext, PaginationPrevious,
@@ -71,6 +73,7 @@ export const ResetTokensPanel = ({ users }: { users: UserOption[] }) => {
   const [loading, setLoading] = useState(true);
   const [channel, setChannel] = useState<ChannelFilter>("all");
   const [status, setStatus] = useState<StatusFilter>("all");
+  const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
   const userMap = new Map(users.map((u) => [u.user_id, u.name]));
@@ -90,15 +93,21 @@ export const ResetTokensPanel = ({ users }: { users: UserOption[] }) => {
   };
 
   useEffect(() => { load(); }, []);
-  useEffect(() => { setPage(1); }, [channel, status]);
+  useEffect(() => { setPage(1); }, [channel, status, search]);
 
   const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
     return rows.filter((r) => {
       if (channel !== "all" && r.channel !== channel) return false;
       if (status !== "all" && statusOf(r) !== status) return false;
+      if (q) {
+        const dest = (r.destination ?? "").toLowerCase();
+        const name = (userMap.get(r.user_id) ?? "").toLowerCase();
+        if (!dest.includes(q) && !name.includes(q)) return false;
+      }
       return true;
     });
-  }, [rows, channel, status]);
+  }, [rows, channel, status, search, userMap]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -153,6 +162,16 @@ export const ResetTokensPanel = ({ users }: { users: UserOption[] }) => {
                 <SelectItem value="expired">Expiré</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          <div className="relative flex-1 min-w-[220px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <Input
+              type="search"
+              placeholder="Rechercher email, téléphone ou utilisateur…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
           </div>
         </div>
 
