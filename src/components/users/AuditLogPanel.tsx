@@ -11,7 +11,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Search, X, History } from "lucide-react";
+import { Loader2, Search, X, History, Download } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Database } from "@/integrations/supabase/types";
@@ -39,6 +39,7 @@ const actionLabels: Record<string, { label: string; tone: string }> = {
   user_password_reset_link_sent: { label: "Lien reset envoyé", tone: "bg-accent/10 text-accent-foreground" },
   user_password_reset_completed: { label: "Reset complété (lien magique)", tone: "bg-primary/15 text-primary" },
   users_exported_csv: { label: "Export CSV utilisateurs", tone: "bg-muted text-foreground" },
+  audit_exported_csv: { label: "Export CSV audit", tone: "bg-muted text-foreground" },
 };
 
 const roleLabels: Record<AppRole, string> = {
@@ -64,9 +65,17 @@ export const AuditLogPanel = ({ users }: { users: UserOption[] }) => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [actionFilter, setActionFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<"all" | "reset" | "export" | "lifecycle">("all");
   const [userFilter, setUserFilter] = useState<string>("all");
+  const [ipFilter, setIpFilter] = useState("");
   const [from, setFrom] = useState<string>("");
   const [to, setTo] = useState<string>("");
+
+  const categoryMap: Record<string, string[]> = {
+    reset: ["user_password_reset", "user_password_reset_link_sent", "user_password_reset_completed"],
+    export: ["users_exported_csv", "audit_exported_csv"],
+    lifecycle: ["user_created", "user_deactivated", "user_reactivated", "user_deleted_permanently"],
+  };
 
   const load = async () => {
     setLoading(true);
@@ -77,6 +86,7 @@ export const AuditLogPanel = ({ users }: { users: UserOption[] }) => {
         .order("created_at", { ascending: false })
         .limit(500);
       if (actionFilter !== "all") q = q.eq("action", actionFilter);
+      else if (categoryFilter !== "all") q = q.in("action", categoryMap[categoryFilter]);
       if (userFilter !== "all") q = q.eq("target_user_id", userFilter);
       if (from) q = q.gte("created_at", new Date(from).toISOString());
       if (to) {
@@ -94,44 +104,108 @@ export const AuditLogPanel = ({ users }: { users: UserOption[] }) => {
     }
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [actionFilter, userFilter, from, to]);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [actionFilter, categoryFilter, userFilter, from, to]);
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return rows;
-    const s = search.toLowerCase();
-    return rows.filter(
-      (r) =>
+    const s = search.trim().toLowerCase();
+    const ip = ipFilter.trim().toLowerCase();
+    return rows.filter((r) => {
+      if (ip && !(r.ip_address ?? "").toLowerCase().includes(ip)) return false;
+      if (!s) return true;
+      return (
         r.target_user_name?.toLowerCase().includes(s) ||
         r.actor_name?.toLowerCase().includes(s) ||
-        r.details?.email?.toLowerCase()?.includes(s)
-    );
-  }, [rows, search]);
+        r.details?.email?.toLowerCase()?.includes(s) ||
+        r.ip_address?.toLowerCase().includes(s)
+      );
+    });
+  }, [rows, search, ipFilter]);
 
   const reset = () => {
-    setSearch(""); setActionFilter("all"); setUserFilter("all"); setFrom(""); setTo("");
+    setSearch(""); setActionFilter("all"); setCategoryFilter("all");
+    setUserFilter("all"); setIpFilter(""); setFrom(""); setTo("");
+  };
+
+  const exportCsv = async () => {
+    const esc = (v: unknown) => {
+      const s = v == null ? "" : String(v);
+      return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    // Include boutique name for context
+    const { data: userData } = await supabase.auth.getUser();
+    const { data: profileRow } = await supabase
+      .from("profiles")
+      .select("organization_id, business_name")
+      .eq("user_id", userData.user?.id ?? "")
+      .maybeSingle();
+    const { data: orgRow } = profileRow?.organization_id
+      ? await supabase
+          .from("organizations")
+          .select("name")
+          .eq("id", profileRow.organization_id)
+          .maybeSingle()
+      : { data: null };
+    const orgName = orgRow?.name ?? profileRow?.business_name ?? "";
+
+    const headers = [
+      "Date", "Action", "Cible", "Cible ID", "Par", "Par ID",
+      "IP", "Boutique", "Détails",
+    ];
+    const lines = [headers.join(",")];
+    for (const r of filtered) {
+      const meta = actionLabels[r.action]?.label ?? r.action;
+      const details = r.details ? JSON.stringify(r.details) : "";
+      lines.push([
+        r.created_at, meta, r.target_user_name ?? "", r.target_user_id ?? "",
+        r.actor_name ?? "", r.actor_id ?? "",
+        r.ip_address ?? "", orgName, details,
+      ].map(esc).join(","));
+    }
+    const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `audit-log-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    // Trace export in audit
+    try {
+      await supabase.from("user_audit_log").insert({
+        action: "audit_exported_csv",
+        actor_id: userData.user?.id ?? null,
+        actor_name: userData.user?.email ?? null,
+        details: { count: filtered.length, boutique: orgName },
+      });
+    } catch { /* non-bloquant */ }
   };
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <History className="h-5 w-5 text-primary" />
-          Historique d'audit
-        </CardTitle>
-        <CardDescription>
-          Journal immuable filtrable des actions sur les utilisateurs
-        </CardDescription>
+      <CardHeader className="flex-row items-start justify-between space-y-0 gap-3 flex-wrap">
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <History className="h-5 w-5 text-primary" />
+            Historique d'audit
+          </CardTitle>
+          <CardDescription>
+            Journal immuable filtrable des actions sur les utilisateurs
+          </CardDescription>
+        </div>
+        <Button variant="outline" size="sm" onClick={exportCsv} disabled={loading || filtered.length === 0}>
+          <Download className="h-4 w-4 mr-2" /> Exporter CSV ({filtered.length})
+        </Button>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Filtres */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">
           <div className="lg:col-span-2 space-y-1">
-            <Label htmlFor="audit-search">Rechercher (nom / email)</Label>
+            <Label htmlFor="audit-search">Rechercher (nom / email / IP)</Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 id="audit-search"
-                placeholder="Nom ou email..."
+                placeholder="Nom, email ou IP..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9"
@@ -139,7 +213,19 @@ export const AuditLogPanel = ({ users }: { users: UserOption[] }) => {
             </div>
           </div>
           <div className="space-y-1">
-            <Label>Action</Label>
+            <Label>Catégorie</Label>
+            <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v as any)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toutes</SelectItem>
+                <SelectItem value="reset">Reset mot de passe</SelectItem>
+                <SelectItem value="export">Exports CSV</SelectItem>
+                <SelectItem value="lifecycle">Cycle de vie compte</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>Action précise</Label>
             <Select value={actionFilter} onValueChange={setActionFilter}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -161,6 +247,15 @@ export const AuditLogPanel = ({ users }: { users: UserOption[] }) => {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="audit-ip">Adresse IP</Label>
+            <Input
+              id="audit-ip"
+              placeholder="ex. 192.168"
+              value={ipFilter}
+              onChange={(e) => setIpFilter(e.target.value)}
+            />
           </div>
           <div className="space-y-1">
             <Label htmlFor="from">Du</Label>
