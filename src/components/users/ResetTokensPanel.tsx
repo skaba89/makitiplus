@@ -96,12 +96,18 @@ export const ResetTokensPanel = ({ users }: { users: UserOption[] }) => {
   useEffect(() => { setPage(1); }, [channel, status]);
 
   const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
     return rows.filter((r) => {
       if (channel !== "all" && r.channel !== channel) return false;
       if (status !== "all" && statusOf(r) !== status) return false;
+      if (q) {
+        const dest = (r.destination ?? "").toLowerCase();
+        const name = (userMap.get(r.user_id) ?? "").toLowerCase();
+        if (!dest.includes(q) && !name.includes(q)) return false;
+      }
       return true;
     });
-  }, [rows, channel, status]);
+  }, [rows, channel, status, search, userMap]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
