@@ -93,7 +93,7 @@ export const ResetTokensPanel = ({ users }: { users: UserOption[] }) => {
   };
 
   useEffect(() => { load(); }, []);
-  useEffect(() => { setPage(1); }, [channel, status]);
+  useEffect(() => { setPage(1); }, [channel, status, search]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
