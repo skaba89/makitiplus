@@ -37,12 +37,17 @@ const paymentMethodLabels: Record<string, string> = {
 };
 
 export const formatPriceWithCurrency = (
-  price: number, 
-  symbol: string = "FCFA", 
+  price: number,
+  symbol: string = "FCFA",
   position: "before" | "after" = "after"
 ): string => {
-  const formatted = new Intl.NumberFormat("fr-FR").format(price);
-  return position === "before" ? `${symbol}${formatted}` : `${formatted} ${symbol}`;
+  // Affiche 2 décimales si le prix n'est pas entier (utile pour TVA, monnaie)
+  const hasDecimals = Math.abs(price - Math.round(price)) > 0.001;
+  const formatted = new Intl.NumberFormat("fr-FR", {
+    minimumFractionDigits: hasDecimals ? 2 : 0,
+    maximumFractionDigits: hasDecimals ? 2 : 0,
+  }).format(price);
+  return position === "before" ? `${symbol} ${formatted}` : `${formatted} ${symbol}`;
 };
 
 // Legacy function for backward compatibility
