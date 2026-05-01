@@ -16,6 +16,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { ConflictSimulationPanel } from "@/components/sync/ConflictSimulationPanel";
+import { OfflinePOSSimulationPanel } from "@/components/sync/OfflinePOSSimulationPanel";
 
 interface ConflictRow {
   id: string;
@@ -210,6 +211,8 @@ const SyncConflicts = () => {
             </div>
 
             <ConflictSimulationPanel />
+
+            <OfflinePOSSimulationPanel />
 
             <Card>
               <CardHeader>
