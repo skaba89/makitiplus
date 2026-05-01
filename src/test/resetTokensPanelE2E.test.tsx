@@ -77,32 +77,35 @@ const isSortedDesc = (dates: string[]) => {
 describe("ResetTokensPanel e2e — filtres répétés, tri stable & pagination", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("garde le tri par date desc en changeant plusieurs fois canal et statut", async () => {
+  it("garde le tri par date desc lors de filtrages successifs par recherche", async () => {
     await renderPanel();
 
     // Initial : tous canaux
     expect(isSortedDesc(getCreatedDates())).toBe(true);
 
-    // Changer canal → email
-    fireEvent.click(screen.getAllByRole("combobox")[0]);
-    await waitFor(() => screen.getByText("Email"));
-    fireEvent.click(screen.getByText("Email"));
-    await waitFor(() => expect(getCreatedDates().length).toBeGreaterThan(0));
+    const search = screen.getByPlaceholderText(/Rechercher email/i);
+
+    // Filtrage par "mail" → uniquement les emails
+    fireEvent.change(search, { target: { value: "@example.com" } });
+    await waitFor(() => {
+      const rows = screen.getAllByRole("row").slice(1);
+      expect(rows.length).toBeGreaterThan(0);
+      rows.forEach((r) => expect(r.textContent).toMatch(/@example.com/));
+    });
     expect(isSortedDesc(getCreatedDates())).toBe(true);
 
-    // Changer canal → sms
-    fireEvent.click(screen.getAllByRole("combobox")[0]);
-    await waitFor(() => screen.getByText("SMS"));
-    fireEvent.click(screen.getByText("SMS"));
-    await waitFor(() => expect(getCreatedDates().length).toBeGreaterThan(0));
+    // Changer la recherche pour viser les SMS
+    fireEvent.change(search, { target: { value: "+22177" } });
+    await waitFor(() => {
+      const rows = screen.getAllByRole("row").slice(1);
+      expect(rows.length).toBeGreaterThan(0);
+      rows.forEach((r) => expect(r.textContent).toMatch(/\+22177/));
+    });
     expect(isSortedDesc(getCreatedDates())).toBe(true);
 
-    // Changer statut → expiré
-    fireEvent.click(screen.getAllByRole("combobox")[1]);
-    await waitFor(() => screen.getByText("Expiré"));
-    fireEvent.click(screen.getByText("Expiré"));
-    await waitFor(() => expect(getCreatedDates().length).toBeGreaterThanOrEqual(0));
-    // Toujours trié (même si 1 seul résultat)
+    // Re-élargir et vérifier que le tri tient
+    fireEvent.change(search, { target: { value: "" } });
+    await waitFor(() => expect(getCreatedDates().length).toBeGreaterThan(5));
     expect(isSortedDesc(getCreatedDates())).toBe(true);
   });
 
