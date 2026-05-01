@@ -46,8 +46,8 @@ const users = [
 const renderPanel = async () => {
   render(<ResetTokensPanel users={users} />);
   await waitFor(() => {
-    // En attente du chargement (au moins un mail visible)
-    expect(screen.getByText(/mail0@example.com/)).toBeInTheDocument();
+    // En attente du chargement (au moins un email récent visible — page 1, tri desc)
+    expect(screen.getByText(/mail12@example.com/)).toBeInTheDocument();
   });
 };
 
@@ -120,12 +120,12 @@ describe("ResetTokensPanel e2e — filtres répétés, tri stable & pagination",
     const search = screen.getByPlaceholderText(/Rechercher email/i);
 
     // 1. Recherche par email
-    fireEvent.change(search, { target: { value: "mail0@example.com" } });
+    fireEvent.change(search, { target: { value: "mail12@example.com" } });
     await waitFor(() => {
-      expect(screen.getByText("mail0@example.com")).toBeInTheDocument();
-      // Toutes les lignes affichées contiennent "mail0"
+      expect(screen.getByText("mail12@example.com")).toBeInTheDocument();
+      // Toutes les lignes affichées contiennent "mail12"
       const rows = screen.getAllByRole("row").slice(1);
-      rows.forEach((r) => expect(r.textContent).toMatch(/mail0/));
+      rows.forEach((r) => expect(r.textContent).toMatch(/mail12/));
     });
 
     // 2. Effacer puis rechercher par téléphone
