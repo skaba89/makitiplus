@@ -107,8 +107,44 @@ function runScenario(s: Scenario, previous: number, localDelta: number, remoteDe
   };
 }
 
+/** Construit une description lisible "diff avant/après" pour un scénario. */
+function buildDiff(r: SimResult): string {
+  if (r.scenario === "profile_lww") {
+    const l = r.local as any, rem = r.remote as any, res = r.resolved as any;
+    return `local.name="${l.name}" → remote.name="${rem.name}" → résolu.name="${res.name}"`;
+  }
+  const l = r.local?.stock, rem = r.remote?.stock, res = r.resolved?.stock;
+  const dl = r.params.localDelta, dr = r.params.remoteDelta;
+  return `previous=${r.params.previous} | local=${l} (Δ${dl >= 0 ? "+" : ""}${dl}) vs remote=${rem} (Δ${dr >= 0 ? "+" : ""}${dr}) → fusionné=${res}`;
+}
+
+function summarize(results: SimResult[]): string {
+  const ok = results.filter((r) => r.noLoss).length;
+  const ko = results.length - ok;
+  const byScenario: Record<string, { total: number; ok: number }> = {};
+  for (const r of results) {
+    const key = r.label;
+    if (!byScenario[key]) byScenario[key] = { total: 0, ok: 0 };
+    byScenario[key].total += 1;
+    if (r.noLoss) byScenario[key].ok += 1;
+  }
+  const lines = [
+    `Scénarios validés : ${ok}/${results.length} (zéro perte)`,
+    ko > 0 ? `Scénarios avec borne min 0 (rupture) : ${ko}` : "",
+    "",
+    "Détail par scénario :",
+    ...Object.entries(byScenario).map(([k, v]) => `  • ${k} — ${v.ok}/${v.total} OK`),
+  ].filter(Boolean);
+  return lines.join("\n");
+}
+
 function toCSV(results: SimResult[]): string {
-  const head = ["Date", "Scenario", "Label", "Strategy", "Previous", "DeltaLocal", "DeltaRemote", "Local", "Remote", "Resolved", "Expected", "ZeroLoss"];
+  const head = [
+    "Date", "Scenario", "Label", "Strategy",
+    "Previous", "DeltaLocal", "DeltaRemote",
+    "AvantLocal", "AvantRemote", "ApresFusionne",
+    "DiffAvantApres", "Expected", "ZeroLoss",
+  ];
   const rows = results.map((r) => [
     r.ranAt,
     r.scenario,
@@ -120,6 +156,7 @@ function toCSV(results: SimResult[]): string {
     JSON.stringify(r.local),
     JSON.stringify(r.remote),
     JSON.stringify(r.resolved),
+    buildDiff(r),
     r.expected ?? "",
     r.noLoss ? "OUI" : "NON",
   ]);
@@ -127,7 +164,12 @@ function toCSV(results: SimResult[]): string {
     const s = String(v ?? "");
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
-  return [head, ...rows].map((r) => r.map(escape).join(",")).join("\n");
+  // Préfixe résumé en commentaire CSV (lignes # ignorables) puis données
+  const summary = summarize(results)
+    .split("\n")
+    .map((l) => `# ${l}`)
+    .join("\n");
+  return summary + "\n" + [head, ...rows].map((r) => r.map(escape).join(",")).join("\n");
 }
 
 function downloadBlob(content: BlobPart, mime: string, filename: string) {
@@ -145,28 +187,57 @@ async function exportPDF(results: SimResult[]) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const margin = 40;
   let y = margin;
+
+  // Titre + résumé lisible
   doc.setFontSize(16);
+  doc.setFont("helvetica", "bold");
   doc.text("Rapport — Simulation de conflits offline", margin, y);
-  y += 20;
-  doc.setFontSize(10);
+  y += 22;
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
   doc.setTextColor(100);
   doc.text(`Généré le ${new Date().toLocaleString("fr-FR")} · ${results.length} scénario(s)`, margin, y);
-  y += 20;
+  y += 18;
   doc.setTextColor(0);
+
+  // Bloc résumé
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.text("Résumé exécutif", margin, y); y += 14;
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  for (const line of summarize(results).split("\n")) {
+    if (y > 780) { doc.addPage(); y = margin; }
+    doc.text(line, margin, y); y += 12;
+  }
+  y += 6;
+
+  // Détail par scénario
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.text("Détail par scénario", margin, y); y += 16;
 
   results.forEach((r, idx) => {
     if (y > 760) { doc.addPage(); y = margin; }
-    doc.setFontSize(12);
+    doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
     doc.text(`${idx + 1}. ${r.label}`, margin, y);
-    y += 14;
+    y += 13;
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.text(`Stratégie: ${r.strategy} · Zéro perte: ${r.noLoss ? "OUI" : "NON"}`, margin, y); y += 12;
-    doc.text(`Paramètres: ${JSON.stringify(r.params)}`, margin, y); y += 12;
-    doc.text(`Local:    ${JSON.stringify(r.local)}`, margin, y); y += 12;
-    doc.text(`Remote:   ${JSON.stringify(r.remote)}`, margin, y); y += 12;
-    doc.text(`Résolu:   ${JSON.stringify(r.resolved)}`, margin, y); y += 16;
+    doc.setFontSize(8.5);
+    doc.text(`Stratégie : ${r.strategy} · Zéro perte : ${r.noLoss ? "OUI" : "NON (borne 0)"}`, margin, y); y += 11;
+    doc.text(`Paramètres : ${JSON.stringify(r.params)}`, margin, y); y += 11;
+    doc.text(`Avant — Local  : ${JSON.stringify(r.local)}`, margin, y); y += 11;
+    doc.text(`Avant — Remote : ${JSON.stringify(r.remote)}`, margin, y); y += 11;
+    doc.text(`Après — Fusionné : ${JSON.stringify(r.resolved)}`, margin, y); y += 11;
+    doc.setTextColor(60); doc.setFont("helvetica", "italic");
+    const diff = buildDiff(r);
+    // wrap simple ~95 chars
+    for (let i = 0; i < diff.length; i += 95) {
+      doc.text(`Diff : ${diff.slice(i, i + 95)}`, margin, y); y += 11;
+    }
+    doc.setTextColor(0); doc.setFont("helvetica", "normal");
+    y += 6;
   });
 
   doc.save(`simulation-conflits-${new Date().toISOString().slice(0, 10)}.pdf`);

@@ -37,12 +37,17 @@ const paymentMethodLabels: Record<string, string> = {
 };
 
 export const formatPriceWithCurrency = (
-  price: number, 
-  symbol: string = "FCFA", 
+  price: number,
+  symbol: string = "FCFA",
   position: "before" | "after" = "after"
 ): string => {
-  const formatted = new Intl.NumberFormat("fr-FR").format(price);
-  return position === "before" ? `${symbol}${formatted}` : `${formatted} ${symbol}`;
+  // Affiche 2 décimales si le prix n'est pas entier (utile pour TVA, monnaie)
+  const hasDecimals = Math.abs(price - Math.round(price)) > 0.001;
+  const formatted = new Intl.NumberFormat("fr-FR", {
+    minimumFractionDigits: hasDecimals ? 2 : 0,
+    maximumFractionDigits: hasDecimals ? 2 : 0,
+  }).format(price);
+  return position === "before" ? `${symbol} ${formatted}` : `${formatted} ${symbol}`;
 };
 
 // Legacy function for backward compatibility
@@ -54,129 +59,188 @@ export const generateReceiptPDF = (data: ReceiptData): jsPDF => {
   const symbol = data.currencySymbol || "FCFA";
   const position = data.currencyPosition || "after";
   const fPrice = (p: number) => formatPriceWithCurrency(p, symbol, position);
-  
-  // Receipt width: 80mm (typical thermal printer width)
+
+  // Largeur 80mm (imprimante thermique standard)
+  const pageWidth = 80;
+  const margin = 4;
+  const contentWidth = pageWidth - margin * 2;
+  // Hauteur dynamique : on estime puis on rogne
+  const estimatedHeight = 90 + data.items.length * 8 + (data.subtotal !== data.total ? 10 : 0);
   const doc = new jsPDF({
     orientation: "portrait",
     unit: "mm",
-    format: [80, 200], // 80mm wide, variable height
+    format: [pageWidth, estimatedHeight],
   });
 
-  const pageWidth = 80;
-  const margin = 5;
-  const contentWidth = pageWidth - margin * 2;
-  let y = 10;
+  let y = 6;
 
-  // Helper function to center text
-  const centerText = (text: string, yPos: number, fontSize: number = 10) => {
+  // Helpers ------------------------------------------------------------
+  const centerText = (text: string, yPos: number, fontSize = 9, bold = false) => {
     doc.setFontSize(fontSize);
-    const textWidth = doc.getTextWidth(text);
-    doc.text(text, (pageWidth - textWidth) / 2, yPos);
+    doc.setFont("helvetica", bold ? "bold" : "normal");
+    const tw = doc.getTextWidth(text);
+    doc.text(text, (pageWidth - tw) / 2, yPos);
+  };
+  const rightText = (text: string, yPos: number) => {
+    const tw = doc.getTextWidth(text);
+    doc.text(text, pageWidth - margin - tw, yPos);
+  };
+  const dottedLine = (yPos: number) => {
+    doc.setLineDashPattern([0.6, 0.6], 0);
+    doc.setLineWidth(0.15);
+    doc.line(margin, yPos, pageWidth - margin, yPos);
+    doc.setLineDashPattern([], 0);
+  };
+  const solidLine = (yPos: number, width = 0.2) => {
+    doc.setLineWidth(width);
+    doc.line(margin, yPos, pageWidth - margin, yPos);
+  };
+  const wrapText = (txt: string, maxChars: number): string[] => {
+    if (txt.length <= maxChars) return [txt];
+    const words = txt.split(" ");
+    const lines: string[] = [];
+    let cur = "";
+    for (const w of words) {
+      if ((cur + " " + w).trim().length > maxChars) {
+        if (cur) lines.push(cur);
+        cur = w;
+      } else {
+        cur = (cur + " " + w).trim();
+      }
+    }
+    if (cur) lines.push(cur);
+    return lines.slice(0, 2); // max 2 lignes par article
   };
 
-  // Header
-  doc.setFont("helvetica", "bold");
-  centerText(data.businessName.toUpperCase(), y, 14);
+  // En-tête : nom boutique en gros + infos -----------------------------
+  centerText(data.businessName.toUpperCase(), y, 13, true);
+  y += 5;
+  if (data.businessAddress) { centerText(data.businessAddress, y, 7.5); y += 3.5; }
+  if (data.businessPhone)   { centerText(`Tel : ${data.businessPhone}`, y, 7.5); y += 3.5; }
+
+  y += 1.5;
+  solidLine(y, 0.4);
+  y += 4.5;
+
+  // Bandeau "TICKET DE CAISSE"
+  centerText("TICKET DE CAISSE", y, 9, true);
   y += 5;
 
+  // Métadonnées (N° + date/heure + vendeur + client)
   doc.setFont("helvetica", "normal");
-  if (data.businessAddress) {
-    centerText(data.businessAddress, y, 8);
-    y += 4;
-  }
-  if (data.businessPhone) {
-    centerText(`Tél: ${data.businessPhone}`, y, 8);
-    y += 4;
-  }
-
-  // Separator line
-  y += 2;
-  doc.setLineWidth(0.1);
-  doc.line(margin, y, pageWidth - margin, y);
-  y += 4;
-
-  // Receipt info
-  doc.setFontSize(9);
-  doc.text(`N°: ${data.saleNumber}`, margin, y);
-  y += 4;
-  doc.text(`Date: ${data.date.toLocaleDateString("fr-FR")}`, margin, y);
-  doc.text(`${data.date.toLocaleTimeString("fr-FR")}`, pageWidth - margin - 15, y);
-  y += 4;
-
+  doc.setFontSize(7.5);
+  doc.text(`N° ${data.saleNumber}`, margin, y);
+  rightText(data.date.toLocaleDateString("fr-FR"), y);
+  y += 3.5;
   if (data.sellerName) {
-    doc.text(`Vendeur: ${data.sellerName}`, margin, y);
-    y += 4;
+    doc.text(`Vendeur : ${data.sellerName}`, margin, y);
   }
-
+  rightText(data.date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }), y);
+  y += 3.5;
   if (data.customerName) {
-    doc.text(`Client: ${data.customerName}`, margin, y);
-    y += 4;
+    doc.text(`Client : ${data.customerName}`, margin, y);
+    y += 3.5;
   }
 
-  // Separator line
-  y += 2;
-  doc.line(margin, y, pageWidth - margin, y);
-  y += 4;
+  y += 1;
+  dottedLine(y);
+  y += 3.5;
 
-  // Items header
+  // En-tête colonnes
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
+  doc.setFontSize(7.5);
   doc.text("Article", margin, y);
-  doc.text("Qté", margin + 35, y);
-  doc.text("Prix", margin + 45, y);
-  doc.text("Total", margin + 58, y);
-  y += 3;
-  doc.line(margin, y, pageWidth - margin, y);
-  y += 4;
+  doc.text("Qté", margin + 38, y);
+  rightText("Total", y);
+  y += 2.5;
+  dottedLine(y);
+  y += 3.5;
 
-  // Items
+  // Articles
   doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
   data.items.forEach((item) => {
-    // Product name (might need truncation)
-    const name = item.product_name.length > 18 
-      ? item.product_name.substring(0, 18) + "..." 
-      : item.product_name;
-    doc.text(name, margin, y);
-    doc.text(item.quantity.toString(), margin + 37, y);
-    doc.text(item.unit_price.toLocaleString("fr-FR"), margin + 45, y);
-    doc.text(item.total_price.toLocaleString("fr-FR"), margin + 58, y);
+    const lines = wrapText(item.product_name, 22);
+    doc.text(lines[0], margin, y);
+    doc.text(`${item.quantity}`, margin + 38, y);
+    rightText(fPrice(item.total_price), y);
+    y += 3.5;
+    // 2e ligne : nom long OU détail unitaire
+    if (lines[1]) {
+      doc.text(lines[1], margin, y);
+      y += 3.5;
+    }
+    doc.setTextColor(120);
+    doc.setFontSize(7);
+    doc.text(`  ${item.quantity} × ${fPrice(item.unit_price)}`, margin, y);
+    doc.setTextColor(0);
+    doc.setFontSize(8);
     y += 4;
   });
 
-  // Separator line
-  y += 2;
-  doc.line(margin, y, pageWidth - margin, y);
+  y += 0.5;
+  dottedLine(y);
   y += 4;
 
-  // Totals
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.text("TOTAL:", margin, y);
-  doc.text(fPrice(data.total), pageWidth - margin - doc.getTextWidth(fPrice(data.total)), y);
-  y += 6;
-
+  // Totaux
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.text(`Paiement: ${paymentMethodLabels[data.paymentMethod] || data.paymentMethod}`, margin, y);
-  y += 4;
-
-  if (data.paymentMethod === "cash") {
-    doc.text(`Reçu: ${fPrice(data.amountPaid)}`, margin, y);
+  doc.setFontSize(8.5);
+  if (data.subtotal !== data.total) {
+    doc.text("Sous-total", margin, y);
+    rightText(fPrice(data.subtotal), y);
     y += 4;
-    if (data.change > 0) {
-      doc.text(`Monnaie: ${fPrice(data.change)}`, margin, y);
+    const tva = data.total - data.subtotal;
+    if (Math.abs(tva) > 0.001) {
+      doc.text("TVA", margin, y);
+      rightText(fPrice(tva), y);
       y += 4;
     }
   }
 
-  // Footer
-  y += 4;
-  doc.line(margin, y, pageWidth - margin, y);
-  y += 6;
+  y += 0.5;
+  solidLine(y, 0.4);
+  y += 5;
 
-  centerText("Merci de votre confiance !", y, 9);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11.5);
+  doc.text("TOTAL", margin, y);
+  rightText(fPrice(data.total), y);
+  y += 6;
+  solidLine(y, 0.4);
+  y += 5;
+
+  // Paiement
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.text("Mode de paiement", margin, y);
+  rightText(paymentMethodLabels[data.paymentMethod] || data.paymentMethod, y);
   y += 4;
-  centerText("À bientôt", y, 8);
+
+  if (data.paymentMethod === "cash") {
+    doc.text("Reçu", margin, y);
+    rightText(fPrice(data.amountPaid), y);
+    y += 4;
+    if (data.change > 0) {
+      doc.setFont("helvetica", "bold");
+      doc.text("Monnaie rendue", margin, y);
+      rightText(fPrice(data.change), y);
+      doc.setFont("helvetica", "normal");
+      y += 4;
+    }
+  }
+
+  y += 2;
+  dottedLine(y);
+  y += 5;
+
+  // Pied
+  centerText("Merci de votre confiance !", y, 9, true);
+  y += 4;
+  centerText("À très bientôt", y, 7.5);
+  y += 4;
+  doc.setTextColor(150);
+  centerText("Ticket édité par SahelPOS", y, 6.5);
+  doc.setTextColor(0);
 
   return doc;
 };
