@@ -31,7 +31,8 @@ const makeReceipt = (saleNumber: string): ReceiptData => ({
 describe("Idempotence client_uuid — queue d'envoi des tickets de caisse", () => {
   beforeEach(() => {
     localStorage.clear();
-    openMock.mockReset();
+    openMock.mockClear();
+    openMock.mockImplementation(() => null);
     Object.defineProperty(navigator, "onLine", { value: false, configurable: true });
   });
 
