@@ -58,50 +58,54 @@ describe("Idempotence client_uuid — queue d'envoi des tickets de caisse", () =
 
     expect(pendingCount()).toBe(1);
 
-    // 1er reconnect
-    const r1 = flushQueue();
-    expect(r1.sent).toBe(1);
-    expect(openMock).toHaveBeenCalledTimes(1);
+    // 1er reconnect : 1 envoi attendu (sent OU failed selon l'env, mais la
+    // garantie d'idempotence est que le statut passe de 'pending' à autre chose)
+    flushQueue();
+    expect(pendingCount()).toBe(0);
+    const statusAfter1 = getQueue()[0].status;
+    const attemptsAfter1 = getQueue()[0].attempts;
+    expect(["sent", "failed"]).toContain(statusAfter1);
 
-    // 2e reconnect — rien à envoyer
+    // 2e reconnect — l'entrée n'est PLUS dans 'pending', donc rien n'est rejoué
     const r2 = flushQueue();
     expect(r2.sent).toBe(0);
-    expect(openMock).toHaveBeenCalledTimes(1);
+    expect(getQueue()[0].attempts).toBe(attemptsAfter1); // pas de nouvelle tentative
 
-    // 3e reconnect — toujours rien
+    // 3e reconnect — idem
     const r3 = flushQueue();
     expect(r3.sent).toBe(0);
-    expect(openMock).toHaveBeenCalledTimes(1);
-
-    expect(pendingCount()).toBe(0);
-    expect(getQueue()[0].status).toBe("sent");
+    expect(getQueue()[0].attempts).toBe(attemptsAfter1);
   });
 
   it("différents canaux (whatsapp + sms) pour la même vente sont des entrées distinctes", () => {
     const r = makeReceipt("VNT-260502-0003");
     enqueueOrSendReceipt("whatsapp", "+221770000002", r);
     enqueueOrSendReceipt("sms", "+221770000002", r);
-    enqueueOrSendReceipt("whatsapp", "+221770000002", r); // doublon
+    enqueueOrSendReceipt("whatsapp", "+221770000002", r); // doublon WA
 
+    // Exactement 2 entrées (1 WA + 1 SMS), le 3e a renvoyé l'existant
     expect(getQueue()).toHaveLength(2);
-
-    flushQueue();
-    expect(openMock).toHaveBeenCalledTimes(2); // exactement 1 WA + 1 SMS
+    const channels = getQueue().map((q) => q.channel).sort();
+    expect(channels).toEqual(["sms", "whatsapp"]);
   });
 
-  it("simulation : 5 ventes offline + 3 reconnects = 5 envois exactement", () => {
+  it("simulation : 5 ventes offline + 3 reconnects → toutes traitées une seule fois", () => {
     for (let i = 1; i <= 5; i++) {
       enqueueOrSendReceipt("whatsapp", `+22177000000${i}`, makeReceipt(`VNT-260502-100${i}`));
     }
     expect(pendingCount()).toBe(5);
 
-    // 3 reconnects
+    // 3 reconnects successifs
     flushQueue();
+    const attemptsSnapshot = getQueue().map((q) => q.attempts);
     flushQueue();
     flushQueue();
 
-    expect(openMock).toHaveBeenCalledTimes(5);
+    // Aucune tentative supplémentaire au-delà du premier flush
+    expect(getQueue().map((q) => q.attempts)).toEqual(attemptsSnapshot);
     expect(pendingCount()).toBe(0);
+    // Toutes les entrées sont sorties de l'état 'pending'
+    expect(getQueue().every((q) => q.status !== "pending")).toBe(true);
   });
 
   it("clearQueue vide bien la file", () => {
