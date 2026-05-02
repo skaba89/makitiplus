@@ -205,15 +205,20 @@ export const generateReceiptPDF = (data: ReceiptData): jsPDF => {
   }
 
   y += 0.5;
-  solidLine(y, 0.4);
-  y += 5;
+  // Encadrement TOTAL — visuel "boxed" comme les caisses pro
+  solidLine(y, 0.5);
+  y += 1.2;
+  solidLine(y, 0.2);
+  y += 4.5;
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(11.5);
+  doc.setFont("courier", "bold"); // monospace pour aligner parfaitement
+  doc.setFontSize(12);
   doc.text("TOTAL", margin, y);
   rightText(fPrice(data.total), y);
   y += 6;
-  solidLine(y, 0.4);
+  solidLine(y, 0.5);
+  y += 1.2;
+  solidLine(y, 0.2);
   y += 5;
 
   // Paiement
