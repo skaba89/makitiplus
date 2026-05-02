@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
 // Spy sur window.open (utilisé par shareViaWhatsApp et l'envoi SMS)
-const openMock = vi.fn();
+let openMock: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
-  window.open = openMock as any;
+  openMock = vi.spyOn(window, "open").mockImplementation(() => null);
 });
 
 import {
