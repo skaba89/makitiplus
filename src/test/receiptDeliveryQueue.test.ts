@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-// Mock window.open pour ne pas réellement ouvrir d'URL pendant les tests
+// Spy sur window.open (utilisé par shareViaWhatsApp et l'envoi SMS)
 const openMock = vi.fn();
-vi.stubGlobal("open", openMock);
+beforeEach(() => {
+  window.open = openMock as any;
+});
 
 import {
   enqueueOrSendReceipt,
