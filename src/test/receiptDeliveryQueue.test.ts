@@ -1,9 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-// Spy sur window.open (utilisé par shareViaWhatsApp et l'envoi SMS)
-let openMock: ReturnType<typeof vi.spyOn>;
-beforeEach(() => {
-  openMock = vi.spyOn(window, "open").mockImplementation(() => null);
+// Mock window.open via defineProperty (vi.spyOn ne fonctionne pas toujours sur window en jsdom)
+const openMock = vi.fn();
+Object.defineProperty(window, "open", {
+  configurable: true,
+  writable: true,
+  value: openMock,
 });
 
 import {
@@ -32,7 +34,6 @@ describe("Idempotence client_uuid — queue d'envoi des tickets de caisse", () =
   beforeEach(() => {
     localStorage.clear();
     openMock.mockClear();
-    openMock.mockImplementation(() => null);
     Object.defineProperty(navigator, "onLine", { value: false, configurable: true });
   });
 
