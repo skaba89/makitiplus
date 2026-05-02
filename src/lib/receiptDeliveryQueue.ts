@@ -135,7 +135,8 @@ export const flushQueue = (): { sent: number; skipped: number; failed: number } 
   const seen = new Set<string>();
   for (const entry of queue) {
     const key = `${entry.saleNumber}|${entry.channel}|${entry.phone}`;
-    if (entry.status === "sent") {
+    // Idempotence : on ne re-traite JAMAIS une entrée déjà sortie de l'état pending
+    if (entry.status !== "pending") {
       seen.add(key);
       continue;
     }
