@@ -112,15 +112,22 @@ export const generateReceiptPDF = (data: ReceiptData): jsPDF => {
     return lines.slice(0, 2); // max 2 lignes par article
   };
 
-  // En-tête : nom boutique en gros + infos -----------------------------
+  // En-tête : nom boutique en gros + cadre + infos -------------------
+  // Bandeau supérieur épais (style imprimante thermique pro)
+  doc.setFillColor(0, 0, 0);
+  doc.rect(margin, y - 3, contentWidth, 0.6, "F");
+  y += 2;
   centerText(data.businessName.toUpperCase(), y, 13, true);
   y += 5;
   if (data.businessAddress) { centerText(data.businessAddress, y, 7.5); y += 3.5; }
   if (data.businessPhone)   { centerText(`Tel : ${data.businessPhone}`, y, 7.5); y += 3.5; }
 
   y += 1.5;
-  solidLine(y, 0.4);
-  y += 4.5;
+  // Double trait (look thermique pro)
+  solidLine(y, 0.5);
+  y += 1.2;
+  solidLine(y, 0.2);
+  y += 4;
 
   // Bandeau "TICKET DE CAISSE"
   centerText("TICKET DE CAISSE", y, 9, true);
@@ -198,15 +205,20 @@ export const generateReceiptPDF = (data: ReceiptData): jsPDF => {
   }
 
   y += 0.5;
-  solidLine(y, 0.4);
-  y += 5;
+  // Encadrement TOTAL — visuel "boxed" comme les caisses pro
+  solidLine(y, 0.5);
+  y += 1.2;
+  solidLine(y, 0.2);
+  y += 4.5;
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(11.5);
+  doc.setFont("courier", "bold"); // monospace pour aligner parfaitement
+  doc.setFontSize(12);
   doc.text("TOTAL", margin, y);
   rightText(fPrice(data.total), y);
   y += 6;
-  solidLine(y, 0.4);
+  solidLine(y, 0.5);
+  y += 1.2;
+  solidLine(y, 0.2);
   y += 5;
 
   // Paiement
