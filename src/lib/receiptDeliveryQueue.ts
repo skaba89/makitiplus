@@ -105,8 +105,14 @@ export const enqueueOrSendReceipt = (
   return entry;
 };
 
+/** Sender injectable (utile pour tests e2e simulant un échec réseau) */
+export type Sender = (entry: QueuedDelivery) => void;
+let customSender: Sender | null = null;
+export const setSender = (s: Sender | null) => { customSender = s; };
+
 /** Envoi unitaire (WhatsApp via wa.me, SMS via sms:) */
 const sendOne = (entry: QueuedDelivery) => {
+  if (customSender) { customSender(entry); return; }
   if (entry.channel === "whatsapp") {
     shareViaWhatsApp(entry.payload, entry.phone);
     return;
@@ -118,6 +124,32 @@ const sendOne = (entry: QueuedDelivery) => {
   if (typeof window !== "undefined") {
     window.open(url, "_blank");
   }
+};
+
+/** Re-tente manuellement un envoi (échec ou pending) sans casser l'idempotence. */
+export const retryOne = (client_uuid: string): QueuedDelivery | null => {
+  const queue = load();
+  const entry = queue.find((q) => q.client_uuid === client_uuid);
+  if (!entry) return null;
+  if (entry.status === "sent" || entry.status === "duplicate") return entry;
+  try {
+    sendOne(entry);
+    entry.status = "sent";
+    entry.sent_at = new Date().toISOString();
+    entry.attempts += 1;
+    entry.last_error = undefined;
+  } catch (err: any) {
+    entry.status = "failed";
+    entry.last_error = err?.message ?? "send_failed";
+    entry.attempts += 1;
+  }
+  save(queue);
+  return entry;
+};
+
+export const removeOne = (client_uuid: string) => {
+  const queue = load().filter((q) => q.client_uuid !== client_uuid);
+  save(queue);
 };
 
 /**
@@ -135,8 +167,9 @@ export const flushQueue = (): { sent: number; skipped: number; failed: number } 
   const seen = new Set<string>();
   for (const entry of queue) {
     const key = `${entry.saleNumber}|${entry.channel}|${entry.phone}`;
-    // Idempotence : on ne re-traite JAMAIS une entrée déjà sortie de l'état pending
-    if (entry.status !== "pending") {
+    // Idempotence : seules les entrées 'pending' ou 'failed' sont (re)tentées.
+    // Les entrées déjà 'sent' ou 'duplicate' ne sont JAMAIS rejouées.
+    if (entry.status === "sent" || entry.status === "duplicate") {
       seen.add(key);
       continue;
     }
@@ -151,6 +184,7 @@ export const flushQueue = (): { sent: number; skipped: number; failed: number } 
       entry.status = "sent";
       entry.sent_at = new Date().toISOString();
       entry.attempts += 1;
+      entry.last_error = undefined;
       sent += 1;
     } catch (err: any) {
       entry.status = "failed";

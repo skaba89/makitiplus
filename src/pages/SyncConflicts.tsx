@@ -18,6 +18,7 @@ import { fr } from "date-fns/locale";
 import { ConflictSimulationPanel } from "@/components/sync/ConflictSimulationPanel";
 import { OfflinePOSSimulationPanel } from "@/components/sync/OfflinePOSSimulationPanel";
 import { MobileMoneySimulationPanel } from "@/components/sync/MobileMoneySimulationPanel";
+import { ReceiptDeliveryTrackingPanel } from "@/components/sync/ReceiptDeliveryTrackingPanel";
 
 interface ConflictRow {
   id: string;
@@ -216,6 +217,8 @@ const SyncConflicts = () => {
             <OfflinePOSSimulationPanel />
 
             <MobileMoneySimulationPanel />
+
+            <ReceiptDeliveryTrackingPanel />
 
             <Card>
               <CardHeader>
