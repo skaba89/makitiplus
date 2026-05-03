@@ -213,8 +213,12 @@ export const flushQueue = (): { sent: number; skipped: number; failed: number; d
       if (entry.attempts >= MAX_ATTEMPTS) {
         entry.exhausted = true;
         entry.next_retry_at = undefined;
-      } else {
+      } else if (isOnline()) {
+        // Backoff seulement si on est en ligne (vrai échec serveur).
+        // En offline, échec attendu → pas de backoff.
         entry.next_retry_at = new Date(now + computeNextRetryDelay(entry.attempts)).toISOString();
+      } else {
+        entry.next_retry_at = undefined;
       }
       failed += 1;
     }
