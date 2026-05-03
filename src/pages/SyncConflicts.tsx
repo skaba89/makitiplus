@@ -218,6 +218,8 @@ const SyncConflicts = () => {
 
             <MobileMoneySimulationPanel />
 
+            <ReceiptDeliveryTrackingPanel />
+
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
