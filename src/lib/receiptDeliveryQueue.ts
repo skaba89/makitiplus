@@ -167,8 +167,9 @@ export const flushQueue = (): { sent: number; skipped: number; failed: number } 
   const seen = new Set<string>();
   for (const entry of queue) {
     const key = `${entry.saleNumber}|${entry.channel}|${entry.phone}`;
-    // Idempotence : on ne re-traite JAMAIS une entrée déjà sortie de l'état pending
-    if (entry.status !== "pending") {
+    // Idempotence : seules les entrées 'pending' ou 'failed' sont (re)tentées.
+    // Les entrées déjà 'sent' ou 'duplicate' ne sont JAMAIS rejouées.
+    if (entry.status === "sent" || entry.status === "duplicate") {
       seen.add(key);
       continue;
     }
@@ -183,6 +184,7 @@ export const flushQueue = (): { sent: number; skipped: number; failed: number } 
       entry.status = "sent";
       entry.sent_at = new Date().toISOString();
       entry.attempts += 1;
+      entry.last_error = undefined;
       sent += 1;
     } catch (err: any) {
       entry.status = "failed";
