@@ -182,6 +182,14 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     sortNewest: "Kura", sortOldest: "Kɔrɔ",
     language: "Kan",
     nextRetryIn: "Segili nata", maxAttemptsReached: "Segili dan se ra",
+    bulkActions: "Baara ɲɔgɔn", bulkRetry: "Sugandili segi", bulkRemove: "Sugandili bɔ",
+    selected: "sugandilen", showDuplicates: "Filana jira",
+    mergeDuplicates: "Filana fara", archiveDuplicates: "Filana mara",
+    details: "Kunnafoni", payload: "Kɔnɔnan", createdAt: "A dara", sentAt: "A cira",
+    nextRetryAt: "Segili waati", lastError: "Fili laban", close: "A datugu",
+    exhaustedToast: "Cili banna segili dan kɔfɛ",
+    noneSelected: "Sugandili tɛ yen",
+    duplicatesMerged: "Filana faralen", duplicatesArchived: "Filana maralen",
   },
 };
 
