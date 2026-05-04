@@ -156,6 +156,14 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     sortNewest: "Hesɗo", sortOldest: "Kiiɗɗo",
     language: "Ɗemngal",
     nextRetryIn: "Eto goɗɗo nder", maxAttemptsReached: "Keerol etogol heɓaama",
+    bulkActions: "Golle dental", bulkRetry: "Eto suɓaaɗi", bulkRemove: "Momtu suɓaaɗi",
+    selected: "suɓaama", showDuplicates: "Hollu ɗiɗɗi",
+    mergeDuplicates: "Renndin ɗiɗɗi", archiveDuplicates: "Marde ɗiɗɗi",
+    details: "Faandaareeji", payload: "Loowdi", createdAt: "Sosaa", sentAt: "Nelaa",
+    nextRetryAt: "Eto garoowo", lastError: "Juumre sakkitiinde", close: "Uddu",
+    exhaustedToast: "Nelirgol ɗalaa caggal etoɗe heeriiɗe",
+    noneSelected: "Hay ngooto suɓaaki",
+    duplicatesMerged: "Ɗiɗɗi renndinaama", duplicatesArchived: "Ɗiɗɗi maraama",
   },
   // Maninka (Malinké) — Haute Guinée
   man: {
