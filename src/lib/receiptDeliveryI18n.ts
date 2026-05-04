@@ -130,6 +130,14 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     sortNewest: "Naxan nɛnɛ", sortOldest: "Naxan kɔrixi",
     language: "Xui",
     nextRetryIn: "Falaba waxati", maxAttemptsReached: "Falalu danxi",
+    bulkActions: "Walikɛ birin", bulkRetry: "Sugandixi yi fala", bulkRemove: "Sugandixi bakanma",
+    selected: "sugandixi", showDuplicates: "Firin makɔnɔn",
+    mergeDuplicates: "Firin lan", archiveDuplicates: "Firin maraxi",
+    details: "Xibaru", payload: "Sɛbɛli", createdAt: "A daxi", sentAt: "A rafiyaxi",
+    nextRetryAt: "Falaba", lastError: "Fili dɔnxɔɛ", close: "A laka",
+    exhaustedToast: "Rafiyali ban falalu xanbi",
+    noneSelected: "Sugandi yo mu na",
+    duplicatesMerged: "Firin lannɛ", duplicatesArchived: "Firin maraxɛ",
   },
   // Pular (Peul / Fulfulde) — Fouta Djallon
   ful: {
