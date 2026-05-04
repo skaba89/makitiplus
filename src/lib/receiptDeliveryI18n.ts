@@ -42,6 +42,24 @@ export interface DeliveryDict {
   language: string;
   nextRetryIn: string;
   maxAttemptsReached: string;
+  bulkActions: string;
+  bulkRetry: string;
+  bulkRemove: string;
+  selected: string;
+  showDuplicates: string;
+  mergeDuplicates: string;
+  archiveDuplicates: string;
+  details: string;
+  payload: string;
+  createdAt: string;
+  sentAt: string;
+  nextRetryAt: string;
+  lastError: string;
+  close: string;
+  exhaustedToast: string;
+  noneSelected: string;
+  duplicatesMerged: string;
+  duplicatesArchived: string;
 }
 
 const dicts: Record<DeliveryLocale, DeliveryDict> = {
@@ -61,6 +79,14 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     sortNewest: "Plus récent", sortOldest: "Plus ancien",
     language: "Langue",
     nextRetryIn: "Prochain essai dans", maxAttemptsReached: "Limite de tentatives atteinte",
+    bulkActions: "Actions groupées", bulkRetry: "Retenter sélection", bulkRemove: "Supprimer sélection",
+    selected: "sélectionné(s)", showDuplicates: "Voir doublons",
+    mergeDuplicates: "Fusionner doublons", archiveDuplicates: "Archiver doublons",
+    details: "Détails", payload: "Contenu", createdAt: "Créé le", sentAt: "Envoyé le",
+    nextRetryAt: "Prochain essai", lastError: "Dernière erreur", close: "Fermer",
+    exhaustedToast: "Envoi abandonné après tentatives max",
+    noneSelected: "Aucune ligne sélectionnée",
+    duplicatesMerged: "Doublons fusionnés", duplicatesArchived: "Doublons archivés",
   },
   en: {
     title: "Receipt delivery tracking",
@@ -78,6 +104,14 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     sortNewest: "Newest", sortOldest: "Oldest",
     language: "Language",
     nextRetryIn: "Next retry in", maxAttemptsReached: "Max attempts reached",
+    bulkActions: "Bulk actions", bulkRetry: "Retry selected", bulkRemove: "Remove selected",
+    selected: "selected", showDuplicates: "Show duplicates",
+    mergeDuplicates: "Merge duplicates", archiveDuplicates: "Archive duplicates",
+    details: "Details", payload: "Payload", createdAt: "Created at", sentAt: "Sent at",
+    nextRetryAt: "Next retry at", lastError: "Last error", close: "Close",
+    exhaustedToast: "Delivery abandoned after max attempts",
+    noneSelected: "No row selected",
+    duplicatesMerged: "Duplicates merged", duplicatesArchived: "Duplicates archived",
   },
   // Susu (Soso) — Guinée maritime
   sus: {
@@ -96,6 +130,14 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     sortNewest: "Naxan nɛnɛ", sortOldest: "Naxan kɔrixi",
     language: "Xui",
     nextRetryIn: "Falaba waxati", maxAttemptsReached: "Falalu danxi",
+    bulkActions: "Walikɛ birin", bulkRetry: "Sugandixi yi fala", bulkRemove: "Sugandixi bakanma",
+    selected: "sugandixi", showDuplicates: "Firin makɔnɔn",
+    mergeDuplicates: "Firin lan", archiveDuplicates: "Firin maraxi",
+    details: "Xibaru", payload: "Sɛbɛli", createdAt: "A daxi", sentAt: "A rafiyaxi",
+    nextRetryAt: "Falaba", lastError: "Fili dɔnxɔɛ", close: "A laka",
+    exhaustedToast: "Rafiyali ban falalu xanbi",
+    noneSelected: "Sugandi yo mu na",
+    duplicatesMerged: "Firin lannɛ", duplicatesArchived: "Firin maraxɛ",
   },
   // Pular (Peul / Fulfulde) — Fouta Djallon
   ful: {
@@ -114,6 +156,14 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     sortNewest: "Hesɗo", sortOldest: "Kiiɗɗo",
     language: "Ɗemngal",
     nextRetryIn: "Eto goɗɗo nder", maxAttemptsReached: "Keerol etogol heɓaama",
+    bulkActions: "Golle dental", bulkRetry: "Eto suɓaaɗi", bulkRemove: "Momtu suɓaaɗi",
+    selected: "suɓaama", showDuplicates: "Hollu ɗiɗɗi",
+    mergeDuplicates: "Renndin ɗiɗɗi", archiveDuplicates: "Marde ɗiɗɗi",
+    details: "Faandaareeji", payload: "Loowdi", createdAt: "Sosaa", sentAt: "Nelaa",
+    nextRetryAt: "Eto garoowo", lastError: "Juumre sakkitiinde", close: "Uddu",
+    exhaustedToast: "Nelirgol ɗalaa caggal etoɗe heeriiɗe",
+    noneSelected: "Hay ngooto suɓaaki",
+    duplicatesMerged: "Ɗiɗɗi renndinaama", duplicatesArchived: "Ɗiɗɗi maraama",
   },
   // Maninka (Malinké) — Haute Guinée
   man: {
@@ -132,6 +182,14 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     sortNewest: "Kura", sortOldest: "Kɔrɔ",
     language: "Kan",
     nextRetryIn: "Segili nata", maxAttemptsReached: "Segili dan se ra",
+    bulkActions: "Baara ɲɔgɔn", bulkRetry: "Sugandili segi", bulkRemove: "Sugandili bɔ",
+    selected: "sugandilen", showDuplicates: "Filana jira",
+    mergeDuplicates: "Filana fara", archiveDuplicates: "Filana mara",
+    details: "Kunnafoni", payload: "Kɔnɔnan", createdAt: "A dara", sentAt: "A cira",
+    nextRetryAt: "Segili waati", lastError: "Fili laban", close: "A datugu",
+    exhaustedToast: "Cili banna segili dan kɔfɛ",
+    noneSelected: "Sugandili tɛ yen",
+    duplicatesMerged: "Filana faralen", duplicatesArchived: "Filana maralen",
   },
 };
 

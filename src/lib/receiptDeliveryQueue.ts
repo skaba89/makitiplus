@@ -244,3 +244,92 @@ export const installAutoFlush = (
   };
   window.addEventListener("online", handler);
 };
+
+/** Bulk retry — applique retryOne sur chaque uuid et retourne un résumé. */
+export const retryMany = (
+  uuids: string[],
+  opts?: { force?: boolean }
+): { sent: number; failed: number; skipped: number } => {
+  let sent = 0, failed = 0, skipped = 0;
+  for (const id of uuids) {
+    const r = retryOne(id, opts);
+    if (!r) { skipped += 1; continue; }
+    if (r.status === "sent") sent += 1;
+    else if (r.status === "failed") failed += 1;
+    else skipped += 1;
+  }
+  return { sent, failed, skipped };
+};
+
+export const removeMany = (uuids: string[]): number => {
+  const set = new Set(uuids);
+  const before = load();
+  const after = before.filter((q) => !set.has(q.client_uuid));
+  save(after);
+  return before.length - after.length;
+};
+
+/**
+ * Fusionne les doublons : pour chaque clé saleNumber|channel|phone, garde
+ * une seule entrée (priorité 'sent' > la plus récente). Idempotence préservée.
+ */
+export const mergeDuplicates = (): { merged: number; kept: number } => {
+  const queue = load();
+  const groups = new Map<string, QueuedDelivery[]>();
+  for (const e of queue) {
+    const key = `${e.saleNumber}|${e.channel}|${e.phone}`;
+    const arr = groups.get(key) ?? [];
+    arr.push(e);
+    groups.set(key, arr);
+  }
+  const kept: QueuedDelivery[] = [];
+  let merged = 0;
+  for (const arr of groups.values()) {
+    if (arr.length === 1) { kept.push(arr[0]); continue; }
+    const sent = arr.find((e) => e.status === "sent");
+    const winner = sent ?? [...arr].sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+    winner.attempts = arr.reduce((s, e) => Math.max(s, e.attempts), winner.attempts);
+    kept.push(winner);
+    merged += arr.length - 1;
+  }
+  save(kept);
+  return { merged, kept: kept.length };
+};
+
+/** Marque comme 'duplicate' (sans suppression) toutes les entrées doublons. */
+export const archiveDuplicates = (): number => {
+  const queue = load();
+  const seen = new Map<string, QueuedDelivery>();
+  let archived = 0;
+  for (const e of queue) {
+    const key = `${e.saleNumber}|${e.channel}|${e.phone}`;
+    const prev = seen.get(key);
+    if (!prev) { seen.set(key, e); continue; }
+    const winner = prev.status === "sent" ? prev : e.status === "sent" ? e : prev;
+    const loser = winner === prev ? e : prev;
+    if (loser.status !== "duplicate") {
+      loser.status = "duplicate";
+      archived += 1;
+    }
+    seen.set(key, winner);
+  }
+  save(queue);
+  return archived;
+};
+
+/** Notifie quand de nouvelles entrées passent en 'exhausted' (max retries). */
+type ExhaustedListener = (entries: QueuedDelivery[]) => void;
+const exhaustedListeners = new Set<ExhaustedListener>();
+let lastExhaustedIds = new Set<string>();
+export const onExhausted = (l: ExhaustedListener): (() => void) => {
+  exhaustedListeners.add(l);
+  return () => { exhaustedListeners.delete(l); };
+};
+export const checkExhaustedDelta = (): QueuedDelivery[] => {
+  const cur = load().filter((e) => e.exhausted);
+  const curIds = new Set(cur.map((e) => e.client_uuid));
+  const fresh = cur.filter((e) => !lastExhaustedIds.has(e.client_uuid));
+  lastExhaustedIds = curIds;
+  if (fresh.length) exhaustedListeners.forEach((l) => l(fresh));
+  return fresh;
+};
