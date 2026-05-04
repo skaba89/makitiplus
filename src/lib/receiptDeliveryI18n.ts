@@ -42,6 +42,24 @@ export interface DeliveryDict {
   language: string;
   nextRetryIn: string;
   maxAttemptsReached: string;
+  bulkActions: string;
+  bulkRetry: string;
+  bulkRemove: string;
+  selected: string;
+  showDuplicates: string;
+  mergeDuplicates: string;
+  archiveDuplicates: string;
+  details: string;
+  payload: string;
+  createdAt: string;
+  sentAt: string;
+  nextRetryAt: string;
+  lastError: string;
+  close: string;
+  exhaustedToast: string;
+  noneSelected: string;
+  duplicatesMerged: string;
+  duplicatesArchived: string;
 }
 
 const dicts: Record<DeliveryLocale, DeliveryDict> = {
