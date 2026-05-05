@@ -221,6 +221,12 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     exhaustedToast: "Cili banna segili dan kɔfɛ",
     noneSelected: "Sugandili tɛ yen",
     duplicatesMerged: "Filana faralen", duplicatesArchived: "Filana maralen",
+    confirmTitle: "Baara dafa",
+    confirmRemoveDesc: "Tikiti sugandilen bɔ pewu? A tɛ se ka segi.",
+    confirmArchiveDesc: "Filana mara (taamasiɲɛ 'duplicate')? Idempotans bɛ to.",
+    cancel: "A bila", confirm: "Dafa",
+    selectedAcrossResults: "sugandilen jaabi bɛɛ kɔnɔ",
+    clearSelection: "Sugandili bɔ",
   },
 };
 
