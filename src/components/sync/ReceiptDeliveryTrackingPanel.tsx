@@ -189,10 +189,14 @@ export const ReceiptDeliveryTrackingPanel = () => {
 
   const handleBulkRemove = () => {
     if (selected.size === 0) { toast({ title: dict.noneSelected }); return; }
+    setConfirmRemoveOpen(true);
+  };
+  const confirmBulkRemove = () => {
     const n = removeMany(Array.from(selected));
     refresh();
     toast({ title: dict.bulkRemove, description: `−${n}` });
     setSelected(new Set());
+    setConfirmRemoveOpen(false);
   };
 
   const handleMergeDup = () => {
@@ -201,10 +205,12 @@ export const ReceiptDeliveryTrackingPanel = () => {
     toast({ title: dict.duplicatesMerged, description: `−${r.merged} → ${r.kept}` });
   };
 
-  const handleArchiveDup = () => {
+  const handleArchiveDup = () => { setConfirmArchiveOpen(true); };
+  const confirmArchiveDup = () => {
     const n = archiveDuplicates();
     refresh();
     toast({ title: dict.duplicatesArchived, description: `↺${n}` });
+    setConfirmArchiveOpen(false);
   };
 
   const handleLocale = (l: DeliveryLocale) => {
