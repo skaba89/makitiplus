@@ -94,6 +94,12 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     exhaustedToast: "Envoi abandonné après tentatives max",
     noneSelected: "Aucune ligne sélectionnée",
     duplicatesMerged: "Doublons fusionnés", duplicatesArchived: "Doublons archivés",
+    confirmTitle: "Confirmer l'action",
+    confirmRemoveDesc: "Supprimer définitivement les tickets sélectionnés ? Action irréversible.",
+    confirmArchiveDesc: "Archiver les doublons (marqués 'duplicate') ? Idempotence préservée.",
+    cancel: "Annuler", confirm: "Confirmer",
+    selectedAcrossResults: "sélectionné(s) sur tout le résultat",
+    clearSelection: "Effacer la sélection",
   },
   en: {
     title: "Receipt delivery tracking",
