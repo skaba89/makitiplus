@@ -189,6 +189,12 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     exhaustedToast: "Nelirgol ɗalaa caggal etoɗe heeriiɗe",
     noneSelected: "Hay ngooto suɓaaki",
     duplicatesMerged: "Ɗiɗɗi renndinaama", duplicatesArchived: "Ɗiɗɗi maraama",
+    confirmTitle: "Teeŋtin golle",
+    confirmRemoveDesc: "Momtu tiketuuji suɓaaɗi haa abada? Yiɗtataako.",
+    confirmArchiveDesc: "Marde ɗiɗɗi (huɓɓinde 'duplicate')? Idempotans heddii.",
+    cancel: "Haaytu", confirm: "Teeŋtin",
+    selectedAcrossResults: "suɓaama e ñiiwñe fof",
+    clearSelection: "Mommbu suɓaaɗi",
   },
   // Maninka (Malinké) — Haute Guinée
   man: {
