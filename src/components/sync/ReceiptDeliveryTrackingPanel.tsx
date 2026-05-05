@@ -333,9 +333,25 @@ export const ReceiptDeliveryTrackingPanel = () => {
         {/* Bulk actions bar */}
         <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed bg-muted/30 px-2 py-1.5 text-xs">
           <span className="font-medium">{dict.bulkActions} :</span>
-          <span className="text-muted-foreground" data-testid="rt-selected-count">
-            {selected.size} {dict.selected}
+          <span
+            className="text-muted-foreground"
+            data-testid="rt-selected-count"
+            aria-live="polite"
+          >
+            <strong className="text-foreground">{selected.size}</strong>{" "}
+            {dict.selectedAcrossResults}
+            <span className="opacity-60"> · {filtered.length} {dict.ticket}</span>
           </span>
+          {selected.size > 0 && (
+            <Button
+              size="sm" variant="ghost"
+              onClick={() => setSelected(new Set())}
+              data-testid="rt-clear-selection"
+              className="h-7 px-2"
+            >
+              {dict.clearSelection}
+            </Button>
+          )}
           <Button
             size="sm" variant="outline"
             onClick={handleBulkRetry}
