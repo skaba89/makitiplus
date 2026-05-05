@@ -30,6 +30,10 @@ import {
 } from "@/lib/receiptDeliveryI18n";
 import { exportDeliveryLogCSV, exportDeliveryLogPDF } from "@/lib/receiptDeliveryExport";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type StatusFilter = "all" | DeliveryStatus;
 type SortDir = "desc" | "asc";
