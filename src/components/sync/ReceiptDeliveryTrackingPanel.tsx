@@ -603,6 +603,44 @@ export const ReceiptDeliveryTrackingPanel = () => {
             )}
           </SheetContent>
         </Sheet>
+
+        {/* Confirm bulk remove */}
+        <AlertDialog open={confirmRemoveOpen} onOpenChange={setConfirmRemoveOpen}>
+          <AlertDialogContent data-testid="rt-confirm-remove">
+            <AlertDialogHeader>
+              <AlertDialogTitle>{dict.confirmTitle}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {dict.confirmRemoveDesc} ({selected.size} {dict.selected})
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="rt-confirm-remove-cancel">{dict.cancel}</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmBulkRemove}
+                data-testid="rt-confirm-remove-ok"
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {dict.confirm}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Confirm archive duplicates */}
+        <AlertDialog open={confirmArchiveOpen} onOpenChange={setConfirmArchiveOpen}>
+          <AlertDialogContent data-testid="rt-confirm-archive">
+            <AlertDialogHeader>
+              <AlertDialogTitle>{dict.confirmTitle}</AlertDialogTitle>
+              <AlertDialogDescription>{dict.confirmArchiveDesc}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="rt-confirm-archive-cancel">{dict.cancel}</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmArchiveDup} data-testid="rt-confirm-archive-ok">
+                {dict.confirm}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </CardContent>
     </Card>
   );
