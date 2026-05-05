@@ -63,14 +63,16 @@ describe("Bulk retry — sélection multiple, offline puis reconnexion, sans dou
 
     // Reconnexion + plusieurs bulk retries successifs (simulent re-clic utilisateur)
     setOnline(true);
-    const ids = [a.client_uuid, b.client_uuid, c.client_uuid];
+    // Compteur d'appels effectifs au sender → l'idempotence se mesure ici.
+    let sendCalls = 0;
+    setSender(() => { sendCalls += 1; });
     const r1 = retryMany(ids, { force: true });
-    const r2 = retryMany(ids, { force: true }); // ne doit RIEN renvoyer (déjà sent)
-    const r3 = retryMany(ids, { force: true });
-
     expect(r1.sent).toBe(3);
-    expect(r2.sent).toBe(0); // déjà sent → skipped
-    expect(r3.sent).toBe(0);
+    expect(sendCalls).toBe(3);
+    // Plusieurs reclics : aucun nouvel appel sender (entrées déjà 'sent')
+    retryMany(ids, { force: true });
+    retryMany(ids, { force: true });
+    expect(sendCalls).toBe(3);
 
     // Aucun doublon : 3 entrées max, toutes 'sent', client_uuid uniques
     const final = getQueue();
