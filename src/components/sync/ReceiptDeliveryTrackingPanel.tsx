@@ -108,7 +108,14 @@ export const ReceiptDeliveryTrackingPanel = () => {
     };
   }, [refresh, toast]);
 
-  useEffect(() => { setPage(1); setSelected(new Set()); }, [statusFilter, showDuplicates, search, sortDir, pageSize]);
+  // IMPORTANT : on conserve `selected` lors d'un changement de page / filtre /
+  // recherche / tri pour permettre à l'utilisateur de cocher des lignes sur
+  // plusieurs pages avant un bulk action. Seul `page` est remis à 1.
+  useEffect(() => { setPage(1); }, [statusFilter, showDuplicates, search, sortDir, pageSize]);
+
+  // Confirmations
+  const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
+  const [confirmArchiveOpen, setConfirmArchiveOpen] = useState(false);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
