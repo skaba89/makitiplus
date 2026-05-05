@@ -32,13 +32,14 @@ describe("Sélection persistante + indicateur global + Effacer la sélection", (
   });
 
   it("conserve les coches lors du changement de page/filtre/recherche, puis 'Effacer' vide tout", async () => {
-    // 15 entrées → 2 pages à 10/page. La 1ʳᵉ entrée porte un téléphone unique
-    // pour pouvoir filtrer dessus ensuite.
-    enqueueOrSendReceipt("whatsapp", "+22499999999", sample("VNT-260503-FIND", "FindMe"));
+    // 15 entrées → 2 pages à 10/page. Tri par date desc : la dernière insérée
+    // apparaît en haut de la liste. On insère FIND en DERNIER pour qu'il soit
+    // en page 1 (et reste seul après filtre "FIND").
     for (let i = 1; i <= 14; i++) {
       const num = `VNT-260503-${String(i).padStart(4, "0")}`;
       enqueueOrSendReceipt("whatsapp", `+2246110${String(i).padStart(4, "0")}`, sample(num));
     }
+    enqueueOrSendReceipt("whatsapp", "+22499999999", sample("VNT-260503-FIND", "FindMe"));
 
     render(<><ReceiptDeliveryTrackingPanel /><Toaster /></>);
 
