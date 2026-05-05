@@ -30,6 +30,10 @@ import {
 } from "@/lib/receiptDeliveryI18n";
 import { exportDeliveryLogCSV, exportDeliveryLogPDF } from "@/lib/receiptDeliveryExport";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type StatusFilter = "all" | DeliveryStatus;
 type SortDir = "desc" | "asc";
@@ -104,7 +108,14 @@ export const ReceiptDeliveryTrackingPanel = () => {
     };
   }, [refresh, toast]);
 
-  useEffect(() => { setPage(1); setSelected(new Set()); }, [statusFilter, showDuplicates, search, sortDir, pageSize]);
+  // IMPORTANT : on conserve `selected` lors d'un changement de page / filtre /
+  // recherche / tri pour permettre à l'utilisateur de cocher des lignes sur
+  // plusieurs pages avant un bulk action. Seul `page` est remis à 1.
+  useEffect(() => { setPage(1); }, [statusFilter, showDuplicates, search, sortDir, pageSize]);
+
+  // Confirmations
+  const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
+  const [confirmArchiveOpen, setConfirmArchiveOpen] = useState(false);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -178,10 +189,14 @@ export const ReceiptDeliveryTrackingPanel = () => {
 
   const handleBulkRemove = () => {
     if (selected.size === 0) { toast({ title: dict.noneSelected }); return; }
+    setConfirmRemoveOpen(true);
+  };
+  const confirmBulkRemove = () => {
     const n = removeMany(Array.from(selected));
     refresh();
     toast({ title: dict.bulkRemove, description: `−${n}` });
     setSelected(new Set());
+    setConfirmRemoveOpen(false);
   };
 
   const handleMergeDup = () => {
@@ -190,10 +205,12 @@ export const ReceiptDeliveryTrackingPanel = () => {
     toast({ title: dict.duplicatesMerged, description: `−${r.merged} → ${r.kept}` });
   };
 
-  const handleArchiveDup = () => {
+  const handleArchiveDup = () => { setConfirmArchiveOpen(true); };
+  const confirmArchiveDup = () => {
     const n = archiveDuplicates();
     refresh();
     toast({ title: dict.duplicatesArchived, description: `↺${n}` });
+    setConfirmArchiveOpen(false);
   };
 
   const handleLocale = (l: DeliveryLocale) => {
@@ -316,9 +333,25 @@ export const ReceiptDeliveryTrackingPanel = () => {
         {/* Bulk actions bar */}
         <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed bg-muted/30 px-2 py-1.5 text-xs">
           <span className="font-medium">{dict.bulkActions} :</span>
-          <span className="text-muted-foreground" data-testid="rt-selected-count">
-            {selected.size} {dict.selected}
+          <span
+            className="text-muted-foreground"
+            data-testid="rt-selected-count"
+            aria-live="polite"
+          >
+            <strong className="text-foreground">{selected.size}</strong>{" "}
+            {dict.selectedAcrossResults}
+            <span className="opacity-60"> · {filtered.length} {dict.ticket}</span>
           </span>
+          {selected.size > 0 && (
+            <Button
+              size="sm" variant="ghost"
+              onClick={() => setSelected(new Set())}
+              data-testid="rt-clear-selection"
+              className="h-7 px-2"
+            >
+              {dict.clearSelection}
+            </Button>
+          )}
           <Button
             size="sm" variant="outline"
             onClick={handleBulkRetry}
@@ -570,6 +603,44 @@ export const ReceiptDeliveryTrackingPanel = () => {
             )}
           </SheetContent>
         </Sheet>
+
+        {/* Confirm bulk remove */}
+        <AlertDialog open={confirmRemoveOpen} onOpenChange={setConfirmRemoveOpen}>
+          <AlertDialogContent data-testid="rt-confirm-remove">
+            <AlertDialogHeader>
+              <AlertDialogTitle>{dict.confirmTitle}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {dict.confirmRemoveDesc} ({selected.size} {dict.selected})
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="rt-confirm-remove-cancel">{dict.cancel}</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmBulkRemove}
+                data-testid="rt-confirm-remove-ok"
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {dict.confirm}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Confirm archive duplicates */}
+        <AlertDialog open={confirmArchiveOpen} onOpenChange={setConfirmArchiveOpen}>
+          <AlertDialogContent data-testid="rt-confirm-archive">
+            <AlertDialogHeader>
+              <AlertDialogTitle>{dict.confirmTitle}</AlertDialogTitle>
+              <AlertDialogDescription>{dict.confirmArchiveDesc}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="rt-confirm-archive-cancel">{dict.cancel}</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmArchiveDup} data-testid="rt-confirm-archive-ok">
+                {dict.confirm}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </CardContent>
     </Card>
   );

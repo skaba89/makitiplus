@@ -60,6 +60,13 @@ export interface DeliveryDict {
   noneSelected: string;
   duplicatesMerged: string;
   duplicatesArchived: string;
+  confirmTitle: string;
+  confirmRemoveDesc: string;
+  confirmArchiveDesc: string;
+  cancel: string;
+  confirm: string;
+  selectedAcrossResults: string;
+  clearSelection: string;
 }
 
 const dicts: Record<DeliveryLocale, DeliveryDict> = {
@@ -87,6 +94,12 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     exhaustedToast: "Envoi abandonné après tentatives max",
     noneSelected: "Aucune ligne sélectionnée",
     duplicatesMerged: "Doublons fusionnés", duplicatesArchived: "Doublons archivés",
+    confirmTitle: "Confirmer l'action",
+    confirmRemoveDesc: "Supprimer définitivement les tickets sélectionnés ? Action irréversible.",
+    confirmArchiveDesc: "Archiver les doublons (marqués 'duplicate') ? Idempotence préservée.",
+    cancel: "Annuler", confirm: "Confirmer",
+    selectedAcrossResults: "sélectionné(s) sur tout le résultat",
+    clearSelection: "Effacer la sélection",
   },
   en: {
     title: "Receipt delivery tracking",
@@ -112,6 +125,12 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     exhaustedToast: "Delivery abandoned after max attempts",
     noneSelected: "No row selected",
     duplicatesMerged: "Duplicates merged", duplicatesArchived: "Duplicates archived",
+    confirmTitle: "Confirm action",
+    confirmRemoveDesc: "Permanently remove selected tickets? This cannot be undone.",
+    confirmArchiveDesc: "Archive duplicates (mark as 'duplicate')? Idempotency preserved.",
+    cancel: "Cancel", confirm: "Confirm",
+    selectedAcrossResults: "selected across all results",
+    clearSelection: "Clear selection",
   },
   // Susu (Soso) — Guinée maritime
   sus: {
@@ -138,6 +157,12 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     exhaustedToast: "Rafiyali ban falalu xanbi",
     noneSelected: "Sugandi yo mu na",
     duplicatesMerged: "Firin lannɛ", duplicatesArchived: "Firin maraxɛ",
+    confirmTitle: "Walikɛ ratin",
+    confirmRemoveDesc: "Tikiti sugandixi bakanma fan? A mu nɔɛ a kɛli.",
+    confirmArchiveDesc: "Firin maraxi (lon: 'duplicate')? Idempotans na yi.",
+    cancel: "Bakanma", confirm: "Ratin",
+    selectedAcrossResults: "sugandixi birin findife ra",
+    clearSelection: "Sugandi yi xun",
   },
   // Pular (Peul / Fulfulde) — Fouta Djallon
   ful: {
@@ -164,6 +189,12 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     exhaustedToast: "Nelirgol ɗalaa caggal etoɗe heeriiɗe",
     noneSelected: "Hay ngooto suɓaaki",
     duplicatesMerged: "Ɗiɗɗi renndinaama", duplicatesArchived: "Ɗiɗɗi maraama",
+    confirmTitle: "Teeŋtin golle",
+    confirmRemoveDesc: "Momtu tiketuuji suɓaaɗi haa abada? Yiɗtataako.",
+    confirmArchiveDesc: "Marde ɗiɗɗi (huɓɓinde 'duplicate')? Idempotans heddii.",
+    cancel: "Haaytu", confirm: "Teeŋtin",
+    selectedAcrossResults: "suɓaama e ñiiwñe fof",
+    clearSelection: "Mommbu suɓaaɗi",
   },
   // Maninka (Malinké) — Haute Guinée
   man: {
@@ -190,6 +221,12 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     exhaustedToast: "Cili banna segili dan kɔfɛ",
     noneSelected: "Sugandili tɛ yen",
     duplicatesMerged: "Filana faralen", duplicatesArchived: "Filana maralen",
+    confirmTitle: "Baara dafa",
+    confirmRemoveDesc: "Tikiti sugandilen bɔ pewu? A tɛ se ka segi.",
+    confirmArchiveDesc: "Filana mara (taamasiɲɛ 'duplicate')? Idempotans bɛ to.",
+    cancel: "A bila", confirm: "Dafa",
+    selectedAcrossResults: "sugandilen jaabi bɛɛ kɔnɔ",
+    clearSelection: "Sugandili bɔ",
   },
 };
 
