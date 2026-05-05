@@ -125,6 +125,12 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     exhaustedToast: "Delivery abandoned after max attempts",
     noneSelected: "No row selected",
     duplicatesMerged: "Duplicates merged", duplicatesArchived: "Duplicates archived",
+    confirmTitle: "Confirm action",
+    confirmRemoveDesc: "Permanently remove selected tickets? This cannot be undone.",
+    confirmArchiveDesc: "Archive duplicates (mark as 'duplicate')? Idempotency preserved.",
+    cancel: "Cancel", confirm: "Confirm",
+    selectedAcrossResults: "selected across all results",
+    clearSelection: "Clear selection",
   },
   // Susu (Soso) — Guinée maritime
   sus: {
