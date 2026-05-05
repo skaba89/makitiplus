@@ -60,6 +60,13 @@ export interface DeliveryDict {
   noneSelected: string;
   duplicatesMerged: string;
   duplicatesArchived: string;
+  confirmTitle: string;
+  confirmRemoveDesc: string;
+  confirmArchiveDesc: string;
+  cancel: string;
+  confirm: string;
+  selectedAcrossResults: string;
+  clearSelection: string;
 }
 
 const dicts: Record<DeliveryLocale, DeliveryDict> = {
