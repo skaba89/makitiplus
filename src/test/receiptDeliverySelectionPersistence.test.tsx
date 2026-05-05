@@ -32,14 +32,34 @@ describe("Sélection persistante + indicateur global + Effacer la sélection", (
   });
 
   it("conserve les coches lors du changement de page/filtre/recherche, puis 'Effacer' vide tout", async () => {
-    // 15 entrées → 2 pages à 10/page. Tri par date desc : la dernière insérée
-    // apparaît en haut de la liste. On insère FIND en DERNIER pour qu'il soit
-    // en page 1 (et reste seul après filtre "FIND").
+    // Seed direct du localStorage pour garantir des created_at déterministes.
+    // Tri desc ⇒ FIND (timestamp le plus récent) apparaît en page 1.
+    const base = new Date("2026-05-03T10:00:00Z").getTime();
+    const entries: any[] = [];
     for (let i = 1; i <= 14; i++) {
       const num = `VNT-260503-${String(i).padStart(4, "0")}`;
-      enqueueOrSendReceipt("whatsapp", `+2246110${String(i).padStart(4, "0")}`, sample(num));
+      entries.push({
+        client_uuid: `u_${i}`,
+        saleNumber: num,
+        channel: "whatsapp",
+        phone: `+2246110${String(i).padStart(4, "0")}`,
+        payload: sample(num),
+        status: "pending",
+        attempts: 0,
+        created_at: new Date(base + i * 1000).toISOString(),
+      });
     }
-    enqueueOrSendReceipt("whatsapp", "+22499999999", sample("VNT-260503-FIND", "FindMe"));
+    entries.push({
+      client_uuid: "u_find",
+      saleNumber: "VNT-260503-FIND",
+      channel: "whatsapp",
+      phone: "+22499999999",
+      payload: sample("VNT-260503-FIND", "FindMe"),
+      status: "pending",
+      attempts: 0,
+      created_at: new Date(base + 999_000).toISOString(),
+    });
+    localStorage.setItem("sahelpos:receipt_delivery_queue", JSON.stringify(entries));
 
     render(<><ReceiptDeliveryTrackingPanel /><Toaster /></>);
 
