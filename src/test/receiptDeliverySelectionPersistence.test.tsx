@@ -6,9 +6,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { Toaster } from "@/components/ui/toaster";
 import { ReceiptDeliveryTrackingPanel } from "@/components/sync/ReceiptDeliveryTrackingPanel";
-import {
-  enqueueOrSendReceipt, clearQueue, setSender,
-} from "@/lib/receiptDeliveryQueue";
+import { clearQueue, setSender } from "@/lib/receiptDeliveryQueue";
 import type { ReceiptData } from "@/utils/receiptGenerator";
 
 const sample = (n: string, biz = "Boutique"): ReceiptData => ({
