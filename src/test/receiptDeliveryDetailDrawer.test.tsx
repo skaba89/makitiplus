@@ -69,11 +69,12 @@ describe("Drawer de détails — affichage complet d'une entrée", () => {
     expect(inDrawer.getByText("whatsapp")).toBeInTheDocument();
     // last_error
     expect(inDrawer.getByText(/e2e_simulated_failure/)).toBeInTheDocument();
-    // payload JSON (contient le saleNumber sérialisé)
-    expect(inDrawer.getByText(new RegExp(sale))).toBeInTheDocument();
+    // payload JSON (contient le businessName sérialisé, unique)
     expect(inDrawer.getByText(/Boutique Détails/)).toBeInTheDocument();
-    // timestamps : created_at + next_retry_at affichés (libellés FR par défaut)
-    expect(inDrawer.getByText(/Créé le|Created at/)).toBeInTheDocument();
-    expect(inDrawer.getByText(/Prochain essai$|Next retry at/)).toBeInTheDocument();
+    // saleNumber apparaît au moins 2x (titre + payload JSON) → idempotence visuelle
+    expect(inDrawer.getAllByText(new RegExp(sale)).length).toBeGreaterThanOrEqual(2);
+    // libellés des timestamps (FR par défaut)
+    expect(inDrawer.getByText("Créé le")).toBeInTheDocument();
+    expect(inDrawer.getByText("Prochain essai")).toBeInTheDocument();
   });
 });
