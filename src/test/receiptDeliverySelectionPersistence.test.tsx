@@ -43,21 +43,20 @@ describe("Sélection persistante + indicateur global + Effacer la sélection", (
 
     render(<><ReceiptDeliveryTrackingPanel /><Toaster /></>);
 
-    // 1) Coche 2 lignes sur la 1ʳᵉ page
+    // 1) Coche 2 lignes sur la 1ʳᵉ page (FIND est en tête car inséré en dernier)
     fireEvent.click(await screen.findByLabelText("select-VNT-260503-FIND"));
-    fireEvent.click(screen.getByLabelText("select-VNT-260503-0001"));
+    fireEvent.click(screen.getByLabelText("select-VNT-260503-0014"));
     expect(screen.getByTestId("rt-selected-count")).toHaveTextContent("2");
     expect(screen.getByTestId("rt-selected-count")).toHaveTextContent(
       /sur tout le résultat/i,
     );
 
-    // 2) Va sur la page 2 → coche encore 1 ligne
+    // 2) Va sur la page 2 → coche encore 1 ligne (0001 est la plus ancienne)
     fireEvent.click(screen.getByTestId("rt-next"));
     await waitFor(() => {
       expect(screen.getByTestId("rt-page-info")).toHaveTextContent(/2/);
     });
-    // une ligne de la page 2 (au moins VNT-260503-0011 existe)
-    const page2Row = screen.getByLabelText("select-VNT-260503-0011");
+    const page2Row = await screen.findByLabelText("select-VNT-260503-0001");
     fireEvent.click(page2Row);
     expect(screen.getByTestId("rt-selected-count")).toHaveTextContent("3");
 
