@@ -63,6 +63,7 @@ describe("Bulk retry — sélection multiple, offline puis reconnexion, sans dou
 
     // Reconnexion + plusieurs bulk retries successifs (simulent re-clic utilisateur)
     setOnline(true);
+    const ids = [a.client_uuid, b.client_uuid, c.client_uuid];
     // Compteur d'appels effectifs au sender → l'idempotence se mesure ici.
     let sendCalls = 0;
     setSender(() => { sendCalls += 1; });
