@@ -157,6 +157,12 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     exhaustedToast: "Rafiyali ban falalu xanbi",
     noneSelected: "Sugandi yo mu na",
     duplicatesMerged: "Firin lannɛ", duplicatesArchived: "Firin maraxɛ",
+    confirmTitle: "Walikɛ ratin",
+    confirmRemoveDesc: "Tikiti sugandixi bakanma fan? A mu nɔɛ a kɛli.",
+    confirmArchiveDesc: "Firin maraxi (lon: 'duplicate')? Idempotans na yi.",
+    cancel: "Bakanma", confirm: "Ratin",
+    selectedAcrossResults: "sugandixi birin findife ra",
+    clearSelection: "Sugandi yi xun",
   },
   // Pular (Peul / Fulfulde) — Fouta Djallon
   ful: {
