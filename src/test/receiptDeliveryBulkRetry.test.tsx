@@ -30,6 +30,7 @@ const setOnline = (v: boolean) => {
 describe("Bulk retry — sélection multiple, offline puis reconnexion, sans doublon", () => {
   beforeEach(() => {
     localStorage.clear();
+    sessionStorage.clear();
     clearQueue();
     setOnline(false);
     // Sender qui échoue tant qu'on est offline
