@@ -74,18 +74,22 @@ export const ReceiptDeliveryTrackingPanel = () => {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [pageSize, setPageSize] = useState<number>(10);
   const [page, setPage] = useState(1);
+  // Persist selection in localStorage so it survives hard refresh / tab reload.
+  // (Previously sessionStorage — which is lost on full reload.)
   const SELECTION_KEY = "sahelpos:receipt_delivery_selection";
-  const [selected, setSelected] = useState<Set<string>>(() => {
+  const readPersistedSelection = (): Set<string> => {
     try {
-      const raw = sessionStorage.getItem(SELECTION_KEY);
+      const raw = localStorage.getItem(SELECTION_KEY)
+        ?? sessionStorage.getItem(SELECTION_KEY); // back-compat
       if (!raw) return new Set();
       const arr = JSON.parse(raw);
       return new Set(Array.isArray(arr) ? arr : []);
     } catch { return new Set(); }
-  });
+  };
+  const [selected, setSelected] = useState<Set<string>>(() => readPersistedSelection());
   useEffect(() => {
     try {
-      sessionStorage.setItem(SELECTION_KEY, JSON.stringify(Array.from(selected)));
+      localStorage.setItem(SELECTION_KEY, JSON.stringify(Array.from(selected)));
     } catch { /* ignore */ }
   }, [selected]);
   const [detailUuid, setDetailUuid] = useState<string | null>(null);
