@@ -26,6 +26,7 @@ const setOnline = (v: boolean) => {
 describe("Drawer de détails — affichage complet d'une entrée", () => {
   beforeEach(() => {
     localStorage.clear();
+    sessionStorage.clear();
     clearQueue();
     setOnline(false);
     setSender(null);

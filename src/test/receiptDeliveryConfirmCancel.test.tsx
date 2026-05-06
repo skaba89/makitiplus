@@ -26,6 +26,7 @@ const setOnline = (v: boolean) => {
 describe("Confirmations Supprimer/Archiver — clic Annuler n'altère rien", () => {
   beforeEach(() => {
     localStorage.clear();
+    sessionStorage.clear();
     clearQueue();
     setOnline(false);
     setSender(null);

@@ -26,6 +26,7 @@ const setOnline = (v: boolean) => {
 describe("Confirmations OK — la file est réellement mutée", () => {
   beforeEach(() => {
     localStorage.clear();
+    sessionStorage.clear();
     clearQueue();
     setOnline(false);
     setSender(null);

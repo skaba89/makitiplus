@@ -24,6 +24,7 @@ const setOnline = (v: boolean) => {
 describe("Sélection persistante + indicateur global + Effacer la sélection", () => {
   beforeEach(() => {
     localStorage.clear();
+    sessionStorage.clear();
     clearQueue();
     setOnline(false);
     setSender(null);

@@ -24,6 +24,7 @@ const setOnline = (v: boolean) => {
 describe("Duplicate merge — multi-pages + idempotence", () => {
   beforeEach(() => {
     localStorage.clear();
+    sessionStorage.clear();
     clearQueue();
     setOnline(false);
     setSender(null);

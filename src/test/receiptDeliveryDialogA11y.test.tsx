@@ -25,6 +25,7 @@ const setOnline = (v: boolean) => {
 describe("Confirmation dialogs — accessibilité (focus, Escape, dismiss)", () => {
   beforeEach(() => {
     localStorage.clear();
+    sessionStorage.clear();
     clearQueue();
     setOnline(false);
     setSender(null);
