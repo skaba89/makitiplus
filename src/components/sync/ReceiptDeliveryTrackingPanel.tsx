@@ -365,12 +365,19 @@ export const ReceiptDeliveryTrackingPanel = () => {
         </div>
 
         {/* Bulk actions bar */}
-        <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed bg-muted/30 px-2 py-1.5 text-xs">
+        <div
+          className="flex flex-wrap items-center gap-2 rounded-md border border-dashed bg-muted/30 px-2 py-1.5 text-xs"
+          role="region"
+          aria-label={dict.bulkActions}
+        >
           <span className="font-medium">{dict.bulkActions} :</span>
           <span
             className="text-muted-foreground"
             data-testid="rt-selected-count"
+            role="status"
             aria-live="polite"
+            aria-atomic="true"
+            aria-label={`${selected.size} ${dict.selectedAcrossResults} — ${filtered.length} ${dict.ticket}`}
           >
             <strong className="text-foreground">{selected.size}</strong>{" "}
             {dict.selectedAcrossResults}
