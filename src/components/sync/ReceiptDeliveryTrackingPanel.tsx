@@ -74,18 +74,22 @@ export const ReceiptDeliveryTrackingPanel = () => {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [pageSize, setPageSize] = useState<number>(10);
   const [page, setPage] = useState(1);
+  // Persist selection in localStorage so it survives hard refresh / tab reload.
+  // (Previously sessionStorage — which is lost on full reload.)
   const SELECTION_KEY = "sahelpos:receipt_delivery_selection";
-  const [selected, setSelected] = useState<Set<string>>(() => {
+  const readPersistedSelection = (): Set<string> => {
     try {
-      const raw = sessionStorage.getItem(SELECTION_KEY);
+      const raw = localStorage.getItem(SELECTION_KEY)
+        ?? sessionStorage.getItem(SELECTION_KEY); // back-compat
       if (!raw) return new Set();
       const arr = JSON.parse(raw);
       return new Set(Array.isArray(arr) ? arr : []);
     } catch { return new Set(); }
-  });
+  };
+  const [selected, setSelected] = useState<Set<string>>(() => readPersistedSelection());
   useEffect(() => {
     try {
-      sessionStorage.setItem(SELECTION_KEY, JSON.stringify(Array.from(selected)));
+      localStorage.setItem(SELECTION_KEY, JSON.stringify(Array.from(selected)));
     } catch { /* ignore */ }
   }, [selected]);
   const [detailUuid, setDetailUuid] = useState<string | null>(null);
@@ -93,8 +97,25 @@ export const ReceiptDeliveryTrackingPanel = () => {
   dictRef.current = dict;
 
   const refresh = useCallback(() => {
-    setQueue(getQueue());
+    const q = getQueue();
+    setQueue(q);
     setOnline(isOnline());
+    // Auto-prune ghost UUIDs : if entries selected no longer exist in the
+    // queue (removed or never present after reload), drop them silently.
+    // Selection is also pruned for archived entries via the same path
+    // because callers explicitly call setSelected(new Set()) after archive,
+    // but if user manually deletes a selected row we still clean up here.
+    setSelected((prev) => {
+      if (prev.size === 0) return prev;
+      const ids = new Set(q.map((e) => e.client_uuid));
+      let changed = false;
+      const next = new Set<string>();
+      prev.forEach((id) => {
+        if (ids.has(id)) next.add(id);
+        else changed = true;
+      });
+      return changed ? next : prev;
+    });
   }, []);
 
   useEffect(() => {
@@ -344,12 +365,19 @@ export const ReceiptDeliveryTrackingPanel = () => {
         </div>
 
         {/* Bulk actions bar */}
-        <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed bg-muted/30 px-2 py-1.5 text-xs">
+        <div
+          className="flex flex-wrap items-center gap-2 rounded-md border border-dashed bg-muted/30 px-2 py-1.5 text-xs"
+          role="region"
+          aria-label={dict.bulkActions}
+        >
           <span className="font-medium">{dict.bulkActions} :</span>
           <span
             className="text-muted-foreground"
             data-testid="rt-selected-count"
+            role="status"
             aria-live="polite"
+            aria-atomic="true"
+            aria-label={`${selected.size} ${dict.selectedAcrossResults} — ${filtered.length} ${dict.ticket}`}
           >
             <strong className="text-foreground">{selected.size}</strong>{" "}
             {dict.selectedAcrossResults}
@@ -619,7 +647,7 @@ export const ReceiptDeliveryTrackingPanel = () => {
 
         {/* Confirm bulk remove */}
         <AlertDialog open={confirmRemoveOpen} onOpenChange={setConfirmRemoveOpen}>
-          <AlertDialogContent data-testid="rt-confirm-remove">
+          <AlertDialogContent data-testid="rt-confirm-remove" aria-label={dict.confirmRemoveDesc}>
             <AlertDialogHeader>
               <AlertDialogTitle>{dict.confirmTitle}</AlertDialogTitle>
               <AlertDialogDescription>
@@ -641,7 +669,7 @@ export const ReceiptDeliveryTrackingPanel = () => {
 
         {/* Confirm archive duplicates */}
         <AlertDialog open={confirmArchiveOpen} onOpenChange={setConfirmArchiveOpen}>
-          <AlertDialogContent data-testid="rt-confirm-archive">
+          <AlertDialogContent data-testid="rt-confirm-archive" aria-label={dict.confirmArchiveDesc}>
             <AlertDialogHeader>
               <AlertDialogTitle>{dict.confirmTitle}</AlertDialogTitle>
               <AlertDialogDescription>{dict.confirmArchiveDesc}</AlertDialogDescription>
