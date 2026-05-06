@@ -647,7 +647,7 @@ export const ReceiptDeliveryTrackingPanel = () => {
 
         {/* Confirm bulk remove */}
         <AlertDialog open={confirmRemoveOpen} onOpenChange={setConfirmRemoveOpen}>
-          <AlertDialogContent data-testid="rt-confirm-remove">
+          <AlertDialogContent data-testid="rt-confirm-remove" aria-label={dict.confirmRemoveDesc}>
             <AlertDialogHeader>
               <AlertDialogTitle>{dict.confirmTitle}</AlertDialogTitle>
               <AlertDialogDescription>
@@ -669,7 +669,7 @@ export const ReceiptDeliveryTrackingPanel = () => {
 
         {/* Confirm archive duplicates */}
         <AlertDialog open={confirmArchiveOpen} onOpenChange={setConfirmArchiveOpen}>
-          <AlertDialogContent data-testid="rt-confirm-archive">
+          <AlertDialogContent data-testid="rt-confirm-archive" aria-label={dict.confirmArchiveDesc}>
             <AlertDialogHeader>
               <AlertDialogTitle>{dict.confirmTitle}</AlertDialogTitle>
               <AlertDialogDescription>{dict.confirmArchiveDesc}</AlertDialogDescription>
