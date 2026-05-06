@@ -74,7 +74,20 @@ export const ReceiptDeliveryTrackingPanel = () => {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [pageSize, setPageSize] = useState<number>(10);
   const [page, setPage] = useState(1);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const SELECTION_KEY = "sahelpos:receipt_delivery_selection";
+  const [selected, setSelected] = useState<Set<string>>(() => {
+    try {
+      const raw = sessionStorage.getItem(SELECTION_KEY);
+      if (!raw) return new Set();
+      const arr = JSON.parse(raw);
+      return new Set(Array.isArray(arr) ? arr : []);
+    } catch { return new Set(); }
+  });
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(SELECTION_KEY, JSON.stringify(Array.from(selected)));
+    } catch { /* ignore */ }
+  }, [selected]);
   const [detailUuid, setDetailUuid] = useState<string | null>(null);
   const dictRef = useRef(dict);
   dictRef.current = dict;
