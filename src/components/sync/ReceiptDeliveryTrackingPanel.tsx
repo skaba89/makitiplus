@@ -97,8 +97,25 @@ export const ReceiptDeliveryTrackingPanel = () => {
   dictRef.current = dict;
 
   const refresh = useCallback(() => {
-    setQueue(getQueue());
+    const q = getQueue();
+    setQueue(q);
     setOnline(isOnline());
+    // Auto-prune ghost UUIDs : if entries selected no longer exist in the
+    // queue (removed or never present after reload), drop them silently.
+    // Selection is also pruned for archived entries via the same path
+    // because callers explicitly call setSelected(new Set()) after archive,
+    // but if user manually deletes a selected row we still clean up here.
+    setSelected((prev) => {
+      if (prev.size === 0) return prev;
+      const ids = new Set(q.map((e) => e.client_uuid));
+      let changed = false;
+      const next = new Set<string>();
+      prev.forEach((id) => {
+        if (ids.has(id)) next.add(id);
+        else changed = true;
+      });
+      return changed ? next : prev;
+    });
   }, []);
 
   useEffect(() => {
