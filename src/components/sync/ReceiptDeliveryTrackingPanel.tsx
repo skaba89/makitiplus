@@ -452,6 +452,32 @@ export const ReceiptDeliveryTrackingPanel = () => {
           </Button>
         </div>
 
+        {/* Progress bar de synchronisation (visible uniquement durant un flush) */}
+        {syncProgress && (
+          <div
+            className="space-y-1 rounded-md border bg-muted/20 p-2"
+            role="status"
+            aria-live="polite"
+            data-testid="rt-sync-progress"
+          >
+            <div className="flex items-center justify-between text-xs">
+              <span className="flex items-center gap-1.5 font-medium">
+                <RefreshCw className="h-3 w-3 animate-spin" /> {dict.syncing}
+              </span>
+              <span className="text-muted-foreground">
+                <span className="text-primary">✓{syncProgress.sent}</span>{" "}
+                <span className="text-destructive">✗{syncProgress.failed}</span>{" "}
+                · {syncProgress.processed}/{Math.max(1, syncProgress.total)}{" "}
+                <span className="opacity-70">{dict.syncProgress}</span>
+              </span>
+            </div>
+            <Progress
+              value={syncProgress.total > 0 ? (syncProgress.processed / syncProgress.total) * 100 : 0}
+              className="h-1.5"
+            />
+          </div>
+        )}
+
         {/* Bulk actions bar */}
         <div
           className="flex flex-wrap items-center gap-2 rounded-md border border-dashed bg-muted/30 px-2 py-1.5 text-xs"
