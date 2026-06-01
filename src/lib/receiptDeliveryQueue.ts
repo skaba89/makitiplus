@@ -232,6 +232,79 @@ export const clearQueue = () => localStorage.removeItem(STORAGE_KEY);
 export const pendingCount = (): number =>
   load().filter((q) => q.status === "pending").length;
 
+/** Snapshot complet (pour undo). */
+export const snapshotQueue = (): QueuedDelivery[] =>
+  JSON.parse(JSON.stringify(load())) as QueuedDelivery[];
+
+/** Restaure un snapshot (utilisé par undo). */
+export const restoreQueue = (snapshot: QueuedDelivery[]): void => {
+  save(JSON.parse(JSON.stringify(snapshot)));
+};
+
+/** Remplace la file (utilisé après merge multi-appareils). */
+export const replaceQueue = (entries: QueuedDelivery[]): void => {
+  save([...entries]);
+};
+
+/**
+ * Flush asynchrone avec progression — émet onProgress après chaque entrée
+ * pour permettre une UI temps réel (progress bar, compteurs).
+ */
+export const flushQueueAsync = async (
+  onProgress?: (p: {
+    processed: number;
+    total: number;
+    sent: number;
+    failed: number;
+    skipped: number;
+    deferred: number;
+    currentSaleNumber?: string;
+  }) => void,
+): Promise<{ sent: number; failed: number; skipped: number; deferred: number }> => {
+  const queue = load();
+  const now = Date.now();
+  let sent = 0, failed = 0, skipped = 0, deferred = 0;
+  const seen = new Set<string>();
+  const processable = queue.filter((e) => e.status !== "sent" && e.status !== "duplicate");
+  const total = processable.length;
+  let processed = 0;
+  for (const entry of queue) {
+    const key = `${entry.saleNumber}|${entry.channel}|${entry.phone}`;
+    if (entry.status === "sent" || entry.status === "duplicate") { seen.add(key); continue; }
+    if (seen.has(key)) {
+      entry.status = "duplicate"; skipped += 1; processed += 1;
+    } else {
+      seen.add(key);
+      if (entry.exhausted) { skipped += 1; processed += 1; }
+      else if (!isRetryReady(entry, now)) { deferred += 1; processed += 1; }
+      else {
+        try {
+          sendOne(entry);
+          entry.status = "sent";
+          entry.sent_at = new Date().toISOString();
+          entry.attempts += 1;
+          entry.last_error = undefined;
+          entry.next_retry_at = undefined;
+          sent += 1;
+        } catch (err: any) {
+          entry.status = "failed";
+          entry.last_error = err?.message ?? "send_failed";
+          entry.attempts += 1;
+          if (entry.attempts >= MAX_ATTEMPTS) { entry.exhausted = true; entry.next_retry_at = undefined; }
+          else if (isOnline()) entry.next_retry_at = new Date(Date.now() + computeNextRetryDelay(entry.attempts)).toISOString();
+          failed += 1;
+        }
+        processed += 1;
+      }
+    }
+    save(queue);
+    onProgress?.({ processed, total, sent, failed, skipped, deferred, currentSaleNumber: entry.saleNumber });
+    // yield au navigateur pour ne pas figer l'UI sur les longues files
+    await new Promise((r) => setTimeout(r, 0));
+  }
+  return { sent, failed, skipped, deferred };
+};
+
 let installed = false;
 export const installAutoFlush = (
   onFlush?: (r: { sent: number; skipped: number; failed: number; deferred: number }) => void

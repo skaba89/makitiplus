@@ -67,6 +67,14 @@ export interface DeliveryDict {
   confirm: string;
   selectedAcrossResults: string;
   clearSelection: string;
+  undo: string;
+  actionUndone: string;
+  syncing: string;
+  syncProgress: string;
+  exportSelected: string;
+  exportSelectedCsv: string;
+  exportSelectedPdf: string;
+  remoteMerged: string;
 }
 
 const dicts: Record<DeliveryLocale, DeliveryDict> = {
@@ -100,6 +108,14 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     cancel: "Annuler", confirm: "Confirmer",
     selectedAcrossResults: "sélectionné(s) sur tout le résultat",
     clearSelection: "Effacer la sélection",
+    undo: "Annuler",
+    actionUndone: "Action annulée",
+    syncing: "Synchronisation en cours…",
+    syncProgress: "envoyé(s) / échec(s)",
+    exportSelected: "Exporter sélection",
+    exportSelectedCsv: "Sélection CSV",
+    exportSelectedPdf: "Sélection PDF",
+    remoteMerged: "File distante fusionnée",
   },
   en: {
     title: "Receipt delivery tracking",
@@ -131,6 +147,14 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     cancel: "Cancel", confirm: "Confirm",
     selectedAcrossResults: "selected across all results",
     clearSelection: "Clear selection",
+    undo: "Undo",
+    actionUndone: "Action undone",
+    syncing: "Syncing…",
+    syncProgress: "sent / failed",
+    exportSelected: "Export selection",
+    exportSelectedCsv: "Selection CSV",
+    exportSelectedPdf: "Selection PDF",
+    remoteMerged: "Remote queue merged",
   },
   // Susu (Soso) — Guinée maritime
   sus: {
@@ -163,6 +187,14 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     cancel: "Bakanma", confirm: "Ratin",
     selectedAcrossResults: "sugandixi birin findife ra",
     clearSelection: "Sugandi yi xun",
+    undo: "Yi xanbi",
+    actionUndone: "Walikɛ xanbi",
+    syncing: "Sinkronisasyon…",
+    syncProgress: "rafiyaxi / munma",
+    exportSelected: "Sugandixi ramini",
+    exportSelectedCsv: "Sugandixi CSV",
+    exportSelectedPdf: "Sugandixi PDF",
+    remoteMerged: "Luwe gbɛtɛ lannɛ",
   },
   // Pular (Peul / Fulfulde) — Fouta Djallon
   ful: {
@@ -195,6 +227,14 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     cancel: "Haaytu", confirm: "Teeŋtin",
     selectedAcrossResults: "suɓaama e ñiiwñe fof",
     clearSelection: "Mommbu suɓaaɗi",
+    undo: "Firtu",
+    actionUndone: "Golle firtaama",
+    syncing: "Hino siŋkironeede…",
+    syncProgress: "neldaaɗi / ronkooji",
+    exportSelected: "Yaltin suɓaaɗi",
+    exportSelectedCsv: "Suɓaaɗi CSV",
+    exportSelectedPdf: "Suɓaaɗi PDF",
+    remoteMerged: "Ndariindi woɗɗundi renndinaama",
   },
   // Maninka (Malinké) — Haute Guinée
   man: {
@@ -227,6 +267,14 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     cancel: "A bila", confirm: "Dafa",
     selectedAcrossResults: "sugandilen jaabi bɛɛ kɔnɔ",
     clearSelection: "Sugandili bɔ",
+    undo: "A segi",
+    actionUndone: "Baara seginen",
+    syncing: "Sinkironisasiyɔn bɛ kɛ…",
+    syncProgress: "cira / ma se",
+    exportSelected: "Sugandili labɔ",
+    exportSelectedCsv: "Sugandili CSV",
+    exportSelectedPdf: "Sugandili PDF",
+    remoteMerged: "Yɔrɔjan layili faralen",
   },
 };
 

@@ -13,23 +13,28 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
 import {
   Send, MessageCircle, MessageSquare, RefreshCw, CheckCircle2,
   Clock, AlertTriangle, Trash2, WifiOff, Wifi, Download, FileText,
-  ArrowDownAZ, ArrowUpAZ, Languages, Hourglass, Ban, Copy, Archive, GitMerge, Eye,
+  ArrowDownAZ, ArrowUpAZ, Languages, Hourglass, Ban, Copy, Archive, GitMerge, Eye, Undo2,
 } from "lucide-react";
 import {
-  getQueue, retryOne, removeOne, flushQueue, isOnline, MAX_ATTEMPTS,
+  getQueue, retryOne, removeOne, isOnline, MAX_ATTEMPTS,
   retryMany, removeMany, mergeDuplicates, archiveDuplicates,
   onExhausted, checkExhaustedDelta,
+  snapshotQueue, restoreQueue, replaceQueue, flushQueueAsync,
   QueuedDelivery, DeliveryStatus,
 } from "@/lib/receiptDeliveryQueue";
+import { mergeRemoteQueue } from "@/lib/receiptDeliveryConflict";
 import {
   getDict, getDeliveryLocale, setDeliveryLocale, LOCALE_OPTIONS,
   type DeliveryLocale, type DeliveryDict,
 } from "@/lib/receiptDeliveryI18n";
 import { exportDeliveryLogCSV, exportDeliveryLogPDF } from "@/lib/receiptDeliveryExport";
+import { exportSelectedHistoryCSV, exportSelectedHistoryPDF } from "@/lib/receiptDeliverySelectedExport";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -151,6 +156,28 @@ export const ReceiptDeliveryTrackingPanel = () => {
   const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
   const [confirmArchiveOpen, setConfirmArchiveOpen] = useState(false);
 
+  // Progression de synchronisation
+  const [syncProgress, setSyncProgress] = useState<{
+    processed: number; total: number; sent: number; failed: number;
+  } | null>(null);
+
+  // Cross-tab : si un autre onglet/appareil modifie la sélection,
+  // on se resynchronise (évite l'incohérence du compteur).
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === SELECTION_KEY) {
+        try {
+          const arr = e.newValue ? JSON.parse(e.newValue) : [];
+          setSelected(new Set(Array.isArray(arr) ? arr : []));
+        } catch { /* ignore */ }
+      } else if (e.key === "sahelpos:receipt_delivery_queue") {
+        refresh();
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [refresh]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return queue
@@ -207,8 +234,14 @@ export const ReceiptDeliveryTrackingPanel = () => {
     else if (r?.status === "failed") toast({ variant: "destructive", title: dict.failed, description: r.last_error });
   };
 
-  const handleFlushAll = () => {
-    const r = flushQueue();
+  /** Flush async — affiche progress bar + compteurs en temps réel. */
+  const handleFlushAll = async () => {
+    setSyncProgress({ processed: 0, total: counts.pending + counts.failed, sent: 0, failed: 0 });
+    const r = await flushQueueAsync((p) => {
+      setSyncProgress({ processed: p.processed, total: p.total, sent: p.sent, failed: p.failed });
+      refresh();
+    });
+    setSyncProgress(null);
     refresh();
     toast({ title: dict.retryAll, description: `✓${r.sent} ✗${r.failed} ↺${r.skipped} ⏳${r.deferred}` });
   };
@@ -221,36 +254,91 @@ export const ReceiptDeliveryTrackingPanel = () => {
     setSelected(new Set());
   };
 
+  /** Undo helper : restaure le snapshot + sélection précédente. */
+  const undoWithSnapshot = (snapshot: QueuedDelivery[], prevSelection: Set<string>) => {
+    restoreQueue(snapshot);
+    setSelected(new Set(prevSelection));
+    refresh();
+    toast({ title: dict.actionUndone });
+  };
+
+  const showUndoToast = (title: string, description: string, snapshot: QueuedDelivery[], prevSelection: Set<string>) => {
+    toast({
+      title,
+      description,
+      duration: 6000,
+      action: (
+        <ToastAction
+          altText={dict.undo}
+          onClick={() => undoWithSnapshot(snapshot, prevSelection)}
+          data-testid="rt-undo"
+        >
+          <Undo2 className="h-3 w-3 mr-1" /> {dict.undo}
+        </ToastAction>
+      ),
+    });
+  };
+
   const handleBulkRemove = () => {
     if (selected.size === 0) { toast({ title: dict.noneSelected }); return; }
     setConfirmRemoveOpen(true);
   };
   const confirmBulkRemove = () => {
+    const snapshot = snapshotQueue();
+    const prevSelection = new Set(selected);
     const n = removeMany(Array.from(selected));
     refresh();
-    toast({ title: dict.bulkRemove, description: `−${n}` });
     setSelected(new Set());
     setConfirmRemoveOpen(false);
+    showUndoToast(dict.bulkRemove, `−${n}`, snapshot, prevSelection);
   };
 
   const handleMergeDup = () => {
+    const snapshot = snapshotQueue();
+    const prevSelection = new Set(selected);
     const r = mergeDuplicates();
     refresh();
-    toast({ title: dict.duplicatesMerged, description: `−${r.merged} → ${r.kept}` });
+    showUndoToast(dict.duplicatesMerged, `−${r.merged} → ${r.kept}`, snapshot, prevSelection);
   };
 
   const handleArchiveDup = () => { setConfirmArchiveOpen(true); };
   const confirmArchiveDup = () => {
+    const snapshot = snapshotQueue();
+    const prevSelection = new Set(selected);
     const n = archiveDuplicates();
     refresh();
-    toast({ title: dict.duplicatesArchived, description: `↺${n}` });
     setConfirmArchiveOpen(false);
+    showUndoToast(dict.duplicatesArchived, `↺${n}`, snapshot, prevSelection);
   };
+
+  /**
+   * Simulation d'une réception distante : merge avec règles déterministes
+   * (cf. mergeRemoteQueue). En contexte réel, `remote` arrive via Supabase
+   * realtime ou polling. Ici nous exposons une commande dev/QA.
+   */
+  const handleMergeRemote = (remote: QueuedDelivery[]) => {
+    const report = mergeRemoteQueue(getQueue(), remote);
+    replaceQueue(report.merged);
+    refresh();
+    toast({
+      title: dict.remoteMerged,
+      description: `±${report.conflictsResolved} +${report.addedFromRemote}`,
+    });
+    return report;
+  };
+  // Exposé pour les tests E2E (non-officiel, opt-in).
+  (window as any).__sahelpos_mergeRemote = handleMergeRemote;
+
+  const selectedRows = useMemo(
+    () => queue.filter((q) => selected.has(q.client_uuid)),
+    [queue, selected],
+  );
 
   const handleLocale = (l: DeliveryLocale) => {
     setLocale(l);
     setDeliveryLocale(l);
   };
+
 
   return (
     <Card data-testid="receipt-tracking-panel">
@@ -364,6 +452,32 @@ export const ReceiptDeliveryTrackingPanel = () => {
           </Button>
         </div>
 
+        {/* Progress bar de synchronisation (visible uniquement durant un flush) */}
+        {syncProgress && (
+          <div
+            className="space-y-1 rounded-md border bg-muted/20 p-2"
+            role="status"
+            aria-live="polite"
+            data-testid="rt-sync-progress"
+          >
+            <div className="flex items-center justify-between text-xs">
+              <span className="flex items-center gap-1.5 font-medium">
+                <RefreshCw className="h-3 w-3 animate-spin" /> {dict.syncing}
+              </span>
+              <span className="text-muted-foreground">
+                <span className="text-primary">✓{syncProgress.sent}</span>{" "}
+                <span className="text-destructive">✗{syncProgress.failed}</span>{" "}
+                · {syncProgress.processed}/{Math.max(1, syncProgress.total)}{" "}
+                <span className="opacity-70">{dict.syncProgress}</span>
+              </span>
+            </div>
+            <Progress
+              value={syncProgress.total > 0 ? (syncProgress.processed / syncProgress.total) * 100 : 0}
+              className="h-1.5"
+            />
+          </div>
+        )}
+
         {/* Bulk actions bar */}
         <div
           className="flex flex-wrap items-center gap-2 rounded-md border border-dashed bg-muted/30 px-2 py-1.5 text-xs"
@@ -408,6 +522,24 @@ export const ReceiptDeliveryTrackingPanel = () => {
             data-testid="rt-bulk-remove"
           >
             <Trash2 className="h-3 w-3 mr-1" /> {dict.bulkRemove}
+          </Button>
+          <Button
+            size="sm" variant="outline"
+            onClick={() => exportSelectedHistoryCSV(selectedRows, dict)}
+            disabled={selected.size === 0}
+            data-testid="rt-export-selected-csv"
+            title={dict.exportSelectedCsv}
+          >
+            <Download className="h-3 w-3 mr-1" /> {dict.exportSelectedCsv}
+          </Button>
+          <Button
+            size="sm" variant="outline"
+            onClick={() => exportSelectedHistoryPDF(selectedRows, dict)}
+            disabled={selected.size === 0}
+            data-testid="rt-export-selected-pdf"
+            title={dict.exportSelectedPdf}
+          >
+            <FileText className="h-3 w-3 mr-1" /> {dict.exportSelectedPdf}
           </Button>
           <div className="flex-1" />
           <Button
