@@ -67,6 +67,14 @@ export interface DeliveryDict {
   confirm: string;
   selectedAcrossResults: string;
   clearSelection: string;
+  undo: string;
+  actionUndone: string;
+  syncing: string;
+  syncProgress: string;
+  exportSelected: string;
+  exportSelectedCsv: string;
+  exportSelectedPdf: string;
+  remoteMerged: string;
 }
 
 const dicts: Record<DeliveryLocale, DeliveryDict> = {
