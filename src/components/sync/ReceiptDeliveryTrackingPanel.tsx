@@ -523,6 +523,24 @@ export const ReceiptDeliveryTrackingPanel = () => {
           >
             <Trash2 className="h-3 w-3 mr-1" /> {dict.bulkRemove}
           </Button>
+          <Button
+            size="sm" variant="outline"
+            onClick={() => exportSelectedHistoryCSV(selectedRows, dict)}
+            disabled={selected.size === 0}
+            data-testid="rt-export-selected-csv"
+            title={dict.exportSelectedCsv}
+          >
+            <Download className="h-3 w-3 mr-1" /> {dict.exportSelectedCsv}
+          </Button>
+          <Button
+            size="sm" variant="outline"
+            onClick={() => exportSelectedHistoryPDF(selectedRows, dict)}
+            disabled={selected.size === 0}
+            data-testid="rt-export-selected-pdf"
+            title={dict.exportSelectedPdf}
+          >
+            <FileText className="h-3 w-3 mr-1" /> {dict.exportSelectedPdf}
+          </Button>
           <div className="flex-1" />
           <Button
             size="sm" variant="outline"
