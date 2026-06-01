@@ -13,23 +13,28 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
 import {
   Send, MessageCircle, MessageSquare, RefreshCw, CheckCircle2,
   Clock, AlertTriangle, Trash2, WifiOff, Wifi, Download, FileText,
-  ArrowDownAZ, ArrowUpAZ, Languages, Hourglass, Ban, Copy, Archive, GitMerge, Eye,
+  ArrowDownAZ, ArrowUpAZ, Languages, Hourglass, Ban, Copy, Archive, GitMerge, Eye, Undo2,
 } from "lucide-react";
 import {
-  getQueue, retryOne, removeOne, flushQueue, isOnline, MAX_ATTEMPTS,
+  getQueue, retryOne, removeOne, isOnline, MAX_ATTEMPTS,
   retryMany, removeMany, mergeDuplicates, archiveDuplicates,
   onExhausted, checkExhaustedDelta,
+  snapshotQueue, restoreQueue, replaceQueue, flushQueueAsync,
   QueuedDelivery, DeliveryStatus,
 } from "@/lib/receiptDeliveryQueue";
+import { mergeRemoteQueue } from "@/lib/receiptDeliveryConflict";
 import {
   getDict, getDeliveryLocale, setDeliveryLocale, LOCALE_OPTIONS,
   type DeliveryLocale, type DeliveryDict,
 } from "@/lib/receiptDeliveryI18n";
 import { exportDeliveryLogCSV, exportDeliveryLogPDF } from "@/lib/receiptDeliveryExport";
+import { exportSelectedHistoryCSV, exportSelectedHistoryPDF } from "@/lib/receiptDeliverySelectedExport";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
