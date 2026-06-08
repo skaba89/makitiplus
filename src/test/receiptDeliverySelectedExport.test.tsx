@@ -142,7 +142,7 @@ describe("Export sélection — CSV / PDF", () => {
     });
     const [rows, dict] = (exportSelectedHistoryPDF as any).mock.calls[0];
     expect(rows).toHaveLength(2);
-    const byUuid = new Map(rows.map((r: any) => [r.client_uuid, r]));
+    const byUuid = new Map<string, any>(rows.map((r: any) => [r.client_uuid, r]));
     // Historique complet présent
     expect(byUuid.get(p1.client_uuid)?.created_at).toBe(p1.created_at);
     expect(byUuid.get(p2b.client_uuid)?.attempts).toBe(p2b.attempts);
