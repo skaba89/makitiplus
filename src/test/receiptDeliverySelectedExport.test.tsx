@@ -117,40 +117,40 @@ describe("Export sélection — CSV / PDF", () => {
     }
   });
 
-  it("PDF — génère un Blob application/pdf pour la sélection", async () => {
+  it("PDF — exportSelectedHistoryPDF reçoit les lignes sélectionnées avec leur historique", async () => {
     enqueueOrSendReceipt("whatsapp", "+22461100010", sample("VNT-260504-P001"));
+    enqueueOrSendReceipt("sms",      "+22461100011", sample("VNT-260504-P002"));
+    setSender(() => { throw new Error("pdf_err"); });
+    const p2 = getQueue().find((q) => q.saleNumber === "VNT-260504-P002")!;
+    setOnline(true);
+    retryOne(p2.client_uuid, { force: true });
+    setOnline(false);
+    setSender(null);
+
     const p1 = getQueue().find((q) => q.saleNumber === "VNT-260504-P001")!;
+    const p2b = getQueue().find((q) => q.saleNumber === "VNT-260504-P002")!;
 
-    const blobCap = installBlobCapture();
-    (URL as any).createObjectURL = vi.fn(() => "blob:mock");
-    (URL as any).revokeObjectURL = vi.fn();
-    const origClick = HTMLAnchorElement.prototype.click;
-    HTMLAnchorElement.prototype.click = function () { /* no-op */ };
+    (exportSelectedHistoryPDF as any).mockClear?.();
 
-    try {
-      render(<ReceiptDeliveryTrackingPanel />);
-      fireEvent.click(await screen.findByLabelText("select-VNT-260504-P001"));
-      fireEvent.click(screen.getByTestId("rt-export-selected-pdf"));
+    render(<ReceiptDeliveryTrackingPanel />);
+    fireEvent.click(await screen.findByLabelText("select-VNT-260504-P001"));
+    fireEvent.click(screen.getByLabelText("select-VNT-260504-P002"));
+    fireEvent.click(screen.getByTestId("rt-export-selected-pdf"));
 
-      await waitFor(() => {
-        expect(
-          blobCap.captured.some((b) => b.type.includes("pdf")),
-        ).toBe(true);
-      });
-      // Le PDF contient bien le client_uuid quelque part dans le flux brut
-      const pdfBlob = blobCap.captured.find((b) => b.type.includes("pdf"))!;
-      const raw = pdfBlob.parts
-        .map((p) => {
-          if (typeof p === "string") return p;
-          if (p instanceof ArrayBuffer) return new TextDecoder().decode(p);
-          if (ArrayBuffer.isView(p)) return new TextDecoder().decode(p as any);
-          return "";
-        })
-        .join("");
-      expect(raw).toContain(p1.client_uuid);
-    } finally {
-      blobCap.restore();
-      HTMLAnchorElement.prototype.click = origClick;
-    }
+    await waitFor(() => {
+      expect(exportSelectedHistoryPDF).toHaveBeenCalledTimes(1);
+    });
+    const [rows, dict] = (exportSelectedHistoryPDF as any).mock.calls[0];
+    expect(rows).toHaveLength(2);
+    const byUuid = new Map(rows.map((r: any) => [r.client_uuid, r]));
+    // Historique complet présent
+    expect(byUuid.get(p1.client_uuid)?.created_at).toBe(p1.created_at);
+    expect(byUuid.get(p2b.client_uuid)?.attempts).toBe(p2b.attempts);
+    expect(byUuid.get(p2b.client_uuid)?.last_error).toBe("pdf_err");
+    expect(byUuid.get(p2b.client_uuid)?.next_retry_at).toBe(p2b.next_retry_at);
+    // Le dictionnaire de libellés est passé pour rendre les colonnes
+    expect(dict).toHaveProperty("createdAt");
+    expect(dict).toHaveProperty("nextRetryAt");
+    expect(dict).toHaveProperty("lastError");
   });
 });
