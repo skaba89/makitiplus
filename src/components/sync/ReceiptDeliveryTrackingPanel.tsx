@@ -234,10 +234,22 @@ export const ReceiptDeliveryTrackingPanel = () => {
     else if (r?.status === "failed") toast({ variant: "destructive", title: dict.failed, description: r.last_error });
   };
 
-  /** Flush async — affiche progress bar + compteurs en temps réel. */
+  /**
+   * Flush async — affiche progress bar + compteurs en temps réel.
+   * OPTIM : throttle des refresh React (UI) à ~80ms ou tous les 25 items,
+   * pour éviter les ralentissements sur grandes files (300+ entrées).
+   * La progression interne reste comptabilisée pour chaque entrée.
+   */
   const handleFlushAll = async () => {
     setSyncProgress({ processed: 0, total: counts.pending + counts.failed, sent: 0, failed: 0 });
+    let lastTick = 0;
+    const THROTTLE_MS = 80;
+    const THROTTLE_STEP = 25;
     const r = await flushQueueAsync((p) => {
+      const now = Date.now();
+      const isLast = p.processed >= p.total;
+      if (!isLast && now - lastTick < THROTTLE_MS && p.processed % THROTTLE_STEP !== 0) return;
+      lastTick = now;
       setSyncProgress({ processed: p.processed, total: p.total, sent: p.sent, failed: p.failed });
       refresh();
     });
