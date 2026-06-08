@@ -5,10 +5,24 @@
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+
+// Mock partiel : seul exportSelectedHistoryPDF est mocké (jsPDF instable en jsdom).
+// exportSelectedHistoryCSV reste la vraie implémentation → assertions sur le contenu.
+vi.mock("@/lib/receiptDeliverySelectedExport", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/receiptDeliverySelectedExport")>(
+    "@/lib/receiptDeliverySelectedExport",
+  );
+  return {
+    ...actual,
+    exportSelectedHistoryPDF: vi.fn(),
+  };
+});
+
 import { ReceiptDeliveryTrackingPanel } from "@/components/sync/ReceiptDeliveryTrackingPanel";
 import {
   enqueueOrSendReceipt, clearQueue, getQueue, setSender, retryOne,
 } from "@/lib/receiptDeliveryQueue";
+import { exportSelectedHistoryPDF } from "@/lib/receiptDeliverySelectedExport";
 import type { ReceiptData } from "@/utils/receiptGenerator";
 
 const sample = (n: string): ReceiptData => ({
