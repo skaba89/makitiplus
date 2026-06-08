@@ -22,6 +22,30 @@ const sample = (n: string): ReceiptData => ({
 const setOnline = (v: boolean) =>
   Object.defineProperty(navigator, "onLine", { value: v, configurable: true });
 
+/** Patche Blob pour récupérer son contenu (jsdom n'expose pas blob.text fiablement). */
+const installBlobCapture = () => {
+  const OrigBlob: typeof Blob = (globalThis as any).Blob;
+  const captured: { parts: any[]; type: string }[] = [];
+  class CapturingBlob extends OrigBlob {
+    __content: string;
+    constructor(parts: any[] = [], opts: BlobPropertyBag = {}) {
+      super(parts, opts);
+      this.__content = (parts as any[])
+        .map((p) => (typeof p === "string" ? p : ""))
+        .join("");
+      captured.push({ parts: parts as any[], type: opts.type ?? "" });
+    }
+  }
+  (globalThis as any).Blob = CapturingBlob;
+  return {
+    captured,
+    restore: () => { (globalThis as any).Blob = OrigBlob; },
+    lastText: () => captured[captured.length - 1]?.parts
+      .map((p) => (typeof p === "string" ? p : ""))
+      .join("") ?? "",
+  };
+};
+
 describe("Export sélection — CSV / PDF", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -32,10 +56,8 @@ describe("Export sélection — CSV / PDF", () => {
   });
 
   it("CSV contient client_uuid, created_at, attempts, last_error, next_retry_at corrects", async () => {
-    // 1 ticket pending + 1 ticket avec erreur (pour avoir last_error/next_retry_at)
     enqueueOrSendReceipt("whatsapp", "+22461100001", sample("VNT-260504-E001"));
     enqueueOrSendReceipt("sms",      "+22461100002", sample("VNT-260504-E002"));
-    // Force une erreur sur E002
     setSender(() => { throw new Error("network_down_test"); });
     const e2 = getQueue().find((q) => q.saleNumber === "VNT-260504-E002")!;
     setOnline(true);
@@ -43,23 +65,14 @@ describe("Export sélection — CSV / PDF", () => {
     setOnline(false);
     setSender(null);
 
-    const queueSnap = getQueue();
-    const e1 = queueSnap.find((q) => q.saleNumber === "VNT-260504-E001")!;
-    const e2b = queueSnap.find((q) => q.saleNumber === "VNT-260504-E002")!;
+    const e1 = getQueue().find((q) => q.saleNumber === "VNT-260504-E001")!;
+    const e2b = getQueue().find((q) => q.saleNumber === "VNT-260504-E002")!;
     expect(e2b.last_error).toBe("network_down_test");
     expect(e2b.next_retry_at).toBeTruthy();
 
-    // Intercepte le Blob généré par l'export
-    let captured = "";
-    const origCreate = URL.createObjectURL;
-    URL.createObjectURL = vi.fn((blob: Blob) => {
-      // jsdom : on lit le contenu via FileReader synchroniquement impossible
-      // → on utilise blob.text() côté assertions
-      (URL.createObjectURL as any)._lastBlob = blob;
-      return "blob:mock";
-    }) as any;
-    URL.revokeObjectURL = vi.fn();
-    // Désactive le click réel sur <a>
+    const blobCap = installBlobCapture();
+    (URL as any).createObjectURL = vi.fn(() => "blob:mock");
+    (URL as any).revokeObjectURL = vi.fn();
     const origClick = HTMLAnchorElement.prototype.click;
     HTMLAnchorElement.prototype.click = function () { /* no-op */ };
 
@@ -67,50 +80,53 @@ describe("Export sélection — CSV / PDF", () => {
       render(<ReceiptDeliveryTrackingPanel />);
       fireEvent.click(await screen.findByLabelText("select-VNT-260504-E001"));
       fireEvent.click(screen.getByLabelText("select-VNT-260504-E002"));
-
       fireEvent.click(screen.getByTestId("rt-export-selected-csv"));
 
-      await waitFor(() => {
-        expect((URL.createObjectURL as any)._lastBlob).toBeTruthy();
-      });
-      const blob: Blob = (URL.createObjectURL as any)._lastBlob;
-      captured = await blob.text();
+      await waitFor(() => expect(blobCap.captured.length).toBeGreaterThan(0));
+      const csv = blobCap.lastText();
+
+      const [headerLine, ...rows] = csv.replace(/^\uFEFF/, "").split("\n");
+      expect(headerLine).toContain("client_uuid");
+      expect(headerLine).toContain("saleNumber");
+
+      const joined = rows.join("\n");
+      expect(joined).toContain(e1.client_uuid);
+      expect(joined).toContain(e1.created_at);
+      expect(joined).toContain(e2b.client_uuid);
+      expect(joined).toContain(e2b.created_at);
+      expect(joined).toContain(e2b.next_retry_at!);
+      expect(joined).toContain("network_down_test");
+      expect(joined).toMatch(/;1;/); // colonne attempts = 1
     } finally {
-      URL.createObjectURL = origCreate;
+      blobCap.restore();
       HTMLAnchorElement.prototype.click = origClick;
     }
-
-    // Header contient bien la colonne client_uuid
-    const [headerLine, ...rows] = captured.replace(/^\uFEFF/, "").split("\n");
-    expect(headerLine).toContain("client_uuid");
-    expect(headerLine).toContain("saleNumber");
-
-    // Chaque ligne contient le client_uuid et created_at correspondants
-    const joined = rows.join("\n");
-    expect(joined).toContain(e1.client_uuid);
-    expect(joined).toContain(e1.created_at);
-    expect(joined).toContain(e2b.client_uuid);
-    expect(joined).toContain(e2b.created_at);
-    expect(joined).toContain(e2b.next_retry_at!);
-    expect(joined).toContain("network_down_test");
-    // attempts colonne présente (au moins "1")
-    expect(joined).toMatch(/;1;/);
   });
 
-  it("PDF — déclenche bien jsPDF.save avec un nom horodaté", async () => {
+  it("PDF — déclenche un téléchargement avec nom horodaté", async () => {
     enqueueOrSendReceipt("whatsapp", "+22461100010", sample("VNT-260504-P001"));
-    const jsPDFmod: any = await import("jspdf");
-    const saveSpy = vi.spyOn(jsPDFmod.default.prototype as any, "save");
+    const downloads: string[] = [];
+    const origClick = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function () {
+      if ((this as HTMLAnchorElement).download) {
+        downloads.push((this as HTMLAnchorElement).download);
+      }
+    };
+    (URL as any).createObjectURL = vi.fn(() => "blob:mock");
+    (URL as any).revokeObjectURL = vi.fn();
 
-    render(<ReceiptDeliveryTrackingPanel />);
-    fireEvent.click(await screen.findByLabelText("select-VNT-260504-P001"));
-    fireEvent.click(screen.getByTestId("rt-export-selected-pdf"));
+    try {
+      render(<ReceiptDeliveryTrackingPanel />);
+      fireEvent.click(await screen.findByLabelText("select-VNT-260504-P001"));
+      fireEvent.click(screen.getByTestId("rt-export-selected-pdf"));
 
-    await waitFor(() => {
-      expect(saveSpy).toHaveBeenCalledTimes(1);
-      const arg = saveSpy.mock.calls[0][0];
-      expect(arg).toMatch(/^tickets_selection_\d{4}-\d{2}-\d{2}_\d{4}\.pdf$/);
-    });
-    saveSpy.mockRestore();
+      await waitFor(() => {
+        expect(
+          downloads.some((d) => /^tickets_selection_\d{4}-\d{2}-\d{2}_\d{4}\.pdf$/.test(d)),
+        ).toBe(true);
+      });
+    } finally {
+      HTMLAnchorElement.prototype.click = origClick;
+    }
   });
 });
