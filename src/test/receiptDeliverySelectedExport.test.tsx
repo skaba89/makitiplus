@@ -103,17 +103,15 @@ describe("Export sélection — CSV / PDF", () => {
     }
   });
 
-  it("PDF — déclenche un téléchargement avec nom horodaté", async () => {
+  it("PDF — génère un Blob application/pdf pour la sélection", async () => {
     enqueueOrSendReceipt("whatsapp", "+22461100010", sample("VNT-260504-P001"));
-    const downloads: string[] = [];
-    const origClick = HTMLAnchorElement.prototype.click;
-    HTMLAnchorElement.prototype.click = function () {
-      if ((this as HTMLAnchorElement).download) {
-        downloads.push((this as HTMLAnchorElement).download);
-      }
-    };
+    const p1 = getQueue().find((q) => q.saleNumber === "VNT-260504-P001")!;
+
+    const blobCap = installBlobCapture();
     (URL as any).createObjectURL = vi.fn(() => "blob:mock");
     (URL as any).revokeObjectURL = vi.fn();
+    const origClick = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function () { /* no-op */ };
 
     try {
       render(<ReceiptDeliveryTrackingPanel />);
@@ -122,10 +120,22 @@ describe("Export sélection — CSV / PDF", () => {
 
       await waitFor(() => {
         expect(
-          downloads.some((d) => /^tickets_selection_\d{4}-\d{2}-\d{2}_\d{4}\.pdf$/.test(d)),
+          blobCap.captured.some((b) => b.type.includes("pdf")),
         ).toBe(true);
       });
+      // Le PDF contient bien le client_uuid quelque part dans le flux brut
+      const pdfBlob = blobCap.captured.find((b) => b.type.includes("pdf"))!;
+      const raw = pdfBlob.parts
+        .map((p) => {
+          if (typeof p === "string") return p;
+          if (p instanceof ArrayBuffer) return new TextDecoder().decode(p);
+          if (ArrayBuffer.isView(p)) return new TextDecoder().decode(p as any);
+          return "";
+        })
+        .join("");
+      expect(raw).toContain(p1.client_uuid);
     } finally {
+      blobCap.restore();
       HTMLAnchorElement.prototype.click = origClick;
     }
   });
