@@ -572,11 +572,21 @@ export const ReceiptDeliveryTrackingPanel = () => {
               <span className="flex items-center gap-1.5 font-medium">
                 <RefreshCw className="h-3 w-3 animate-spin" /> {dict.syncing}
               </span>
-              <span className="text-muted-foreground">
+              <span className="text-muted-foreground flex items-center gap-2">
                 <span className="text-primary">✓{syncProgress.sent}</span>{" "}
                 <span className="text-destructive">✗{syncProgress.failed}</span>{" "}
                 · {syncProgress.processed}/{Math.max(1, syncProgress.total)}{" "}
                 <span className="opacity-70">{dict.syncProgress}</span>
+                {syncRate && (
+                  <span
+                    className="ml-2 font-mono text-[10px] rounded bg-muted px-1.5 py-0.5"
+                    data-testid="rt-sync-rate"
+                    aria-label={`${dict.syncRate} ${syncRate.fps} FPS, ${syncRate.tps} ticks/s`}
+                    title={`${dict.syncRate} : ${syncRate.fps} FPS · ${syncRate.tps} ticks/s`}
+                  >
+                    {syncRate.fps} FPS · {syncRate.tps} t/s
+                  </span>
+                )}
               </span>
             </div>
             <Progress
