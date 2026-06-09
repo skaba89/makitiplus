@@ -596,6 +596,46 @@ export const ReceiptDeliveryTrackingPanel = () => {
           </div>
         )}
 
+        {/* Bannière d'undo persistant — visible même après remount/refresh
+            tant que la fenêtre de validité (UNDO_TTL_MS) n'est pas expirée. */}
+        {undoEntry && undoRemainingMs > 0 && (
+          <div
+            className="flex items-center justify-between gap-2 rounded-md border border-primary/40 bg-primary/5 p-2 text-xs"
+            role="status"
+            aria-live="polite"
+            data-testid="rt-undo-banner"
+          >
+            <span className="flex items-center gap-2">
+              <Undo2 className="h-3.5 w-3.5 text-primary" />
+              <strong>{dict.undoAvailable}</strong>
+              <span className="text-muted-foreground">{undoEntry.description ?? undoEntry.action}</span>
+              <span
+                className="font-mono text-[10px] rounded bg-muted px-1.5 py-0.5"
+                data-testid="rt-undo-countdown"
+              >
+                {dict.undoExpiresIn} {Math.ceil(undoRemainingMs / 1000)}s
+              </span>
+            </span>
+            <div className="flex gap-1">
+              <Button
+                size="sm" variant="outline"
+                onClick={() => applyUndo(undoEntry)}
+                data-testid="rt-undo-banner-action"
+              >
+                <Undo2 className="h-3 w-3 mr-1" /> {dict.undo}
+              </Button>
+              <Button
+                size="sm" variant="ghost"
+                onClick={() => { clearUndo(); setUndoEntry(null); }}
+                data-testid="rt-undo-banner-dismiss"
+                aria-label={dict.close}
+              >
+                ✕
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Bulk actions bar */}
         <div
           className="flex flex-wrap items-center gap-2 rounded-md border border-dashed bg-muted/30 px-2 py-1.5 text-xs"
