@@ -186,11 +186,26 @@ export const ReceiptDeliveryTrackingPanel = () => {
         } catch { /* ignore */ }
       } else if (e.key === "sahelpos:receipt_delivery_queue") {
         refresh();
+      } else if (e.key === "sahelpos:receipt_delivery_undo") {
+        setUndoEntry(loadUndo());
       }
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
   }, [refresh]);
+
+  // Countdown de l'undo persistant : 1Hz, auto-expire à 0.
+  useEffect(() => {
+    if (!undoEntry) { setUndoRemainingMs(0); return; }
+    const tick = () => {
+      const ms = remainingUndoMs(undoEntry);
+      setUndoRemainingMs(ms);
+      if (ms <= 0) { clearUndo(); setUndoEntry(null); }
+    };
+    tick();
+    const i = setInterval(tick, 1000);
+    return () => clearInterval(i);
+  }, [undoEntry]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
