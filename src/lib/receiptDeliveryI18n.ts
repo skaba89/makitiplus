@@ -75,6 +75,10 @@ export interface DeliveryDict {
   exportSelectedCsv: string;
   exportSelectedPdf: string;
   remoteMerged: string;
+  undoAvailable: string;
+  undoExpiresIn: string;
+  offlineExportNote: string;
+  syncRate: string;
 }
 
 const dicts: Record<DeliveryLocale, DeliveryDict> = {
@@ -116,6 +120,10 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     exportSelectedCsv: "Sélection CSV",
     exportSelectedPdf: "Sélection PDF",
     remoteMerged: "File distante fusionnée",
+    undoAvailable: "Action annulable",
+    undoExpiresIn: "expire dans",
+    offlineExportNote: "Export généré localement (hors-ligne possible)",
+    syncRate: "cadence",
   },
   en: {
     title: "Receipt delivery tracking",
@@ -155,6 +163,10 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     exportSelectedCsv: "Selection CSV",
     exportSelectedPdf: "Selection PDF",
     remoteMerged: "Remote queue merged",
+    undoAvailable: "Action undoable",
+    undoExpiresIn: "expires in",
+    offlineExportNote: "Export generated locally (works offline)",
+    syncRate: "rate",
   },
   // Susu (Soso) — Guinée maritime
   sus: {
@@ -195,6 +207,10 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     exportSelectedCsv: "Sugandixi CSV",
     exportSelectedPdf: "Sugandixi PDF",
     remoteMerged: "Luwe gbɛtɛ lannɛ",
+    undoAvailable: "Walikɛ nɔɛ xanbi",
+    undoExpiresIn: "a ban",
+    offlineExportNote: "Ramini kɛnɛn (internet mu suxu)",
+    syncRate: "kpaki",
   },
   // Pular (Peul / Fulfulde) — Fouta Djallon
   ful: {
@@ -235,6 +251,10 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     exportSelectedCsv: "Suɓaaɗi CSV",
     exportSelectedPdf: "Suɓaaɗi PDF",
     remoteMerged: "Ndariindi woɗɗundi renndinaama",
+    undoAvailable: "Golle ina firtee",
+    undoExpiresIn: "ina ban e",
+    offlineExportNote: "Yaltinde waɗaande to laawol alaa",
+    syncRate: "yaawre",
   },
   // Maninka (Malinké) — Haute Guinée
   man: {
@@ -275,6 +295,10 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     exportSelectedCsv: "Sugandili CSV",
     exportSelectedPdf: "Sugandili PDF",
     remoteMerged: "Yɔrɔjan layili faralen",
+    undoAvailable: "Baara bɛ se ka segi",
+    undoExpiresIn: "a bɛ ban",
+    offlineExportNote: "Labɔ kɛra yan (rezo tɛ wajibi)",
+    syncRate: "teli",
   },
 };
 
