@@ -75,6 +75,10 @@ export interface DeliveryDict {
   exportSelectedCsv: string;
   exportSelectedPdf: string;
   remoteMerged: string;
+  undoAvailable: string;
+  undoExpiresIn: string;
+  offlineExportNote: string;
+  syncRate: string;
 }
 
 const dicts: Record<DeliveryLocale, DeliveryDict> = {
