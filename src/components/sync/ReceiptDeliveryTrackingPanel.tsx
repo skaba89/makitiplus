@@ -699,6 +699,13 @@ export const ReceiptDeliveryTrackingPanel = () => {
           >
             <FileText className="h-3 w-3 mr-1" /> {dict.exportSelectedPdf}
           </Button>
+          <span
+            className="text-[10px] text-muted-foreground italic"
+            data-testid="rt-offline-export-note"
+            title={dict.offlineExportNote}
+          >
+            {dict.offlineExportNote}
+          </span>
           <div className="flex-1" />
           <Button
             size="sm" variant="outline"
