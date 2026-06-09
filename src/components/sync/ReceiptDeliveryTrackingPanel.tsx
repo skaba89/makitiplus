@@ -271,20 +271,44 @@ export const ReceiptDeliveryTrackingPanel = () => {
    */
   const handleFlushAll = async () => {
     setSyncProgress({ processed: 0, total: counts.pending + counts.failed, sent: 0, failed: 0 });
+    setSyncRate({ fps: 0, tps: 0 });
     let lastTick = 0;
     const THROTTLE_MS = 80;
     const THROTTLE_STEP = 25;
-    const r = await flushQueueAsync((p) => {
-      const now = Date.now();
-      const isLast = p.processed >= p.total;
-      if (!isLast && now - lastTick < THROTTLE_MS && p.processed % THROTTLE_STEP !== 0) return;
-      lastTick = now;
-      setSyncProgress({ processed: p.processed, total: p.total, sent: p.sent, failed: p.failed });
+
+    // Cadence : on mesure frames (rAF) et ticks (callbacks de progression)
+    // sur une fenêtre glissante de 1s. Permet d'exposer FPS et TPS pour
+    // détecter visuellement les ralentissements sur grandes files.
+    let frames = 0;
+    let ticks = 0;
+    let rafId = 0;
+    let stopped = false;
+    const onFrame = () => { frames += 1; if (!stopped) rafId = requestAnimationFrame(onFrame); };
+    rafId = requestAnimationFrame(onFrame);
+    const rateInterval = setInterval(() => {
+      setSyncRate({ fps: frames, tps: ticks });
+      frames = 0; ticks = 0;
+    }, 1000);
+
+    try {
+      const r = await flushQueueAsync((p) => {
+        ticks += 1;
+        const now = Date.now();
+        const isLast = p.processed >= p.total;
+        if (!isLast && now - lastTick < THROTTLE_MS && p.processed % THROTTLE_STEP !== 0) return;
+        lastTick = now;
+        setSyncProgress({ processed: p.processed, total: p.total, sent: p.sent, failed: p.failed });
+        refresh();
+      });
+      setSyncProgress(null);
       refresh();
-    });
-    setSyncProgress(null);
-    refresh();
-    toast({ title: dict.retryAll, description: `✓${r.sent} ✗${r.failed} ↺${r.skipped} ⏳${r.deferred}` });
+      toast({ title: dict.retryAll, description: `✓${r.sent} ✗${r.failed} ↺${r.skipped} ⏳${r.deferred}` });
+    } finally {
+      stopped = true;
+      cancelAnimationFrame(rafId);
+      clearInterval(rateInterval);
+      setSyncRate(null);
+    }
   };
 
   const handleBulkRetry = () => {
@@ -295,15 +319,34 @@ export const ReceiptDeliveryTrackingPanel = () => {
     setSelected(new Set());
   };
 
-  /** Undo helper : restaure le snapshot + sélection précédente. */
-  const undoWithSnapshot = (snapshot: QueuedDelivery[], prevSelection: Set<string>) => {
-    restoreQueue(snapshot);
-    setSelected(new Set(prevSelection));
+  /**
+   * Undo helper : restaure le snapshot + sélection précédente, et purge le
+   * store d'undo persistant. Utilisé aussi bien depuis le toast que depuis
+   * la bannière persistante (réapparait après remount).
+   */
+  const applyUndo = useCallback((entry: UndoEntry) => {
+    restoreQueue(entry.snapshot);
+    setSelected(new Set(entry.selection));
+    clearUndo();
+    setUndoEntry(null);
     refresh();
     toast({ title: dict.actionUndone });
-  };
+  }, [refresh, toast, dict.actionUndone]);
 
-  const showUndoToast = (title: string, description: string, snapshot: QueuedDelivery[], prevSelection: Set<string>) => {
+  const registerUndo = (
+    action: UndoEntry["action"],
+    title: string,
+    description: string,
+    snapshot: QueuedDelivery[],
+    prevSelection: Set<string>,
+  ) => {
+    const entry = saveUndo({
+      action,
+      snapshot,
+      selection: Array.from(prevSelection),
+      description: `${title} ${description}`,
+    });
+    setUndoEntry(entry);
     toast({
       title,
       description,
@@ -311,7 +354,7 @@ export const ReceiptDeliveryTrackingPanel = () => {
       action: (
         <ToastAction
           altText={dict.undo}
-          onClick={() => undoWithSnapshot(snapshot, prevSelection)}
+          onClick={() => applyUndo(entry)}
           data-testid="rt-undo"
         >
           <Undo2 className="h-3 w-3 mr-1" /> {dict.undo}
@@ -331,7 +374,7 @@ export const ReceiptDeliveryTrackingPanel = () => {
     refresh();
     setSelected(new Set());
     setConfirmRemoveOpen(false);
-    showUndoToast(dict.bulkRemove, `−${n}`, snapshot, prevSelection);
+    registerUndo("remove", dict.bulkRemove, `−${n}`, snapshot, prevSelection);
   };
 
   const handleMergeDup = () => {
@@ -339,7 +382,7 @@ export const ReceiptDeliveryTrackingPanel = () => {
     const prevSelection = new Set(selected);
     const r = mergeDuplicates();
     refresh();
-    showUndoToast(dict.duplicatesMerged, `−${r.merged} → ${r.kept}`, snapshot, prevSelection);
+    registerUndo("merge", dict.duplicatesMerged, `−${r.merged} → ${r.kept}`, snapshot, prevSelection);
   };
 
   const handleArchiveDup = () => { setConfirmArchiveOpen(true); };
@@ -349,23 +392,47 @@ export const ReceiptDeliveryTrackingPanel = () => {
     const n = archiveDuplicates();
     refresh();
     setConfirmArchiveOpen(false);
-    showUndoToast(dict.duplicatesArchived, `↺${n}`, snapshot, prevSelection);
+    registerUndo("archive", dict.duplicatesArchived, `↺${n}`, snapshot, prevSelection);
   };
 
   /**
    * Simulation d'une réception distante : merge avec règles déterministes
    * (cf. mergeRemoteQueue). En contexte réel, `remote` arrive via Supabase
-   * realtime ou polling. Ici nous exposons une commande dev/QA.
+   * realtime ou polling. Le rapport est persisté pour le panneau "support".
    */
   const handleMergeRemote = (remote: QueuedDelivery[]) => {
     const report = mergeRemoteQueue(getQueue(), remote);
     replaceQueue(report.merged);
+
+    // Purge des IDs fantômes : entrées sélectionnées mais absentes du résultat.
+    const mergedIds = new Set(report.merged.map((e) => e.client_uuid));
+    const prunedGhostIds: string[] = [];
+    setSelected((prev) => {
+      const next = new Set<string>();
+      prev.forEach((id) => {
+        if (mergedIds.has(id)) next.add(id);
+        else prunedGhostIds.push(id);
+      });
+      return next;
+    });
+
+    // Persiste la trace pour le panneau de support.
+    const batch_id = newBatchId();
+    const resolved_at = new Date().toISOString();
+    appendMergeLogs(report.logs, { batch_id, resolved_at });
+    appendMergeBatch({
+      batch_id, resolved_at,
+      conflictsResolved: report.conflictsResolved,
+      addedFromRemote: report.addedFromRemote,
+      prunedGhostIds,
+    });
+
     refresh();
     toast({
       title: dict.remoteMerged,
-      description: `±${report.conflictsResolved} +${report.addedFromRemote}`,
+      description: `±${report.conflictsResolved} +${report.addedFromRemote} 👻${prunedGhostIds.length}`,
     });
-    return report;
+    return { ...report, prunedGhostIds, batch_id };
   };
   // Exposé pour les tests E2E (non-officiel, opt-in).
   (window as any).__sahelpos_mergeRemote = handleMergeRemote;
