@@ -163,10 +163,17 @@ export const ReceiptDeliveryTrackingPanel = () => {
   const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
   const [confirmArchiveOpen, setConfirmArchiveOpen] = useState(false);
 
-  // Progression de synchronisation
+  // Progression de synchronisation (+ cadence pour vérifier l'absence de lag)
   const [syncProgress, setSyncProgress] = useState<{
     processed: number; total: number; sent: number; failed: number;
   } | null>(null);
+  const [syncRate, setSyncRate] = useState<{ fps: number; tps: number } | null>(null);
+
+  // Undo persistant — survit aux remounts / hard refresh pendant la sync.
+  const [undoEntry, setUndoEntry] = useState<UndoEntry | null>(() => loadUndo());
+  const [undoRemainingMs, setUndoRemainingMs] = useState<number>(
+    () => (undoEntry ? remainingUndoMs(undoEntry) : 0),
+  );
 
   // Cross-tab : si un autre onglet/appareil modifie la sélection,
   // on se resynchronise (évite l'incohérence du compteur).
