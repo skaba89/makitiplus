@@ -28,6 +28,13 @@ import {
 } from "@/lib/receiptDeliveryQueue";
 import { mergeRemoteQueue } from "@/lib/receiptDeliveryConflict";
 import {
+  saveUndo, loadUndo, clearUndo, remainingUndoMs, UNDO_TTL_MS,
+  type UndoEntry,
+} from "@/lib/receiptDeliveryUndo";
+import {
+  appendMergeLogs, appendMergeBatch, newBatchId,
+} from "@/lib/receiptDeliveryMergeLog";
+import {
   getDict, getDeliveryLocale, setDeliveryLocale, LOCALE_OPTIONS,
   type DeliveryLocale, type DeliveryDict,
 } from "@/lib/receiptDeliveryI18n";
