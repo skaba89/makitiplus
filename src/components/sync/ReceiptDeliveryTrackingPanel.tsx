@@ -330,12 +330,19 @@ export const ReceiptDeliveryTrackingPanel = () => {
    * realtime ou polling. Ici nous exposons une commande dev/QA.
    */
   const handleMergeRemote = (remote: QueuedDelivery[]) => {
-    const report = mergeRemoteQueue(getQueue(), remote);
+    const before = getQueue();
+    const report = mergeRemoteQueue(before, remote);
+    // Détection des "IDs fantômes" : UUIDs sélectionnés localement qui
+    // n'existent plus dans la file fusionnée (donc purgés/supprimés ailleurs).
+    const mergedIds = new Set(report.merged.map((e) => e.client_uuid));
+    const ghostsPurged: string[] = [];
+    selected.forEach((uuid) => { if (!mergedIds.has(uuid)) ghostsPurged.push(uuid); });
+    recordMergeBatch({ conflicts: report.logs, ghostsPurged });
     replaceQueue(report.merged);
     refresh();
     toast({
       title: dict.remoteMerged,
-      description: `±${report.conflictsResolved} +${report.addedFromRemote}`,
+      description: `±${report.conflictsResolved} +${report.addedFromRemote}${ghostsPurged.length ? ` 👻${ghostsPurged.length}` : ""}`,
     });
     return report;
   };
