@@ -19,6 +19,7 @@ import { ConflictSimulationPanel } from "@/components/sync/ConflictSimulationPan
 import { OfflinePOSSimulationPanel } from "@/components/sync/OfflinePOSSimulationPanel";
 import { MobileMoneySimulationPanel } from "@/components/sync/MobileMoneySimulationPanel";
 import { ReceiptDeliveryTrackingPanel } from "@/components/sync/ReceiptDeliveryTrackingPanel";
+import { ReceiptDeliveryMergeLogPanel } from "@/components/sync/ReceiptDeliveryMergeLogPanel";
 
 interface ConflictRow {
   id: string;
