@@ -75,10 +75,23 @@ export interface DeliveryDict {
   exportSelectedCsv: string;
   exportSelectedPdf: string;
   remoteMerged: string;
-  undoAvailable: string;
-  undoExpiresIn: string;
-  offlineExportNote: string;
-  syncRate: string;
+  mergeLogTitle: string;
+  mergeLogDescription: string;
+  mergeLogEmpty: string;
+  mergeLogClear: string;
+  mergeLogExportCsv: string;
+  mergeLogExportJson: string;
+  mergeLogSearchPlaceholder: string;
+  mergeLogFilterSource: string;
+  mergeLogFilterGhosts: string;
+  mergeLogSourceLocal: string;
+  mergeLogSourceRemote: string;
+  mergeLogGhostOnly: string;
+  mergeLogGhostHide: string;
+  mergeLogGhostBadge: string;
+  mergeLogRule: string;
+  mergeLogTime: string;
+  mergeLogTotal: string;
 }
 
 const dicts: Record<DeliveryLocale, DeliveryDict> = {
@@ -120,10 +133,23 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     exportSelectedCsv: "Sélection CSV",
     exportSelectedPdf: "Sélection PDF",
     remoteMerged: "File distante fusionnée",
-    undoAvailable: "Action annulable",
-    undoExpiresIn: "expire dans",
-    offlineExportNote: "Export généré localement (hors-ligne possible)",
-    syncRate: "cadence",
+    mergeLogTitle: "Journal des fusions distantes",
+    mergeLogDescription: "Trace des résolutions mergeRemoteQueue par client_uuid (règle appliquée, source gagnante, IDs fantômes purgés).",
+    mergeLogEmpty: "Aucune fusion enregistrée",
+    mergeLogClear: "Vider le journal",
+    mergeLogExportCsv: "Export journal CSV",
+    mergeLogExportJson: "Export journal JSON",
+    mergeLogSearchPlaceholder: "Rechercher client_uuid…",
+    mergeLogFilterSource: "Source",
+    mergeLogFilterGhosts: "Fantômes",
+    mergeLogSourceLocal: "Local gagne",
+    mergeLogSourceRemote: "Distant gagne",
+    mergeLogGhostOnly: "Uniquement fantômes",
+    mergeLogGhostHide: "Sans fantômes",
+    mergeLogGhostBadge: "Fantôme purgé",
+    mergeLogRule: "Règle",
+    mergeLogTime: "Horodatage",
+    mergeLogTotal: "entrée(s)",
   },
   en: {
     title: "Receipt delivery tracking",
@@ -163,10 +189,23 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     exportSelectedCsv: "Selection CSV",
     exportSelectedPdf: "Selection PDF",
     remoteMerged: "Remote queue merged",
-    undoAvailable: "Action undoable",
-    undoExpiresIn: "expires in",
-    offlineExportNote: "Export generated locally (works offline)",
-    syncRate: "rate",
+    mergeLogTitle: "Remote merge journal",
+    mergeLogDescription: "Trace of mergeRemoteQueue resolutions by client_uuid (rule applied, winning source, purged ghost IDs).",
+    mergeLogEmpty: "No merge recorded",
+    mergeLogClear: "Clear journal",
+    mergeLogExportCsv: "Export journal CSV",
+    mergeLogExportJson: "Export journal JSON",
+    mergeLogSearchPlaceholder: "Search client_uuid…",
+    mergeLogFilterSource: "Source",
+    mergeLogFilterGhosts: "Ghosts",
+    mergeLogSourceLocal: "Local wins",
+    mergeLogSourceRemote: "Remote wins",
+    mergeLogGhostOnly: "Ghosts only",
+    mergeLogGhostHide: "Hide ghosts",
+    mergeLogGhostBadge: "Ghost purged",
+    mergeLogRule: "Rule",
+    mergeLogTime: "Timestamp",
+    mergeLogTotal: "entry(ies)",
   },
   // Susu (Soso) — Guinée maritime
   sus: {
@@ -207,10 +246,23 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     exportSelectedCsv: "Sugandixi CSV",
     exportSelectedPdf: "Sugandixi PDF",
     remoteMerged: "Luwe gbɛtɛ lannɛ",
-    undoAvailable: "Walikɛ nɔɛ xanbi",
-    undoExpiresIn: "a ban",
-    offlineExportNote: "Ramini kɛnɛn (internet mu suxu)",
-    syncRate: "kpaki",
+    mergeLogTitle: "Luwe gbɛtɛ lan kɔnti",
+    mergeLogDescription: "mergeRemoteQueue tilixili kɔnti client_uuid xa.",
+    mergeLogEmpty: "Lan yo mu na",
+    mergeLogClear: "Kɔnti yi xun",
+    mergeLogExportCsv: "Kɔnti CSV ramini",
+    mergeLogExportJson: "Kɔnti JSON ramini",
+    mergeLogSearchPlaceholder: "client_uuid mafela…",
+    mergeLogFilterSource: "Faridɛ",
+    mergeLogFilterGhosts: "Maxalanyi",
+    mergeLogSourceLocal: "Local sɔtɔ",
+    mergeLogSourceRemote: "Gbɛtɛ sɔtɔ",
+    mergeLogGhostOnly: "Maxalanyi gbansan",
+    mergeLogGhostHide: "Maxalanyi luxun",
+    mergeLogGhostBadge: "Maxalan bakanma",
+    mergeLogRule: "Saria",
+    mergeLogTime: "Waxati",
+    mergeLogTotal: "kira",
   },
   // Pular (Peul / Fulfulde) — Fouta Djallon
   ful: {
@@ -251,10 +303,23 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     exportSelectedCsv: "Suɓaaɗi CSV",
     exportSelectedPdf: "Suɓaaɗi PDF",
     remoteMerged: "Ndariindi woɗɗundi renndinaama",
-    undoAvailable: "Golle ina firtee",
-    undoExpiresIn: "ina ban e",
-    offlineExportNote: "Yaltinde waɗaande to laawol alaa",
-    syncRate: "yaawre",
+    mergeLogTitle: "Defetere renndingol woɗɗundi",
+    mergeLogDescription: "Tonngolol mergeRemoteQueue e client_uuid.",
+    mergeLogEmpty: "Renndingol alaa",
+    mergeLogClear: "Mommbu defetere",
+    mergeLogExportCsv: "Yaltin defetere CSV",
+    mergeLogExportJson: "Yaltin defetere JSON",
+    mergeLogSearchPlaceholder: "Yiilo client_uuid…",
+    mergeLogFilterSource: "Iwdi",
+    mergeLogFilterGhosts: "Mbeelu",
+    mergeLogSourceLocal: "Local foolii",
+    mergeLogSourceRemote: "Woɗɗundi foolii",
+    mergeLogGhostOnly: "Mbeelu tan",
+    mergeLogGhostHide: "Suuɗu mbeelu",
+    mergeLogGhostBadge: "Mbeelu momtaama",
+    mergeLogRule: "Sariya",
+    mergeLogTime: "Waktu",
+    mergeLogTotal: "tonngol",
   },
   // Maninka (Malinké) — Haute Guinée
   man: {
@@ -295,10 +360,23 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     exportSelectedCsv: "Sugandili CSV",
     exportSelectedPdf: "Sugandili PDF",
     remoteMerged: "Yɔrɔjan layili faralen",
-    undoAvailable: "Baara bɛ se ka segi",
-    undoExpiresIn: "a bɛ ban",
-    offlineExportNote: "Labɔ kɛra yan (rezo tɛ wajibi)",
-    syncRate: "teli",
+    mergeLogTitle: "Yɔrɔjan faraliw sɛbɛn",
+    mergeLogDescription: "mergeRemoteQueue baara sɛbɛn client_uuid kɔnɔ.",
+    mergeLogEmpty: "Sɛbɛn foyi tɛ",
+    mergeLogClear: "Sɛbɛn bɔ",
+    mergeLogExportCsv: "Sɛbɛn CSV labɔ",
+    mergeLogExportJson: "Sɛbɛn JSON labɔ",
+    mergeLogSearchPlaceholder: "client_uuid ɲinin…",
+    mergeLogFilterSource: "Bɔda",
+    mergeLogFilterGhosts: "Jinaw",
+    mergeLogSourceLocal: "Local sera",
+    mergeLogSourceRemote: "Yɔrɔjan sera",
+    mergeLogGhostOnly: "Jinaw dɔrɔn",
+    mergeLogGhostHide: "Jinaw dogo",
+    mergeLogGhostBadge: "Jina bɔlen",
+    mergeLogRule: "Sariya",
+    mergeLogTime: "Waati",
+    mergeLogTotal: "sɛbɛn",
   },
 };
 
