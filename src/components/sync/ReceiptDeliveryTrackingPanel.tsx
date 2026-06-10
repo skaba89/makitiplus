@@ -27,6 +27,7 @@ import {
   QueuedDelivery, DeliveryStatus,
 } from "@/lib/receiptDeliveryQueue";
 import { mergeRemoteQueue } from "@/lib/receiptDeliveryConflict";
+import { recordMergeBatch } from "@/lib/receiptDeliveryMergeLog";
 import {
   getDict, getDeliveryLocale, setDeliveryLocale, LOCALE_OPTIONS,
   type DeliveryLocale, type DeliveryDict,
