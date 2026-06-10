@@ -51,9 +51,7 @@ describe("Export sélection — hors-ligne (sans sync)", () => {
     clearQueue();
     setOnline(false);   // OFFLINE — aucune synchronisation possible
     setSender(null);    // Aucun sender installé → 100 % local
-    vi.spyOn(window, "fetch" as any).mockImplementation(() => {
-      throw new Error("network_disabled_in_test");
-    });
+    (window as any).fetch = vi.fn(() => { throw new Error("network_disabled_in_test"); });
   });
 
   it("CSV hors-ligne : colonnes et valeurs == données locales en file", async () => {
