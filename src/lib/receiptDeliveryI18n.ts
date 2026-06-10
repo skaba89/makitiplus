@@ -75,6 +75,23 @@ export interface DeliveryDict {
   exportSelectedCsv: string;
   exportSelectedPdf: string;
   remoteMerged: string;
+  mergeLogTitle: string;
+  mergeLogDescription: string;
+  mergeLogEmpty: string;
+  mergeLogClear: string;
+  mergeLogExportCsv: string;
+  mergeLogExportJson: string;
+  mergeLogSearchPlaceholder: string;
+  mergeLogFilterSource: string;
+  mergeLogFilterGhosts: string;
+  mergeLogSourceLocal: string;
+  mergeLogSourceRemote: string;
+  mergeLogGhostOnly: string;
+  mergeLogGhostHide: string;
+  mergeLogGhostBadge: string;
+  mergeLogRule: string;
+  mergeLogTime: string;
+  mergeLogTotal: string;
 }
 
 const dicts: Record<DeliveryLocale, DeliveryDict> = {
