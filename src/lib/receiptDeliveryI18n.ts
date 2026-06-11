@@ -81,6 +81,7 @@ export interface DeliveryDict {
   mergeLogClear: string;
   mergeLogExportCsv: string;
   mergeLogExportJson: string;
+  mergeLogExportPdf: string;
   mergeLogSearchPlaceholder: string;
   mergeLogFilterSource: string;
   mergeLogFilterGhosts: string;
@@ -92,6 +93,15 @@ export interface DeliveryDict {
   mergeLogRule: string;
   mergeLogTime: string;
   mergeLogTotal: string;
+  mergeLogPurgeNow: string;
+  mergeLogPurgePolicy: string;
+  mergeLogPurgeAgeDays: string;
+  mergeLogPurgeMaxSize: string;
+  mergeLogPurgeGhostsOnly: string;
+  mergeLogPurged: string;
+  mergeLogGotoLast: string;
+  mergeLogCopyFiltered: string;
+  mergeLogCopied: string;
 }
 
 const dicts: Record<DeliveryLocale, DeliveryDict> = {

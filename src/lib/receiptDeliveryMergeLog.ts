@@ -193,9 +193,8 @@ const csvCell = (v: string | number | boolean | null | undefined): string => {
   return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 
-const downloadBlob = (content: string | Uint8Array, filename: string, mime: string) => {
-  const parts: BlobPart[] = typeof content === "string" ? ["\uFEFF" + content] : [content];
-  const blob = new Blob(parts, { type: `${mime};charset=utf-8;` });
+const downloadBlob = (content: string, filename: string, mime: string) => {
+  const blob = new Blob(["\uFEFF" + content], { type: `${mime};charset=utf-8;` });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = filename;
