@@ -81,6 +81,7 @@ export interface DeliveryDict {
   mergeLogClear: string;
   mergeLogExportCsv: string;
   mergeLogExportJson: string;
+  mergeLogExportPdf: string;
   mergeLogSearchPlaceholder: string;
   mergeLogFilterSource: string;
   mergeLogFilterGhosts: string;
@@ -92,6 +93,15 @@ export interface DeliveryDict {
   mergeLogRule: string;
   mergeLogTime: string;
   mergeLogTotal: string;
+  mergeLogPurgeNow: string;
+  mergeLogPurgePolicy: string;
+  mergeLogPurgeAgeDays: string;
+  mergeLogPurgeMaxSize: string;
+  mergeLogPurgeGhostsOnly: string;
+  mergeLogPurged: string;
+  mergeLogGotoLast: string;
+  mergeLogCopyFiltered: string;
+  mergeLogCopied: string;
 }
 
 const dicts: Record<DeliveryLocale, DeliveryDict> = {
@@ -150,6 +160,16 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     mergeLogRule: "Règle",
     mergeLogTime: "Horodatage",
     mergeLogTotal: "entrée(s)",
+    mergeLogExportPdf: "Export journal PDF",
+    mergeLogPurgeNow: "Purger maintenant",
+    mergeLogPurgePolicy: "Politique de purge",
+    mergeLogPurgeAgeDays: "Âge max (jours)",
+    mergeLogPurgeMaxSize: "Taille max",
+    mergeLogPurgeGhostsOnly: "Fantômes uniquement",
+    mergeLogPurged: "entrée(s) purgée(s)",
+    mergeLogGotoLast: "Dernier client_uuid",
+    mergeLogCopyFiltered: "Copier client_uuid filtrés",
+    mergeLogCopied: "Copié",
   },
   en: {
     title: "Receipt delivery tracking",
@@ -206,6 +226,16 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     mergeLogRule: "Rule",
     mergeLogTime: "Timestamp",
     mergeLogTotal: "entry(ies)",
+    mergeLogExportPdf: "Export journal PDF",
+    mergeLogPurgeNow: "Purge now",
+    mergeLogPurgePolicy: "Purge policy",
+    mergeLogPurgeAgeDays: "Max age (days)",
+    mergeLogPurgeMaxSize: "Max size",
+    mergeLogPurgeGhostsOnly: "Ghosts only",
+    mergeLogPurged: "entry(ies) purged",
+    mergeLogGotoLast: "Last client_uuid",
+    mergeLogCopyFiltered: "Copy filtered client_uuid",
+    mergeLogCopied: "Copied",
   },
   // Susu (Soso) — Guinée maritime
   sus: {
@@ -263,6 +293,16 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     mergeLogRule: "Saria",
     mergeLogTime: "Waxati",
     mergeLogTotal: "kira",
+    mergeLogExportPdf: "Kɔnti PDF ramini",
+    mergeLogPurgeNow: "Yi xun nun",
+    mergeLogPurgePolicy: "Yi xun saria",
+    mergeLogPurgeAgeDays: "Tɛmui (lɔxɔ)",
+    mergeLogPurgeMaxSize: "Hayi danxi",
+    mergeLogPurgeGhostsOnly: "Maxalanyi gbansan",
+    mergeLogPurged: "kira xunxi",
+    mergeLogGotoLast: "client_uuid xanbi",
+    mergeLogCopyFiltered: "client_uuid masolo",
+    mergeLogCopied: "Masolonɛ",
   },
   // Pular (Peul / Fulfulde) — Fouta Djallon
   ful: {
@@ -320,6 +360,16 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     mergeLogRule: "Sariya",
     mergeLogTime: "Waktu",
     mergeLogTotal: "tonngol",
+    mergeLogExportPdf: "Yaltin defetere PDF",
+    mergeLogPurgeNow: "Mommbu jooni",
+    mergeLogPurgePolicy: "Sariya mommboygol",
+    mergeLogPurgeAgeDays: "Duuɓi keeriiɗi",
+    mergeLogPurgeMaxSize: "Keeriindi yoɓɓi",
+    mergeLogPurgeGhostsOnly: "Mbeelu tan",
+    mergeLogPurged: "tonngol mommbaama",
+    mergeLogGotoLast: "client_uuid sakkitiiɗo",
+    mergeLogCopyFiltered: "Eggin client_uuid",
+    mergeLogCopied: "Eggaama",
   },
   // Maninka (Malinké) — Haute Guinée
   man: {
@@ -377,6 +427,16 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
     mergeLogRule: "Sariya",
     mergeLogTime: "Waati",
     mergeLogTotal: "sɛbɛn",
+    mergeLogExportPdf: "Sɛbɛn PDF labɔ",
+    mergeLogPurgeNow: "Bɔ sisan",
+    mergeLogPurgePolicy: "Bɔli sariya",
+    mergeLogPurgeAgeDays: "Si jan (don)",
+    mergeLogPurgeMaxSize: "Hakɛ dan",
+    mergeLogPurgeGhostsOnly: "Jinaw dɔrɔn",
+    mergeLogPurged: "sɛbɛn bɔlen",
+    mergeLogGotoLast: "client_uuid laban",
+    mergeLogCopyFiltered: "client_uuid kopi",
+    mergeLogCopied: "Kopilen",
   },
 };
 

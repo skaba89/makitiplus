@@ -1,19 +1,14 @@
 /**
  * Panneau de support : journal des fusions mergeRemoteQueue par client_uuid.
  *
- * Performance grandes buffers (10 000 entrées) :
- *  - Pagination (PAGE_SIZE 50/100/200) → DOM borné.
- *  - "Virtualisation" simple : on ne rend que la fenêtre de la page courante
- *    après filtrage. Les filtres sont mémoïsés.
- *
- * Filtres :
- *  - Recherche par client_uuid (préfixe inclusif).
- *  - Source : all / local / remote / none(ghost).
- *  - Fantômes purgés : all / only / hide.
- *
- * Exports hors-ligne : CSV et JSON (Blob), aucun appel réseau.
+ * Fonctionnalités :
+ *  - Pagination (50/100/200) + filtres (search, source, fantômes)
+ *  - Exports hors-ligne CSV / JSON / PDF (colonnes identiques à l'écran)
+ *  - Purge automatique configurable (âge, taille, fantômes uniquement)
+ *  - Bouton "Purger maintenant" 100% offline
+ *  - Navigation rapide : "Dernier client_uuid", "Copier client_uuid filtrés"
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,10 +19,15 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { GitMerge, Download, FileJson, Trash2, Ghost, RefreshCw } from "lucide-react";
 import {
-  getMergeLog, clearMergeLog, exportMergeLogCSV, exportMergeLogJSON,
-  type MergeLogEntry,
+  GitMerge, Download, FileJson, FileText, Trash2, Ghost, RefreshCw,
+  Eraser, Copy, RotateCcw, Settings2,
+} from "lucide-react";
+import { toast } from "sonner";
+import {
+  getMergeLog, clearMergeLog, exportMergeLogCSV, exportMergeLogJSON, exportMergeLogPDF,
+  getPurgePolicy, setPurgePolicy, purgeMergeLogNow,
+  type MergeLogEntry, type MergeLogPurgePolicy,
 } from "@/lib/receiptDeliveryMergeLog";
 import { getDict, getDeliveryLocale } from "@/lib/receiptDeliveryI18n";
 
@@ -35,8 +35,8 @@ type SourceFilter = "all" | "local" | "remote" | "none";
 type GhostFilter = "all" | "only" | "hide";
 
 const PAGE_SIZES = [50, 100, 200];
-
 const STORAGE_KEY = "sahelpos:receipt_delivery_merge_log";
+const LAST_UUID_KEY = "sahelpos:receipt_delivery_merge_log_last_uuid";
 
 export const ReceiptDeliveryMergeLogPanel = () => {
   const dict = getDict(getDeliveryLocale());
@@ -46,11 +46,15 @@ export const ReceiptDeliveryMergeLogPanel = () => {
   const [ghostFilter, setGhostFilter] = useState<GhostFilter>("all");
   const [pageSize, setPageSize] = useState(50);
   const [page, setPage] = useState(1);
+  const [policy, setPolicyState] = useState<MergeLogPurgePolicy>(() => getPurgePolicy());
+  const [showPolicy, setShowPolicy] = useState(false);
+  const lastUuidRef = useRef<string | null>(null);
 
   const refresh = () => setEntries(getMergeLog());
 
   useEffect(() => {
     refresh();
+    try { lastUuidRef.current = localStorage.getItem(LAST_UUID_KEY); } catch { /* ignore */ }
     const onStorage = (e: StorageEvent) => {
       if (e.key === STORAGE_KEY) refresh();
     };
@@ -87,6 +91,53 @@ export const ReceiptDeliveryMergeLogPanel = () => {
     [entries],
   );
 
+  const rememberUuid = (uuid: string) => {
+    lastUuidRef.current = uuid;
+    try { localStorage.setItem(LAST_UUID_KEY, uuid); } catch { /* ignore */ }
+  };
+
+  const handleGotoLast = () => {
+    const uuid = lastUuidRef.current;
+    if (!uuid) {
+      toast.info(dict.mergeLogGotoLast + " —");
+      return;
+    }
+    setSearch(uuid);
+    setSourceFilter("all");
+    setGhostFilter("all");
+  };
+
+  const handleCopyFiltered = async () => {
+    const uuids = Array.from(new Set(filtered.map((e) => e.client_uuid)));
+    const text = uuids.join("\n");
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand?.("copy");
+        document.body.removeChild(ta);
+      }
+      toast.success(`${dict.mergeLogCopied} (${uuids.length})`);
+    } catch {
+      toast.error(dict.mergeLogCopied + " ✕");
+    }
+  };
+
+  const handlePurgeNow = () => {
+    const removed = purgeMergeLogNow(policy);
+    refresh();
+    toast.success(`${removed} ${dict.mergeLogPurged}`);
+  };
+
+  const handlePolicyChange = (patch: Partial<MergeLogPurgePolicy>) => {
+    const next = setPurgePolicy(patch);
+    setPolicyState(next);
+  };
+
   return (
     <Card data-testid="merge-log-panel">
       <CardHeader>
@@ -104,6 +155,7 @@ export const ReceiptDeliveryMergeLogPanel = () => {
             onChange={(e) => setSearch(e.target.value)}
             className="h-9 max-w-[260px]"
             data-testid="ml-search"
+            aria-label={dict.mergeLogSearchPlaceholder}
           />
           <Select value={sourceFilter} onValueChange={(v) => setSourceFilter(v as SourceFilter)}>
             <SelectTrigger className="h-9 w-[160px]" data-testid="ml-source-filter">
@@ -127,6 +179,23 @@ export const ReceiptDeliveryMergeLogPanel = () => {
             </SelectContent>
           </Select>
           <div className="flex-1" />
+          <Button
+            size="sm" variant="outline"
+            onClick={handleGotoLast}
+            data-testid="ml-goto-last"
+            title={dict.mergeLogGotoLast}
+          >
+            <RotateCcw className="h-3 w-3 mr-1" /> {dict.mergeLogGotoLast}
+          </Button>
+          <Button
+            size="sm" variant="outline"
+            onClick={handleCopyFiltered}
+            disabled={filtered.length === 0}
+            data-testid="ml-copy-filtered"
+            title={dict.mergeLogCopyFiltered}
+          >
+            <Copy className="h-3 w-3 mr-1" /> {dict.mergeLogCopyFiltered}
+          </Button>
           <Button size="sm" variant="outline" onClick={refresh} data-testid="ml-refresh">
             <RefreshCw className="h-3 w-3 mr-1" /> {dict.refresh}
           </Button>
@@ -147,6 +216,31 @@ export const ReceiptDeliveryMergeLogPanel = () => {
             <FileJson className="h-3 w-3 mr-1" /> {dict.mergeLogExportJson}
           </Button>
           <Button
+            size="sm" variant="outline"
+            onClick={() => exportMergeLogPDF(filtered)}
+            disabled={filtered.length === 0}
+            data-testid="ml-export-pdf"
+          >
+            <FileText className="h-3 w-3 mr-1" /> {dict.mergeLogExportPdf}
+          </Button>
+          <Button
+            size="sm" variant="outline"
+            onClick={handlePurgeNow}
+            disabled={entries.length === 0}
+            data-testid="ml-purge-now"
+            title={dict.mergeLogPurgeNow}
+          >
+            <Eraser className="h-3 w-3 mr-1" /> {dict.mergeLogPurgeNow}
+          </Button>
+          <Button
+            size="sm" variant="ghost"
+            onClick={() => setShowPolicy((v) => !v)}
+            data-testid="ml-toggle-policy"
+            aria-expanded={showPolicy}
+          >
+            <Settings2 className="h-3 w-3 mr-1" /> {dict.mergeLogPurgePolicy}
+          </Button>
+          <Button
             size="sm" variant="ghost"
             onClick={() => { clearMergeLog(); refresh(); }}
             disabled={entries.length === 0}
@@ -155,6 +249,45 @@ export const ReceiptDeliveryMergeLogPanel = () => {
             <Trash2 className="h-3 w-3 mr-1" /> {dict.mergeLogClear}
           </Button>
         </div>
+
+        {showPolicy && (
+          <div
+            className="rounded-md border bg-muted/30 p-3 flex flex-wrap items-end gap-3"
+            data-testid="ml-policy-panel"
+          >
+            <label className="text-xs flex flex-col gap-1">
+              <span className="text-muted-foreground">{dict.mergeLogPurgeAgeDays}</span>
+              <Input
+                type="number" min={1} max={365}
+                className="h-8 w-[110px]"
+                value={Math.round(policy.maxAgeMs / (24 * 60 * 60 * 1000))}
+                onChange={(e) => handlePolicyChange({
+                  maxAgeMs: Math.max(1, Number(e.target.value)) * 24 * 60 * 60 * 1000,
+                })}
+                data-testid="ml-policy-age"
+              />
+            </label>
+            <label className="text-xs flex flex-col gap-1">
+              <span className="text-muted-foreground">{dict.mergeLogPurgeMaxSize}</span>
+              <Input
+                type="number" min={10} max={10000}
+                className="h-8 w-[110px]"
+                value={policy.maxSize}
+                onChange={(e) => handlePolicyChange({ maxSize: Number(e.target.value) })}
+                data-testid="ml-policy-size"
+              />
+            </label>
+            <label className="text-xs flex items-center gap-2 pb-1">
+              <input
+                type="checkbox"
+                checked={policy.ghostsOnly}
+                onChange={(e) => handlePolicyChange({ ghostsOnly: e.target.checked })}
+                data-testid="ml-policy-ghosts-only"
+              />
+              <span>{dict.mergeLogPurgeGhostsOnly}</span>
+            </label>
+          </div>
+        )}
 
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span data-testid="ml-total">
@@ -187,7 +320,12 @@ export const ReceiptDeliveryMergeLogPanel = () => {
                 </TableRow>
               ) : (
                 windowed.map((e) => (
-                  <TableRow key={e.id} data-testid={`ml-row-${e.id}`}>
+                  <TableRow
+                    key={e.id}
+                    data-testid={`ml-row-${e.id}`}
+                    onClick={() => rememberUuid(e.client_uuid)}
+                    className="cursor-pointer"
+                  >
                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                       {new Date(e.ts).toLocaleString()}
                     </TableCell>
