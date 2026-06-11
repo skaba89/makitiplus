@@ -7,7 +7,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   recordMergeBatch, clearMergeLog,
   buildMergeLogCSV, exportMergeLogCSV, exportMergeLogJSON,
-  MERGE_LOG_CSV_HEADERS, getMergeLog,
+  MERGE_LOG_CSV_HEADERS, getMergeLog, setPurgePolicy,
 } from "@/lib/receiptDeliveryMergeLog";
 
 const setOnline = (v: boolean) =>
@@ -53,6 +53,7 @@ describe("MergeLogPanel — exports 10k offline (perf + colonnes)", () => {
     localStorage.clear();
     clearMergeLog();
     setOnline(false);
+    setPurgePolicy({ maxAgeMs: 365 * 24 * 60 * 60 * 1000, maxSize: 10_000, ghostsOnly: false });
   });
 
   it("génère un CSV de 10 000 entrées en < 2 s avec colonnes & valeurs correctes", () => {
