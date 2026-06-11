@@ -1,6 +1,6 @@
 /**
  * Persistent journal des fusions mergeRemoteQueue, par client_uuid.
- * Stocké en localStorage → consultable hors-ligne, exportable CSV/JSON
+ * Stocké en localStorage → consultable hors-ligne, exportable CSV/JSON/PDF
  * pour faciliter le support client et l'audit multi-appareils.
  *
  * Chaque batch de fusion ajoute :
@@ -8,26 +8,70 @@
  *  - une entrée par "ghost" purgé (client_uuid sélectionné localement
  *    qui n'apparaît plus dans la file fusionnée — typiquement supprimé
  *    par un autre appareil).
+ *
+ * Politique de purge configurable (âge max + taille max). La purge est
+ * automatiquement appliquée à chaque lecture, et déclenchable manuellement
+ * via `purgeMergeLogNow()` — 100% hors-ligne.
  */
+import jsPDF from "jspdf";
 import type { ConflictLogEntry } from "./receiptDeliveryConflict";
 import type { DeliveryStatus } from "./receiptDeliveryQueue";
 
 const STORAGE_KEY = "sahelpos:receipt_delivery_merge_log";
-const MAX_ENTRIES = 10_000;
+const POLICY_KEY = "sahelpos:receipt_delivery_merge_log_policy";
+const HARD_MAX_ENTRIES = 10_000;
 
 export interface MergeLogEntry {
-  id: string;             // ts + random — clé stable pour virtualisation
-  ts: string;             // ISO
-  batch_id: string;       // identifiant du batch de fusion
+  id: string;
+  ts: string;
+  batch_id: string;
   client_uuid: string;
   winner_source: "local" | "remote" | "none";
-  reason: string;         // ex: "status_priority(sent>pending)" ou "ghost_purged"
+  reason: string;
   local_status?: DeliveryStatus;
   remote_status?: DeliveryStatus;
   ghost_purged: boolean;
 }
 
-const load = (): MergeLogEntry[] => {
+export interface MergeLogPurgePolicy {
+  /** Âge maximum (ms) au-delà duquel les entrées fantômes sont purgées. */
+  maxAgeMs: number;
+  /** Taille maximale du journal (toutes entrées confondues, FIFO). */
+  maxSize: number;
+  /** Si vrai, ne purger automatiquement que les fantômes ; sinon FIFO global aussi. */
+  ghostsOnly: boolean;
+}
+
+export const DEFAULT_PURGE_POLICY: MergeLogPurgePolicy = {
+  maxAgeMs: 7 * 24 * 60 * 60 * 1000, // 7 jours
+  maxSize: 5000,
+  ghostsOnly: false,
+};
+
+export const getPurgePolicy = (): MergeLogPurgePolicy => {
+  try {
+    const raw = localStorage.getItem(POLICY_KEY);
+    if (!raw) return { ...DEFAULT_PURGE_POLICY };
+    const p = JSON.parse(raw);
+    return {
+      maxAgeMs: Number.isFinite(p.maxAgeMs) ? p.maxAgeMs : DEFAULT_PURGE_POLICY.maxAgeMs,
+      maxSize: Number.isFinite(p.maxSize) ? Math.min(p.maxSize, HARD_MAX_ENTRIES) : DEFAULT_PURGE_POLICY.maxSize,
+      ghostsOnly: Boolean(p.ghostsOnly),
+    };
+  } catch {
+    return { ...DEFAULT_PURGE_POLICY };
+  }
+};
+
+export const setPurgePolicy = (p: Partial<MergeLogPurgePolicy>): MergeLogPurgePolicy => {
+  const next = { ...getPurgePolicy(), ...p };
+  next.maxSize = Math.max(10, Math.min(next.maxSize, HARD_MAX_ENTRIES));
+  next.maxAgeMs = Math.max(60_000, next.maxAgeMs);
+  try { localStorage.setItem(POLICY_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+  return next;
+};
+
+const loadRaw = (): MergeLogEntry[] => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
@@ -40,8 +84,8 @@ const load = (): MergeLogEntry[] => {
 
 const persist = (entries: MergeLogEntry[]) => {
   try {
-    const trimmed = entries.length > MAX_ENTRIES
-      ? entries.slice(entries.length - MAX_ENTRIES)
+    const trimmed = entries.length > HARD_MAX_ENTRIES
+      ? entries.slice(entries.length - HARD_MAX_ENTRIES)
       : entries;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
   } catch {
@@ -49,17 +93,58 @@ const persist = (entries: MergeLogEntry[]) => {
   }
 };
 
-const rand = () => Math.random().toString(36).slice(2, 10);
+/**
+ * Applique la politique de purge : supprime les fantômes plus vieux que maxAgeMs
+ * et tronque FIFO si la taille dépasse maxSize. Retourne la liste purgée et
+ * le nombre d'entrées supprimées.
+ */
+export const applyPurgePolicy = (
+  entries: MergeLogEntry[],
+  policy: MergeLogPurgePolicy = getPurgePolicy(),
+  now: number = Date.now(),
+): { entries: MergeLogEntry[]; removed: number } => {
+  const cutoff = now - policy.maxAgeMs;
+  let out = entries.filter((e) => {
+    if (!e.ghost_purged) return true;
+    const t = Date.parse(e.ts);
+    return Number.isFinite(t) ? t >= cutoff : true;
+  });
+  if (!policy.ghostsOnly) {
+    out = out.filter((e) => {
+      const t = Date.parse(e.ts);
+      return Number.isFinite(t) ? t >= cutoff : true;
+    });
+  }
+  if (out.length > policy.maxSize) {
+    out = out.slice(out.length - policy.maxSize);
+  }
+  return { entries: out, removed: entries.length - out.length };
+};
 
-export const getMergeLog = (): MergeLogEntry[] => load();
+export const getMergeLog = (): MergeLogEntry[] => {
+  const raw = loadRaw();
+  const { entries, removed } = applyPurgePolicy(raw);
+  if (removed > 0) persist(entries);
+  return entries;
+};
+
+/** Purge manuelle, 100% hors-ligne. Retourne le nombre d'entrées supprimées. */
+export const purgeMergeLogNow = (policy?: MergeLogPurgePolicy): number => {
+  const raw = loadRaw();
+  const { entries, removed } = applyPurgePolicy(raw, policy ?? getPurgePolicy());
+  persist(entries);
+  return removed;
+};
 
 export const clearMergeLog = (): void => {
   try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
 };
 
+const rand = () => Math.random().toString(36).slice(2, 10);
+
 export interface RecordMergeBatchInput {
   conflicts: ConflictLogEntry[];
-  ghostsPurged: string[]; // uuids
+  ghostsPurged: string[];
   ts?: string;
 }
 
@@ -93,7 +178,7 @@ export const recordMergeBatch = (input: RecordMergeBatchInput): MergeLogEntry[] 
     });
   });
 
-  const next = [...load(), ...added];
+  const next = [...loadRaw(), ...added];
   persist(next);
   return added;
 };
@@ -108,8 +193,9 @@ const csvCell = (v: string | number | boolean | null | undefined): string => {
   return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 
-const downloadBlob = (content: string, filename: string, mime: string) => {
-  const blob = new Blob(["\uFEFF" + content], { type: `${mime};charset=utf-8;` });
+const downloadBlob = (content: string | Uint8Array, filename: string, mime: string) => {
+  const parts: BlobPart[] = typeof content === "string" ? ["\uFEFF" + content] : [content];
+  const blob = new Blob(parts, { type: `${mime};charset=utf-8;` });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = filename;
@@ -134,12 +220,61 @@ export const buildMergeLogCSV = (entries: MergeLogEntry[]): string => {
   return lines.join("\n");
 };
 
+const stamp = () => new Date().toISOString().replace(/[:.]/g, "-").slice(0, 16);
+
 export const exportMergeLogCSV = (entries: MergeLogEntry[]): void => {
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 16);
-  downloadBlob(buildMergeLogCSV(entries), `merge_log_${stamp}.csv`, "text/csv");
+  downloadBlob(buildMergeLogCSV(entries), `merge_log_${stamp()}.csv`, "text/csv");
 };
 
 export const exportMergeLogJSON = (entries: MergeLogEntry[]): void => {
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 16);
-  downloadBlob(JSON.stringify(entries, null, 2), `merge_log_${stamp}.json`, "application/json");
+  downloadBlob(JSON.stringify(entries, null, 2), `merge_log_${stamp()}.json`, "application/json");
+};
+
+/**
+ * Export PDF du journal — colonnes identiques à l'écran (Horodatage, client_uuid,
+ * Source/Fantôme, Règle, Statuts local→remote). 100% hors-ligne via jsPDF.
+ */
+export const exportMergeLogPDF = (entries: MergeLogEntry[]): void => {
+  const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
+  const generatedAt = new Date().toISOString();
+  doc.setFontSize(13);
+  doc.text(`Merge log — ${entries.length} entry(ies)`, 10, 12);
+  doc.setFontSize(8);
+  doc.text(generatedAt, 287, 12, { align: "right" });
+
+  const headers = ["Timestamp", "client_uuid", "Source", "Rule", "Status (local→remote)"];
+  const colX = [10, 60, 150, 180, 230];
+  const headerY = 20;
+
+  const drawHeader = () => {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    headers.forEach((h, i) => doc.text(h, colX[i], headerY));
+    doc.setDrawColor(180);
+    doc.line(10, headerY + 1.5, 287, headerY + 1.5);
+    doc.setFont("helvetica", "normal");
+  };
+
+  drawHeader();
+  let y = headerY + 6;
+  doc.setFontSize(8);
+
+  entries.forEach((e) => {
+    if (y > 200) {
+      doc.addPage();
+      drawHeader();
+      y = headerY + 6;
+      doc.setFontSize(8);
+    }
+    const source = e.ghost_purged ? "ghost" : e.winner_source;
+    const statuses = `${e.local_status ?? "—"} → ${e.remote_status ?? "—"}`;
+    doc.text(e.ts.slice(0, 19), colX[0], y);
+    doc.text(e.client_uuid.slice(0, 36), colX[1], y);
+    doc.text(source, colX[2], y);
+    doc.text(e.reason.slice(0, 28), colX[3], y);
+    doc.text(statuses, colX[4], y);
+    y += 4.5;
+  });
+
+  doc.save(`merge_log_${stamp()}.pdf`);
 };
