@@ -1,9 +1,16 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.93.3';
+import { createRateLimiter } from '../_shared/rateLimiter.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Rate limit: 10 requests per IP per 5 minutes (generous for cron, blocks manual abuse)
+const rateLimiter = createRateLimiter('rotate-test-accounts', {
+  maxRequests: 10,
+  windowMs: 5 * 60_000,
+});
 
 // Cron job: deactivate test accounts whose test_expires_at is past.
 // Invoked by pg_cron (no JWT). Uses service role.
@@ -11,6 +18,18 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
+    // Rate limit check
+    const rlResult = await rateLimiter.check(req);
+    if (!rlResult.allowed) {
+      return rateLimiter.addHeaders(
+        new Response(JSON.stringify({ error: rlResult.error }), {
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }),
+        rlResult,
+      );
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const adminClient = createClient(supabaseUrl, serviceKey);
@@ -27,9 +46,12 @@ Deno.serve(async (req) => {
 
     if (selectErr) throw selectErr;
     if (!expired || expired.length === 0) {
-      return new Response(JSON.stringify({ success: true, deactivated: 0 }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return rateLimiter.addHeaders(
+        new Response(JSON.stringify({ success: true, deactivated: 0 }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }),
+        rlResult,
+      );
     }
 
     let deactivated = 0;
@@ -56,9 +78,12 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ success: true, deactivated, total: expired.length }), {
-      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return rateLimiter.addHeaders(
+      new Response(JSON.stringify({ success: true, deactivated, total: expired.length }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }),
+      rlResult,
+    );
   } catch (err) {
     return new Response(JSON.stringify({ error: (err as Error).message }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },

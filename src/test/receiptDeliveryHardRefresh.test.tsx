@@ -47,7 +47,7 @@ describe("Hard refresh — sélection récupérée depuis localStorage", () => {
         created_at: new Date(base + i * 1000).toISOString(),
       });
     }
-    localStorage.setItem("sahelpos:receipt_delivery_queue", JSON.stringify(entries));
+    localStorage.setItem("malikiplus:receipt_delivery_queue", JSON.stringify(entries));
 
     const { unmount } = render(<><ReceiptDeliveryTrackingPanel /><Toaster /></>);
 
@@ -58,7 +58,7 @@ describe("Hard refresh — sélection récupérée depuis localStorage", () => {
     });
 
     // Vérifie que la sélection est bien persistée en localStorage
-    const stored = localStorage.getItem("sahelpos:receipt_delivery_selection");
+    const stored = localStorage.getItem("malikiplus:receipt_delivery_selection");
     expect(stored).toBeTruthy();
     expect(JSON.parse(stored!).sort()).toEqual(["h_3", "h_4"]);
 

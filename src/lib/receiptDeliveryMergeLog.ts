@@ -1,7 +1,8 @@
 /**
  * Persistent journal des fusions mergeRemoteQueue, par client_uuid.
- * Stocké en localStorage → consultable hors-ligne, exportable CSV/JSON/PDF
+ * Stocké en IndexedDB → consultable hors-ligne, exportable CSV/JSON/PDF
  * pour faciliter le support client et l'audit multi-appareils.
+ * (fallback localStorage si IndexedDB indisponible)
  *
  * Chaque batch de fusion ajoute :
  *  - une entrée par conflit résolu (avec règle, source gagnante, statuts)
@@ -10,15 +11,24 @@
  *    par un autre appareil).
  *
  * Politique de purge configurable (âge max + taille max). La purge est
- * automatiquement appliquée à chaque lecture, et déclenchable manuellement
+ * automatiquement appliquée à chaque lecture, et déclencher manuellement
  * via `purgeMergeLogNow()` — 100% hors-ligne.
  */
 import jsPDF from "jspdf";
 import type { ConflictLogEntry } from "./receiptDeliveryConflict";
 import type { DeliveryStatus } from "./receiptDeliveryQueue";
+import {
+  STORES,
+  isIndexedDBAvailable,
+  getAll as idbGetAll,
+  putMany as idbPutMany,
+  clearStore as idbClearStore,
+  replaceAll as idbReplaceAll,
+  count as idbCount,
+} from "./indexedDBStorage";
 
-const STORAGE_KEY = "sahelpos:receipt_delivery_merge_log";
-const POLICY_KEY = "sahelpos:receipt_delivery_merge_log_policy";
+const LS_KEY = "malikiplus:receipt_delivery_merge_log";
+const POLICY_LS_KEY = "malikiplus:receipt_delivery_merge_log_policy";
 const HARD_MAX_ENTRIES = 10_000;
 
 export interface MergeLogEntry {
@@ -48,9 +58,13 @@ export const DEFAULT_PURGE_POLICY: MergeLogPurgePolicy = {
   ghostsOnly: false,
 };
 
+// ---------------------------------------------------------------------------
+// Policy helpers (still in localStorage — small config, rarely changes)
+// ---------------------------------------------------------------------------
+
 export const getPurgePolicy = (): MergeLogPurgePolicy => {
   try {
-    const raw = localStorage.getItem(POLICY_KEY);
+    const raw = localStorage.getItem(POLICY_LS_KEY);
     if (!raw) return { ...DEFAULT_PURGE_POLICY };
     const p = JSON.parse(raw);
     return {
@@ -67,13 +81,17 @@ export const setPurgePolicy = (p: Partial<MergeLogPurgePolicy>): MergeLogPurgePo
   const next = { ...getPurgePolicy(), ...p };
   next.maxSize = Math.max(10, Math.min(next.maxSize, HARD_MAX_ENTRIES));
   next.maxAgeMs = Math.max(60_000, next.maxAgeMs);
-  try { localStorage.setItem(POLICY_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+  try { localStorage.setItem(POLICY_LS_KEY, JSON.stringify(next)); } catch { /* ignore */ }
   return next;
 };
 
-const loadRaw = (): MergeLogEntry[] => {
+// ---------------------------------------------------------------------------
+// Storage: IndexedDB primary, localStorage fallback
+// ---------------------------------------------------------------------------
+
+const lsLoadRaw = (): MergeLogEntry[] => {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(LS_KEY);
     if (!raw) return [];
     const arr = JSON.parse(raw);
     return Array.isArray(arr) ? arr : [];
@@ -82,22 +100,31 @@ const loadRaw = (): MergeLogEntry[] => {
   }
 };
 
-const persist = (entries: MergeLogEntry[]) => {
+const lsPersist = (entries: MergeLogEntry[]) => {
   try {
     const trimmed = entries.length > HARD_MAX_ENTRIES
       ? entries.slice(entries.length - HARD_MAX_ENTRIES)
       : entries;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+    localStorage.setItem(LS_KEY, JSON.stringify(trimmed));
   } catch {
     /* quota — silently drop */
   }
 };
 
-/**
- * Applique la politique de purge : supprime les fantômes plus vieux que maxAgeMs
- * et tronque FIFO si la taille dépasse maxSize. Retourne la liste purgée et
- * le nombre d'entrées supprimées.
- */
+const idbPersist = (entries: MergeLogEntry[]): Promise<void> => {
+  const trimmed = entries.length > HARD_MAX_ENTRIES
+    ? entries.slice(entries.length - HARD_MAX_ENTRIES)
+    : entries;
+  return idbReplaceAll(STORES.MERGE_LOG, trimmed).catch(() => lsPersist(trimmed));
+};
+
+const idbLoadRaw = (): Promise<MergeLogEntry[]> =>
+  idbGetAll<MergeLogEntry>(STORES.MERGE_LOG).catch(() => lsLoadRaw());
+
+// ---------------------------------------------------------------------------
+// Purge policy
+// ---------------------------------------------------------------------------
+
 export const applyPurgePolicy = (
   entries: MergeLogEntry[],
   policy: MergeLogPurgePolicy = getPurgePolicy(),
@@ -121,23 +148,47 @@ export const applyPurgePolicy = (
   return { entries: out, removed: entries.length - out.length };
 };
 
-export const getMergeLog = (): MergeLogEntry[] => {
-  const raw = loadRaw();
+export const getMergeLogAsync = async (): Promise<MergeLogEntry[]> => {
+  const raw = isIndexedDBAvailable() ? await idbLoadRaw() : lsLoadRaw();
   const { entries, removed } = applyPurgePolicy(raw);
-  if (removed > 0) persist(entries);
+  if (removed > 0) {
+    if (isIndexedDBAvailable()) await idbPersist(entries);
+    lsPersist(entries);
+  }
+  return entries;
+};
+
+export const getMergeLog = (): MergeLogEntry[] => {
+  const raw = lsLoadRaw();
+  const { entries, removed } = applyPurgePolicy(raw);
+  if (removed > 0) lsPersist(entries);
   return entries;
 };
 
 /** Purge manuelle, 100% hors-ligne. Retourne le nombre d'entrées supprimées. */
-export const purgeMergeLogNow = (policy?: MergeLogPurgePolicy): number => {
-  const raw = loadRaw();
+export const purgeMergeLogNowAsync = async (policy?: MergeLogPurgePolicy): Promise<number> => {
+  const raw = isIndexedDBAvailable() ? await idbLoadRaw() : lsLoadRaw();
   const { entries, removed } = applyPurgePolicy(raw, policy ?? getPurgePolicy());
-  persist(entries);
+  if (isIndexedDBAvailable()) await idbPersist(entries);
+  lsPersist(entries);
   return removed;
 };
 
+export const purgeMergeLogNow = (policy?: MergeLogPurgePolicy): number => {
+  const raw = lsLoadRaw();
+  const { entries, removed } = applyPurgePolicy(raw, policy ?? getPurgePolicy());
+  lsPersist(entries);
+  return removed;
+};
+
+export const clearMergeLogAsync = async (): Promise<void> => {
+  if (isIndexedDBAvailable()) await idbClearStore(STORES.MERGE_LOG);
+  try { localStorage.removeItem(LS_KEY); } catch { /* ignore */ }
+};
+
 export const clearMergeLog = (): void => {
-  try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+  try { localStorage.removeItem(LS_KEY); } catch { /* ignore */ }
+  if (isIndexedDBAvailable()) idbClearStore(STORES.MERGE_LOG).catch(() => {});
 };
 
 const rand = () => Math.random().toString(36).slice(2, 10);
@@ -147,6 +198,44 @@ export interface RecordMergeBatchInput {
   ghostsPurged: string[];
   ts?: string;
 }
+
+export const recordMergeBatchAsync = async (input: RecordMergeBatchInput): Promise<MergeLogEntry[]> => {
+  const ts = input.ts ?? new Date().toISOString();
+  const batch_id = `${Date.now()}-${rand()}`;
+  const added: MergeLogEntry[] = [];
+
+  input.conflicts.forEach((c) => {
+    added.push({
+      id: `${batch_id}-c-${rand()}`,
+      ts,
+      batch_id,
+      client_uuid: c.client_uuid,
+      winner_source: c.winner_source,
+      reason: c.reason,
+      local_status: c.local_status,
+      remote_status: c.remote_status,
+      ghost_purged: false,
+    });
+  });
+  input.ghostsPurged.forEach((uuid) => {
+    added.push({
+      id: `${batch_id}-g-${rand()}`,
+      ts,
+      batch_id,
+      client_uuid: uuid,
+      winner_source: "none",
+      reason: "ghost_purged",
+      ghost_purged: true,
+    });
+  });
+
+  // Append to existing entries
+  const existing = isIndexedDBAvailable() ? await idbLoadRaw() : lsLoadRaw();
+  const next = [...existing, ...added];
+  if (isIndexedDBAvailable()) await idbPersist(next);
+  lsPersist(next);
+  return added;
+};
 
 export const recordMergeBatch = (input: RecordMergeBatchInput): MergeLogEntry[] => {
   const ts = input.ts ?? new Date().toISOString();
@@ -178,8 +267,10 @@ export const recordMergeBatch = (input: RecordMergeBatchInput): MergeLogEntry[] 
     });
   });
 
-  const next = [...loadRaw(), ...added];
-  persist(next);
+  const next = [...lsLoadRaw(), ...added];
+  lsPersist(next);
+  // Background sync to IndexedDB
+  if (isIndexedDBAvailable()) idbPersist(next).catch(() => {});
   return added;
 };
 

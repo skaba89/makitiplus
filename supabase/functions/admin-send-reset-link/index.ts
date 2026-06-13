@@ -164,7 +164,7 @@ Deno.serve(async (req) => {
     const link = `${origin}/auth?reset_token=${token}`;
     const sms = await sendSmsViaTwilio(
       phone,
-      `Réinitialisez votre mot de passe SahelPOS (valide 30min) : ${link}`
+      `Réinitialisez votre mot de passe MalikiPlus (valide 30min) : ${link}`
     );
 
     if (!sms.ok) {

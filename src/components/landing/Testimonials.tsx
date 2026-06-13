@@ -32,7 +32,7 @@ export const Testimonials = () => {
         <div className="text-center max-w-2xl mx-auto mb-16">
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">
             Ils font confiance à{" "}
-            <span className="text-gradient">SahelPOS</span>
+            <span className="text-gradient">MalikiPlus</span>
           </h2>
           <p className="text-lg text-muted-foreground">
             Plus de 2 500 commerces à travers l'Afrique de l'Ouest utilisent notre solution chaque jour.

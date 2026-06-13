@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
+import { setSentryUserContext, clearSentryUserContext } from "@/lib/sentry";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 
@@ -60,6 +61,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (profileData) {
         setProfile(profileData);
+        // Set Sentry user context (non-PII)
+        setSentryUserContext({
+          userId: userId,
+          role: roleData?.role ?? "unknown",
+          organizationId: profileData.organization_id ?? undefined,
+          deviceId: localStorage.getItem("malikiplus_device_id") ?? undefined,
+        });
       }
     } catch (error) {
       console.error("Error fetching user data:", error);
@@ -211,6 +219,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setSession(null);
     setUserRole(null);
     setProfile(null);
+    clearSentryUserContext();
   };
 
   return (

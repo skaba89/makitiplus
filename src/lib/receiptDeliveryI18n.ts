@@ -440,7 +440,7 @@ const dicts: Record<DeliveryLocale, DeliveryDict> = {
   },
 };
 
-const KEY = "sahelpos:delivery_locale";
+const KEY = "malikiplus:delivery_locale";
 
 export const getDeliveryLocale = (): DeliveryLocale => {
   try {

@@ -69,7 +69,7 @@ describe("Reconnexion → sélection cohérente, pas d'IDs fantômes", () => {
 
     // Et le storage de sélection ne contient plus l'ID supprimé
     const stored = JSON.parse(
-      localStorage.getItem("sahelpos:receipt_delivery_selection") ?? "[]",
+      localStorage.getItem("malikiplus:receipt_delivery_selection") ?? "[]",
     );
     expect(stored).not.toContain(b.client_uuid);
     expect(stored).toContain(a.client_uuid);

@@ -1,10 +1,17 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.93.3';
 import { validatePasswordServer } from '../_shared/passwordPolicy.ts';
+import { createRateLimiter } from '../_shared/rateLimiter.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Rate limit: 5 password reset redemptions per IP per 60 seconds
+const rateLimiter = createRateLimiter('redeem-reset-token', {
+  maxRequests: 5,
+  windowMs: 60_000,
+});
 
 async function hashToken(token: string): Promise<string> {
   const buffer = new TextEncoder().encode(token);
@@ -34,6 +41,18 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
+    // Rate limit check
+    const rlResult = await rateLimiter.check(req);
+    if (!rlResult.allowed) {
+      return rateLimiter.addHeaders(
+        new Response(JSON.stringify({ error: rlResult.error }), {
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }),
+        rlResult,
+      );
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const adminClient = createClient(supabaseUrl, serviceKey);
@@ -41,16 +60,22 @@ Deno.serve(async (req) => {
 
     const { token, newPassword } = await req.json();
     if (!token || !newPassword) {
-      return new Response(JSON.stringify({ error: 'token et newPassword requis' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return rateLimiter.addHeaders(
+        new Response(JSON.stringify({ error: 'token et newPassword requis' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }),
+        rlResult,
+      );
     }
 
     const policy = validatePasswordServer(newPassword);
     if (!policy.ok) {
-      return new Response(JSON.stringify({ error: policy.error }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return rateLimiter.addHeaders(
+        new Response(JSON.stringify({ error: policy.error }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }),
+        rlResult,
+      );
     }
 
     const tokenHash = await hashToken(token);
@@ -61,19 +86,28 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (tokenErr || !tokenRow) {
-      return new Response(JSON.stringify({ error: 'Lien invalide' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return rateLimiter.addHeaders(
+        new Response(JSON.stringify({ error: 'Lien invalide' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }),
+        rlResult,
+      );
     }
     if (tokenRow.used_at) {
-      return new Response(JSON.stringify({ error: 'Lien déjà utilisé' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return rateLimiter.addHeaders(
+        new Response(JSON.stringify({ error: 'Lien déjà utilisé' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }),
+        rlResult,
+      );
     }
     if (new Date(tokenRow.expires_at) < new Date()) {
-      return new Response(JSON.stringify({ error: 'Lien expiré' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return rateLimiter.addHeaders(
+        new Response(JSON.stringify({ error: 'Lien expiré' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }),
+        rlResult,
+      );
     }
 
     // Update password
@@ -103,9 +137,12 @@ Deno.serve(async (req) => {
       ip_address: ipAddress,
     });
 
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return rateLimiter.addHeaders(
+      new Response(JSON.stringify({ success: true }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }),
+      rlResult,
+    );
   } catch (err) {
     return new Response(JSON.stringify({ error: (err as Error).message }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -118,11 +118,11 @@ describe("Multi-appareils — mergeRemoteQueue + zéro ghost ID", () => {
       // mergeRemoteQueue conserve les locaux non présents dans remote (G3),
       // donc pour simuler une vraie purge cross-device, on remplace la file
       // par le résultat strict du remote (G3 retiré).
-      (window as any).__sahelpos_mergeRemote(remote);
+      (window as any).__malikiplus_mergeRemote(remote);
       // Simule la suppression de G3 sur l'autre appareil :
-      const cur = JSON.parse(localStorage.getItem("sahelpos:receipt_delivery_queue") ?? "[]");
+      const cur = JSON.parse(localStorage.getItem("malikiplus:receipt_delivery_queue") ?? "[]");
       localStorage.setItem(
-        "sahelpos:receipt_delivery_queue",
+        "malikiplus:receipt_delivery_queue",
         JSON.stringify(cur.filter((e: QueuedDelivery) => e.client_uuid !== g3.client_uuid)),
       );
     });
@@ -134,7 +134,7 @@ describe("Multi-appareils — mergeRemoteQueue + zéro ghost ID", () => {
 
     // Vérifie que la sélection persistée ne contient plus l'ID fantôme
     const persisted = JSON.parse(
-      localStorage.getItem("sahelpos:receipt_delivery_selection") ?? "[]",
+      localStorage.getItem("malikiplus:receipt_delivery_selection") ?? "[]",
     );
     expect(persisted).not.toContain(g3.client_uuid);
     expect(persisted).toContain(g1.client_uuid);

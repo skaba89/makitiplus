@@ -1,14 +1,32 @@
 /**
  * File d'attente d'envoi automatique du ticket de caisse (WhatsApp / SMS).
- * - Stocke en localStorage les envois "pending" (mode offline)
+ * - Stocke en IndexedDB les envois "pending" (mode offline)
+ *   (fallback localStorage si IndexedDB indisponible)
  * - Flush automatique au retour en ligne (event "online")
  * - Idempotence : chaque envoi possède un client_uuid unique, jamais ré-envoyé
  * - Limite de tentatives + backoff exponentiel pour réseau instable
+ *
+ * Migration v2 : localStorage → IndexedDB
+ * - La migration est gérée par indexedDBStorage.ts::runMigrations()
+ * - Toutes les fonctions synchrones internes (load/save) deviennent async
+ * - L'API publique expose des versions async des fonctions critiques
+ * - Les fonctions sync restent disponibles via fallback localStorage
  */
 
 import { ReceiptData, generateReceiptText, shareViaWhatsApp } from "@/utils/receiptGenerator";
+import {
+  STORES,
+  isIndexedDBAvailable,
+  getAll as idbGetAll,
+  putMany as idbPutMany,
+  put as idbPut,
+  deleteByKeys as idbDeleteByKeys,
+  clearStore as idbClearStore,
+  count as idbCount,
+  replaceAll as idbReplaceAll,
+} from "./indexedDBStorage";
 
-const STORAGE_KEY = "sahelpos:receipt_delivery_queue";
+const LS_KEY = "malikiplus:receipt_delivery_queue";
 
 /** Politique de retry — adaptée à la Guinée (3G/4G instable). */
 export const MAX_ATTEMPTS = 5;
@@ -44,33 +62,87 @@ const uuid = () =>
   (crypto as any).randomUUID?.() ??
   `r_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 
-const load = (): QueuedDelivery[] => {
+// ---------------------------------------------------------------------------
+// Storage abstraction: IndexedDB primary, localStorage fallback
+// ---------------------------------------------------------------------------
+
+/** Synchronous localStorage load (fallback / legacy) */
+const lsLoad = (): QueuedDelivery[] => {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(LS_KEY);
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
   }
 };
 
-const save = (q: QueuedDelivery[]) => {
+/** Synchronous localStorage save (fallback / legacy) */
+const lsSave = (q: QueuedDelivery[]) => {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(q));
+    localStorage.setItem(LS_KEY, JSON.stringify(q));
   } catch {
     /* quota dépassé : ignoré */
   }
 };
 
+/** Async IndexedDB load */
+const idbLoad = (): Promise<QueuedDelivery[]> =>
+  idbGetAll<QueuedDelivery>(STORES.RECEIPT_QUEUE).catch(() => lsLoad());
+
+/** Async IndexedDB save (full replace) */
+const idbSave = (q: QueuedDelivery[]): Promise<void> =>
+  idbReplaceAll(STORES.RECEIPT_QUEUE, q).catch(() => { lsSave(q); });
+
+/** Async IndexedDB put single */
+const idbPutOne = (entry: QueuedDelivery): Promise<void> =>
+  idbPut(STORES.RECEIPT_QUEUE, entry).catch(() => {
+    const q = lsLoad();
+    const idx = q.findIndex((e) => e.client_uuid === entry.client_uuid);
+    if (idx >= 0) q[idx] = entry; else q.push(entry);
+    lsSave(q);
+  });
+
+/**
+ * Unified load: returns from IndexedDB if available, else localStorage.
+ * For backwards compatibility with sync callers, also provides lsLoad.
+ */
+const load = lsLoad; // kept for sync internal use (retryOne, flushQueue sync)
+const save = lsSave; // kept for sync internal use
+
+// ---------------------------------------------------------------------------
+// Public API — Async versions (recommended for new code)
+// ---------------------------------------------------------------------------
+
 export const isOnline = (): boolean =>
   typeof navigator === "undefined" ? true : navigator.onLine;
 
-export const enqueueOrSendReceipt = (
+/** Get the full queue (async, from IndexedDB) */
+export const getQueueAsync = (): Promise<QueuedDelivery[]> => {
+  if (isIndexedDBAvailable()) return idbLoad();
+  return Promise.resolve(lsLoad());
+};
+
+/** Get the full queue (sync, from localStorage — legacy) */
+export const getQueue = (): QueuedDelivery[] => lsLoad();
+
+/** Count pending entries (async) */
+export const pendingCountAsync = async (): Promise<number> => {
+  const queue = await getQueueAsync();
+  return queue.filter((q) => q.status === "pending").length;
+};
+
+/** Count pending entries (sync, legacy) */
+export const pendingCount = (): number =>
+  lsLoad().filter((q) => q.status === "pending").length;
+
+/** Enqueue or send a receipt (async — writes to IndexedDB) */
+export const enqueueOrSendReceiptAsync = async (
   channel: DeliveryChannel,
   phone: string,
   payload: ReceiptData,
   client_uuid?: string
-): QueuedDelivery => {
-  const queue = load();
+): Promise<QueuedDelivery> => {
+  const queue = await getQueueAsync();
   const id = client_uuid ?? uuid();
 
   const existing = queue.find(
@@ -107,7 +179,65 @@ export const enqueueOrSendReceipt = (
   }
 
   queue.push(entry);
-  save(queue);
+  if (isIndexedDBAvailable()) {
+    await idbPutOne(entry);
+  } else {
+    lsSave(queue);
+  }
+  return entry;
+};
+
+/** Enqueue or send a receipt (sync — writes to localStorage, legacy) */
+export const enqueueOrSendReceipt = (
+  channel: DeliveryChannel,
+  phone: string,
+  payload: ReceiptData,
+  client_uuid?: string
+): QueuedDelivery => {
+  const queue = lsLoad();
+  const id = client_uuid ?? uuid();
+
+  const existing = queue.find(
+    (q) =>
+      q.saleNumber === payload.saleNumber &&
+      q.channel === channel &&
+      q.phone === phone
+  );
+  if (existing) return existing;
+
+  const entry: QueuedDelivery = {
+    client_uuid: id,
+    saleNumber: payload.saleNumber,
+    channel,
+    phone,
+    payload,
+    status: "pending",
+    attempts: 0,
+    created_at: new Date().toISOString(),
+  };
+
+  if (isOnline()) {
+    try {
+      sendOne(entry);
+      entry.status = "sent";
+      entry.sent_at = new Date().toISOString();
+      entry.attempts = 1;
+    } catch (err: any) {
+      entry.status = "failed";
+      entry.last_error = err?.message ?? "send_failed";
+      entry.attempts = 1;
+      entry.next_retry_at = new Date(Date.now() + computeNextRetryDelay(1)).toISOString();
+    }
+  }
+
+  queue.push(entry);
+  lsSave(queue);
+
+  // Also persist to IndexedDB in background (fire-and-forget)
+  if (isIndexedDBAvailable()) {
+    idbPutOne(entry).catch(() => {});
+  }
+
   return entry;
 };
 
@@ -132,12 +262,12 @@ const isRetryReady = (entry: QueuedDelivery, now: number): boolean => {
   return new Date(entry.next_retry_at).getTime() <= now;
 };
 
-/** Re-tente manuellement (force=true ignore le backoff et la limite). */
-export const retryOne = (
+/** Re-tente manuellement (force=true ignore le backoff et la limite). Version async. */
+export const retryOneAsync = async (
   client_uuid: string,
   opts?: { force?: boolean }
-): QueuedDelivery | null => {
-  const queue = load();
+): Promise<QueuedDelivery | null> => {
+  const queue = await getQueueAsync();
   const entry = queue.find((q) => q.client_uuid === client_uuid);
   if (!entry) return null;
   if (entry.status === "sent" || entry.status === "duplicate") return entry;
@@ -164,20 +294,130 @@ export const retryOne = (
       entry.next_retry_at = new Date(Date.now() + computeNextRetryDelay(entry.attempts)).toISOString();
     }
   }
-  save(queue);
+  if (isIndexedDBAvailable()) {
+    await idbPutOne(entry);
+  } else {
+    lsSave(queue);
+  }
   return entry;
 };
 
+/** Re-tente manuellement (force=true ignore le backoff et la limite). Legacy sync. */
+export const retryOne = (
+  client_uuid: string,
+  opts?: { force?: boolean }
+): QueuedDelivery | null => {
+  const queue = lsLoad();
+  const entry = queue.find((q) => q.client_uuid === client_uuid);
+  if (!entry) return null;
+  if (entry.status === "sent" || entry.status === "duplicate") return entry;
+  if (!opts?.force) {
+    if (entry.exhausted) return entry;
+    if (!isRetryReady(entry, Date.now())) return entry;
+  }
+  try {
+    sendOne(entry);
+    entry.status = "sent";
+    entry.sent_at = new Date().toISOString();
+    entry.attempts += 1;
+    entry.last_error = undefined;
+    entry.next_retry_at = undefined;
+    entry.exhausted = false;
+  } catch (err: any) {
+    entry.status = "failed";
+    entry.last_error = err?.message ?? "send_failed";
+    entry.attempts += 1;
+    if (entry.attempts >= MAX_ATTEMPTS) {
+      entry.exhausted = true;
+      entry.next_retry_at = undefined;
+    } else {
+      entry.next_retry_at = new Date(Date.now() + computeNextRetryDelay(entry.attempts)).toISOString();
+    }
+  }
+  lsSave(queue);
+  // Background sync to IndexedDB
+  if (isIndexedDBAvailable()) idbPutOne(entry).catch(() => {});
+  return entry;
+};
+
+/** Remove a single entry (async) */
+export const removeOneAsync = async (client_uuid: string): Promise<void> => {
+  if (isIndexedDBAvailable()) {
+    await idbDeleteByKeys(STORES.RECEIPT_QUEUE, [client_uuid]);
+  }
+  // Also remove from localStorage for consistency
+  const queue = lsLoad().filter((q) => q.client_uuid !== client_uuid);
+  lsSave(queue);
+};
+
+/** Remove a single entry (sync, legacy) */
 export const removeOne = (client_uuid: string) => {
-  const queue = load().filter((q) => q.client_uuid !== client_uuid);
-  save(queue);
+  const queue = lsLoad().filter((q) => q.client_uuid !== client_uuid);
+  lsSave(queue);
+  if (isIndexedDBAvailable()) idbDeleteByKeys(STORES.RECEIPT_QUEUE, [client_uuid]).catch(() => {});
 };
 
 /**
- * Flush la file. Respecte backoff et MAX_ATTEMPTS pour éviter les boucles.
+ * Flush la file (async). Respecte backoff et MAX_ATTEMPTS pour éviter les boucles.
+ */
+export const flushQueueAsync2 = async (): Promise<{ sent: number; skipped: number; failed: number; deferred: number }> => {
+  const queue = await getQueueAsync();
+  const now = Date.now();
+  let sent = 0, skipped = 0, failed = 0, deferred = 0;
+  const seen = new Set<string>();
+  const updated: QueuedDelivery[] = [];
+
+  for (const entry of queue) {
+    const key = `${entry.saleNumber}|${entry.channel}|${entry.phone}`;
+    if (entry.status === "sent" || entry.status === "duplicate") {
+      seen.add(key);
+      updated.push(entry);
+      continue;
+    }
+    if (seen.has(key)) {
+      entry.status = "duplicate";
+      skipped += 1;
+      updated.push(entry);
+      continue;
+    }
+    seen.add(key);
+    if (entry.exhausted) { skipped += 1; updated.push(entry); continue; }
+    if (!isRetryReady(entry, now)) { deferred += 1; updated.push(entry); continue; }
+    try {
+      sendOne(entry);
+      entry.status = "sent";
+      entry.sent_at = new Date().toISOString();
+      entry.attempts += 1;
+      entry.last_error = undefined;
+      entry.next_retry_at = undefined;
+      sent += 1;
+    } catch (err: any) {
+      entry.status = "failed";
+      entry.last_error = err?.message ?? "send_failed";
+      entry.attempts += 1;
+      if (entry.attempts >= MAX_ATTEMPTS) {
+        entry.exhausted = true;
+        entry.next_retry_at = undefined;
+      } else if (isOnline()) {
+        entry.next_retry_at = new Date(now + computeNextRetryDelay(entry.attempts)).toISOString();
+      } else {
+        entry.next_retry_at = undefined;
+      }
+      failed += 1;
+    }
+    updated.push(entry);
+  }
+
+  await idbSave(updated);
+  lsSave(updated);
+  return { sent, skipped, failed, deferred };
+};
+
+/**
+ * Flush la file (sync). Respecte backoff et MAX_ATTEMPTS pour éviter les boucles.
  */
 export const flushQueue = (): { sent: number; skipped: number; failed: number; deferred: number } => {
-  const queue = load();
+  const queue = lsLoad();
   const now = Date.now();
   let sent = 0;
   let skipped = 0;
@@ -214,8 +454,6 @@ export const flushQueue = (): { sent: number; skipped: number; failed: number; d
         entry.exhausted = true;
         entry.next_retry_at = undefined;
       } else if (isOnline()) {
-        // Backoff seulement si on est en ligne (vrai échec serveur).
-        // En offline, échec attendu → pas de backoff.
         entry.next_retry_at = new Date(now + computeNextRetryDelay(entry.attempts)).toISOString();
       } else {
         entry.next_retry_at = undefined;
@@ -223,27 +461,58 @@ export const flushQueue = (): { sent: number; skipped: number; failed: number; d
       failed += 1;
     }
   }
-  save(queue);
+  lsSave(queue);
+  // Background sync to IndexedDB
+  if (isIndexedDBAvailable()) idbSave(queue).catch(() => {});
   return { sent, skipped, failed, deferred };
 };
 
-export const getQueue = (): QueuedDelivery[] => load();
-export const clearQueue = () => localStorage.removeItem(STORAGE_KEY);
-export const pendingCount = (): number =>
-  load().filter((q) => q.status === "pending").length;
-
-/** Snapshot complet (pour undo). */
-export const snapshotQueue = (): QueuedDelivery[] =>
-  JSON.parse(JSON.stringify(load())) as QueuedDelivery[];
-
-/** Restaure un snapshot (utilisé par undo). */
-export const restoreQueue = (snapshot: QueuedDelivery[]): void => {
-  save(JSON.parse(JSON.stringify(snapshot)));
+/** Clear the entire queue (async) */
+export const clearQueueAsync = async (): Promise<void> => {
+  if (isIndexedDBAvailable()) await idbClearStore(STORES.RECEIPT_QUEUE);
+  localStorage.removeItem(LS_KEY);
 };
 
-/** Remplace la file (utilisé après merge multi-appareils). */
+/** Clear the entire queue (sync, legacy) */
+export const clearQueue = () => {
+  localStorage.removeItem(LS_KEY);
+  if (isIndexedDBAvailable()) idbClearStore(STORES.RECEIPT_QUEUE).catch(() => {});
+};
+
+/** Snapshot complet (pour undo) — async */
+export const snapshotQueueAsync = (): Promise<QueuedDelivery[]> =>
+  getQueueAsync().then((q) => JSON.parse(JSON.stringify(q)) as QueuedDelivery[]);
+
+/** Snapshot complet (pour undo) — sync legacy */
+export const snapshotQueue = (): QueuedDelivery[] =>
+  JSON.parse(JSON.stringify(lsLoad())) as QueuedDelivery[];
+
+/** Restaure un snapshot (utilisé par undo) — async */
+export const restoreQueueAsync = async (snapshot: QueuedDelivery[]): Promise<void> => {
+  const entries = JSON.parse(JSON.stringify(snapshot));
+  await idbSave(entries);
+  lsSave(entries);
+};
+
+/** Restaure un snapshot (utilisé par undo) — sync legacy */
+export const restoreQueue = (snapshot: QueuedDelivery[]): void => {
+  const entries = JSON.parse(JSON.stringify(snapshot));
+  lsSave(entries);
+  if (isIndexedDBAvailable()) idbSave(entries).catch(() => {});
+};
+
+/** Remplace la file (utilisé après merge multi-appareils) — async */
+export const replaceQueueAsync = async (entries: QueuedDelivery[]): Promise<void> => {
+  const copy = [...entries];
+  await idbSave(copy);
+  lsSave(copy);
+};
+
+/** Remplace la file (utilisé après merge multi-appareils) — sync legacy */
 export const replaceQueue = (entries: QueuedDelivery[]): void => {
-  save([...entries]);
+  const copy = [...entries];
+  lsSave(copy);
+  if (isIndexedDBAvailable()) idbSave(copy).catch(() => {});
 };
 
 /**
@@ -261,22 +530,25 @@ export const flushQueueAsync = async (
     currentSaleNumber?: string;
   }) => void,
 ): Promise<{ sent: number; failed: number; skipped: number; deferred: number }> => {
-  const queue = load();
+  const queue = await getQueueAsync();
   const now = Date.now();
   let sent = 0, failed = 0, skipped = 0, deferred = 0;
   const seen = new Set<string>();
   const processable = queue.filter((e) => e.status !== "sent" && e.status !== "duplicate");
   const total = processable.length;
   let processed = 0;
+  const updated: QueuedDelivery[] = [];
+
   for (const entry of queue) {
     const key = `${entry.saleNumber}|${entry.channel}|${entry.phone}`;
-    if (entry.status === "sent" || entry.status === "duplicate") { seen.add(key); continue; }
+    if (entry.status === "sent" || entry.status === "duplicate") { seen.add(key); updated.push(entry); continue; }
     if (seen.has(key)) {
       entry.status = "duplicate"; skipped += 1; processed += 1;
+      updated.push(entry);
     } else {
       seen.add(key);
-      if (entry.exhausted) { skipped += 1; processed += 1; }
-      else if (!isRetryReady(entry, now)) { deferred += 1; processed += 1; }
+      if (entry.exhausted) { skipped += 1; processed += 1; updated.push(entry); }
+      else if (!isRetryReady(entry, now)) { deferred += 1; processed += 1; updated.push(entry); }
       else {
         try {
           sendOne(entry);
@@ -295,13 +567,16 @@ export const flushQueueAsync = async (
           failed += 1;
         }
         processed += 1;
+        updated.push(entry);
       }
     }
-    save(queue);
     onProgress?.({ processed, total, sent, failed, skipped, deferred, currentSaleNumber: entry.saleNumber });
     // yield au navigateur pour ne pas figer l'UI sur les longues files
     await new Promise((r) => setTimeout(r, 0));
   }
+
+  await idbSave(updated);
+  lsSave(updated);
   return { sent, failed, skipped, deferred };
 };
 
@@ -319,6 +594,22 @@ export const installAutoFlush = (
 };
 
 /** Bulk retry — applique retryOne sur chaque uuid et retourne un résumé. */
+export const retryManyAsync = async (
+  uuids: string[],
+  opts?: { force?: boolean }
+): Promise<{ sent: number; failed: number; skipped: number }> => {
+  let sent = 0, failed = 0, skipped = 0;
+  for (const id of uuids) {
+    const r = await retryOneAsync(id, opts);
+    if (!r) { skipped += 1; continue; }
+    if (r.status === "sent") sent += 1;
+    else if (r.status === "failed") failed += 1;
+    else skipped += 1;
+  }
+  return { sent, failed, skipped };
+};
+
+/** Bulk retry (sync, legacy) */
 export const retryMany = (
   uuids: string[],
   opts?: { force?: boolean }
@@ -334,11 +625,23 @@ export const retryMany = (
   return { sent, failed, skipped };
 };
 
+/** Remove many entries by UUID (async) */
+export const removeManyAsync = async (uuids: string[]): Promise<number> => {
+  const set = new Set(uuids);
+  const queue = await getQueueAsync();
+  const after = queue.filter((q) => !set.has(q.client_uuid));
+  await idbSave(after);
+  lsSave(after);
+  return queue.length - after.length;
+};
+
+/** Remove many entries by UUID (sync, legacy) */
 export const removeMany = (uuids: string[]): number => {
   const set = new Set(uuids);
-  const before = load();
+  const before = lsLoad();
   const after = before.filter((q) => !set.has(q.client_uuid));
-  save(after);
+  lsSave(after);
+  if (isIndexedDBAvailable()) idbSave(after).catch(() => {});
   return before.length - after.length;
 };
 
@@ -346,8 +649,8 @@ export const removeMany = (uuids: string[]): number => {
  * Fusionne les doublons : pour chaque clé saleNumber|channel|phone, garde
  * une seule entrée (priorité 'sent' > la plus récente). Idempotence préservée.
  */
-export const mergeDuplicates = (): { merged: number; kept: number } => {
-  const queue = load();
+export const mergeDuplicatesAsync = async (): Promise<{ merged: number; kept: number }> => {
+  const queue = await getQueueAsync();
   const groups = new Map<string, QueuedDelivery[]>();
   for (const e of queue) {
     const key = `${e.saleNumber}|${e.channel}|${e.phone}`;
@@ -365,13 +668,39 @@ export const mergeDuplicates = (): { merged: number; kept: number } => {
     kept.push(winner);
     merged += arr.length - 1;
   }
-  save(kept);
+  await idbSave(kept);
+  lsSave(kept);
+  return { merged, kept: kept.length };
+};
+
+/** Merge duplicates (sync, legacy) */
+export const mergeDuplicates = (): { merged: number; kept: number } => {
+  const queue = lsLoad();
+  const groups = new Map<string, QueuedDelivery[]>();
+  for (const e of queue) {
+    const key = `${e.saleNumber}|${e.channel}|${e.phone}`;
+    const arr = groups.get(key) ?? [];
+    arr.push(e);
+    groups.set(key, arr);
+  }
+  const kept: QueuedDelivery[] = [];
+  let merged = 0;
+  for (const arr of groups.values()) {
+    if (arr.length === 1) { kept.push(arr[0]); continue; }
+    const sent = arr.find((e) => e.status === "sent");
+    const winner = sent ?? [...arr].sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+    winner.attempts = arr.reduce((s, e) => Math.max(s, e.attempts), winner.attempts);
+    kept.push(winner);
+    merged += arr.length - 1;
+  }
+  lsSave(kept);
+  if (isIndexedDBAvailable()) idbSave(kept).catch(() => {});
   return { merged, kept: kept.length };
 };
 
 /** Marque comme 'duplicate' (sans suppression) toutes les entrées doublons. */
-export const archiveDuplicates = (): number => {
-  const queue = load();
+export const archiveDuplicatesAsync = async (): Promise<number> => {
+  const queue = await getQueueAsync();
   const seen = new Map<string, QueuedDelivery>();
   let archived = 0;
   for (const e of queue) {
@@ -386,7 +715,31 @@ export const archiveDuplicates = (): number => {
     }
     seen.set(key, winner);
   }
-  save(queue);
+  const updated = Array.from(seen.values());
+  await idbSave(updated);
+  lsSave(updated);
+  return archived;
+};
+
+/** Archive duplicates (sync, legacy) */
+export const archiveDuplicates = (): number => {
+  const queue = lsLoad();
+  const seen = new Map<string, QueuedDelivery>();
+  let archived = 0;
+  for (const e of queue) {
+    const key = `${e.saleNumber}|${e.channel}|${e.phone}`;
+    const prev = seen.get(key);
+    if (!prev) { seen.set(key, e); continue; }
+    const winner = prev.status === "sent" ? prev : e.status === "sent" ? e : prev;
+    const loser = winner === prev ? e : prev;
+    if (loser.status !== "duplicate") {
+      loser.status = "duplicate";
+      archived += 1;
+    }
+    seen.set(key, winner);
+  }
+  lsSave(queue);
+  if (isIndexedDBAvailable()) idbSave(queue).catch(() => {});
   return archived;
 };
 
@@ -399,7 +752,7 @@ export const onExhausted = (l: ExhaustedListener): (() => void) => {
   return () => { exhaustedListeners.delete(l); };
 };
 export const checkExhaustedDelta = (): QueuedDelivery[] => {
-  const cur = load().filter((e) => e.exhausted);
+  const cur = lsLoad().filter((e) => e.exhausted);
   const curIds = new Set(cur.map((e) => e.client_uuid));
   const fresh = cur.filter((e) => !lastExhaustedIds.has(e.client_uuid));
   lastExhaustedIds = curIds;

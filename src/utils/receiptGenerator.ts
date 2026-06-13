@@ -251,7 +251,7 @@ export const generateReceiptPDF = (data: ReceiptData): jsPDF => {
   centerText("À très bientôt", y, 7.5);
   y += 4;
   doc.setTextColor(150);
-  centerText("Ticket édité par SahelPOS", y, 6.5);
+  centerText("Ticket édité par MalikiPlus", y, 6.5);
   doc.setTextColor(0);
 
   return doc;

@@ -58,7 +58,7 @@ describe("Sélection persistante + indicateur global + Effacer la sélection", (
       attempts: 0,
       created_at: new Date(base + 999_000).toISOString(),
     });
-    localStorage.setItem("sahelpos:receipt_delivery_queue", JSON.stringify(entries));
+    localStorage.setItem("malikiplus:receipt_delivery_queue", JSON.stringify(entries));
 
     render(<><ReceiptDeliveryTrackingPanel /><Toaster /></>);
 

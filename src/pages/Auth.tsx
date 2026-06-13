@@ -147,7 +147,7 @@ const Auth = () => {
       } else {
         toast({
           title: "Connexion réussie",
-          description: "Bienvenue sur SahelPOS !",
+          description: "Bienvenue sur MalikiPlus !",
         });
         navigate("/dashboard");
       }

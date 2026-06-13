@@ -82,7 +82,7 @@ export const ReceiptDeliveryTrackingPanel = () => {
   const [page, setPage] = useState(1);
   // Persist selection in localStorage so it survives hard refresh / tab reload.
   // (Previously sessionStorage — which is lost on full reload.)
-  const SELECTION_KEY = "sahelpos:receipt_delivery_selection";
+  const SELECTION_KEY = "malikiplus:receipt_delivery_selection";
   const readPersistedSelection = (): Set<string> => {
     try {
       const raw = localStorage.getItem(SELECTION_KEY)
@@ -171,7 +171,7 @@ export const ReceiptDeliveryTrackingPanel = () => {
           const arr = e.newValue ? JSON.parse(e.newValue) : [];
           setSelected(new Set(Array.isArray(arr) ? arr : []));
         } catch { /* ignore */ }
-      } else if (e.key === "sahelpos:receipt_delivery_queue") {
+      } else if (e.key === "malikiplus:receipt_delivery_queue") {
         refresh();
       }
     };
@@ -347,7 +347,7 @@ export const ReceiptDeliveryTrackingPanel = () => {
     return report;
   };
   // Exposé pour les tests E2E (non-officiel, opt-in).
-  (window as any).__sahelpos_mergeRemote = handleMergeRemote;
+  (window as any).__malikiplus_mergeRemote = handleMergeRemote;
 
   const selectedRows = useMemo(
     () => queue.filter((q) => selected.has(q.client_uuid)),

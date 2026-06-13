@@ -1,5 +1,5 @@
 /**
- * Guarded Service Worker registration for SahelPOS.
+ * Guarded Service Worker registration for MalikiPlus.
  * Refuses registration in dev / Lovable preview / iframes / when ?sw=off is set.
  * Unregisters any matching SW in refused contexts to avoid stale caches.
  */

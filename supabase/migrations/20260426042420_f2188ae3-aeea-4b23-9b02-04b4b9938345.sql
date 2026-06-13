@@ -44,7 +44,7 @@ SET is_test_account = true,
     test_expires_at = now() + interval '7 days'
 FROM auth.users u
 WHERE p.user_id = u.id
-  AND u.email LIKE '%.test@sahelpos.local';
+  AND u.email LIKE '%.test@malikiplus.local';
 
 -- 4. Enable cron + net extensions for scheduled rotation
 CREATE EXTENSION IF NOT EXISTS pg_cron;

@@ -50,7 +50,7 @@ describe("Soft refresh — sélection persistante au remount", () => {
         created_at: new Date(base + i * 1000).toISOString(),
       });
     }
-    localStorage.setItem("sahelpos:receipt_delivery_queue", JSON.stringify(entries));
+    localStorage.setItem("malikiplus:receipt_delivery_queue", JSON.stringify(entries));
 
     const { unmount } = render(<><ReceiptDeliveryTrackingPanel /><Toaster /></>);
 

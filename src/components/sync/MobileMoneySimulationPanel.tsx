@@ -25,7 +25,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
 
-const STORAGE_KEY = "sahelpos:mobile_money_sim";
+const STORAGE_KEY = "malikiplus:mobile_money_sim";
 
 export type MMStatus =
   | "qr_generated"   // QR émis, en attente paiement

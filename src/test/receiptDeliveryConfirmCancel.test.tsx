@@ -65,9 +65,9 @@ describe("Confirmations Supprimer/Archiver — clic Annuler n'altère rien", () 
     // Crée un vrai doublon en bypassant l'idempotence (manipulation directe du localStorage)
     const r1 = enqueueOrSendReceipt("whatsapp", "+22461100010", sample("VNT-260503-B001"));
     const cloned = { ...r1, client_uuid: r1.client_uuid + "_dup", created_at: new Date().toISOString() };
-    const raw = JSON.parse(localStorage.getItem("sahelpos:receipt_delivery_queue") ?? "[]");
+    const raw = JSON.parse(localStorage.getItem("malikiplus:receipt_delivery_queue") ?? "[]");
     raw.push(cloned);
-    localStorage.setItem("sahelpos:receipt_delivery_queue", JSON.stringify(raw));
+    localStorage.setItem("malikiplus:receipt_delivery_queue", JSON.stringify(raw));
     expect(getQueue()).toHaveLength(2);
     const beforeStatuses = getQueue().map((q) => q.status).sort();
 

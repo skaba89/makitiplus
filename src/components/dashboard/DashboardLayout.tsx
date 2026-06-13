@@ -142,7 +142,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           <div className="w-8 h-8 rounded-lg bg-hero-gradient flex items-center justify-center">
             <span className="text-sm font-bold text-primary-foreground">S</span>
           </div>
-          <span className="font-bold">SahelPOS</span>
+          <span className="font-bold">MalikiPlus</span>
         </div>
 
         <DropdownMenu>
@@ -186,7 +186,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             <span className="text-xl font-bold text-primary-foreground">S</span>
           </div>
           <div>
-            <span className="font-bold text-sidebar-foreground">SahelPOS</span>
+            <span className="font-bold text-sidebar-foreground">MalikiPlus</span>
             <p className="text-xs text-muted-foreground">{profile?.business_name}</p>
           </div>
         </div>

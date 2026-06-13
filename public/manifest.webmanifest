@@ -1,6 +1,6 @@
 {
-  "name": "SahelPOS",
-  "short_name": "SahelPOS",
+  "name": "MalikiPlus",
+  "short_name": "MalikiPlus",
   "description": "Caisse mobile hors-ligne pour commerces du Sahel",
   "start_url": "/dashboard",
   "scope": "/",

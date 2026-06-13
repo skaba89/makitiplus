@@ -33,7 +33,7 @@ interface ReceiptActionsDialogProps {
   receiptData: ReceiptData | null;
 }
 
-const AUTO_SEND_KEY = "sahelpos:auto_send_receipt";
+const AUTO_SEND_KEY = "malikiplus:auto_send_receipt";
 
 export const ReceiptActionsDialog = ({
   isOpen,

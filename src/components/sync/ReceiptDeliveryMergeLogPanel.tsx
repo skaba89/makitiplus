@@ -35,8 +35,8 @@ type SourceFilter = "all" | "local" | "remote" | "none";
 type GhostFilter = "all" | "only" | "hide";
 
 const PAGE_SIZES = [50, 100, 200];
-const STORAGE_KEY = "sahelpos:receipt_delivery_merge_log";
-const LAST_UUID_KEY = "sahelpos:receipt_delivery_merge_log_last_uuid";
+const STORAGE_KEY = "malikiplus:receipt_delivery_merge_log";
+const LAST_UUID_KEY = "malikiplus:receipt_delivery_merge_log_last_uuid";
 
 export const ReceiptDeliveryMergeLogPanel = () => {
   const dict = getDict(getDeliveryLocale());

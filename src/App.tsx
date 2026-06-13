@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -12,15 +12,24 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Products from "./pages/Products";
-import POS from "./pages/POS";
 import Categories from "./pages/Categories";
-import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
 import Expenses from "./pages/Expenses";
 import Settings from "./pages/Settings";
 import Customers from "./pages/Customers";
 import Users from "./pages/Users";
 import SyncConflicts from "./pages/SyncConflicts";
+
+// Lazy-loaded heavy routes (recharts + POS components → significant bundle reduction)
+const Reports = lazy(() => import("./pages/Reports"));
+const POS = lazy(() => import("./pages/POS"));
+
+/** Minimal loading spinner for lazy-loaded routes */
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-[60vh]">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900" />
+  </div>
+);
 
 const queryClient = new QueryClient();
 
@@ -40,8 +49,8 @@ const App = () => {
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
-          <Routes>
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <Routes future={{ v7_relativeSplatPath: true }}>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             <Route
@@ -64,7 +73,9 @@ const App = () => {
               path="/dashboard/pos"
               element={
                 <ProtectedRoute allowedRoles={["admin", "manager", "vendeur"]}>
-                  <POS />
+                  <Suspense fallback={<PageLoader />}>
+                    <POS />
+                  </Suspense>
                 </ProtectedRoute>
               }
             />
@@ -80,7 +91,9 @@ const App = () => {
               path="/dashboard/reports"
               element={
                 <ProtectedRoute allowedRoles={["admin", "manager", "comptable"]}>
-                  <Reports />
+                  <Suspense fallback={<PageLoader />}>
+                    <Reports />
+                  </Suspense>
                 </ProtectedRoute>
               }
             />

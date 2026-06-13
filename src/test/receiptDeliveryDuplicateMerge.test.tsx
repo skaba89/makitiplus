@@ -61,7 +61,7 @@ describe("Duplicate merge — multi-pages + idempotence", () => {
         created_at: new Date(base + 1_000_000 + i * 1000).toISOString(),
       });
     }
-    localStorage.setItem("sahelpos:receipt_delivery_queue", JSON.stringify(entries));
+    localStorage.setItem("malikiplus:receipt_delivery_queue", JSON.stringify(entries));
     expect(getQueue()).toHaveLength(15);
 
     render(<><ReceiptDeliveryTrackingPanel /><Toaster /></>);

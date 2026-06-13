@@ -14,7 +14,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
 
-const STORAGE_KEY = "sahelpos:offline_sales_sim";
+const STORAGE_KEY = "malikiplus:offline_sales_sim";
 
 interface OfflineSale {
   client_uuid: string;        // clé d'idempotence

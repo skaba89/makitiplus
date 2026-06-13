@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Stratégie de résolution de conflits offline pour SahelPOS.
+ * Stratégie de résolution de conflits offline pour MalikiPlus.
  *
  * Trois familles d'entités, trois stratégies :
  *  - **Stock produits** : merge intelligent par delta
@@ -35,7 +35,7 @@ interface ConflictLog {
   error_message?: string | null;
 }
 
-const DEVICE_ID_KEY = "sahelpos_device_id";
+const DEVICE_ID_KEY = "malikiplus_device_id";
 
 export function getDeviceId(): string {
   let id = localStorage.getItem(DEVICE_ID_KEY);

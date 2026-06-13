@@ -64,9 +64,9 @@ describe("Confirmations OK — la file est réellement mutée", () => {
       client_uuid: r1.client_uuid + "_dup",
       created_at: new Date(Date.now() + 1000).toISOString(),
     };
-    const raw = JSON.parse(localStorage.getItem("sahelpos:receipt_delivery_queue") ?? "[]");
+    const raw = JSON.parse(localStorage.getItem("malikiplus:receipt_delivery_queue") ?? "[]");
     raw.push(cloned);
-    localStorage.setItem("sahelpos:receipt_delivery_queue", JSON.stringify(raw));
+    localStorage.setItem("malikiplus:receipt_delivery_queue", JSON.stringify(raw));
     expect(getQueue()).toHaveLength(2);
     expect(getQueue().filter((q) => q.status === "duplicate")).toHaveLength(0);
 
