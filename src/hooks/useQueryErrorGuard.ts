@@ -21,10 +21,10 @@ export function useQueryErrorGuard() {
     if (!user) return;
     const cache = queryClient.getQueryCache();
     const unsub = cache.subscribe((event) => {
-      const error: any = (event as any)?.query?.state?.error;
-      if (!error) return;
-      const msg = String(error?.message ?? "").toLowerCase();
-      const code = String(error?.code ?? "");
+      const queryError: unknown = (event as { query?: { state: { error: unknown } } })?.query?.state?.error;
+      if (!queryError) return;
+      const msg = String((queryError as { message?: string })?.message ?? "").toLowerCase();
+      const code = String((queryError as { code?: string })?.code ?? "");
       if (
         msg.includes("jwt expired") ||
         msg.includes("invalid jwt") ||

@@ -12,9 +12,11 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { ShoppingCart, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { Customer } from "@/types";
+import { Database } from "@/integrations/supabase/types";
 
 interface Props {
-  customer: any;
+  customer: Customer | null;
   isOpen: boolean;
   onClose: () => void;
 }
@@ -81,7 +83,7 @@ export const CustomerDetailDialog = ({ customer, isOpen, onClose }: Props) => {
             <div>
               <h3 className="font-semibold mb-2">Historique des crédits</h3>
               <div className="space-y-2 max-h-40 overflow-y-auto">
-                {credits.map((c: any) => (
+                {credits.map((c: Database["public"]["Tables"]["customer_credits"]["Row"]) => (
                   <div key={c.id} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg text-sm">
                     <div className="flex items-center gap-2">
                       {c.type === "credit" ? (
@@ -110,7 +112,7 @@ export const CustomerDetailDialog = ({ customer, isOpen, onClose }: Props) => {
             <h3 className="font-semibold mb-2">Derniers achats</h3>
             {sales && sales.length > 0 ? (
               <div className="space-y-2 max-h-60 overflow-y-auto">
-                {sales.map((sale: any) => (
+                {sales.map((sale: Database["public"]["Tables"]["sales"]["Row"] & { sale_items?: Database["public"]["Tables"]["sale_items"]["Row"][] }) => (
                   <div key={sale.id} className="p-3 bg-muted/50 rounded-lg">
                     <div className="flex justify-between items-center mb-1">
                       <span className="text-sm font-medium">{sale.sale_number}</span>
@@ -120,7 +122,7 @@ export const CustomerDetailDialog = ({ customer, isOpen, onClose }: Props) => {
                       {format(new Date(sale.created_at), "dd MMM yyyy à HH:mm", { locale: fr })}
                     </p>
                     <div className="mt-1 text-xs text-muted-foreground">
-                      {sale.sale_items?.map((item: any) => item.product_name).join(", ")}
+                      {sale.sale_items?.map((item: Database["public"]["Tables"]["sale_items"]["Row"]) => item.product_name).join(", ")}
                     </div>
                   </div>
                 ))}

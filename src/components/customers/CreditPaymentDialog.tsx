@@ -13,9 +13,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { Customer } from "@/types";
 
 interface Props {
-  customer: any;
+  customer: Customer | null;
   isOpen: boolean;
   onClose: () => void;
 }

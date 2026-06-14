@@ -35,7 +35,7 @@ interface SyncReport {
 }
 
 const uuid = () =>
-  (crypto as any).randomUUID?.() ??
+  globalThis.crypto?.randomUUID?.() ??
   `s_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 
 const loadLocal = (): OfflineSale[] => {
@@ -84,7 +84,7 @@ export const OfflinePOSSimulationPanel = () => {
       client_uuid: uuid(),
       created_at: new Date().toISOString(),
       amount: Math.round((500 + Math.random() * 9500) / 50) * 50,
-      payment_method: ["cash", "wave", "orange_money"][Math.floor(Math.random() * 3)] as any,
+      payment_method: ["cash", "wave", "orange_money"][Math.floor(Math.random() * 3)] as OfflineSale["payment_method"],
       status: "pending",
       attempts: 0,
     }));
@@ -221,7 +221,7 @@ export const OfflinePOSSimulationPanel = () => {
             <Label className="text-xs">Mode paiement</Label>
             <select
               value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value as any)}
+              onChange={(e) => setPaymentMethod(e.target.value as OfflineSale["payment_method"])}
               className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
             >
               <option value="cash">Espèces</option>

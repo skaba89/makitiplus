@@ -1,20 +1,37 @@
+import { getCorsHeaders, corsOptionsResponse } from '../_shared/cors.ts';
 import { validatePasswordServer } from '../_shared/passwordPolicy.ts';
 import { requireAdminContext } from '../_shared/orgScope.ts';
+import { requireMethod } from '../_shared/httpMethodGuard.ts';
+import { createRateLimiter } from '../_shared/rateLimiter.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+// Rate limit: 10 user creations per IP per 60 seconds
+const limiter = createRateLimiter('admin-create-user', {
+  maxRequests: 10,
+  windowMs: 60_000,
+});
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+  if (req.method === 'OPTIONS') return corsOptionsResponse(req);
+  const methodErr = requireMethod(req, 'POST');
+  if (methodErr) return methodErr;
+
+  const rateResult = await limiter.check(req);
+  if (!rateResult.allowed) {
+    return limiter.addHeaders(
+      new Response(JSON.stringify({ error: rateResult.error }), {
+        status: 429,
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+      }),
+      rateResult,
+    );
+  }
 
   try {
     const ctx = await requireAdminContext(req);
     if (!ctx.ok) {
       return new Response(JSON.stringify({ error: ctx.error }), {
         status: ctx.status,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
     const { user, adminClient, actorProfile } = ctx;
@@ -24,18 +41,18 @@ Deno.serve(async (req) => {
 
     if (!email || !password || !ownerName || !role) {
       return new Response(JSON.stringify({ error: 'Champs requis manquants' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
     const policyCheck = validatePasswordServer(password);
     if (!policyCheck.ok) {
       return new Response(JSON.stringify({ error: policyCheck.error }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
     if (role === 'admin') {
       return new Response(JSON.stringify({ error: 'Impossible de créer un autre administrateur' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
 
@@ -47,7 +64,7 @@ Deno.serve(async (req) => {
 
     if (createError || !created.user) {
       return new Response(JSON.stringify({ error: createError?.message ?? 'Création échouée' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
 
@@ -65,7 +82,7 @@ Deno.serve(async (req) => {
     if (profileError) {
       await adminClient.auth.admin.deleteUser(newUserId);
       return new Response(JSON.stringify({ error: profileError.message }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
 
@@ -76,7 +93,7 @@ Deno.serve(async (req) => {
     if (roleError) {
       await adminClient.auth.admin.deleteUser(newUserId);
       return new Response(JSON.stringify({ error: roleError.message }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
 
@@ -90,14 +107,18 @@ Deno.serve(async (req) => {
       details: { role, email, requireEmailVerification: !!requireEmailVerification },
     });
 
-    return new Response(JSON.stringify({
-      success: true,
-      userId: newUserId,
-      requiresVerification: !!requireEmailVerification,
-    }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return limiter.addHeaders(
+      new Response(JSON.stringify({
+        success: true,
+        userId: newUserId,
+        requiresVerification: !!requireEmailVerification,
+      }), { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }),
+      rateResult,
+    );
   } catch (err) {
-    return new Response(JSON.stringify({ error: (err as Error).message }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    console.error("[EdgeFn] Internal error:", (err as Error).message);
+    return new Response(JSON.stringify({ error: "Erreur interne du serveur" }), {
+      status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
     });
   }
 });

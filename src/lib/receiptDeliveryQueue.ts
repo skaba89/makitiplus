@@ -59,7 +59,7 @@ export interface QueuedDelivery {
 }
 
 const uuid = () =>
-  (crypto as any).randomUUID?.() ??
+  globalThis.crypto?.randomUUID?.() ??
   `r_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 
 // ---------------------------------------------------------------------------
@@ -170,9 +170,9 @@ export const enqueueOrSendReceiptAsync = async (
       entry.status = "sent";
       entry.sent_at = new Date().toISOString();
       entry.attempts = 1;
-    } catch (err: any) {
+    } catch (err: unknown) {
       entry.status = "failed";
-      entry.last_error = err?.message ?? "send_failed";
+      entry.last_error = (err instanceof Error ? err.message : String(err)) || "send_failed";
       entry.attempts = 1;
       entry.next_retry_at = new Date(Date.now() + computeNextRetryDelay(1)).toISOString();
     }
@@ -222,9 +222,9 @@ export const enqueueOrSendReceipt = (
       entry.status = "sent";
       entry.sent_at = new Date().toISOString();
       entry.attempts = 1;
-    } catch (err: any) {
+    } catch (err: unknown) {
       entry.status = "failed";
-      entry.last_error = err?.message ?? "send_failed";
+      entry.last_error = (err instanceof Error ? err.message : String(err)) || "send_failed";
       entry.attempts = 1;
       entry.next_retry_at = new Date(Date.now() + computeNextRetryDelay(1)).toISOString();
     }
@@ -283,9 +283,9 @@ export const retryOneAsync = async (
     entry.last_error = undefined;
     entry.next_retry_at = undefined;
     entry.exhausted = false;
-  } catch (err: any) {
+  } catch (err: unknown) {
     entry.status = "failed";
-    entry.last_error = err?.message ?? "send_failed";
+    entry.last_error = (err instanceof Error ? err.message : String(err)) || "send_failed";
     entry.attempts += 1;
     if (entry.attempts >= MAX_ATTEMPTS) {
       entry.exhausted = true;
@@ -323,9 +323,9 @@ export const retryOne = (
     entry.last_error = undefined;
     entry.next_retry_at = undefined;
     entry.exhausted = false;
-  } catch (err: any) {
+  } catch (err: unknown) {
     entry.status = "failed";
-    entry.last_error = err?.message ?? "send_failed";
+    entry.last_error = (err instanceof Error ? err.message : String(err)) || "send_failed";
     entry.attempts += 1;
     if (entry.attempts >= MAX_ATTEMPTS) {
       entry.exhausted = true;
@@ -391,9 +391,9 @@ export const flushQueueAsync2 = async (): Promise<{ sent: number; skipped: numbe
       entry.last_error = undefined;
       entry.next_retry_at = undefined;
       sent += 1;
-    } catch (err: any) {
+    } catch (err: unknown) {
       entry.status = "failed";
-      entry.last_error = err?.message ?? "send_failed";
+      entry.last_error = (err instanceof Error ? err.message : String(err)) || "send_failed";
       entry.attempts += 1;
       if (entry.attempts >= MAX_ATTEMPTS) {
         entry.exhausted = true;
@@ -446,9 +446,9 @@ export const flushQueue = (): { sent: number; skipped: number; failed: number; d
       entry.last_error = undefined;
       entry.next_retry_at = undefined;
       sent += 1;
-    } catch (err: any) {
+    } catch (err: unknown) {
       entry.status = "failed";
-      entry.last_error = err?.message ?? "send_failed";
+      entry.last_error = (err instanceof Error ? err.message : String(err)) || "send_failed";
       entry.attempts += 1;
       if (entry.attempts >= MAX_ATTEMPTS) {
         entry.exhausted = true;
@@ -558,9 +558,9 @@ export const flushQueueAsync = async (
           entry.last_error = undefined;
           entry.next_retry_at = undefined;
           sent += 1;
-        } catch (err: any) {
+        } catch (err: unknown) {
           entry.status = "failed";
-          entry.last_error = err?.message ?? "send_failed";
+          entry.last_error = (err instanceof Error ? err.message : String(err)) || "send_failed";
           entry.attempts += 1;
           if (entry.attempts >= MAX_ATTEMPTS) { entry.exhausted = true; entry.next_retry_at = undefined; }
           else if (isOnline()) entry.next_retry_at = new Date(Date.now() + computeNextRetryDelay(entry.attempts)).toISOString();

@@ -20,15 +20,16 @@ import { OfflinePOSSimulationPanel } from "@/components/sync/OfflinePOSSimulatio
 import { MobileMoneySimulationPanel } from "@/components/sync/MobileMoneySimulationPanel";
 import { ReceiptDeliveryTrackingPanel } from "@/components/sync/ReceiptDeliveryTrackingPanel";
 import { ReceiptDeliveryMergeLogPanel } from "@/components/sync/ReceiptDeliveryMergeLogPanel";
+import { SyncConflictRow } from "@/types";
 
 interface ConflictRow {
   id: string;
   entity_type: string;
   entity_label: string | null;
   device_id: string | null;
-  local_data: any;
-  remote_data: any;
-  resolved_data: any;
+  local_data: Record<string, unknown>;
+  remote_data: Record<string, unknown>;
+  resolved_data: Record<string, unknown>;
   resolution_strategy: string;
   status: string;
   error_message: string | null;
@@ -107,8 +108,9 @@ const SyncConflicts = () => {
       if (error) throw error;
       toast({ title: "Conflits acquittés", description: `${ids.length} entrée(s) marquée(s) comme lues` });
       load();
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Erreur", description: e.message });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      toast({ variant: "destructive", title: "Erreur", description: message });
     }
   };
 
@@ -161,7 +163,7 @@ const SyncConflicts = () => {
           </CardHeader>
         </Card>
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
+        <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
           <TabsList>
             <TabsTrigger value="unack">Non acquittés ({unack})</TabsTrigger>
             <TabsTrigger value="all">Tout l'historique</TabsTrigger>

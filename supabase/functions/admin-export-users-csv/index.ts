@@ -1,11 +1,15 @@
 // Server-side CSV export of users in the admin's boutique.
 // STRICT: requires admin role + same organization. Audited with IP.
+import { getCorsHeaders, corsOptionsResponse } from '../_shared/cors.ts';
 import { requireAdminContext } from '../_shared/orgScope.ts';
+import { requireMethod } from '../_shared/httpMethodGuard.ts';
+import { createRateLimiter } from '../_shared/rateLimiter.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+// Rate limit: 5 CSV exports per IP per 5 minutes (heavy)
+const limiter = createRateLimiter('admin-export-users-csv', {
+  maxRequests: 5,
+  windowMs: 300_000,
+});
 
 const roleLabels: Record<string, string> = {
   admin: 'Administrateur',
@@ -20,13 +24,26 @@ function csvCell(v: unknown): string {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+  if (req.method === 'OPTIONS') return corsOptionsResponse(req);
+  const methodErr = requireMethod(req, 'POST');
+  if (methodErr) return methodErr;
+
+  const rateResult = await limiter.check(req);
+  if (!rateResult.allowed) {
+    return limiter.addHeaders(
+      new Response(JSON.stringify({ error: rateResult.error }), {
+        status: 429,
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+      }),
+      rateResult,
+    );
+  }
 
   try {
     const ctx = await requireAdminContext(req);
     if (!ctx.ok) {
       return new Response(JSON.stringify({ error: ctx.error }), {
-        status: ctx.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: ctx.status, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
     const { user, adminClient, actorProfile, ipAddress } = ctx;
@@ -105,17 +122,21 @@ Deno.serve(async (req) => {
       ip_address: ipAddress,
     });
 
-    return new Response(csv, {
-      status: 200,
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'text/csv; charset=utf-8',
-        'Content-Disposition': `attachment; filename="utilisateurs-${new Date().toISOString().slice(0, 10)}.csv"`,
-      },
-    });
+    return limiter.addHeaders(
+      new Response(csv, {
+        status: 200,
+        headers: {
+          ...getCorsHeaders(req),
+          'Content-Type': 'text/csv; charset=utf-8',
+          'Content-Disposition': `attachment; filename="utilisateurs-${new Date().toISOString().slice(0, 10)}.csv"`,
+        },
+      }),
+      rateResult,
+    );
   } catch (err) {
-    return new Response(JSON.stringify({ error: (err as Error).message }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    console.error("[EdgeFn] Internal error:", (err as Error).message);
+    return new Response(JSON.stringify({ error: "Erreur interne du serveur" }), {
+      status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
     });
   }
 });

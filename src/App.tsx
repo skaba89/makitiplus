@@ -1,13 +1,16 @@
-import { useEffect, lazy, Suspense } from "react";
+import { useEffect, lazy, Suspense, Component, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { installAutoFlush } from "@/lib/receiptDeliveryQueue";
+import { SentryErrorBoundary } from "@/lib/sentry";
 import { toast as sonnerToast } from "sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { Button } from "@/components/ui/button";
+import { AlertTriangle } from "lucide-react";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -31,7 +34,47 @@ const PageLoader = () => (
   </div>
 );
 
-const queryClient = new QueryClient();
+/** Error fallback shown when the app crashes — user can reload */
+const ErrorFallback = () => (
+  <div className="flex flex-col items-center justify-center min-h-screen bg-background p-8 text-center">
+    <AlertTriangle className="h-16 w-16 text-destructive mb-6" />
+    <h1 className="text-2xl font-bold text-foreground mb-2">Une erreur est survenue</h1>
+    <p className="text-muted-foreground mb-6 max-w-md">
+      MalikiPlus a rencontré une erreur inattendue. Notre équipe a été notifiée.
+      Vous pouvez recharger la page pour continuer.
+    </p>
+    <Button onClick={() => window.location.reload()} size="lg">
+      Recharger l'application
+    </Button>
+  </div>
+);
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes — reduces redundant network requests
+      retry: 1,
+      onError: (error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        // Suppress noise from offline/background requests
+        if (message.includes('Failed to fetch') || message.includes('NetworkError')) return;
+        sonnerToast.error('Erreur de chargement', {
+          description: message.length > 120 ? message.slice(0, 120) + '…' : message,
+          duration: 4000,
+        });
+      },
+    },
+    mutations: {
+      onError: (error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        sonnerToast.error('Erreur', {
+          description: message.length > 120 ? message.slice(0, 120) + '…' : message,
+          duration: 5000,
+        });
+      },
+    },
+  },
+});
 
 const App = () => {
   useEffect(() => {
@@ -45,6 +88,7 @@ const App = () => {
   }, []);
   return (
   <QueryClientProvider client={queryClient}>
+    <SentryErrorBoundary fallback={<ErrorFallback />}>
     <AuthProvider>
       <TooltipProvider>
         <Toaster />
@@ -143,6 +187,7 @@ const App = () => {
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
+    </SentryErrorBoundary>
   </QueryClientProvider>
   );
 };

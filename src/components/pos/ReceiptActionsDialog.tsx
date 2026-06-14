@@ -59,7 +59,7 @@ export const ReceiptActionsDialog = ({
   useEffect(() => {
     if (!isOpen || !receiptData || !autoSend || autoTriggered) return;
     const phone =
-      whatsappNumber || (receiptData as any).customerPhone || "";
+      whatsappNumber || receiptData.customerPhone || "";
     if (!phone) return;
     const result = enqueueOrSendReceipt(autoChannel, phone, receiptData);
     setAutoTriggered(true);
@@ -100,7 +100,7 @@ export const ReceiptActionsDialog = ({
   };
 
   const handleSendManual = (channel: DeliveryChannel) => {
-    const phone = whatsappNumber || (receiptData as any).customerPhone || "";
+    const phone = whatsappNumber || receiptData.customerPhone || "";
     if (!phone) {
       toast({
         variant: "destructive",

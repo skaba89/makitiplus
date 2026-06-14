@@ -1,19 +1,36 @@
+import { getCorsHeaders, corsOptionsResponse } from '../_shared/cors.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.93.3';
 import { requireAdminContext } from '../_shared/orgScope.ts';
+import { requireMethod } from '../_shared/httpMethodGuard.ts';
+import { createRateLimiter } from '../_shared/rateLimiter.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+// Rate limit: 20 list-emails requests per IP per 60 seconds (read-only)
+const limiter = createRateLimiter('admin-list-user-emails', {
+  maxRequests: 20,
+  windowMs: 60_000,
+});
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+  if (req.method === 'OPTIONS') return corsOptionsResponse(req);
+  const methodErr = requireMethod(req, 'POST');
+  if (methodErr) return methodErr;
+
+  const rateResult = await limiter.check(req);
+  if (!rateResult.allowed) {
+    return limiter.addHeaders(
+      new Response(JSON.stringify({ error: rateResult.error }), {
+        status: 429,
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+      }),
+      rateResult,
+    );
+  }
 
   try {
     const ctx = await requireAdminContext(req);
     if (!ctx.ok) {
       return new Response(JSON.stringify({ error: ctx.error }), {
-        status: ctx.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: ctx.status, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
     const { adminClient, actorProfile } = ctx;
@@ -21,7 +38,7 @@ Deno.serve(async (req) => {
     const { userIds } = await req.json();
     if (!Array.isArray(userIds)) {
       return new Response(JSON.stringify({ error: 'userIds must be an array' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
 
@@ -56,12 +73,16 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ emails }), {
-      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return limiter.addHeaders(
+      new Response(JSON.stringify({ emails }), {
+        status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+      }),
+      rateResult,
+    );
   } catch (err) {
-    return new Response(JSON.stringify({ error: (err as Error).message }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    console.error("[EdgeFn] Internal error:", (err as Error).message);
+    return new Response(JSON.stringify({ error: "Erreur interne du serveur" }), {
+      status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
     });
   }
 });

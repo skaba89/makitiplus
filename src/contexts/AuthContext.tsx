@@ -70,7 +70,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         });
       }
     } catch (error) {
-      console.error("Error fetching user data:", error);
+      reportError(error instanceof Error ? error : new Error(String(error)));
     }
   };
 

@@ -346,8 +346,10 @@ export const ReceiptDeliveryTrackingPanel = () => {
     });
     return report;
   };
-  // Exposé pour les tests E2E (non-officiel, opt-in).
-  (window as any).__malikiplus_mergeRemote = handleMergeRemote;
+  // Exposé pour les tests E2E uniquement en développement
+  if (import.meta.env.DEV) {
+    (window as any).__malikiplus_mergeRemote = handleMergeRemote;
+  }
 
   const selectedRows = useMemo(
     () => queue.filter((q) => selected.has(q.client_uuid)),

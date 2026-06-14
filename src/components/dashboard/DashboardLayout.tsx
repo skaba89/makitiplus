@@ -134,6 +134,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         <button
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
           className="p-2 rounded-lg hover:bg-muted"
+          aria-label={isSidebarOpen ? "Fermer le menu" : "Ouvrir le menu"}
         >
           {isSidebarOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
@@ -147,7 +148,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="rounded-full">
+            <Button variant="ghost" size="icon" className="rounded-full" aria-label="Menu utilisateur">
               <Avatar className="h-8 w-8">
                 <AvatarFallback className="bg-primary text-primary-foreground text-sm">
                   {initials}

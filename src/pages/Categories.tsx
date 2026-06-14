@@ -219,6 +219,7 @@ const Categories = () => {
                         variant="ghost"
                         size="icon"
                         onClick={() => handleOpenForm(category)}
+                        aria-label="Modifier la catégorie"
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
@@ -227,6 +228,7 @@ const Categories = () => {
                         size="icon"
                         onClick={() => setDeleteId(category.id)}
                         className="text-destructive hover:text-destructive"
+                        aria-label="Supprimer la catégorie"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

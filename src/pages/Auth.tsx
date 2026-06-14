@@ -14,6 +14,7 @@ import { Database } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import { PasswordStrengthMeter } from "@/components/users/PasswordStrengthMeter";
 import { checkPassword } from "@/lib/passwordPolicy";
+import { EdgeFunctionResponse } from "@/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 
@@ -90,13 +91,15 @@ const Auth = () => {
       const { data, error } = await supabase.functions.invoke("redeem-reset-token", {
         body: { token: resetToken, newPassword: resetPwd },
       });
-      if (error || (data as any)?.error) {
-        throw new Error((data as any)?.error || error?.message || "Erreur");
+      const fnData = data as EdgeFunctionResponse | undefined;
+      if (error || fnData?.error) {
+        throw new Error(fnData?.error || error?.message || "Erreur");
       }
       setResetDone(true);
       toast({ title: "Mot de passe mis à jour", description: "Vous pouvez maintenant vous connecter." });
-    } catch (err: any) {
-      toast({ variant: "destructive", title: "Lien invalide", description: err.message });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      toast({ variant: "destructive", title: "Lien invalide", description: message });
     } finally {
       setResetSubmitting(false);
     }

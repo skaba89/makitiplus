@@ -1,11 +1,9 @@
+import { getCorsHeaders, corsOptionsResponse } from '../_shared/cors.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.93.3';
 import { validatePasswordServer } from '../_shared/passwordPolicy.ts';
 import { createRateLimiter } from '../_shared/rateLimiter.ts';
+import { requireMethod } from '../_shared/httpMethodGuard.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 // Rate limit: 5 password reset redemptions per IP per 60 seconds
 const rateLimiter = createRateLimiter('redeem-reset-token', {
@@ -38,7 +36,9 @@ function extractClientIp(req: Request): string | null {
 // Public endpoint: user redeems a one-time token (from SMS) to set a new password.
 // No JWT required.
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+  if (req.method === 'OPTIONS') return corsOptionsResponse(req);
+  const methodErr = requireMethod(req, 'POST');
+  if (methodErr) return methodErr;
 
   try {
     // Rate limit check
@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
       return rateLimiter.addHeaders(
         new Response(JSON.stringify({ error: rlResult.error }), {
           status: 429,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
         }),
         rlResult,
       );
@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
     if (!token || !newPassword) {
       return rateLimiter.addHeaders(
         new Response(JSON.stringify({ error: 'token et newPassword requis' }), {
-          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
         }),
         rlResult,
       );
@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
     if (!policy.ok) {
       return rateLimiter.addHeaders(
         new Response(JSON.stringify({ error: policy.error }), {
-          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
         }),
         rlResult,
       );
@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
     if (tokenErr || !tokenRow) {
       return rateLimiter.addHeaders(
         new Response(JSON.stringify({ error: 'Lien invalide' }), {
-          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
         }),
         rlResult,
       );
@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
     if (tokenRow.used_at) {
       return rateLimiter.addHeaders(
         new Response(JSON.stringify({ error: 'Lien déjà utilisé' }), {
-          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
         }),
         rlResult,
       );
@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
     if (new Date(tokenRow.expires_at) < new Date()) {
       return rateLimiter.addHeaders(
         new Response(JSON.stringify({ error: 'Lien expiré' }), {
-          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
         }),
         rlResult,
       );
@@ -139,13 +139,14 @@ Deno.serve(async (req) => {
 
     return rateLimiter.addHeaders(
       new Response(JSON.stringify({ success: true }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       }),
       rlResult,
     );
   } catch (err) {
-    return new Response(JSON.stringify({ error: (err as Error).message }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    console.error("[EdgeFn] Internal error:", (err as Error).message);
+    return new Response(JSON.stringify({ error: "Erreur interne du serveur" }), {
+      status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
     });
   }
 });

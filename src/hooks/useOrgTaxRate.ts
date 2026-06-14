@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
  */
 export const useOrgTaxRate = () => {
   const { user, profile } = useAuth();
-  const orgId = (profile as any)?.organization_id;
+  const orgId = profile?.organization_id ?? null;
 
   const { data } = useQuery({
     queryKey: ["org-tax-rate", orgId],
@@ -20,7 +20,8 @@ export const useOrgTaxRate = () => {
         .eq("id", orgId)
         .maybeSingle();
       if (error) throw error;
-      return Number((data as any)?.default_tax_rate ?? 0);
+      const rate = data?.default_tax_rate ?? 0;
+      return Number(rate);
     },
     enabled: !!user && !!orgId,
     staleTime: 10 * 60 * 1000,

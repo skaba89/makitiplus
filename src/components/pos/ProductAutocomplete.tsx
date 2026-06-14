@@ -181,6 +181,7 @@ export const ProductAutocomplete = ({
                         className="h-7 w-7"
                         disabled={isOOS}
                         onClick={() => setQty(product.id, qty - 1)}
+                        aria-label="Diminuer la quantité"
                       >
                         <Minus className="h-3 w-3" />
                       </Button>
@@ -201,6 +202,7 @@ export const ProductAutocomplete = ({
                         className="h-7 w-7"
                         disabled={isOOS || qty >= product.stock_quantity}
                         onClick={() => setQty(product.id, qty + 1)}
+                        aria-label="Augmenter la quantité"
                       >
                         <Plus className="h-3 w-3" />
                       </Button>

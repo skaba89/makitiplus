@@ -36,8 +36,9 @@ export const SecurityDiagnosticPanel = () => {
         status: error ? "fail" : "pass",
         detail: error?.message,
       });
-    } catch (e: any) {
-      out.push({ name: "Lecture audit (admin)", description: "", status: "fail", detail: e.message });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      out.push({ name: "Lecture audit (admin)", description: "", status: "fail", detail: message });
     }
 
     // 2. Admin peut lire sync_conflicts
@@ -51,8 +52,9 @@ export const SecurityDiagnosticPanel = () => {
         status: error ? "fail" : "pass",
         detail: error?.message,
       });
-    } catch (e: any) {
-      out.push({ name: "Lecture conflits (admin)", description: "", status: "fail", detail: e.message });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      out.push({ name: "Lecture conflits (admin)", description: "", status: "fail", detail: message });
     }
 
     // 3. RPC check_account_status disponible
@@ -65,8 +67,9 @@ export const SecurityDiagnosticPanel = () => {
         status: error ? "fail" : "pass",
         detail: error?.message ?? `is_active=${row?.is_active}`,
       });
-    } catch (e: any) {
-      out.push({ name: "RPC check_account_status", description: "", status: "fail", detail: e.message });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      out.push({ name: "RPC check_account_status", description: "", status: "fail", detail: message });
     }
 
     // 4. Politique RLS user_audit_log → restreinte aux admins
@@ -85,8 +88,9 @@ export const SecurityDiagnosticPanel = () => {
         status: roleRow?.role === "admin" ? "pass" : "fail",
         detail: `role=${roleRow?.role ?? "aucun"}`,
       });
-    } catch (e: any) {
-      out.push({ name: "Rôle admin confirmé", description: "", status: "fail", detail: e.message });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      out.push({ name: "Rôle admin confirmé", description: "", status: "fail", detail: message });
     }
 
     // 5. Insertion audit interdite (rôle protégé sans action serveur)
@@ -115,8 +119,9 @@ export const SecurityDiagnosticPanel = () => {
           detail: error.message,
         });
       }
-    } catch (e: any) {
-      out.push({ name: "Audit immuable", description: "", status: "warn", detail: e.message });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      out.push({ name: "Audit immuable", description: "", status: "warn", detail: message });
     }
 
     setResults(out);

@@ -1,9 +1,13 @@
+import { getCorsHeaders, corsOptionsResponse } from '../_shared/cors.ts';
 import { requireAdminContext, loadTargetInSameOrg } from '../_shared/orgScope.ts';
+import { requireMethod } from '../_shared/httpMethodGuard.ts';
+import { createRateLimiter } from '../_shared/rateLimiter.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+// Rate limit: 5 reset link sends per IP per 60 seconds (sensitive)
+const limiter = createRateLimiter('admin-send-reset-link', {
+  maxRequests: 5,
+  windowMs: 60_000,
+});
 
 async function hashToken(token: string): Promise<string> {
   const buffer = new TextEncoder().encode(token);
@@ -49,13 +53,26 @@ async function sendSmsViaTwilio(to: string, body: string): Promise<{ ok: boolean
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+  if (req.method === 'OPTIONS') return corsOptionsResponse(req);
+  const methodErr = requireMethod(req, 'POST');
+  if (methodErr) return methodErr;
+
+  const rateResult = await limiter.check(req);
+  if (!rateResult.allowed) {
+    return limiter.addHeaders(
+      new Response(JSON.stringify({ error: rateResult.error }), {
+        status: 429,
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+      }),
+      rateResult,
+    );
+  }
 
   try {
     const ctx = await requireAdminContext(req);
     if (!ctx.ok) {
       return new Response(JSON.stringify({ error: ctx.error }), {
-        status: ctx.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: ctx.status, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
     const { user, adminClient, actorProfile, ipAddress } = ctx;
@@ -65,17 +82,17 @@ Deno.serve(async (req) => {
 
     if (!userId || !channel) {
       return new Response(JSON.stringify({ error: 'userId et channel requis' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
     if (!['email', 'sms'].includes(channel)) {
       return new Response(JSON.stringify({ error: 'channel doit être email ou sms' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
     if (userId === user.id) {
       return new Response(JSON.stringify({ error: 'Utilisez la fonction publique pour votre propre mot de passe' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
 
@@ -85,7 +102,7 @@ Deno.serve(async (req) => {
       .eq('user_id', userId).eq('role', 'admin').maybeSingle();
     if (targetRole) {
       return new Response(JSON.stringify({ error: 'Impossible de cibler un autre administrateur' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
 
@@ -93,7 +110,7 @@ Deno.serve(async (req) => {
     const scope = await loadTargetInSameOrg(adminClient, userId, actorProfile.organization_id!);
     if (!scope.ok) {
       return new Response(JSON.stringify({ error: scope.error }), {
-        status: scope.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: scope.status, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
     const targetProfile = scope.targetProfile;
@@ -102,7 +119,7 @@ Deno.serve(async (req) => {
     const { data: targetAuth, error: authErr } = await adminClient.auth.admin.getUserById(userId);
     if (authErr || !targetAuth.user) {
       return new Response(JSON.stringify({ error: 'Utilisateur introuvable' }), {
-        status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 404, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
 
@@ -111,7 +128,7 @@ Deno.serve(async (req) => {
       const email = targetAuth.user.email;
       if (!email) {
         return new Response(JSON.stringify({ error: 'Cet utilisateur n\'a pas d\'email' }), {
-          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
         });
       }
       const { data: linkData, error: linkErr } = await adminClient.auth.admin.generateLink({
@@ -129,19 +146,21 @@ Deno.serve(async (req) => {
         ip_address: ipAddress,
       });
 
-      return new Response(JSON.stringify({
-        success: true,
-        channel: 'email',
-        message: `Lien de réinitialisation envoyé à ${email}`,
-        actionLink: linkData.properties?.action_link,
-      }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return limiter.addHeaders(
+        new Response(JSON.stringify({
+          success: true,
+          channel: 'email',
+          message: `Lien de réinitialisation envoyé à ${email}`,
+        }), { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }),
+        rateResult,
+      );
     }
 
     // SMS channel
     const phone = targetProfile.phone;
     if (!phone) {
       return new Response(JSON.stringify({ error: 'Cet utilisateur n\'a pas de téléphone enregistré' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
 
@@ -176,12 +195,14 @@ Deno.serve(async (req) => {
         details: { channel: 'sms', phone, delivery: 'manual_fallback', error: sms.error, organization_id: actorProfile.organization_id },
         ip_address: ipAddress,
       });
-      return new Response(JSON.stringify({
-        success: false,
-        error: sms.error,
-        manualLink: link,
-        message: 'SMS non envoyé. Copiez le lien ci-dessous et transmettez-le manuellement.',
-      }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return limiter.addHeaders(
+        new Response(JSON.stringify({
+          success: false,
+          error: sms.error,
+          message: 'SMS non envoyé. Contactez l\'utilisateur par un autre canal.',
+        }), { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }),
+        rateResult,
+      );
     }
 
     await adminClient.from('user_audit_log').insert({
@@ -192,14 +213,18 @@ Deno.serve(async (req) => {
       ip_address: ipAddress,
     });
 
-    return new Response(JSON.stringify({
-      success: true,
-      channel: 'sms',
-      message: `SMS envoyé à ${phone}`,
-    }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return limiter.addHeaders(
+      new Response(JSON.stringify({
+        success: true,
+        channel: 'sms',
+        message: `SMS envoyé à ${phone}`,
+      }), { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }),
+      rateResult,
+    );
   } catch (err) {
-    return new Response(JSON.stringify({ error: (err as Error).message }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    console.error("[EdgeFn] Internal error:", (err as Error).message);
+    return new Response(JSON.stringify({ error: "Erreur interne du serveur" }), {
+      status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
     });
   }
 });

@@ -51,7 +51,7 @@ export const BarcodeScannerDialog = ({
           }
         )
         .catch((err) => {
-          console.error("Scanner error:", err);
+          reportError(err instanceof Error ? err : new Error(String(err)));
           setError(
             "Impossible d'accéder à la caméra. Vérifiez les permissions."
           );

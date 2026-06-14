@@ -64,6 +64,7 @@ import { SecurityDiagnosticPanel } from "@/components/users/SecurityDiagnosticPa
 import { ResetTokensPanel } from "@/components/users/ResetTokensPanel";
 import { PasswordStrengthMeter } from "@/components/users/PasswordStrengthMeter";
 import { checkPassword } from "@/lib/passwordPolicy";
+import { AdminActionResponse, ResetLinkResponse, Profile as ProfileType } from "@/types";
 import {
   Loader2,
   UserPlus,
@@ -112,7 +113,7 @@ interface AuditRow {
   actor_name: string | null;
   target_user_name: string | null;
   action: string;
-  details: any;
+  details: Record<string, unknown>;
   created_at: string;
 }
 
@@ -201,7 +202,7 @@ const Users = () => {
       }
 
       const merged: UserRow[] = (roles ?? []).map((r) => {
-        const p: any = profiles?.find((pp) => pp.user_id === r.user_id);
+        const p = profiles?.find((pp) => pp.user_id === r.user_id);
         return {
           user_id: r.user_id,
           email: emailMap[r.user_id] ?? null,
@@ -277,8 +278,9 @@ const Users = () => {
       const { data, error } = await supabase.functions.invoke("admin-create-user", {
         body: { email, password, ownerName, phone, role, requireEmailVerification },
       });
-      if (error || (data as any)?.error) {
-        throw new Error((data as any)?.error || error?.message || "Erreur");
+      const fnData = data as AdminActionResponse | undefined;
+      if (error || fnData?.error) {
+        throw new Error(fnData?.error || error?.message || "Erreur");
       }
       toast({
         title: "Utilisateur créé",
@@ -290,11 +292,12 @@ const Users = () => {
       setDialogOpen(false);
       loadUsers();
       loadAudit();
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: err.message || "Impossible de créer l'utilisateur",
+        description: message || "Impossible de créer l'utilisateur",
       });
     } finally {
       setSubmitting(false);
@@ -310,8 +313,9 @@ const Users = () => {
       const { data, error } = await supabase.functions.invoke("admin-manage-user", {
         body: { userId: target.user_id, action, reason },
       });
-      if (error || (data as any)?.error) {
-        throw new Error((data as any)?.error || error?.message || "Erreur");
+      const fnData = data as AdminActionResponse | undefined;
+      if (error || fnData?.error) {
+        throw new Error(fnData?.error || error?.message || "Erreur");
       }
       const labels = {
         deactivate: "Utilisateur désactivé",
@@ -321,11 +325,12 @@ const Users = () => {
       toast({ title: labels[action] });
       loadUsers();
       loadAudit();
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: err.message || "Action impossible",
+        description: message || "Action impossible",
       });
     }
   };
@@ -357,18 +362,20 @@ const Users = () => {
             redirectTo: `${window.location.origin}/auth`,
           },
         });
-        if (error || (data as any)?.error) {
-          throw new Error((data as any)?.error || error?.message || "Erreur");
+        const fnData = data as ResetLinkResponse | undefined;
+        if (error || fnData?.error) {
+          throw new Error(fnData?.error || error?.message || "Erreur");
         }
-        if ((data as any)?.actionLink) setMagicLink((data as any).actionLink);
-        if ((data as any)?.manualLink) setMagicLink((data as any).manualLink);
+        if (fnData?.actionLink) setMagicLink(fnData.actionLink);
+        if (fnData?.manualLink) setMagicLink(fnData.manualLink);
         toast({
           title: "Lien envoyé",
-          description: (data as any)?.message ?? "Lien à usage unique envoyé",
+          description: fnData?.message ?? "Lien à usage unique envoyé",
         });
         loadAudit();
-      } catch (err: any) {
-        toast({ variant: "destructive", title: "Erreur", description: err.message });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        toast({ variant: "destructive", title: "Erreur", description: message });
       } finally {
         setResetting(false);
       }
@@ -386,8 +393,9 @@ const Users = () => {
       const { data, error } = await supabase.functions.invoke("admin-manage-user", {
         body: { userId: resetTarget.user_id, action: "reset_password", newPassword },
       });
-      if (error || (data as any)?.error) {
-        throw new Error((data as any)?.error || error?.message || "Erreur");
+      const fnData = data as AdminActionResponse | undefined;
+      if (error || fnData?.error) {
+        throw new Error(fnData?.error || error?.message || "Erreur");
       }
       toast({
         title: "Mot de passe réinitialisé",
@@ -397,8 +405,9 @@ const Users = () => {
       setNewPassword("");
       setMagicLink(null);
       loadAudit();
-    } catch (err: any) {
-      toast({ variant: "destructive", title: "Erreur", description: err.message });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      toast({ variant: "destructive", title: "Erreur", description: message });
     } finally {
       setResetting(false);
     }
@@ -416,7 +425,7 @@ const Users = () => {
         toast({ variant: "destructive", title: "Non authentifié" });
         return;
       }
-      const projectId = (import.meta as any).env?.VITE_SUPABASE_PROJECT_ID;
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const url = `https://${projectId}.supabase.co/functions/v1/admin-export-users-csv`;
       const res = await fetch(url, {
         method: "POST",
@@ -439,11 +448,12 @@ const Users = () => {
       URL.revokeObjectURL(objUrl);
       toast({ title: "Export CSV téléchargé", description: "Action enregistrée dans l'historique d'audit" });
       loadAudit();
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
       toast({
         variant: "destructive",
         title: "Export refusé",
-        description: err.message || "Vérifiez que vous êtes bien admin de la boutique",
+        description: message || "Vérifiez que vous êtes bien admin de la boutique",
       });
     }
   };
@@ -679,7 +689,7 @@ const Users = () => {
                                     </Button>
                                     <DropdownMenu>
                                       <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon">
+                                        <Button variant="ghost" size="icon" aria-label="Actions utilisateur">
                                           <MoreVertical className="h-4 w-4" />
                                         </Button>
                                       </DropdownMenuTrigger>

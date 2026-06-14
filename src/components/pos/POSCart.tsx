@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Database } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,7 +23,7 @@ interface POSCartProps {
   onCheckout: () => void;
 }
 
-export const POSCart = ({
+export const POSCart = memo(({
   items,
   total,
   onUpdateQuantity,
@@ -95,6 +96,7 @@ export const POSCart = ({
                       onClick={() =>
                         onUpdateQuantity(item.product.id, item.quantity - 1)
                       }
+                      aria-label="Diminuer la quantité"
                     >
                       <Minus className="h-3 w-3" />
                     </Button>
@@ -108,6 +110,7 @@ export const POSCart = ({
                       onClick={() =>
                         onUpdateQuantity(item.product.id, item.quantity + 1)
                       }
+                      aria-label="Augmenter la quantité"
                     >
                       <Plus className="h-3 w-3" />
                     </Button>
@@ -116,6 +119,7 @@ export const POSCart = ({
                       size="icon"
                       className="h-7 w-7 text-destructive hover:text-destructive"
                       onClick={() => onRemove(item.product.id)}
+                      aria-label="Supprimer du panier"
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>
@@ -144,4 +148,4 @@ export const POSCart = ({
       </CardFooter>
     </Card>
   );
-};
+});

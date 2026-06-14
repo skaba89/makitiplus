@@ -13,7 +13,7 @@ export const TaxSettingsCard = () => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const orgId = (profile as any)?.organization_id;
+  const orgId = profile?.organization_id ?? null;
   const [rate, setRate] = useState<string>("0");
 
   const { data: org, isLoading } = useQuery({
@@ -51,11 +51,12 @@ export const TaxSettingsCard = () => {
       queryClient.invalidateQueries({ queryKey: ["org-tax-rate"] });
       toast({ title: "Taux de TVA mis à jour" });
     },
-    onError: (err: any) => {
+    onError: (err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err);
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: err.message || "Impossible de mettre à jour la TVA",
+        description: message || "Impossible de mettre à jour la TVA",
       });
     },
   });

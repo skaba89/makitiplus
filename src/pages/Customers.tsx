@@ -39,6 +39,7 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { CustomerDetailDialog } from "@/components/customers/CustomerDetailDialog";
 import { CreditPaymentDialog } from "@/components/customers/CreditPaymentDialog";
+import { Customer, CustomerUpdateParams } from "@/types";
 
 const Customers = () => {
   const { user } = useAuth();
@@ -47,7 +48,7 @@ const Customers = () => {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isCreditOpen, setIsCreditOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -91,8 +92,9 @@ const Customers = () => {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, ...data }: any) => {
-      const { error } = await supabase.from("customers").update(data).eq("id", id);
+    mutationFn: async ({ id, ...data }: CustomerUpdateParams) => {
+      const { id: _id, ...updateFields } = { id, ...data };
+      const { error } = await supabase.from("customers").update(updateFields).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -125,7 +127,7 @@ const Customers = () => {
     setFormData({ name: "", phone: "", email: "", address: "", notes: "" });
   };
 
-  const handleEdit = (customer: any) => {
+  const handleEdit = (customer: Customer) => {
     setSelectedCustomer(customer);
     setFormData({
       name: customer.name,
@@ -242,16 +244,16 @@ const Customers = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="icon" onClick={() => { setSelectedCustomer(customer); setIsDetailOpen(true); }}>
+                          <Button variant="ghost" size="icon" onClick={() => { setSelectedCustomer(customer); setIsDetailOpen(true); }} aria-label="Voir les détails">
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" onClick={() => { setSelectedCustomer(customer); setIsCreditOpen(true); }}>
+                          <Button variant="ghost" size="icon" onClick={() => { setSelectedCustomer(customer); setIsCreditOpen(true); }} aria-label="Crédit client">
                             <Wallet className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleEdit(customer)}>
+                          <Button variant="ghost" size="icon" onClick={() => handleEdit(customer)} aria-label="Modifier le client">
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(customer.id)}>
+                          <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(customer.id)} aria-label="Supprimer le client">
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </div>

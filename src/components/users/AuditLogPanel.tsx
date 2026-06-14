@@ -15,6 +15,7 @@ import { Loader2, Search, X, History, Download } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Database } from "@/integrations/supabase/types";
+import { AuditLogEntry } from "@/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 
@@ -25,7 +26,7 @@ interface AuditRow {
   target_user_name: string | null;
   target_user_id: string | null;
   action: string;
-  details: any;
+  details: Record<string, unknown>;
   ip_address: string | null;
   created_at: string;
 }
@@ -214,7 +215,7 @@ export const AuditLogPanel = ({ users }: { users: UserOption[] }) => {
           </div>
           <div className="space-y-1">
             <Label>Catégorie</Label>
-            <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v as any)}>
+            <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v as typeof categoryFilter)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Toutes</SelectItem>
@@ -294,14 +295,14 @@ export const AuditLogPanel = ({ users }: { users: UserOption[] }) => {
                 {filtered.map((a) => {
                   const meta = actionLabels[a.action] ?? { label: a.action, tone: "bg-muted text-muted-foreground" };
                   const detailsText: string[] = [];
-                  if (a.details?.role) detailsText.push(`Rôle: ${roleLabels[a.details.role as AppRole] ?? a.details.role}`);
-                  if (a.details?.email) detailsText.push(`Email: ${a.details.email}`);
-                  if (a.details?.phone) detailsText.push(`Tél: ${a.details.phone}`);
-                  if (a.details?.channel) detailsText.push(`Canal: ${a.details.channel}`);
-                  if (a.details?.delivery) detailsText.push(`Livraison: ${a.details.delivery}`);
-                  if (a.details?.mode) detailsText.push(`Mode: ${a.details.mode}`);
-                  if (a.details?.count != null) detailsText.push(`Lignes: ${a.details.count}`);
-                  if (a.details?.reason) detailsText.push(`Raison: ${a.details.reason}`);
+                  if (a.details?.role) detailsText.push(`Rôle: ${roleLabels[(a.details as Record<string, unknown>).role as AppRole] ?? String((a.details as Record<string, unknown>).role)}`);
+                  if (a.details?.email) detailsText.push(`Email: ${String(a.details.email)}`);
+                  if (a.details?.phone) detailsText.push(`Tél: ${String(a.details.phone)}`);
+                  if (a.details?.channel) detailsText.push(`Canal: ${String(a.details.channel)}`);
+                  if (a.details?.delivery) detailsText.push(`Livraison: ${String(a.details.delivery)}`);
+                  if (a.details?.mode) detailsText.push(`Mode: ${String(a.details.mode)}`);
+                  if (a.details?.count != null) detailsText.push(`Lignes: ${String(a.details.count)}`);
+                  if (a.details?.reason) detailsText.push(`Raison: ${String(a.details.reason)}`);
                   if (a.details?.requireEmailVerification) detailsText.push("Vérif. email requise");
                   return (
                     <TableRow key={a.id}>

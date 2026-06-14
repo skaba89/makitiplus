@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePOSCartStore, useCartTotal } from "@/contexts/POSCartContext";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { POSProductGrid } from "@/components/pos/POSProductGrid";
 import { POSCart } from "@/components/pos/POSCart";
@@ -27,11 +28,6 @@ type Product = Database["public"]["Tables"]["products"]["Row"] & {
 
 type PaymentMethod = Database["public"]["Enums"]["payment_method"];
 
-interface CartItem {
-  product: Product;
-  quantity: number;
-}
-
 const POS = () => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
@@ -39,7 +35,9 @@ const POS = () => {
   const orgTaxRate = useOrgTaxRate();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const cart = usePOSCartStore((s) => s.items);
+  const { addToCart: addToCartStore, updateQuantity, removeItem, clearCart } = usePOSCartStore();
+  const cartTotal = useCartTotal();
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
   const [lastReceiptData, setLastReceiptData] = useState<ReceiptData | null>(null);
@@ -94,7 +92,7 @@ const POS = () => {
         0
       );
       const taxAmount = cart.reduce((sum, item) => {
-        const t = computeTax(item.product.price, (item.product as any).tax_rate, orgTaxRate);
+        const t = computeTax(item.product.price, item.product.tax_rate, orgTaxRate);
         return sum + t.taxAmount * item.quantity;
       }, 0);
       const totalAmount = subtotal;
@@ -137,25 +135,19 @@ const POS = () => {
 
       if (itemsError) throw itemsError;
 
-      // Update product stock
-      for (const item of cart) {
-        const newQuantity = item.product.stock_quantity - item.quantity;
-        await supabase
-          .from("products")
-          .update({ stock_quantity: newQuantity })
-          .eq("id", item.product.id);
+      // Batch update stock atomically via RPC (single transaction, prevents race conditions)
+      const stockItems = cart.map((item) => ({
+        product_id: item.product.id,
+        quantity: item.quantity,
+        previous_quantity: item.product.stock_quantity,
+      }));
 
-        // Record stock movement
-        await supabase.from("stock_movements").insert({
-          user_id: user!.id,
-          product_id: item.product.id,
-          type: "sale",
-          quantity: -item.quantity,
-          previous_quantity: item.product.stock_quantity,
-          new_quantity: newQuantity,
-          reference_id: sale.id,
-        });
-      }
+      const { error: stockError } = await supabase.rpc("batch_update_stock", {
+        p_sale_id: sale.id,
+        p_items: stockItems,
+      });
+
+      if (stockError) throw stockError;
 
       return { sale, changeAmount };
     },
@@ -176,6 +168,7 @@ const POS = () => {
         amountPaid: sale.amount_paid,
         change: changeAmount > 0 ? changeAmount : 0,
         customerName: sale.customer_name || undefined,
+        customerPhone: sale.customer_phone || undefined,
         businessName: profile?.business_name || "Ma Boutique",
         businessAddress: profile?.address || undefined,
         businessPhone: profile?.phone || undefined,
@@ -189,7 +182,7 @@ const POS = () => {
 
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["sales"] });
-      setCart([]);
+      clearCart();
       setIsPaymentOpen(false);
     },
     onError: (error) => {
@@ -198,42 +191,31 @@ const POS = () => {
         title: "Erreur",
         description: "Impossible d'enregistrer la vente",
       });
-      console.error("Error creating sale:", error);
+      reportError(error instanceof Error ? error : new Error(String(error)));
     },
   });
 
-  const addToCart = (product: Product, addQty: number = 1) => {
-    setCart((prev) => {
-      const existing = prev.find((item) => item.product.id === product.id);
-      const currentQty = existing?.quantity || 0;
-      const targetQty = currentQty + addQty;
+  const addToCart = useCallback((product: Product, addQty: number = 1) => {
+    const existing = cart.find((item) => item.product.id === product.id);
+    const currentQty = existing?.quantity || 0;
+    const targetQty = currentQty + addQty;
 
-      if (targetQty > product.stock_quantity) {
-        toast({
-          variant: "destructive",
-          title: "Stock insuffisant",
-          description: `Seulement ${product.stock_quantity} ${product.unit || "unité(s)"} disponible(s)`,
-        });
-        return prev;
-      }
-
-      if (existing) {
-        return prev.map((item) =>
-          item.product.id === product.id
-            ? { ...item, quantity: targetQty }
-            : item
-        );
-      }
-      return [...prev, { product, quantity: addQty }];
-    });
-  };
-
-  const updateCartQuantity = (productId: string, quantity: number) => {
-    if (quantity <= 0) {
-      removeFromCart(productId);
+    if (targetQty > product.stock_quantity) {
+      toast({
+        variant: "destructive",
+        title: "Stock insuffisant",
+        description: `Seulement ${product.stock_quantity} ${product.unit || "unité(s)"} disponible(s)`,
+      });
       return;
     }
-    
+    addToCartStore(product, addQty);
+  }, [cart, toast, addToCartStore]);
+
+  const updateCartQuantity = useCallback((productId: string, quantity: number) => {
+    if (quantity <= 0) {
+      removeItem(productId);
+      return;
+    }
     const item = cart.find((i) => i.product.id === productId);
     if (item && quantity > item.product.stock_quantity) {
       toast({
@@ -243,26 +225,12 @@ const POS = () => {
       });
       return;
     }
-    
-    setCart((prev) =>
-      prev.map((item) =>
-        item.product.id === productId ? { ...item, quantity } : item
-      )
-    );
-  };
+    updateQuantity(productId, quantity);
+  }, [cart, toast, updateQuantity, removeItem]);
 
-  const removeFromCart = (productId: string) => {
-    setCart((prev) => prev.filter((item) => item.product.id !== productId));
-  };
-
-  const clearCart = () => {
-    setCart([]);
-  };
-
-  const cartTotal = cart.reduce(
-    (sum, item) => sum + item.product.price * item.quantity,
-    0
-  );
+  const removeFromCart = useCallback((productId: string) => {
+    removeItem(productId);
+  }, [removeItem]);
 
   const handleBarcodeScan = (barcode: string) => {
     // Find product by barcode and add to cart
@@ -322,6 +290,7 @@ const POS = () => {
                 size="icon"
                 onClick={() => setIsScannerOpen(true)}
                 title="Scanner un code-barres"
+                aria-label="Scanner un code-barres"
               >
                 <Camera className="h-4 w-4" />
               </Button>

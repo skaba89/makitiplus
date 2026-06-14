@@ -23,13 +23,14 @@ export type Strategy =
 
 interface ConflictLog {
   user_id: string;
+  organization_id?: string | null;
   entity_type: EntityType;
   entity_id?: string | null;
   entity_label?: string | null;
   device_id?: string | null;
-  local_data: any;
-  remote_data: any;
-  resolved_data?: any;
+  local_data: Record<string, unknown>;
+  remote_data: Record<string, unknown>;
+  resolved_data?: Record<string, unknown>;
   resolution_strategy: Strategy;
   status?: "resolved" | "pending" | "failed";
   error_message?: string | null;

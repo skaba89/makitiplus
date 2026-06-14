@@ -83,8 +83,7 @@ const Settings = () => {
         title: "Paramètres enregistrés",
         description: "Les informations de votre boutique ont été mises à jour",
       });
-      // Force page reload to update currency throughout the app
-      window.location.reload();
+      // Currency updates automatically via useCurrency → profile reactivity
     },
     onError: (error) => {
       toast({
@@ -92,7 +91,7 @@ const Settings = () => {
         title: "Erreur",
         description: "Impossible de sauvegarder les paramètres",
       });
-      console.error("Error updating profile:", error);
+      reportError(error instanceof Error ? error : new Error(String(error)));
     },
   });
 
@@ -105,7 +104,9 @@ const Settings = () => {
     if (enabled && nfcSupported) {
       try {
         // Request NFC permission
-        const ndef = new (window as any).NDEFReader();
+        const NDEFReaderCtor = window.NDEFReader;
+        if (!NDEFReaderCtor) throw new Error("NDEFReader not available");
+        const ndef = new NDEFReaderCtor();
         await ndef.scan();
         setNfcEnabled(true);
         toast({

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import { Database } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -28,7 +28,7 @@ interface ProductListProps {
   onDelete: (id: string) => void;
 }
 
-export const ProductList = ({ products, onEdit, onDelete }: ProductListProps) => {
+export const ProductList = memo(({ products, onEdit, onDelete }: ProductListProps) => {
   const { formatPrice } = useCurrency();
   const [labelProduct, setLabelProduct] = useState<Product | null>(null);
 
@@ -93,6 +93,7 @@ export const ProductList = ({ products, onEdit, onDelete }: ProductListProps) =>
                     variant="outline"
                     size="sm"
                     onClick={() => setLabelProduct(product)}
+                    aria-label="Imprimer l'étiquette"
                   >
                     <Printer className="h-4 w-4" />
                   </Button>
@@ -108,7 +109,7 @@ export const ProductList = ({ products, onEdit, onDelete }: ProductListProps) =>
                 </Button>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button variant="outline" size="sm" className="text-destructive">
+                    <Button variant="outline" size="sm" className="text-destructive" aria-label="Supprimer le produit">
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </AlertDialogTrigger>
@@ -147,4 +148,4 @@ export const ProductList = ({ products, onEdit, onDelete }: ProductListProps) =>
       )}
     </div>
   );
-};
+});

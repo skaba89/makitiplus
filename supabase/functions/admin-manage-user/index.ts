@@ -1,20 +1,37 @@
+import { getCorsHeaders, corsOptionsResponse } from '../_shared/cors.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.93.3';
 import { validatePasswordServer } from '../_shared/passwordPolicy.ts';
 import { requireAdminContext, loadTargetInSameOrg } from '../_shared/orgScope.ts';
+import { requireMethod } from '../_shared/httpMethodGuard.ts';
+import { createRateLimiter } from '../_shared/rateLimiter.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+// Rate limit: 15 manage-user actions per IP per 60 seconds
+const limiter = createRateLimiter('admin-manage-user', {
+  maxRequests: 15,
+  windowMs: 60_000,
+});
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+  if (req.method === 'OPTIONS') return corsOptionsResponse(req);
+  const methodErr = requireMethod(req, 'POST');
+  if (methodErr) return methodErr;
+
+  const rateResult = await limiter.check(req);
+  if (!rateResult.allowed) {
+    return limiter.addHeaders(
+      new Response(JSON.stringify({ error: rateResult.error }), {
+        status: 429,
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+      }),
+      rateResult,
+    );
+  }
 
   try {
     const ctx = await requireAdminContext(req);
     if (!ctx.ok) {
       return new Response(JSON.stringify({ error: ctx.error }), {
-        status: ctx.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: ctx.status, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
     const { user, adminClient, actorProfile, ipAddress } = ctx;
@@ -22,12 +39,12 @@ Deno.serve(async (req) => {
     const { userId, action, reason, newPassword } = await req.json();
     if (!userId || !action) {
       return new Response(JSON.stringify({ error: 'Missing userId or action' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
     if (userId === user.id) {
       return new Response(JSON.stringify({ error: 'Vous ne pouvez pas modifier votre propre compte' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
 
@@ -37,7 +54,7 @@ Deno.serve(async (req) => {
       .eq('user_id', userId).eq('role', 'admin').maybeSingle();
     if (targetRole) {
       return new Response(JSON.stringify({ error: 'Impossible de modifier un administrateur' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
 
@@ -45,7 +62,7 @@ Deno.serve(async (req) => {
     const scope = await loadTargetInSameOrg(adminClient, userId, actorProfile.organization_id!);
     if (!scope.ok) {
       return new Response(JSON.stringify({ error: scope.error }), {
-        status: scope.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: scope.status, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
     const targetProfile = scope.targetProfile;
@@ -66,9 +83,12 @@ Deno.serve(async (req) => {
         action: 'user_deactivated', details: { reason: reason ?? null },
       });
 
-      return new Response(JSON.stringify({ success: true }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return limiter.addHeaders(
+        new Response(JSON.stringify({ success: true }), {
+          status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+        }),
+        rateResult,
+      );
     }
 
     if (action === 'reactivate') {
@@ -83,16 +103,19 @@ Deno.serve(async (req) => {
         action: 'user_reactivated', details: {},
       });
 
-      return new Response(JSON.stringify({ success: true }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return limiter.addHeaders(
+        new Response(JSON.stringify({ success: true }), {
+          status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+        }),
+        rateResult,
+      );
     }
 
     if (action === 'reset_password') {
       const policyCheck = validatePasswordServer(newPassword);
       if (!policyCheck.ok) {
         return new Response(JSON.stringify({ error: policyCheck.error }), {
-          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
         });
       }
       const { error } = await adminClient.auth.admin.updateUserById(userId, { password: newPassword });
@@ -107,32 +130,40 @@ Deno.serve(async (req) => {
         ip_address: ipAddress,
       });
 
-      return new Response(JSON.stringify({ success: true }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return limiter.addHeaders(
+        new Response(JSON.stringify({ success: true }), {
+          status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+        }),
+        rateResult,
+      );
     }
 
     if (action === 'delete') {
+      // Perform deletion FIRST, then log — avoids ghost audit entries if delete fails
+      const { error } = await adminClient.auth.admin.deleteUser(userId);
+      if (error) throw error;
+
       await adminClient.from('user_audit_log').insert({
         actor_id: user.id, actor_name: actorProfile.owner_name ?? 'Admin',
         target_user_id: userId, target_user_name: targetProfile.owner_name ?? '—',
         action: 'user_deleted_permanently', details: { reason: reason ?? null },
       });
 
-      const { error } = await adminClient.auth.admin.deleteUser(userId);
-      if (error) throw error;
-
-      return new Response(JSON.stringify({ success: true }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return limiter.addHeaders(
+        new Response(JSON.stringify({ success: true }), {
+          status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+        }),
+        rateResult,
+      );
     }
 
     return new Response(JSON.stringify({ error: 'Action inconnue' }), {
-      status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
     });
   } catch (err) {
-    return new Response(JSON.stringify({ error: (err as Error).message }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    console.error("[EdgeFn] Internal error:", (err as Error).message);
+    return new Response(JSON.stringify({ error: "Erreur interne du serveur" }), {
+      status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
     });
   }
 });

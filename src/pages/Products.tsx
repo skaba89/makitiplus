@@ -17,9 +17,11 @@ import {
 } from "@/components/ui/dialog";
 import { Database } from "@/integrations/supabase/types";
 import { exportProductsToCSV } from "@/utils/exportUtils";
+import { ProductWithCategory } from "@/types";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
 type ProductInsert = Database["public"]["Tables"]["products"]["Insert"];
+type ProductWithCat = ProductWithCategory;
 
 const Products = () => {
   const { user } = useAuth();
@@ -76,7 +78,7 @@ const Products = () => {
         title: "Erreur",
         description: "Impossible de créer le produit",
       });
-      console.error("Error creating product:", error);
+      reportError(error instanceof Error ? error : new Error(String(error)));
     },
   });
 
@@ -104,7 +106,7 @@ const Products = () => {
         title: "Erreur",
         description: "Impossible de modifier le produit",
       });
-      console.error("Error updating product:", error);
+      reportError(error instanceof Error ? error : new Error(String(error)));
     },
   });
 
@@ -123,7 +125,7 @@ const Products = () => {
         title: "Erreur",
         description: "Impossible de supprimer le produit",
       });
-      console.error("Error deleting product:", error);
+      reportError(error instanceof Error ? error : new Error(String(error)));
     },
   });
 
@@ -154,8 +156,8 @@ const Products = () => {
     const matchesSearch =
       !q ||
       product.name.toLowerCase().includes(q) ||
-      ((product as any).barcode &&
-        (product as any).barcode.toLowerCase().includes(q));
+      (product.barcode &&
+        product.barcode.toLowerCase().includes(q));
     const matchesCategory =
       !selectedCategory || product.category_id === selectedCategory;
     return matchesSearch && matchesCategory;
@@ -180,9 +182,9 @@ const Products = () => {
               onClick={() => {
                 if (products && products.length > 0) {
                   exportProductsToCSV(
-                    products.map((p) => ({
+                    (products as ProductWithCat[]).map((p) => ({
                       name: p.name,
-                      category: (p as any).categories?.name || "",
+                      category: p.categories?.name || "",
                       price: p.price,
                       cost_price: p.cost_price,
                       stock_quantity: p.stock_quantity,

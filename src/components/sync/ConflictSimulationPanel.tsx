@@ -23,10 +23,10 @@ type Scenario = "stock_concurrent_sales" | "stock_restock_vs_sale" | "profile_lw
 interface SimResult {
   scenario: Scenario;
   label: string;
-  params: Record<string, any>;
-  local: any;
-  remote: any;
-  resolved: any;
+  params: Record<string, unknown>;
+  local: Record<string, unknown>;
+  remote: Record<string, unknown>;
+  resolved: Record<string, unknown>;
   strategy: string;
   steps: { label: string; status: "ok" | "info"; detail?: string }[];
   noLoss: boolean;
@@ -110,12 +110,12 @@ function runScenario(s: Scenario, previous: number, localDelta: number, remoteDe
 /** Construit une description lisible "diff avant/après" pour un scénario. */
 function buildDiff(r: SimResult): string {
   if (r.scenario === "profile_lww") {
-    const l = r.local as any, rem = r.remote as any, res = r.resolved as any;
+    const l = r.local as Record<string, unknown>, rem = r.remote as Record<string, unknown>, res = r.resolved as Record<string, unknown>;
     return `local.name="${l.name}" → remote.name="${rem.name}" → résolu.name="${res.name}"`;
   }
-  const l = r.local?.stock, rem = r.remote?.stock, res = r.resolved?.stock;
-  const dl = r.params.localDelta, dr = r.params.remoteDelta;
-  return `previous=${r.params.previous} | local=${l} (Δ${dl >= 0 ? "+" : ""}${dl}) vs remote=${rem} (Δ${dr >= 0 ? "+" : ""}${dr}) → fusionné=${res}`;
+  const l = (r.local as { stock?: number })?.stock, rem = (r.remote as { stock?: number })?.stock, res = (r.resolved as { stock?: number })?.stock;
+  const dl = (r.params as { localDelta?: number }).localDelta, dr = (r.params as { remoteDelta?: number }).remoteDelta;
+  return `previous=${(r.params as { previous?: number }).previous} | local=${l} (Δ${dl != null && dl >= 0 ? "+" : ""}${dl}) vs remote=${rem} (Δ${dr != null && dr >= 0 ? "+" : ""}${dr}) → fusionné=${res}`;
 }
 
 function summarize(results: SimResult[]): string {
@@ -160,7 +160,7 @@ function toCSV(results: SimResult[]): string {
     r.expected ?? "",
     r.noLoss ? "OUI" : "NON",
   ]);
-  const escape = (v: any) => {
+  const escape = (v: unknown) => {
     const s = String(v ?? "");
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };

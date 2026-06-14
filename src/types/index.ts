@@ -1,0 +1,100 @@
+/**
+ * Shared type definitions for MalikiPlus.
+ *
+ * Centralises interfaces used across pages, components, hooks, and lib modules
+ * so that we never rely on `any` for cross-cutting data shapes.
+ */
+
+import { Database } from "@/integrations/supabase/types";
+
+// ─── Supabase row aliases ────────────────────────────────────────────────────
+
+/** Full customer row from the `customers` table. */
+export type Customer = Database["public"]["Tables"]["customers"]["Row"];
+
+/** Full product row from the `products` table. */
+export type Product = Database["public"]["Tables"]["products"]["Row"];
+
+/** Full profile row from the `profiles` table. */
+export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
+
+// ─── Product with joined category ────────────────────────────────────────────
+
+/** Product row with the `categories` relation joined (select: "*, categories(name, color, icon)"). */
+export interface ProductWithCategory extends Product {
+  categories?: {
+    name: string;
+    color: string | null;
+    icon: string | null;
+  } | null;
+}
+
+/** Product row with minimal category join used on the Dashboard (stock alerts). */
+export interface ProductWithCategoryIcon extends Product {
+  categories?: {
+    icon: string | null;
+  } | null;
+}
+
+// ─── Supabase Edge Function response shapes ──────────────────────────────────
+
+/** Generic shape returned by Supabase Edge Functions (invoke). */
+export interface EdgeFunctionResponse {
+  error?: string;
+  message?: string;
+  [key: string]: unknown;
+}
+
+/** Response from admin-create-user / admin-manage-user / redeem-reset-token. */
+export type AdminActionResponse = EdgeFunctionResponse;
+
+/** Response from admin-send-reset-link (includes optional link fields). */
+export interface ResetLinkResponse extends EdgeFunctionResponse {
+  actionLink?: string;
+  manualLink?: string;
+}
+
+// ─── Sync conflict ───────────────────────────────────────────────────────────
+
+/** Row from the `sync_conflicts` table with typed data columns. */
+export interface SyncConflictRow {
+  id: string;
+  entity_type: string;
+  entity_label: string | null;
+  device_id: string | null;
+  local_data: Record<string, unknown>;
+  remote_data: Record<string, unknown>;
+  resolved_data: Record<string, unknown>;
+  resolution_strategy: string;
+  status: string;
+  error_message: string | null;
+  acknowledged: boolean;
+  created_at: string;
+}
+
+// ─── Audit log ───────────────────────────────────────────────────────────────
+
+/** Row from the `user_audit_log` table. */
+export interface AuditLogEntry {
+  id: string;
+  actor_name: string | null;
+  actor_id: string | null;
+  target_user_name: string | null;
+  target_user_id: string | null;
+  action: string;
+  details: Record<string, unknown>;
+  ip_address: string | null;
+  created_at: string;
+}
+
+// ─── Customer update mutation params ─────────────────────────────────────────
+
+/** Params for the customer update mutation (id + partial fields). */
+export interface CustomerUpdateParams {
+  id: string;
+  name?: string;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+  notes?: string | null;
+}

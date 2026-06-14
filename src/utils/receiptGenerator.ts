@@ -17,6 +17,7 @@ export interface ReceiptData {
   amountPaid: number;
   change: number;
   customerName?: string;
+  customerPhone?: string;
   businessName: string;
   businessAddress?: string;
   businessPhone?: string;
@@ -310,7 +311,7 @@ export const shareViaWhatsApp = (data: ReceiptData, phoneNumber?: string): void 
   const encodedText = encodeURIComponent(text);
   
   // Clean phone number (remove spaces, dashes, etc.)
-  const cleanPhone = phoneNumber?.replace(/[\s\-\(\)]/g, "").replace(/^\+/, "") || "";
+  const cleanPhone = phoneNumber?.replace(/[\s\-()]/g, "").replace(/^\+/, "") || "";
   
   // WhatsApp URL
   const baseUrl = "https://wa.me/";

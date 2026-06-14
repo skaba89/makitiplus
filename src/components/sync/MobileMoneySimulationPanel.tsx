@@ -50,7 +50,7 @@ export interface MMTransaction {
 }
 
 const uuid = () =>
-  (crypto as any).randomUUID?.() ??
+  globalThis.crypto?.randomUUID?.() ??
   `mm_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 
 const load = (): MMTransaction[] => {
@@ -223,7 +223,7 @@ export const MobileMoneySimulationPanel = () => {
             <Label className="text-xs">Provider</Label>
             <select
               value={provider}
-              onChange={(e) => setProvider(e.target.value as any)}
+              onChange={(e) => setProvider(e.target.value as MMTransaction["provider"])}
               className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
             >
               <option value="wave">Wave</option>

@@ -1,10 +1,8 @@
+import { getCorsHeaders, corsOptionsResponse } from '../_shared/cors.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.93.3';
 import { createRateLimiter } from '../_shared/rateLimiter.ts';
+import { requireMethod } from '../_shared/httpMethodGuard.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 // Rate limit: 10 requests per IP per 5 minutes (generous for cron, blocks manual abuse)
 const rateLimiter = createRateLimiter('rotate-test-accounts', {
@@ -15,16 +13,27 @@ const rateLimiter = createRateLimiter('rotate-test-accounts', {
 // Cron job: deactivate test accounts whose test_expires_at is past.
 // Invoked by pg_cron (no JWT). Uses service role.
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+  if (req.method === 'OPTIONS') return corsOptionsResponse(req);
+  const methodErr = requireMethod(req, 'POST');
+  if (methodErr) return methodErr;
 
   try {
+    // Verify shared cron secret — only pg_cron or authorized callers can invoke this
+    const cronSecret = Deno.env.get('CRON_SECRET');
+    const requestSecret = req.headers.get('X-Cron-Secret');
+    if (cronSecret && requestSecret !== cronSecret) {
+      return new Response(JSON.stringify({ error: 'Accès non autorisé' }), {
+        status: 403, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+      });
+    }
+
     // Rate limit check
     const rlResult = await rateLimiter.check(req);
     if (!rlResult.allowed) {
       return rateLimiter.addHeaders(
         new Response(JSON.stringify({ error: rlResult.error }), {
           status: 429,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
         }),
         rlResult,
       );
@@ -48,7 +57,7 @@ Deno.serve(async (req) => {
     if (!expired || expired.length === 0) {
       return rateLimiter.addHeaders(
         new Response(JSON.stringify({ success: true, deactivated: 0 }), {
-          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
         }),
         rlResult,
       );
@@ -80,13 +89,14 @@ Deno.serve(async (req) => {
 
     return rateLimiter.addHeaders(
       new Response(JSON.stringify({ success: true, deactivated, total: expired.length }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       }),
       rlResult,
     );
   } catch (err) {
-    return new Response(JSON.stringify({ error: (err as Error).message }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    console.error("[EdgeFn] Internal error:", (err as Error).message);
+    return new Response(JSON.stringify({ error: "Erreur interne du serveur" }), {
+      status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
     });
   }
 });

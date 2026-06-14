@@ -5,6 +5,7 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useCurrency } from "@/hooks/useCurrency";
+import { ProductWithCategoryIcon } from "@/types";
 import {
   TrendingUp,
   ShoppingCart,
@@ -192,7 +193,7 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {lowStockProducts.slice(0, 6).map((p: any) => (
+                {lowStockProducts.slice(0, 6).map((p: ProductWithCategoryIcon) => (
                   <div key={p.id} className="flex items-center gap-3 p-3 bg-destructive/5 rounded-lg">
                     <span className="text-xl">{p.categories?.icon || "📦"}</span>
                     <div className="flex-1 min-w-0">
@@ -214,7 +215,13 @@ const Dashboard = () => {
           <h2 className="text-lg font-semibold mb-4">Actions rapides</h2>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {userRole && ["admin", "manager", "vendeur"].includes(userRole) && (
-              <Card className="card-elevated hover:shadow-medium transition-shadow cursor-pointer group" onClick={() => navigate("/dashboard/pos")}>
+              <Card
+                className="card-elevated hover:shadow-medium transition-shadow cursor-pointer group"
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate("/dashboard/pos")}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/dashboard/pos"); } }}
+              >
                 <CardContent className="flex flex-col items-center justify-center py-8">
                   <div className="p-4 rounded-2xl bg-hero-gradient mb-4 group-hover:scale-110 transition-transform">
                     <ShoppingCart className="h-8 w-8 text-primary-foreground" />
@@ -224,7 +231,13 @@ const Dashboard = () => {
               </Card>
             )}
             {userRole && ["admin", "manager", "vendeur"].includes(userRole) && (
-              <Card className="card-elevated hover:shadow-medium transition-shadow cursor-pointer group" onClick={() => navigate("/dashboard/products")}>
+              <Card
+                className="card-elevated hover:shadow-medium transition-shadow cursor-pointer group"
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate("/dashboard/products")}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/dashboard/products"); } }}
+              >
                 <CardContent className="flex flex-col items-center justify-center py-8">
                   <div className="p-4 rounded-2xl bg-success-gradient mb-4 group-hover:scale-110 transition-transform">
                     <Package className="h-8 w-8 text-success-foreground" />
@@ -234,7 +247,13 @@ const Dashboard = () => {
               </Card>
             )}
             {userRole && ["admin", "manager", "comptable"].includes(userRole) && (
-              <Card className="card-elevated hover:shadow-medium transition-shadow cursor-pointer group" onClick={() => navigate("/dashboard/expenses")}>
+              <Card
+                className="card-elevated hover:shadow-medium transition-shadow cursor-pointer group"
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate("/dashboard/expenses")}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/dashboard/expenses"); } }}
+              >
                 <CardContent className="flex flex-col items-center justify-center py-8">
                   <div className="p-4 rounded-2xl bg-secondary mb-4 group-hover:scale-110 transition-transform">
                     <Wallet className="h-8 w-8 text-secondary-foreground" />
@@ -243,7 +262,13 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
             )}
-            <Card className="card-elevated hover:shadow-medium transition-shadow cursor-pointer group" onClick={() => navigate("/dashboard/reports")}>
+            <Card
+              className="card-elevated hover:shadow-medium transition-shadow cursor-pointer group"
+              role="button"
+              tabIndex={0}
+              onClick={() => navigate("/dashboard/reports")}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/dashboard/reports"); } }}
+            >
               <CardContent className="flex flex-col items-center justify-center py-8">
                 <div className="p-4 rounded-2xl bg-muted mb-4 group-hover:scale-110 transition-transform">
                   <TrendingUp className="h-8 w-8 text-muted-foreground" />

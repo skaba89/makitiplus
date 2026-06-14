@@ -8,7 +8,7 @@ export interface SearchableProduct {
   id: string;
   name: string;
   barcode?: string | null;
-  [k: string]: any;
+  [k: string]: unknown;
 }
 
 export interface ProductSearchIndex<T extends SearchableProduct> {
