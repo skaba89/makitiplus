@@ -254,7 +254,7 @@ const Categories = () => {
 
         {/* Form Dialog */}
         <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-          <DialogContent>
+          <DialogContent aria-describedby={undefined}>
             <DialogHeader>
               <DialogTitle>
                 {selectedCategory ? "Modifier la catégorie" : "Nouvelle catégorie"}

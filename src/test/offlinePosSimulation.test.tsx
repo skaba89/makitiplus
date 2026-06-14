@@ -4,8 +4,8 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 // Mock useCurrency
 vi.mock("@/hooks/useCurrency", () => ({
   useCurrency: () => ({
-    currency: { symbol: "FCFA", position: "after" },
-    formatPrice: (p: number) => `${new Intl.NumberFormat("fr-FR").format(p)} FCFA`,
+    currency: { symbol: "GNF", position: "after" },
+    formatPrice: (p: number) => `${new Intl.NumberFormat("fr-FR").format(p)} GNF`,
     availablePaymentMethods: ["cash", "wave", "orange_money"],
     phoneCode: "+221",
   }),

@@ -278,7 +278,7 @@ const Customers = () => {
 
         {/* Form Dialog */}
         <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-          <DialogContent>
+          <DialogContent aria-describedby={undefined}>
             <DialogHeader>
               <DialogTitle>{selectedCustomer ? "Modifier le client" : "Nouveau client"}</DialogTitle>
             </DialogHeader>

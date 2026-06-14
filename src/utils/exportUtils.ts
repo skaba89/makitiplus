@@ -71,10 +71,10 @@
      "Heure",
      "Client",
      "Mode de paiement",
-     "Sous-total (FCFA)",
-     "Total (FCFA)",
-     "Montant reçu (FCFA)",
-     "Monnaie (FCFA)",
+     "Sous-total (GNF)",
+     "Total (GNF)",
+     "Montant reçu (GNF)",
+     "Monnaie (GNF)",
      "Vendeur",
    ];
  
@@ -103,8 +103,8 @@
    const headers = [
      "Nom",
      "Catégorie",
-     "Prix de vente (FCFA)",
-     "Prix d'achat (FCFA)",
+     "Prix de vente (GNF)",
+     "Prix d'achat (GNF)",
      "Stock",
      "Seuil d'alerte",
      "Unité",
@@ -131,7 +131,7 @@
    const headers = [
      "Date",
      "Catégorie",
-     "Montant (FCFA)",
+     "Montant (GNF)",
      "Mode de paiement",
      "Description",
    ];

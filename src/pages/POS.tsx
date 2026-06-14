@@ -186,12 +186,17 @@ const POS = () => {
       setIsPaymentOpen(false);
     },
     onError: (error) => {
+      const message = error instanceof Error
+        ? error.message
+        : (typeof error === 'object' && error !== null && 'message' in error)
+          ? String((error as { message: unknown }).message)
+          : String(error);
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: "Impossible d'enregistrer la vente",
+        description: message || "Impossible d'enregistrer la vente",
       });
-      reportError(error instanceof Error ? error : new Error(String(error)));
+      reportError(error instanceof Error ? error : new Error(message));
     },
   });
 

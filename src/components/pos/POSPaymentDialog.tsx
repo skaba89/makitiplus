@@ -93,7 +93,7 @@ export const POSPaymentDialog = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>Finaliser la vente</DialogTitle>
         </DialogHeader>

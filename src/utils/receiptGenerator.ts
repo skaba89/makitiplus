@@ -39,7 +39,7 @@ const paymentMethodLabels: Record<string, string> = {
 
 export const formatPriceWithCurrency = (
   price: number,
-  symbol: string = "FCFA",
+  symbol: string = "GNF",
   position: "before" | "after" = "after"
 ): string => {
   // Affiche 2 décimales si le prix n'est pas entier (utile pour TVA, monnaie)
@@ -53,11 +53,11 @@ export const formatPriceWithCurrency = (
 
 // Legacy function for backward compatibility
 export const formatPrice = (price: number): string => {
-  return formatPriceWithCurrency(price, "FCFA", "after");
+  return formatPriceWithCurrency(price, "GNF", "after");
 };
  
 export const generateReceiptPDF = (data: ReceiptData): jsPDF => {
-  const symbol = data.currencySymbol || "FCFA";
+  const symbol = data.currencySymbol || "GNF";
   const position = data.currencyPosition || "after";
   const fPrice = (p: number) => formatPriceWithCurrency(p, symbol, position);
 
@@ -259,7 +259,7 @@ export const generateReceiptPDF = (data: ReceiptData): jsPDF => {
 };
  
 export const generateReceiptText = (data: ReceiptData): string => {
-  const symbol = data.currencySymbol || "FCFA";
+  const symbol = data.currencySymbol || "GNF";
   const position = data.currencyPosition || "after";
   const fPrice = (p: number) => formatPriceWithCurrency(p, symbol, position);
   

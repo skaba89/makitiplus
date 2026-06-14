@@ -259,6 +259,6 @@ export const formatPrice = (amount: number, currency: CurrencyConfig): string =>
     : `${formatted} ${currency.symbol}`;
 };
 
-// Default currency (Sénégal)
-export const DEFAULT_COUNTRY = COUNTRIES[0];
+// Default currency (Guinée — Franc Guinéen)
+export const DEFAULT_COUNTRY = COUNTRIES.find(c => c.code === "GN")!;
 export const DEFAULT_CURRENCY = DEFAULT_COUNTRY.currency;

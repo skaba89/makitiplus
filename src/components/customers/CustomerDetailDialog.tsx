@@ -58,7 +58,7 @@ export const CustomerDetailDialog = ({ customer, isOpen, onClose }: Props) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>{customer.name}</DialogTitle>
         </DialogHeader>

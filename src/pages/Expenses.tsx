@@ -204,7 +204,7 @@ const Expenses = () => {
                  Nouvelle dépense
                </Button>
              </DialogTrigger>
-             <DialogContent className="max-w-md">
+             <DialogContent className="max-w-md" aria-describedby={undefined}>
                <DialogHeader>
                  <DialogTitle>Ajouter une dépense</DialogTitle>
                </DialogHeader>

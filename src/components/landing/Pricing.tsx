@@ -6,7 +6,7 @@ const plans = [
     name: "Starter",
     description: "Pour les petits commerces",
     price: "5 000",
-    currency: "FCFA",
+    currency: "GNF",
     period: "/mois",
     features: [
       "1 caisse",
@@ -22,7 +22,7 @@ const plans = [
     name: "Croissance",
     description: "Pour les commerces en expansion",
     price: "15 000",
-    currency: "FCFA",
+    currency: "GNF",
     period: "/mois",
     features: [
       "3 caisses",
@@ -40,7 +40,7 @@ const plans = [
     name: "Enterprise",
     description: "Pour les grandes structures",
     price: "40 000",
-    currency: "FCFA",
+    currency: "GNF",
     period: "/mois",
     features: [
       "Caisses illimitées",

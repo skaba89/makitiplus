@@ -69,7 +69,7 @@ export const CreditPaymentDialog = ({ customer, isOpen, onClose }: Props) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>Paiement de crédit - {customer.name}</DialogTitle>
         </DialogHeader>
