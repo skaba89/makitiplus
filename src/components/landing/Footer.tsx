@@ -35,10 +35,10 @@ export const Footer = () => {
           <div className="col-span-2 md:col-span-1">
             <Link to="/" className="flex items-center gap-2 mb-4">
               <div className="w-10 h-10 rounded-xl bg-hero-gradient flex items-center justify-center">
-                <span className="text-xl font-bold text-primary-foreground">S</span>
+                <span className="text-xl font-bold text-primary-foreground">M</span>
               </div>
               <span className="text-xl font-bold">
-                Sahel<span className="text-gradient">POS</span>
+                Makiti<span className="text-gradient">Plus</span>
               </span>
             </Link>
             <p className="text-sm text-muted-foreground mb-4">
