@@ -232,35 +232,35 @@ const Stores = () => {
     if (!selectedStore) return;
     setCreatingAdmin(true);
     try {
-      // 1. Sign up the new admin user
-      const redirectUrl = `${window.location.origin}/`;
-      const { data, error: signupError } = await supabase.auth.signUp({
-        email: adminEmail,
-        password: adminPassword,
-        options: { emailRedirectTo: redirectUrl },
+      // Use Edge Function to bypass client-side rate limits (429)
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("Non authentifié");
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const response = await fetch(`${supabaseUrl}/functions/v1/admin-create-user`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          email: adminEmail,
+          password: adminPassword,
+          ownerName: adminName,
+          phone: adminPhone || null,
+          role: "admin",
+          requireEmailVerification: false,
+          targetOrganizationId: selectedStore.id,
+          targetBusinessName: selectedStore.name,
+        }),
       });
 
-      if (signupError) throw signupError;
-      if (!data.user) throw new Error("Erreur lors de la création du compte");
+      const result = await response.json();
 
-      // 2. Create profile linked to the store
-      const { error: profileError } = await supabase.from("profiles").insert({
-        user_id: data.user.id,
-        business_name: selectedStore.name,
-        owner_name: adminName,
-        phone: adminPhone || null,
-        organization_id: selectedStore.id,
-      });
-
-      if (profileError) throw profileError;
-
-      // 3. Assign admin role
-      const { error: roleError } = await supabase.from("user_roles").insert({
-        user_id: data.user.id,
-        role: "admin",
-      });
-
-      if (roleError) throw roleError;
+      if (!response.ok) {
+        throw new Error(result.error || "Erreur lors de la création du compte");
+      }
 
       toast({
         title: "Admin créé",

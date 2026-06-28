@@ -12,6 +12,7 @@ export interface AdminCtxOk {
     business_name: string | null;
     organization_id: string | null;
   };
+  isSuperAdmin: boolean;
   ipAddress: string | null;
 }
 
@@ -89,6 +90,7 @@ export async function requireAdminContext(req: Request): Promise<AdminCtxOk | Ad
       business_name: actorProfile.business_name ?? null,
       organization_id: actorProfile.organization_id,
     },
+    isSuperAdmin,
     ipAddress: extractClientIp(req),
   };
 }

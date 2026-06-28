@@ -34,10 +34,20 @@ Deno.serve(async (req) => {
         headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
-    const { user, adminClient, actorProfile } = ctx;
+    const { user, adminClient, actorProfile, isSuperAdmin } = ctx;
 
     const body = await req.json();
-    const { email, password, ownerName, phone, role, requireEmailVerification } = body;
+    const {
+      email,
+      password,
+      ownerName,
+      phone,
+      role,
+      requireEmailVerification,
+      // Super admin can specify these for creating store admins
+      targetOrganizationId,
+      targetBusinessName,
+    } = body;
 
     if (!email || !password || !ownerName || !role) {
       return new Response(JSON.stringify({ error: 'Champs requis manquants' }), {
@@ -50,11 +60,29 @@ Deno.serve(async (req) => {
         status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
-    if (role === 'admin') {
+
+    // Only super_admin can create admin users
+    if (role === 'admin' && !isSuperAdmin) {
       return new Response(JSON.stringify({ error: 'Impossible de créer un autre administrateur' }), {
         status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
+
+    // Super admin creating an admin must specify the target organization
+    if (role === 'admin' && isSuperAdmin && !targetOrganizationId) {
+      return new Response(JSON.stringify({ error: 'Organization cible requise pour créer un admin' }), {
+        status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Determine the organization for the new user
+    const userOrgId = isSuperAdmin && targetOrganizationId
+      ? targetOrganizationId
+      : actorProfile.organization_id;
+
+    const userBusinessName = isSuperAdmin && targetBusinessName
+      ? targetBusinessName
+      : (actorProfile.business_name ?? 'Boutique');
 
     const { data: created, error: createError } = await adminClient.auth.admin.createUser({
       email,
@@ -72,11 +100,11 @@ Deno.serve(async (req) => {
 
     const { error: profileError } = await adminClient.from('profiles').insert({
       user_id: newUserId,
-      business_name: actorProfile.business_name ?? 'Boutique',
+      business_name: userBusinessName,
       owner_name: ownerName,
       phone: phone ?? null,
       is_active: true,
-      organization_id: actorProfile.organization_id, // strict scope
+      organization_id: userOrgId,
     });
 
     if (profileError) {
@@ -104,7 +132,7 @@ Deno.serve(async (req) => {
       target_user_id: newUserId,
       target_user_name: ownerName,
       action: 'user_created',
-      details: { role, email, requireEmailVerification: !!requireEmailVerification },
+      details: { role, email, requireEmailVerification: !!requireEmailVerification, targetOrganizationId: userOrgId },
     });
 
     return limiter.addHeaders(
