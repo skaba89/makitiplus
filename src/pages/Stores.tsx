@@ -38,11 +38,21 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Store, Plus, Users, MapPin, Coins, Trash2, UserPlus } from "lucide-react";
+import {
+  Store,
+  Plus,
+  Users,
+  MapPin,
+  Coins,
+  Trash2,
+  UserPlus,
+  Filter,
+  ShoppingBag,
+} from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
 
 type Organization = Database["public"]["Tables"]["organizations"]["Row"];
-type Profile = Database["public"]["Tables"]["profiles"]["Row"];
+type StoreCategory = Database["public"]["Enums"]["store_category"];
 
 interface StoreWithAdmin extends Organization {
   admin_name?: string;
@@ -50,6 +60,36 @@ interface StoreWithAdmin extends Organization {
   admin_id?: string;
   user_count?: number;
 }
+
+// Catégories de magasins avec labels et icônes
+const STORE_CATEGORIES: { value: StoreCategory; label: string; emoji: string }[] = [
+  { value: "epicerie", label: "Épicerie", emoji: "🏪" },
+  { value: "alimentation_generale", label: "Alimentation générale", emoji: "🛒" },
+  { value: "supermarche", label: "Supermarché", emoji: "🏬" },
+  { value: "boutique_vetements", label: "Boutique vêtements", emoji: "👕" },
+  { value: "boutique_chaussures", label: "Boutique chaussures", emoji: "👟" },
+  { value: "restaurant", label: "Restaurant", emoji: "🍽️" },
+  { value: "boulangerie_patisserie", label: "Boulangerie / Pâtisserie", emoji: "🥖" },
+  { value: "pharmacie", label: "Pharmacie", emoji: "💊" },
+  { value: "cosmetiques_beaute", label: "Cosmétiques & Beauté", emoji: "💇" },
+  { value: "electronique", label: "Électronique", emoji: "📱" },
+  { value: "quincaillerie", label: "Quincaillerie", emoji: "🔧" },
+  { value: "materiel_construction", label: "Matériel de construction", emoji: "🧱" },
+  { value: "station_service", label: "Station-service", emoji: "⛽" },
+  { value: "point_vente_telecom", label: "Point de vente telecom", emoji: "📞" },
+  { value: "salon_coiffure", label: "Salon de coiffure", emoji: "✂️" },
+  { value: "autre", label: "Autre", emoji: "📦" },
+];
+
+const getCategoryLabel = (value: StoreCategory | null): string => {
+  if (!value) return "—";
+  return STORE_CATEGORIES.find((c) => c.value === value)?.label || value;
+};
+
+const getCategoryEmoji = (value: StoreCategory | null): string => {
+  if (!value) return "📦";
+  return STORE_CATEGORIES.find((c) => c.value === value)?.emoji || "📦";
+};
 
 const Stores = () => {
   const { userRole } = useAuth();
@@ -59,9 +99,11 @@ const Stores = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [adminDialogOpen, setAdminDialogOpen] = useState(false);
   const [selectedStore, setSelectedStore] = useState<StoreWithAdmin | null>(null);
+  const [filterCategory, setFilterCategory] = useState<string>("all");
 
   // New store form
   const [storeName, setStoreName] = useState("");
+  const [storeCategory, setStoreCategory] = useState<StoreCategory>("epicerie");
   const [storeCountry, setStoreCountry] = useState("Guinée");
   const [storeCurrency, setStoreCurrency] = useState("GNF");
   const [creating, setCreating] = useState(false);
@@ -127,6 +169,7 @@ const Stores = () => {
     try {
       const { error } = await supabase.from("organizations").insert({
         name: storeName,
+        category: storeCategory,
         owner_user_id: (await supabase.auth.getUser()).data.user?.id,
         country: storeCountry,
         currency: storeCurrency,
@@ -136,6 +179,7 @@ const Stores = () => {
 
       toast({ title: "Magasin créé", description: `"${storeName}" a été ajouté.` });
       setStoreName("");
+      setStoreCategory("epicerie");
       setDialogOpen(false);
       fetchStores();
     } catch (error) {
@@ -214,6 +258,19 @@ const Stores = () => {
     }
   };
 
+  // Filter stores by category
+  const filteredStores =
+    filterCategory === "all"
+      ? stores
+      : stores.filter((s) => s.category === filterCategory);
+
+  // Count stores per category
+  const categoryCounts = stores.reduce<Record<string, number>>((acc, s) => {
+    const key = s.category || "autre";
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+
   if (userRole !== "super_admin") {
     return (
       <DashboardLayout>
@@ -245,7 +302,7 @@ const Stores = () => {
                 Nouveau magasin
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-lg">
               <DialogHeader>
                 <DialogTitle>Créer un magasin</DialogTitle>
                 <DialogDescription>
@@ -267,6 +324,28 @@ const Stores = () => {
                     />
                   </div>
                 </div>
+
+                {/* Catégorie du magasin */}
+                <div className="space-y-2">
+                  <Label>Type de magasin</Label>
+                  <Select value={storeCategory} onValueChange={(v) => setStoreCategory(v as StoreCategory)}>
+                    <SelectTrigger>
+                      <ShoppingBag className="h-4 w-4 mr-2" />
+                      <SelectValue placeholder="Sélectionner un type" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      {STORE_CATEGORIES.map((cat) => (
+                        <SelectItem key={cat.value} value={cat.value}>
+                          <span className="flex items-center gap-2">
+                            <span>{cat.emoji}</span>
+                            <span>{cat.label}</span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Pays</Label>
@@ -276,11 +355,11 @@ const Stores = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Guinée">Guinée</SelectItem>
-                        <SelectItem value="Sénégal">Sénégal</SelectItem>
-                        <SelectItem value="Mali">Mali</SelectItem>
-                        <SelectItem value="Côte d'Ivoire">Côte d'Ivoire</SelectItem>
-                        <SelectItem value="Cameroun">Cameroun</SelectItem>
+                        <SelectItem value="Guinée">🇬🇳 Guinée</SelectItem>
+                        <SelectItem value="Sénégal">🇸🇳 Sénégal</SelectItem>
+                        <SelectItem value="Mali">🇲🇱 Mali</SelectItem>
+                        <SelectItem value="Côte d'Ivoire">🇨🇮 Côte d'Ivoire</SelectItem>
+                        <SelectItem value="Cameroun">🇨🇲 Cameroun</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -309,7 +388,7 @@ const Stores = () => {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Total magasins</CardDescription>
@@ -332,6 +411,39 @@ const Stores = () => {
               </CardTitle>
             </CardHeader>
           </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Types de magasins</CardDescription>
+              <CardTitle className="text-3xl">
+                {Object.keys(categoryCounts).length}
+              </CardTitle>
+            </CardHeader>
+          </Card>
+        </div>
+
+        {/* Filtre par catégorie */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-medium text-muted-foreground">Filtrer :</span>
+          <Button
+            variant={filterCategory === "all" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setFilterCategory("all")}
+          >
+            Tous ({stores.length})
+          </Button>
+          {STORE_CATEGORIES.filter((cat) => categoryCounts[cat.value]).map((cat) => (
+            <Button
+              key={cat.value}
+              variant={filterCategory === cat.value ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFilterCategory(cat.value)}
+              className="gap-1"
+            >
+              <span>{cat.emoji}</span>
+              {cat.label} ({categoryCounts[cat.value] || 0})
+            </Button>
+          ))}
         </div>
 
         {/* Stores table */}
@@ -345,15 +457,18 @@ const Stores = () => {
           <CardContent>
             {loading ? (
               <div className="text-center py-8 text-muted-foreground">Chargement...</div>
-            ) : stores.length === 0 ? (
+            ) : filteredStores.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                Aucun magasin. Créez votre premier magasin !
+                {stores.length === 0
+                  ? "Aucun magasin. Créez votre premier magasin !"
+                  : "Aucun magasin dans cette catégorie."}
               </div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Magasin</TableHead>
+                    <TableHead>Type</TableHead>
                     <TableHead>Pays</TableHead>
                     <TableHead>Devise</TableHead>
                     <TableHead>Admin</TableHead>
@@ -363,9 +478,15 @@ const Stores = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {stores.map((store) => (
+                  {filteredStores.map((store) => (
                     <TableRow key={store.id}>
                       <TableCell className="font-medium">{store.name}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="gap-1">
+                          <span>{getCategoryEmoji(store.category)}</span>
+                          {getCategoryLabel(store.category)}
+                        </Badge>
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
                           <MapPin className="h-3 w-3" />

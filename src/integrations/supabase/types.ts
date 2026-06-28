@@ -178,6 +178,7 @@ export type Database = {
       }
       organizations: {
         Row: {
+          category: Database["public"]["Enums"]["store_category"] | null
           country: string | null
           created_at: string
           currency: string | null
@@ -192,6 +193,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          category?: Database["public"]["Enums"]["store_category"] | null
           country?: string | null
           created_at?: string
           currency?: string | null
@@ -206,6 +208,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          category?: Database["public"]["Enums"]["store_category"] | null
           country?: string | null
           created_at?: string
           currency?: string | null
@@ -735,6 +738,23 @@ export type Database = {
         | "card"
         | "credit"
       subscription_plan: "starter" | "croissance" | "enterprise"
+      store_category:
+        | "epicerie"
+        | "boutique_vetements"
+        | "boutique_chaussures"
+        | "supermarche"
+        | "restaurant"
+        | "boulangerie_patisserie"
+        | "pharmacie"
+        | "cosmetiques_beaute"
+        | "electronique"
+        | "quincaillerie"
+        | "materiel_construction"
+        | "alimentation_generale"
+        | "station_service"
+        | "point_vente_telecom"
+        | "salon_coiffure"
+        | "autre"
       sync_status: "synced" | "pending" | "conflict"
     }
     CompositeTypes: {
@@ -875,6 +895,24 @@ export const Constants = {
         "credit",
       ],
       subscription_plan: ["starter", "croissance", "enterprise"],
+      store_category: [
+        "epicerie",
+        "boutique_vetements",
+        "boutique_chaussures",
+        "supermarche",
+        "restaurant",
+        "boulangerie_patisserie",
+        "pharmacie",
+        "cosmetiques_beaute",
+        "electronique",
+        "quincaillerie",
+        "materiel_construction",
+        "alimentation_generale",
+        "station_service",
+        "point_vente_telecom",
+        "salon_coiffure",
+        "autre",
+      ],
       sync_status: ["synced", "pending", "conflict"],
     },
   },
