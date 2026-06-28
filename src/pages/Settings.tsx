@@ -33,7 +33,7 @@ const Settings = () => {
     phone: "",
     address: "",
     city: "",
-    country: "SN",
+    country: "GN",
   });
 
   const [nfcEnabled, setNfcEnabled] = useState(false);
@@ -47,7 +47,7 @@ const Settings = () => {
         phone: profile.phone || "",
         address: profile.address || "",
         city: profile.city || "",
-        country: profile.country || "SN",
+        country: profile.country?.length === 2 ? profile.country : "GN",
       });
     }
   }, [profile]);
@@ -71,7 +71,7 @@ const Settings = () => {
           address: data.address,
           city: data.city,
           country: data.country,
-          currency: selectedCountry?.currency.code || "XOF",
+          currency: selectedCountry?.currency.code || "GNF",
         })
         .eq("user_id", user!.id);
 
@@ -296,7 +296,7 @@ const Settings = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, city: e.target.value })
                   }
-                  placeholder="Dakar"
+                  placeholder="Conakry"
                 />
               </div>
             </CardContent>

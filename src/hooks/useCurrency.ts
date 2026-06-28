@@ -4,9 +4,15 @@ import { COUNTRIES, DEFAULT_CURRENCY, getCountryByCode, formatPrice as formatPri
 export const useCurrency = () => {
   const { profile } = useAuth();
 
-  // Get country from profile, default to Senegal
-  const countryCode = profile?.country || "SN";
-  const country = getCountryByCode(countryCode) || COUNTRIES[0];
+  // Get country from profile, default to Guinea (GN)
+  // Handle both full name ("Guinée") and code ("GN") formats
+  let countryCode = profile?.country || "GN";
+  // If country is a full name, find the matching code
+  if (countryCode.length > 2) {
+    const found = COUNTRIES.find(c => c.name.toLowerCase() === countryCode.toLowerCase());
+    countryCode = found?.code || "GN";
+  }
+  const country = getCountryByCode(countryCode) || COUNTRIES.find(c => c.code === "GN")!;
   const currency = country.currency;
 
   const formatPrice = (amount: number): string => {
