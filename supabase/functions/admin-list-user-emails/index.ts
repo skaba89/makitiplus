@@ -1,88 +1,126 @@
-import { getCorsHeaders, corsOptionsResponse } from '../_shared/cors.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.93.3';
-import { requireAdminContext } from '../_shared/orgScope.ts';
-import { requireMethod } from '../_shared/httpMethodGuard.ts';
-import { createRateLimiter } from '../_shared/rateLimiter.ts';
+// ═══════════════════════════════════════════════════════════════════════
+// admin-list-user-emails — SELF-CONTAINED (paste in Supabase Dashboard)
+// ═══════════════════════════════════════════════════════════════════════
 
-// Rate limit: 20 list-emails requests per IP per 60 seconds (read-only)
-const limiter = createRateLimiter('admin-list-user-emails', {
-  maxRequests: 20,
-  windowMs: 60_000,
-});
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.93.3';
+
+// ── CORS (inlined) ──────────────────────────────────────────────────
+const ALLOWED_ORIGINS = [
+  Deno.env.get("CORS_ORIGIN") ?? "http://localhost:5173",
+  "http://localhost:8080",
+  "http://localhost:3000",
+  "https://makitiplus.onrender.com",
+];
+function getCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get("Origin") ?? "";
+  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return { "Access-Control-Allow-Origin": allowed, "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, GET, OPTIONS", "Access-Control-Max-Age": "86400" };
+}
+function corsOptionsResponse(req: Request): Response {
+  return new Response(null, { status: 204, headers: getCorsHeaders(req) });
+}
+
+// ── HTTP Method Guard (inlined) ─────────────────────────────────────
+function requireMethod(req: Request, allowed: string | string[]): Response | null {
+  const methods = Array.isArray(allowed) ? allowed : [allowed];
+  if (req.method === 'OPTIONS') return null;
+  if (methods.includes(req.method)) return null;
+  return new Response(JSON.stringify({ error: 'Method Not Allowed' }), { status: 405, headers: { 'Content-Type': 'application/json', Allow: methods.join(', ') } });
+}
+
+// ── Rate Limiter (inlined) ──────────────────────────────────────────
+const memoryStore = new Map<string, { count: number; resetAt: number }>();
+function extractClientId(req: Request): string {
+  for (const raw of [req.headers.get("cf-connecting-ip"), req.headers.get("x-real-ip"), req.headers.get("x-forwarded-for")]) {
+    if (!raw) continue; const first = raw.split(",")[0]?.trim(); if (first && first.length <= 64) return first;
+  }
+  return `ua:${(req.headers.get("user-agent") || "unknown").slice(0, 64)}`;
+}
+function createRateLimiter(endpoint: string, config: { maxRequests: number; windowMs: number }) {
+  const keyPrefix = `rl:${endpoint}:`;
+  return {
+    async check(req: Request) {
+      const clientId = extractClientId(req); const key = `${keyPrefix}${clientId}`; const now = Date.now(); const resetAt = now + config.windowMs;
+      try {
+        const kv = await Deno.openKv(); const entry = await kv.get<{ count: number; resetAt: number }>([key]);
+        if (!entry.value || entry.value.resetAt <= now) { await kv.set([key], { count: 1, resetAt }); kv.close(); return { allowed: true, remaining: config.maxRequests - 1, resetAt }; }
+        const count = entry.value.count + 1;
+        if (count > config.maxRequests) { kv.close(); return { allowed: false, remaining: 0, resetAt: entry.value.resetAt, error: `Trop de requêtes. Réessayez dans ${Math.ceil((entry.value.resetAt - now) / 1000)}s.` }; }
+        await kv.set([key], { count, resetAt: entry.value.resetAt }); kv.close(); return { allowed: true, remaining: config.maxRequests - count, resetAt: entry.value.resetAt };
+      } catch {
+        const entry = memoryStore.get(key);
+        if (!entry || entry.resetAt <= now) { memoryStore.set(key, { count: 1, resetAt }); return { allowed: true, remaining: config.maxRequests - 1, resetAt }; }
+        const count = entry.count + 1;
+        if (count > config.maxRequests) return { allowed: false, remaining: 0, resetAt: entry.resetAt, error: `Trop de requêtes. Réessayez dans ${Math.ceil((entry.resetAt - now) / 1000)}s.` };
+        memoryStore.set(key, { count, resetAt: entry.resetAt }); return { allowed: true, remaining: config.maxRequests - count, resetAt: entry.resetAt };
+      }
+    },
+    addHeaders(response: Response, result: { remaining: number; resetAt: number; allowed: boolean }): Response {
+      const headers = new Headers(response.headers); headers.set("X-RateLimit-Remaining", String(result.remaining)); headers.set("X-RateLimit-Reset", String(Math.ceil(result.resetAt / 1000)));
+      if (!result.allowed) headers.set("Retry-After", String(Math.ceil((result.resetAt - Date.now()) / 1000)));
+      return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+    },
+  };
+}
+
+// ── Admin Context (inlined) ─────────────────────────────────────────
+interface AdminCtxOk { ok: true; user: { id: string; email?: string | null }; adminClient: ReturnType<typeof createClient>; actorProfile: { owner_name: string | null; business_name: string | null; organization_id: string | null }; isSuperAdmin: boolean; }
+interface AdminCtxErr { ok: false; error: string; status: number }
+async function requireAdminContext(req: Request): Promise<AdminCtxOk | AdminCtxErr> {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) return { ok: false, error: 'Missing authorization', status: 401 };
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!; const anonKey = Deno.env.get('SUPABASE_PUBLISHABLE_KEY') ?? Deno.env.get('SUPABASE_ANON_KEY')!; const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
+  const { data: { user }, error: userError } = await userClient.auth.getUser();
+  if (userError || !user) return { ok: false, error: 'Invalid session', status: 401 };
+  const adminClient = createClient(supabaseUrl, serviceKey);
+  const { data: roleData } = await adminClient.from('user_roles').select('role').eq('user_id', user.id).in('role', ['admin', 'super_admin']).maybeSingle();
+  if (!roleData) return { ok: false, error: 'Forbidden: admin or super_admin only', status: 403 };
+  const isSuperAdmin = roleData.role === 'super_admin';
+  const { data: actorProfile } = await adminClient.from('profiles').select('owner_name, business_name, organization_id, is_active').eq('user_id', user.id).maybeSingle();
+  if (!actorProfile) return { ok: false, error: 'Profil admin introuvable', status: 403 };
+  if (actorProfile.is_active === false) return { ok: false, error: 'Compte admin désactivé', status: 403 };
+  if (!actorProfile.organization_id && !isSuperAdmin) return { ok: false, error: 'Admin sans boutique associée', status: 403 };
+  return { ok: true, user: { id: user.id, email: user.email }, adminClient, actorProfile: { owner_name: actorProfile.owner_name ?? null, business_name: actorProfile.business_name ?? null, organization_id: actorProfile.organization_id }, isSuperAdmin };
+}
+
+// ── Main Handler ────────────────────────────────────────────────────
+const limiter = createRateLimiter('admin-list-user-emails', { maxRequests: 20, windowMs: 60_000 });
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return corsOptionsResponse(req);
   const methodErr = requireMethod(req, 'POST');
   if (methodErr) return methodErr;
-
   const rateResult = await limiter.check(req);
   if (!rateResult.allowed) {
-    return limiter.addHeaders(
-      new Response(JSON.stringify({ error: rateResult.error }), {
-        status: 429,
-        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
-      }),
-      rateResult,
-    );
+    return limiter.addHeaders(new Response(JSON.stringify({ error: rateResult.error }), { status: 429, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }), rateResult);
   }
-
   try {
     const ctx = await requireAdminContext(req);
-    if (!ctx.ok) {
-      return new Response(JSON.stringify({ error: ctx.error }), {
-        status: ctx.status, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
-      });
-    }
-    const { adminClient, actorProfile } = ctx;
-
+    if (!ctx.ok) return new Response(JSON.stringify({ error: ctx.error }), { status: ctx.status, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
+    const { adminClient, actorProfile, isSuperAdmin } = ctx;
     const { userIds } = await req.json();
-    if (!Array.isArray(userIds)) {
-      return new Response(JSON.stringify({ error: 'userIds must be an array' }), {
-        status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
-      });
-    }
+    if (!Array.isArray(userIds)) return new Response(JSON.stringify({ error: 'userIds must be an array' }), { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
 
-    // STRICT ORG SCOPE: only return emails for users in admin's organization
-    const { data: orgProfiles } = await adminClient
-      .from('profiles')
-      .select('user_id')
-      .eq('organization_id', actorProfile.organization_id!)
-      .in('user_id', userIds.length ? userIds : ['00000000-0000-0000-0000-000000000000']);
-
+    // Super admin can query across orgs; admin scoped to own org
+    const orgFilter = isSuperAdmin ? {} : { organization_id: actorProfile.organization_id! };
+    const { data: orgProfiles } = await adminClient.from('profiles').select('user_id').match(orgFilter).in('user_id', userIds.length ? userIds : ['00000000-0000-0000-0000-000000000000']);
     const allowed = new Set((orgProfiles ?? []).map((p) => p.user_id as string));
     const filtered = userIds.filter((id: string) => allowed.has(id));
 
     const emails: Record<string, string> = {};
-    let page = 1;
-    let hasMore = true;
-    const wanted = new Set(filtered);
-
+    let page = 1; let hasMore = true; const wanted = new Set(filtered);
     while (hasMore && wanted.size > 0) {
       const { data: list } = await adminClient.auth.admin.listUsers({ page, perPage: 1000 });
       const users = list?.users ?? [];
-      if (users.length === 0) {
-        hasMore = false;
-      } else {
-        for (const u of users) {
-          if (wanted.has(u.id) && u.email) {
-            emails[u.id] = u.email;
-            wanted.delete(u.id);
-          }
-        }
+      if (users.length === 0) { hasMore = false; } else {
+        for (const u of users) { if (wanted.has(u.id) && u.email) { emails[u.id] = u.email; wanted.delete(u.id); } }
         page++;
       }
     }
-
-    return limiter.addHeaders(
-      new Response(JSON.stringify({ emails }), {
-        status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
-      }),
-      rateResult,
-    );
+    return limiter.addHeaders(new Response(JSON.stringify({ emails }), { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }), rateResult);
   } catch (err) {
     console.error("[EdgeFn] Internal error:", (err as Error).message);
-    return new Response(JSON.stringify({ error: "Erreur interne du serveur" }), {
-      status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
-    });
+    return new Response(JSON.stringify({ error: "Erreur interne du serveur" }), { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
   }
 });

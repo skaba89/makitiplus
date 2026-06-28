@@ -1,7 +1,97 @@
-import { getCorsHeaders, corsOptionsResponse } from '../_shared/cors.ts';
-import { requireAdminContext, loadTargetInSameOrg } from '../_shared/orgScope.ts';
-import { requireMethod } from '../_shared/httpMethodGuard.ts';
-import { createRateLimiter } from '../_shared/rateLimiter.ts';
+// ── Inlined shared dependencies (no ../_shared/ imports) ──────────────
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.93.3';
+
+const ALLOWED_ORIGINS = [
+  Deno.env.get("CORS_ORIGIN") ?? "http://localhost:5173",
+  "http://localhost:8080",
+  "http://localhost:3000",
+  "https://makitiplus.onrender.com",
+];
+function getCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get("Origin") ?? "";
+  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return { "Access-Control-Allow-Origin": allowed, "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, GET, OPTIONS", "Access-Control-Max-Age": "86400" };
+}
+function corsOptionsResponse(req: Request): Response {
+  return new Response(null, { status: 204, headers: getCorsHeaders(req) });
+}
+
+function requireMethod(req: Request, allowed: string | string[]): Response | null {
+  const methods = Array.isArray(allowed) ? allowed : [allowed];
+  if (req.method === 'OPTIONS') return null;
+  if (methods.includes(req.method)) return null;
+  return new Response(JSON.stringify({ error: 'Method Not Allowed' }), { status: 405, headers: { 'Content-Type': 'application/json', Allow: methods.join(', ') } });
+}
+
+const memoryStore = new Map<string, { count: number; resetAt: number }>();
+function extractClientId(req: Request): string {
+  for (const raw of [req.headers.get("cf-connecting-ip"), req.headers.get("x-real-ip"), req.headers.get("x-forwarded-for")]) {
+    if (!raw) continue; const first = raw.split(",")[0]?.trim(); if (first && first.length <= 64) return first;
+  }
+  return `ua:${(req.headers.get("user-agent") || "unknown").slice(0, 64)}`;
+}
+function createRateLimiter(endpoint: string, config: { maxRequests: number; windowMs: number }) {
+  const keyPrefix = `rl:${endpoint}:`;
+  return {
+    async check(req: Request) {
+      const clientId = extractClientId(req); const key = `${keyPrefix}${clientId}`; const now = Date.now(); const resetAt = now + config.windowMs;
+      try {
+        const kv = await Deno.openKv(); const entry = await kv.get<{ count: number; resetAt: number }>([key]);
+        if (!entry.value || entry.value.resetAt <= now) { await kv.set([key], { count: 1, resetAt }); kv.close(); return { allowed: true, remaining: config.maxRequests - 1, resetAt }; }
+        const count = entry.value.count + 1;
+        if (count > config.maxRequests) { kv.close(); return { allowed: false, remaining: 0, resetAt: entry.value.resetAt, error: `Trop de requêtes. Réessayez dans ${Math.ceil((entry.value.resetAt - now) / 1000)}s.` }; }
+        await kv.set([key], { count, resetAt: entry.value.resetAt }); kv.close(); return { allowed: true, remaining: config.maxRequests - count, resetAt: entry.value.resetAt };
+      } catch {
+        const entry = memoryStore.get(key);
+        if (!entry || entry.resetAt <= now) { memoryStore.set(key, { count: 1, resetAt }); return { allowed: true, remaining: config.maxRequests - 1, resetAt }; }
+        const count = entry.count + 1;
+        if (count > config.maxRequests) return { allowed: false, remaining: 0, resetAt: entry.resetAt, error: `Trop de requêtes. Réessayez dans ${Math.ceil((entry.resetAt - now) / 1000)}s.` };
+        memoryStore.set(key, { count, resetAt: entry.resetAt }); return { allowed: true, remaining: config.maxRequests - count, resetAt: entry.resetAt };
+      }
+    },
+    addHeaders(response: Response, result: { remaining: number; resetAt: number; allowed: boolean }): Response {
+      const headers = new Headers(response.headers); headers.set("X-RateLimit-Remaining", String(result.remaining)); headers.set("X-RateLimit-Reset", String(Math.ceil(result.resetAt / 1000)));
+      if (!result.allowed) headers.set("Retry-After", String(Math.ceil((result.resetAt - Date.now()) / 1000)));
+      return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+    },
+  };
+}
+
+interface AdminCtxOk { ok: true; user: { id: string; email?: string | null }; adminClient: ReturnType<typeof createClient>; actorProfile: { owner_name: string | null; business_name: string | null; organization_id: string | null }; isSuperAdmin: boolean; ipAddress: string | null; }
+interface AdminCtxErr { ok: false; error: string; status: number }
+
+function extractClientIp(req: Request): string | null {
+  for (const raw of [req.headers.get('cf-connecting-ip'), req.headers.get('x-real-ip'), req.headers.get('x-forwarded-for'), req.headers.get('forwarded')]) {
+    if (!raw) continue; const first = raw.split(',')[0]?.trim(); if (first && first.length <= 64) return first;
+  }
+  return null;
+}
+
+async function requireAdminContext(req: Request): Promise<AdminCtxOk | AdminCtxErr> {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) return { ok: false, error: 'Missing authorization', status: 401 };
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!; const anonKey = Deno.env.get('SUPABASE_PUBLISHABLE_KEY') ?? Deno.env.get('SUPABASE_ANON_KEY')!; const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
+  const { data: { user }, error: userError } = await userClient.auth.getUser();
+  if (userError || !user) return { ok: false, error: 'Invalid session', status: 401 };
+  const adminClient = createClient(supabaseUrl, serviceKey);
+  const { data: roleData } = await adminClient.from('user_roles').select('role').eq('user_id', user.id).in('role', ['admin', 'super_admin']).maybeSingle();
+  if (!roleData) return { ok: false, error: 'Forbidden: admin or super_admin only', status: 403 };
+  const isSuperAdmin = roleData.role === 'super_admin';
+  const { data: actorProfile } = await adminClient.from('profiles').select('owner_name, business_name, organization_id, is_active').eq('user_id', user.id).maybeSingle();
+  if (!actorProfile) return { ok: false, error: 'Profil admin introuvable', status: 403 };
+  if (actorProfile.is_active === false) return { ok: false, error: 'Compte admin désactivé', status: 403 };
+  if (!actorProfile.organization_id && !isSuperAdmin) return { ok: false, error: 'Admin sans boutique associée', status: 403 };
+  return { ok: true, user: { id: user.id, email: user.email }, adminClient, actorProfile: { owner_name: actorProfile.owner_name ?? null, business_name: actorProfile.business_name ?? null, organization_id: actorProfile.organization_id }, isSuperAdmin, ipAddress: extractClientIp(req) };
+}
+
+async function loadTargetInSameOrg(adminClient: ReturnType<typeof createClient>, targetUserId: string, actorOrgId: string) {
+  const { data: targetProfile } = await adminClient.from('profiles').select('user_id, owner_name, phone, organization_id, is_active').eq('user_id', targetUserId).maybeSingle();
+  if (!targetProfile) return { ok: false as const, error: 'Utilisateur introuvable', status: 404 };
+  if (targetProfile.organization_id !== actorOrgId) return { ok: false as const, error: 'Utilisateur hors de votre boutique', status: 403 };
+  return { ok: true as const, targetProfile };
+}
+// ── End inlined shared dependencies ───────────────────────────────────
 
 // Rate limit: 5 reset link sends per IP per 60 seconds (sensitive)
 const limiter = createRateLimiter('admin-send-reset-link', {
@@ -183,7 +273,7 @@ Deno.serve(async (req) => {
     const link = `${origin}/auth?reset_token=${token}`;
     const sms = await sendSmsViaTwilio(
       phone,
-      `Réinitialisez votre mot de passe MalikiPlus (valide 30min) : ${link}`
+      `Réinitialisez votre mot de passe MakitiPlus (valide 30min) : ${link}`
     );
 
     if (!sms.ok) {
