@@ -48,7 +48,7 @@ import {
   UserPlus,
   Filter,
   ShoppingBag,
-  GroceryStore,
+  Salad,
   Shirt,
   Footprints,
   UtensilsCrossed,
@@ -86,7 +86,7 @@ interface CategoryConfig {
 }
 
 const STORE_CATEGORIES: CategoryConfig[] = [
-  { value: "epicerie", label: "Épicerie", icon: GroceryStore, color: "text-green-600" },
+  { value: "epicerie", label: "Épicerie", icon: Salad, color: "text-green-600" },
   { value: "alimentation_generale", label: "Alimentation générale", icon: ShoppingBag, color: "text-emerald-600" },
   { value: "supermarche", label: "Supermarché", icon: Building2, color: "text-blue-600" },
   { value: "boutique_vetements", label: "Boutique vêtements", icon: Shirt, color: "text-pink-600" },
