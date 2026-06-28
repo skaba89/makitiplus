@@ -27,7 +27,7 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <div className="w-16 h-16 rounded-2xl bg-hero-gradient flex items-center justify-center">
-            <span className="text-3xl font-bold text-primary-foreground">S</span>
+            <span className="text-3xl font-bold text-primary-foreground">M</span>
           </div>
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-muted-foreground">Chargement...</p>

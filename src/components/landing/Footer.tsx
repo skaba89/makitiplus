@@ -120,7 +120,7 @@ export const Footer = () => {
         {/* Bottom */}
         <div className="border-t border-border mt-12 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
           <p className="text-sm text-muted-foreground">
-            © 2024 MalikiPlus. Tous droits réservés.
+            © 2025 MakitiPlus. Tous droits réservés.
           </p>
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground">Paiements sécurisés par</span>

@@ -41,7 +41,7 @@ const ErrorFallback = () => (
     <AlertTriangle className="h-16 w-16 text-destructive mb-6" />
     <h1 className="text-2xl font-bold text-foreground mb-2">Une erreur est survenue</h1>
     <p className="text-muted-foreground mb-6 max-w-md">
-      MalikiPlus a rencontré une erreur inattendue. Notre équipe a été notifiée.
+      MakitiPlus a rencontré une erreur inattendue. Notre équipe a été notifiée.
       Vous pouvez recharger la page pour continuer.
     </p>
     <Button onClick={() => window.location.reload()} size="lg">
@@ -109,7 +109,7 @@ const App = () => {
             <Route
               path="/dashboard/products"
               element={
-                <ProtectedRoute allowedRoles={["admin", "manager", "vendeur"]}>
+                <ProtectedRoute allowedRoles={["super_admin", "admin", "manager", "vendeur"]}>
                   <Products />
                 </ProtectedRoute>
               }
@@ -117,7 +117,7 @@ const App = () => {
             <Route
               path="/dashboard/pos"
               element={
-                <ProtectedRoute allowedRoles={["admin", "manager", "vendeur"]}>
+                <ProtectedRoute allowedRoles={["super_admin", "admin", "manager", "vendeur"]}>
                   <Suspense fallback={<PageLoader />}>
                     <POS />
                   </Suspense>
@@ -127,7 +127,7 @@ const App = () => {
             <Route
               path="/dashboard/categories"
               element={
-                <ProtectedRoute allowedRoles={["admin", "manager"]}>
+                <ProtectedRoute allowedRoles={["super_admin", "admin", "manager"]}>
                   <Categories />
                 </ProtectedRoute>
               }
@@ -135,7 +135,7 @@ const App = () => {
             <Route
               path="/dashboard/reports"
               element={
-                <ProtectedRoute allowedRoles={["admin", "manager", "comptable"]}>
+                <ProtectedRoute allowedRoles={["super_admin", "admin", "manager", "comptable"]}>
                   <Suspense fallback={<PageLoader />}>
                     <Reports />
                   </Suspense>
@@ -145,7 +145,7 @@ const App = () => {
             <Route
               path="/dashboard/expenses"
               element={
-                <ProtectedRoute allowedRoles={["admin", "manager", "comptable"]}>
+                <ProtectedRoute allowedRoles={["super_admin", "admin", "manager", "comptable"]}>
                   <Expenses />
                 </ProtectedRoute>
               }
@@ -153,7 +153,7 @@ const App = () => {
             <Route
               path="/dashboard/customers"
               element={
-                <ProtectedRoute allowedRoles={["admin", "manager", "vendeur"]}>
+                <ProtectedRoute allowedRoles={["super_admin", "admin", "manager", "vendeur"]}>
                   <Customers />
                 </ProtectedRoute>
               }

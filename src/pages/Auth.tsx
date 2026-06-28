@@ -150,7 +150,7 @@ const Auth = () => {
       } else {
         toast({
           title: "Connexion réussie",
-          description: "Bienvenue sur MalikiPlus !",
+          description: "Bienvenue sur MakitiPlus !",
         });
         navigate("/dashboard");
       }

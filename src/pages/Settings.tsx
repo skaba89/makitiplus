@@ -22,7 +22,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { TaxSettingsCard } from "@/components/settings/TaxSettingsCard";
 
 const Settings = () => {
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { currency, country } = useCurrency();
@@ -77,13 +77,12 @@ const Settings = () => {
 
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["profile"] });
+    onSuccess: async () => {
+      await refreshProfile();
       toast({
         title: "Paramètres enregistrés",
         description: "Les informations de votre boutique ont été mises à jour",
       });
-      // Currency updates automatically via useCurrency → profile reactivity
     },
     onError: (error) => {
       toast({
