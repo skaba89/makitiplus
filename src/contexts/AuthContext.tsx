@@ -168,9 +168,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     if (data.user) {
-      // If admin: create organization first
+      // If admin/super_admin: create organization first
       let organizationId: string | null = null;
-      if (profileData.role === "admin") {
+      if (profileData.role === "admin" || profileData.role === "super_admin") {
         const { data: org, error: orgError } = await supabase
           .from("organizations")
           .insert({

@@ -8,7 +8,7 @@
 -- ============================================================
 -- 0. ENUMS
 -- ============================================================
-CREATE TYPE public.app_role AS ENUM ('admin', 'manager', 'vendeur', 'comptable');
+CREATE TYPE public.app_role AS ENUM ('super_admin', 'admin', 'manager', 'vendeur', 'comptable');
 CREATE TYPE public.payment_method AS ENUM ('cash', 'wave', 'orange_money', 'mtn_money', 'moov_money', 'mpesa', 'card', 'credit');
 CREATE TYPE public.subscription_plan AS ENUM ('starter', 'croissance', 'enterprise');
 CREATE TYPE public.sync_status AS ENUM ('synced', 'pending', 'conflict');
@@ -53,9 +53,7 @@ CREATE TABLE public.user_roles (
 
 ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
 
--- Un seul rôle admin par organisation (partial unique index)
-CREATE UNIQUE INDEX IF NOT EXISTS idx_single_admin
-  ON public.user_roles (role) WHERE role = 'admin';
+-- Pas de limite sur le nombre d'admins — le super_admin peut en créer plusieurs
 
 -- ============================================================
 -- 3. ORGANIZATIONS
@@ -313,7 +311,20 @@ LANGUAGE sql
 STABLE SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT EXISTS (SELECT 1 FROM public.user_roles WHERE role = 'admin');
+  SELECT EXISTS (SELECT 1 FROM public.user_roles WHERE role IN ('admin', 'super_admin'));
+$$;
+
+-- Vérifier si l'utilisateur est super_admin
+CREATE OR REPLACE FUNCTION public.is_super_admin()
+RETURNS boolean
+LANGUAGE sql
+STABLE SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.user_roles 
+    WHERE user_id = auth.uid() AND role = 'super_admin'
+  );
 $$;
 
 -- Récupérer l'organisation de l'utilisateur connecté
@@ -637,7 +648,7 @@ ALTER TABLE public.password_reset_tokens
 -- -----------------------------------------------------------
 CREATE POLICY "Users can view own profile" ON public.profiles
   FOR SELECT TO authenticated
-  USING (user_id = auth.uid() OR organization_id = public.get_user_organization_id());
+  USING (public.is_super_admin() OR user_id = auth.uid() OR organization_id = public.get_user_organization_id());
 
 CREATE POLICY "Users can update own profile" ON public.profiles
   FOR UPDATE TO authenticated
@@ -645,34 +656,34 @@ CREATE POLICY "Users can update own profile" ON public.profiles
 
 CREATE POLICY "Users can insert own profile" ON public.profiles
   FOR INSERT TO authenticated
-  WITH CHECK (user_id = auth.uid());
+  WITH CHECK (public.is_super_admin() OR user_id = auth.uid());
 
 -- -----------------------------------------------------------
 -- USER_ROLES
 -- -----------------------------------------------------------
 CREATE POLICY "Users can view their own role" ON public.user_roles
   FOR SELECT TO authenticated
-  USING (user_id = auth.uid() OR public.has_role(auth.uid(), 'admin'));
+  USING (public.is_super_admin() OR user_id = auth.uid() OR public.has_role(auth.uid(), 'admin'));
 
 CREATE POLICY "Users can create their own role" ON public.user_roles
   FOR INSERT TO authenticated
-  WITH CHECK (user_id = auth.uid());
+  WITH CHECK (public.is_super_admin() OR user_id = auth.uid());
 
 -- -----------------------------------------------------------
 -- ORGANIZATIONS
 -- -----------------------------------------------------------
 CREATE POLICY "members_can_view_org" ON public.organizations
   FOR SELECT TO authenticated
-  USING (public.is_member_of_organization(id));
+  USING (public.is_super_admin() OR public.is_member_of_organization(id));
 
 CREATE POLICY "admin_can_update_org" ON public.organizations
   FOR UPDATE TO authenticated
-  USING (owner_user_id = auth.uid() OR public.has_role(auth.uid(), 'admin'))
-  WITH CHECK (owner_user_id = auth.uid() OR public.has_role(auth.uid(), 'admin'));
+  USING (public.is_super_admin() OR owner_user_id = auth.uid() OR public.has_role(auth.uid(), 'admin'))
+  WITH CHECK (public.is_super_admin() OR owner_user_id = auth.uid() OR public.has_role(auth.uid(), 'admin'));
 
 CREATE POLICY "admin_can_create_org" ON public.organizations
   FOR INSERT TO authenticated
-  WITH CHECK (owner_user_id = auth.uid());
+  WITH CHECK (public.is_super_admin() OR owner_user_id = auth.uid());
 
 -- -----------------------------------------------------------
 -- CATEGORIES
@@ -936,6 +947,7 @@ CREATE POLICY "admins_update_reset_tokens" ON public.password_reset_tokens
 -- GRANTS — autoriser admin_exists() pour les utilisateurs non connectés
 -- ═══════════════════════════════════════════════════════════════════════
 GRANT EXECUTE ON FUNCTION public.admin_exists() TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.is_super_admin() TO authenticated;
 
 -- ═══════════════════════════════════════════════════════════════════════
 -- RÉVOQUER les fonctions sensibles de anon

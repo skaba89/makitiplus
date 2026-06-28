@@ -724,7 +724,7 @@ export type Database = {
       touch_last_login: { Args: never; Returns: undefined }
     }
     Enums: {
-      app_role: "admin" | "manager" | "vendeur" | "comptable"
+      app_role: "super_admin" | "admin" | "manager" | "vendeur" | "comptable"
       payment_method:
         | "cash"
         | "wave"
@@ -863,7 +863,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "manager", "vendeur", "comptable"],
+      app_role: ["super_admin", "admin", "manager", "vendeur", "comptable"],
       payment_method: [
         "cash",
         "wave",

@@ -45,7 +45,8 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     navigate("/");
   };
 
-  const roleLabels = {
+  const roleLabels: Record<string, string> = {
+    super_admin: "Super Admin",
     admin: "Administrateur",
     manager: "Manager",
     vendeur: "Vendeur",
@@ -57,61 +58,67 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       name: "Tableau de bord",
       href: "/dashboard",
       icon: LayoutDashboard,
-      roles: ["admin", "manager", "vendeur", "comptable"],
+      roles: ["super_admin", "admin", "manager", "vendeur", "comptable"],
     },
     {
       name: "Point de vente",
       href: "/dashboard/pos",
       icon: ShoppingCart,
-      roles: ["admin", "manager", "vendeur"],
+      roles: ["super_admin", "admin", "manager", "vendeur"],
     },
     {
       name: "Produits",
       href: "/dashboard/products",
       icon: Package,
-      roles: ["admin", "manager", "vendeur"],
+      roles: ["super_admin", "admin", "manager", "vendeur"],
     },
     {
       name: "Catégories",
       href: "/dashboard/categories",
       icon: FolderOpen,
-      roles: ["admin", "manager"],
+      roles: ["super_admin", "admin", "manager"],
     },
     {
       name: "Dépenses",
       href: "/dashboard/expenses",
       icon: Wallet,
-      roles: ["admin", "manager", "comptable"],
+      roles: ["super_admin", "admin", "manager", "comptable"],
     },
     {
       name: "Rapports",
       href: "/dashboard/reports",
       icon: BarChart3,
-      roles: ["admin", "manager", "comptable"],
+      roles: ["super_admin", "admin", "manager", "comptable"],
     },
     {
       name: "Clients",
       href: "/dashboard/customers",
       icon: Users,
-      roles: ["admin", "manager", "vendeur"],
+      roles: ["super_admin", "admin", "manager", "vendeur"],
     },
     {
       name: "Utilisateurs",
       href: "/dashboard/users",
       icon: Shield,
-      roles: ["admin"],
+      roles: ["super_admin", "admin"],
+    },
+    {
+      name: "Magasins",
+      href: "/dashboard/stores",
+      icon: Store,
+      roles: ["super_admin"],
     },
     {
       name: "Conflits sync",
       href: "/dashboard/sync-conflicts",
       icon: GitMerge,
-      roles: ["admin"],
+      roles: ["super_admin", "admin"],
     },
     {
       name: "Paramètres",
       href: "/dashboard/settings",
       icon: Settings,
-      roles: ["admin", "manager"],
+      roles: ["super_admin", "admin", "manager"],
     },
   ];
 
@@ -141,9 +148,9 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-hero-gradient flex items-center justify-center">
-            <span className="text-sm font-bold text-primary-foreground">S</span>
+            <span className="text-sm font-bold text-primary-foreground">M</span>
           </div>
-          <span className="font-bold">MalikiPlus</span>
+          <span className="font-bold">MakitiPlus</span>
         </div>
 
         <DropdownMenu>
@@ -184,10 +191,10 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         {/* Logo */}
         <div className="h-16 flex items-center gap-3 px-6 border-b border-sidebar-border">
           <div className="w-10 h-10 rounded-xl bg-hero-gradient flex items-center justify-center">
-            <span className="text-xl font-bold text-primary-foreground">S</span>
+            <span className="text-xl font-bold text-primary-foreground">M</span>
           </div>
           <div>
-            <span className="font-bold text-sidebar-foreground">MalikiPlus</span>
+            <span className="font-bold text-sidebar-foreground">MakitiPlus</span>
             <p className="text-xs text-muted-foreground">{profile?.business_name}</p>
           </div>
         </div>

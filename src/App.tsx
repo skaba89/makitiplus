@@ -22,6 +22,7 @@ import Settings from "./pages/Settings";
 import Customers from "./pages/Customers";
 import Users from "./pages/Users";
 import SyncConflicts from "./pages/SyncConflicts";
+import Stores from "./pages/Stores";
 
 // Lazy-loaded heavy routes (recharts + POS components → significant bundle reduction)
 const Reports = lazy(() => import("./pages/Reports"));
@@ -160,15 +161,23 @@ const App = () => {
             <Route
               path="/dashboard/users"
               element={
-                <ProtectedRoute allowedRoles={["admin"]}>
+                <ProtectedRoute allowedRoles={["super_admin", "admin"]}>
                   <Users />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/stores"
+              element={
+                <ProtectedRoute allowedRoles={["super_admin"]}>
+                  <Stores />
                 </ProtectedRoute>
               }
             />
             <Route
               path="/dashboard/sync-conflicts"
               element={
-                <ProtectedRoute allowedRoles={["admin"]}>
+                <ProtectedRoute allowedRoles={["super_admin", "admin"]}>
                   <SyncConflicts />
                 </ProtectedRoute>
               }
@@ -176,7 +185,7 @@ const App = () => {
             <Route
               path="/dashboard/settings"
               element={
-                <ProtectedRoute allowedRoles={["admin", "manager"]}>
+                <ProtectedRoute allowedRoles={["super_admin", "admin", "manager"]}>
                   <Settings />
                 </ProtectedRoute>
               }

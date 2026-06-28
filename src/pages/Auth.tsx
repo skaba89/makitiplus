@@ -206,7 +206,7 @@ const Auth = () => {
         businessName,
         ownerName,
         phone,
-        role: "admin",
+        role: "super_admin",
       });
 
       if (error) {
@@ -240,6 +240,7 @@ const Auth = () => {
   };
 
   const roleLabels: Record<AppRole, { label: string; description: string }> = {
+    super_admin: { label: "Super Admin", description: "Gestion de tous les magasins" },
     admin: { label: "Administrateur", description: "Accès complet au système" },
     manager: { label: "Manager", description: "Gestion de l'équipe et rapports" },
     vendeur: { label: "Vendeur", description: "Point de vente et stocks" },
@@ -509,7 +510,7 @@ const Auth = () => {
                   <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 flex items-start gap-2">
                     <Shield className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                     <p className="text-xs text-muted-foreground">
-                      Vous serez le <strong className="text-foreground">Super Administrateur</strong> de la boutique. Vous pourrez ensuite créer les comptes vendeurs, managers et comptables.
+                      Vous serez le <strong className="text-foreground">Super Administrateur</strong> de la plateforme. Vous pourrez créer des magasins et nommer un admin pour chacun.
                     </p>
                   </div>
 
