@@ -60,8 +60,10 @@ export async function requireAdminContext(req: Request): Promise<AdminCtxOk | Ad
 
   const { data: roleData } = await adminClient
     .from('user_roles').select('role')
-    .eq('user_id', user.id).eq('role', 'admin').maybeSingle();
-  if (!roleData) return { ok: false, error: 'Forbidden: admin only', status: 403 };
+    .eq('user_id', user.id).in('role', ['admin', 'super_admin']).maybeSingle();
+  if (!roleData) return { ok: false, error: 'Forbidden: admin or super_admin only', status: 403 };
+
+  const isSuperAdmin = roleData.role === 'super_admin';
 
   const { data: actorProfile } = await adminClient
     .from('profiles')
@@ -74,7 +76,7 @@ export async function requireAdminContext(req: Request): Promise<AdminCtxOk | Ad
   if (actorProfile.is_active === false) {
     return { ok: false, error: 'Compte admin désactivé', status: 403 };
   }
-  if (!actorProfile.organization_id) {
+  if (!actorProfile.organization_id && !isSuperAdmin) {
     return { ok: false, error: 'Admin sans boutique associée', status: 403 };
   }
 

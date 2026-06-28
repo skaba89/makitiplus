@@ -10,6 +10,7 @@ const ALLOWED_ORIGINS = [
   Deno.env.get("CORS_ORIGIN") ?? "http://localhost:5173",
   "http://localhost:8080",  // Vite preview
   "http://localhost:3000",
+  "https://makitiplus.onrender.com",  // Production
 ];
 
 export function getCorsHeaders(req: Request): Record<string, string> {
@@ -19,7 +20,7 @@ export function getCorsHeaders(req: Request): Record<string, string> {
   return {
     "Access-Control-Allow-Origin": allowed,
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
     "Access-Control-Max-Age": "86400",
   };
 }

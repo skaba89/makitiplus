@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, ReactNode } from "react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -48,6 +48,22 @@ import {
   UserPlus,
   Filter,
   ShoppingBag,
+  GroceryStore,
+  Shirt,
+  Footprints,
+  UtensilsCrossed,
+  Croissant,
+  Pill,
+  Sparkles,
+  Smartphone,
+  Wrench,
+  HardHat,
+  Fuel,
+  Phone,
+  Scissors,
+  Package,
+  Building2,
+  LucideIcon,
 } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
 
@@ -61,34 +77,55 @@ interface StoreWithAdmin extends Organization {
   user_count?: number;
 }
 
-// Catégories de magasins avec labels et icônes
-const STORE_CATEGORIES: { value: StoreCategory; label: string; emoji: string }[] = [
-  { value: "epicerie", label: "Épicerie", emoji: "🏪" },
-  { value: "alimentation_generale", label: "Alimentation générale", emoji: "🛒" },
-  { value: "supermarche", label: "Supermarché", emoji: "🏬" },
-  { value: "boutique_vetements", label: "Boutique vêtements", emoji: "👕" },
-  { value: "boutique_chaussures", label: "Boutique chaussures", emoji: "👟" },
-  { value: "restaurant", label: "Restaurant", emoji: "🍽️" },
-  { value: "boulangerie_patisserie", label: "Boulangerie / Pâtisserie", emoji: "🥖" },
-  { value: "pharmacie", label: "Pharmacie", emoji: "💊" },
-  { value: "cosmetiques_beaute", label: "Cosmétiques & Beauté", emoji: "💇" },
-  { value: "electronique", label: "Électronique", emoji: "📱" },
-  { value: "quincaillerie", label: "Quincaillerie", emoji: "🔧" },
-  { value: "materiel_construction", label: "Matériel de construction", emoji: "🧱" },
-  { value: "station_service", label: "Station-service", emoji: "⛽" },
-  { value: "point_vente_telecom", label: "Point de vente telecom", emoji: "📞" },
-  { value: "salon_coiffure", label: "Salon de coiffure", emoji: "✂️" },
-  { value: "autre", label: "Autre", emoji: "📦" },
+// Catégories de magasins avec labels et vraies icônes Lucide
+interface CategoryConfig {
+  value: StoreCategory;
+  label: string;
+  icon: LucideIcon;
+  color: string;
+}
+
+const STORE_CATEGORIES: CategoryConfig[] = [
+  { value: "epicerie", label: "Épicerie", icon: GroceryStore, color: "text-green-600" },
+  { value: "alimentation_generale", label: "Alimentation générale", icon: ShoppingBag, color: "text-emerald-600" },
+  { value: "supermarche", label: "Supermarché", icon: Building2, color: "text-blue-600" },
+  { value: "boutique_vetements", label: "Boutique vêtements", icon: Shirt, color: "text-pink-600" },
+  { value: "boutique_chaussures", label: "Boutique chaussures", icon: Footprints, color: "text-orange-600" },
+  { value: "restaurant", label: "Restaurant", icon: UtensilsCrossed, color: "text-red-600" },
+  { value: "boulangerie_patisserie", label: "Boulangerie / Pâtisserie", icon: Croissant, color: "text-amber-600" },
+  { value: "pharmacie", label: "Pharmacie", icon: Pill, color: "text-teal-600" },
+  { value: "cosmetiques_beaute", label: "Cosmétiques & Beauté", icon: Sparkles, color: "text-purple-600" },
+  { value: "electronique", label: "Électronique", icon: Smartphone, color: "text-indigo-600" },
+  { value: "quincaillerie", label: "Quincaillerie", icon: Wrench, color: "text-slate-600" },
+  { value: "materiel_construction", label: "Matériel de construction", icon: HardHat, color: "text-yellow-700" },
+  { value: "station_service", label: "Station-service", icon: Fuel, color: "text-cyan-600" },
+  { value: "point_vente_telecom", label: "Point de vente telecom", icon: Phone, color: "text-violet-600" },
+  { value: "salon_coiffure", label: "Salon de coiffure", icon: Scissors, color: "text-fuchsia-600" },
+  { value: "autre", label: "Autre", icon: Package, color: "text-gray-600" },
 ];
 
-const getCategoryLabel = (value: StoreCategory | null): string => {
-  if (!value) return "—";
-  return STORE_CATEGORIES.find((c) => c.value === value)?.label || value;
+const getCategoryConfig = (value: StoreCategory | null): CategoryConfig => {
+  if (!value) return STORE_CATEGORIES[STORE_CATEGORIES.length - 1]; // "autre"
+  return STORE_CATEGORIES.find((c) => c.value === value) || STORE_CATEGORIES[STORE_CATEGORIES.length - 1];
 };
 
-const getCategoryEmoji = (value: StoreCategory | null): string => {
-  if (!value) return "📦";
-  return STORE_CATEGORIES.find((c) => c.value === value)?.emoji || "📦";
+// Composant pour afficher l'icône d'une catégorie
+const CategoryIcon = ({ value, className }: { value: StoreCategory | null; className?: string }) => {
+  const config = getCategoryConfig(value);
+  const Icon = config.icon;
+  return <Icon className={className || `h-4 w-4 ${config.color}`} />;
+};
+
+// Composant badge catégorie avec icône
+const CategoryBadge = ({ value }: { value: StoreCategory | null }) => {
+  const config = getCategoryConfig(value);
+  const Icon = config.icon;
+  return (
+    <Badge variant="secondary" className="gap-1.5">
+      <Icon className={`h-3.5 w-3.5 ${config.color}`} />
+      {config.label}
+    </Badge>
+  );
 };
 
 const Stores = () => {
@@ -330,18 +367,23 @@ const Stores = () => {
                   <Label>Type de magasin</Label>
                   <Select value={storeCategory} onValueChange={(v) => setStoreCategory(v as StoreCategory)}>
                     <SelectTrigger>
-                      <ShoppingBag className="h-4 w-4 mr-2" />
-                      <SelectValue placeholder="Sélectionner un type" />
+                      <div className="flex items-center gap-2">
+                        <CategoryIcon value={storeCategory} />
+                        <SelectValue placeholder="Sélectionner un type" />
+                      </div>
                     </SelectTrigger>
                     <SelectContent className="max-h-72">
-                      {STORE_CATEGORIES.map((cat) => (
-                        <SelectItem key={cat.value} value={cat.value}>
-                          <span className="flex items-center gap-2">
-                            <span>{cat.emoji}</span>
-                            <span>{cat.label}</span>
-                          </span>
-                        </SelectItem>
-                      ))}
+                      {STORE_CATEGORIES.map((cat) => {
+                        const Icon = cat.icon;
+                        return (
+                          <SelectItem key={cat.value} value={cat.value}>
+                            <span className="flex items-center gap-2">
+                              <Icon className={`h-4 w-4 ${cat.color}`} />
+                              <span>{cat.label}</span>
+                            </span>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
@@ -355,11 +397,11 @@ const Stores = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Guinée">🇬🇳 Guinée</SelectItem>
-                        <SelectItem value="Sénégal">🇸🇳 Sénégal</SelectItem>
-                        <SelectItem value="Mali">🇲🇱 Mali</SelectItem>
-                        <SelectItem value="Côte d'Ivoire">🇨🇮 Côte d'Ivoire</SelectItem>
-                        <SelectItem value="Cameroun">🇨🇲 Cameroun</SelectItem>
+                        <SelectItem value="Guinée">Guinée</SelectItem>
+                        <SelectItem value="Sénégal">Sénégal</SelectItem>
+                        <SelectItem value="Mali">Mali</SelectItem>
+                        <SelectItem value="Côte d'Ivoire">Côte d'Ivoire</SelectItem>
+                        <SelectItem value="Cameroun">Cameroun</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -432,18 +474,21 @@ const Stores = () => {
           >
             Tous ({stores.length})
           </Button>
-          {STORE_CATEGORIES.filter((cat) => categoryCounts[cat.value]).map((cat) => (
-            <Button
-              key={cat.value}
-              variant={filterCategory === cat.value ? "default" : "outline"}
-              size="sm"
-              onClick={() => setFilterCategory(cat.value)}
-              className="gap-1"
-            >
-              <span>{cat.emoji}</span>
-              {cat.label} ({categoryCounts[cat.value] || 0})
-            </Button>
-          ))}
+          {STORE_CATEGORIES.filter((cat) => categoryCounts[cat.value]).map((cat) => {
+            const Icon = cat.icon;
+            return (
+              <Button
+                key={cat.value}
+                variant={filterCategory === cat.value ? "default" : "outline"}
+                size="sm"
+                onClick={() => setFilterCategory(cat.value)}
+                className="gap-1.5"
+              >
+                <Icon className={`h-3.5 w-3.5 ${cat.color}`} />
+                {cat.label} ({categoryCounts[cat.value] || 0})
+              </Button>
+            );
+          })}
         </div>
 
         {/* Stores table */}
@@ -482,10 +527,7 @@ const Stores = () => {
                     <TableRow key={store.id}>
                       <TableCell className="font-medium">{store.name}</TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className="gap-1">
-                          <span>{getCategoryEmoji(store.category)}</span>
-                          {getCategoryLabel(store.category)}
-                        </Badge>
+                        <CategoryBadge value={store.category} />
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
