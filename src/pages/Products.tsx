@@ -5,10 +5,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { ProductList } from "@/components/products/ProductList";
 import { ProductForm } from "@/components/products/ProductForm";
+import { StockAdjustDialog } from "@/components/products/StockAdjustDialog";
+import { StockMovementHistory } from "@/components/products/StockMovementHistory";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Package, Download } from "lucide-react";
+import { Plus, Search, Package, Download, AlertTriangle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -31,6 +33,14 @@ const Products = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+
+  // Stock adjust state
+  const [stockAdjustProduct, setStockAdjustProduct] = useState<Product | null>(null);
+  const [isStockAdjustOpen, setIsStockAdjustOpen] = useState(false);
+
+  // Stock history state
+  const [stockHistoryProduct, setStockHistoryProduct] = useState<Product | null>(null);
+  const [isStockHistoryOpen, setIsStockHistoryOpen] = useState(false);
 
   const { data: products, isLoading } = useQuery({
     queryKey: ["products", user?.id],
@@ -129,6 +139,83 @@ const Products = () => {
     },
   });
 
+  // Stock adjustment mutation
+  const stockAdjustMutation = useMutation({
+    mutationFn: async (data: {
+      productId: string;
+      type: "restock" | "adjustment" | "loss";
+      quantity: number;
+      reason: string;
+      previousQuantity: number;
+    }) => {
+      // Calculate new quantity
+      let newQuantity: number;
+      if (data.type === "restock") {
+        newQuantity = data.previousQuantity + data.quantity;
+      } else if (data.type === "loss") {
+        newQuantity = Math.max(0, data.previousQuantity - data.quantity);
+      } else {
+        newQuantity = data.quantity; // adjustment = absolute
+      }
+
+      // Update product stock
+      const { error: updateError } = await supabase
+        .from("products")
+        .update({
+          stock_quantity: newQuantity,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", data.productId);
+
+      if (updateError) throw updateError;
+
+      // Record stock movement
+      const movementQuantity =
+        data.type === "restock"
+          ? data.quantity
+          : data.type === "loss"
+          ? -data.quantity
+          : newQuantity - data.previousQuantity;
+
+      const { error: movementError } = await supabase
+        .from("stock_movements")
+        .insert({
+          product_id: data.productId,
+          type: data.type,
+          quantity: movementQuantity,
+          previous_quantity: data.previousQuantity,
+          new_quantity: newQuantity,
+          reason: data.reason || null,
+          user_id: user!.id,
+        });
+
+      if (movementError) throw movementError;
+
+      return { newQuantity };
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["stock-movements", variables.productId] });
+
+      const typeLabels = {
+        restock: "Réapprovisionnement enregistré",
+        loss: "Perte enregistrée",
+        adjustment: "Stock ajusté",
+      };
+      toast({ title: typeLabels[variables.type] });
+      setIsStockAdjustOpen(false);
+      setStockAdjustProduct(null);
+    },
+    onError: (error) => {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "Impossible d'ajuster le stock",
+      });
+      reportError(error instanceof Error ? error : new Error(String(error)));
+    },
+  });
+
   const handleSubmit = (productData: Omit<ProductInsert, "user_id">) => {
     if (selectedProduct) {
       updateProductMutation.mutate({ id: selectedProduct.id, ...productData });
@@ -151,6 +238,16 @@ const Products = () => {
     setIsFormOpen(true);
   };
 
+  const handleStockAdjust = (product: Product) => {
+    setStockAdjustProduct(product);
+    setIsStockAdjustOpen(true);
+  };
+
+  const handleStockHistory = (product: Product) => {
+    setStockHistoryProduct(product);
+    setIsStockHistoryOpen(true);
+  };
+
   const filteredProducts = products?.filter((product) => {
     const q = searchQuery.toLowerCase();
     const matchesSearch =
@@ -162,6 +259,13 @@ const Products = () => {
       !selectedCategory || product.category_id === selectedCategory;
     return matchesSearch && matchesCategory;
   });
+
+  // Stats
+  const totalProducts = products?.length || 0;
+  const lowStockCount = products?.filter(
+    (p) => p.min_stock_alert && p.stock_quantity <= p.min_stock_alert
+  ).length || 0;
+  const outOfStockCount = products?.filter((p) => p.stock_quantity === 0).length || 0;
 
   return (
     <DashboardLayout>
@@ -216,6 +320,28 @@ const Products = () => {
           </div>
         </div>
 
+        {/* Stock alerts banner */}
+        {(lowStockCount > 0 || outOfStockCount > 0) && (
+          <div className="flex items-center gap-3 p-3 bg-warning/10 border border-warning/20 rounded-lg">
+            <AlertTriangle className="h-5 w-5 text-warning flex-shrink-0" />
+            <div className="text-sm">
+              {outOfStockCount > 0 && (
+                <span className="font-medium text-destructive">
+                  {outOfStockCount} produit{outOfStockCount > 1 ? "s" : ""} en rupture
+                </span>
+              )}
+              {outOfStockCount > 0 && lowStockCount > 0 && (
+                <span className="text-muted-foreground"> · </span>
+              )}
+              {lowStockCount > 0 && (
+                <span className="font-medium text-warning">
+                  {lowStockCount} produit{lowStockCount > 1 ? "s" : ""} en stock bas
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Search */}
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -269,6 +395,8 @@ const Products = () => {
             products={filteredProducts}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            onStockAdjust={handleStockAdjust}
+            onStockHistory={handleStockHistory}
           />
         ) : (
           <div className="text-center py-12 bg-card rounded-xl border">
@@ -299,6 +427,29 @@ const Products = () => {
             />
           </DialogContent>
         </Dialog>
+
+        {/* Stock Adjust Dialog */}
+        <StockAdjustDialog
+          product={stockAdjustProduct}
+          isOpen={isStockAdjustOpen}
+          onClose={() => {
+            setIsStockAdjustOpen(false);
+            setStockAdjustProduct(null);
+          }}
+          onConfirm={(data) => stockAdjustMutation.mutate(data)}
+          isLoading={stockAdjustMutation.isPending}
+        />
+
+        {/* Stock Movement History Dialog */}
+        <StockMovementHistory
+          productId={stockHistoryProduct?.id ?? null}
+          productName={stockHistoryProduct?.name ?? ""}
+          isOpen={isStockHistoryOpen}
+          onClose={() => {
+            setIsStockHistoryOpen(false);
+            setStockHistoryProduct(null);
+          }}
+        />
       </div>
     </DashboardLayout>
   );
