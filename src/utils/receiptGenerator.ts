@@ -270,12 +270,12 @@ export const generateReceiptText = (data: ReceiptData): string => {
   if (data.businessAddress) lines.push(data.businessAddress);
   if (data.businessPhone) lines.push(`Tél: ${data.businessPhone}`);
   lines.push("");
-  lines.push("━━━━━━━━━━━━━━━━━");
-  lines.push(`📋 *Ticket N°:* ${data.saleNumber}`);
-  lines.push(`📅 ${data.date.toLocaleDateString("fr-FR")} ${data.date.toLocaleTimeString("fr-FR")}`);
-  if (data.sellerName) lines.push(`👤 Vendeur: ${data.sellerName}`);
-  if (data.customerName) lines.push(`🧑 Client: ${data.customerName}`);
-  lines.push("━━━━━━━━━━━━━━━━━");
+  lines.push("-----------------");
+  lines.push(`*Ticket N°:* ${data.saleNumber}`);
+  lines.push(`Date: ${data.date.toLocaleDateString("fr-FR")} ${data.date.toLocaleTimeString("fr-FR")}`);
+  if (data.sellerName) lines.push(`Vendeur: ${data.sellerName}`);
+  if (data.customerName) lines.push(`Client: ${data.customerName}`);
+  lines.push("-----------------");
   lines.push("");
   
   // Items
@@ -285,22 +285,22 @@ export const generateReceiptText = (data: ReceiptData): string => {
     lines.push(`  ${item.quantity} x ${fPrice(item.unit_price)} = *${fPrice(item.total_price)}*`);
   });
   lines.push("");
-  lines.push("━━━━━━━━━━━━━━━━━");
+  lines.push("-----------------");
   
   // Total
-  lines.push(`💰 *TOTAL: ${fPrice(data.total)}*`);
-  lines.push(`💳 Paiement: ${paymentMethodLabels[data.paymentMethod] || data.paymentMethod}`);
+  lines.push(`*TOTAL: ${fPrice(data.total)}*`);
+  lines.push(`Paiement: ${paymentMethodLabels[data.paymentMethod] || data.paymentMethod}`);
   
   if (data.paymentMethod === "cash") {
-    lines.push(`💵 Reçu: ${fPrice(data.amountPaid)}`);
+    lines.push(`Reçu: ${fPrice(data.amountPaid)}`);
     if (data.change > 0) {
-      lines.push(`🔄 Monnaie: ${fPrice(data.change)}`);
+      lines.push(`Monnaie: ${fPrice(data.change)}`);
     }
   }
   
   lines.push("");
-  lines.push("━━━━━━━━━━━━━━━━━");
-  lines.push("✨ *Merci de votre confiance!* ✨");
+  lines.push("-----------------");
+  lines.push("*Merci de votre confiance !*");
   lines.push("À bientôt!");
   
   return lines.join("\n");

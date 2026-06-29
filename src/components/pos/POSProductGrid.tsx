@@ -39,7 +39,7 @@ export const POSProductGrid = memo(({ products, onAddToCart }: POSProductGridPro
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <span className="text-4xl">{product.categories?.icon || "📦"}</span>
+                <Package className="h-10 w-10 text-muted-foreground" />
               )}
             </div>
             <CardContent className="p-3">

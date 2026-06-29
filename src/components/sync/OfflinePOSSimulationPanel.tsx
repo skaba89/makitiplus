@@ -250,7 +250,7 @@ export const OfflinePOSSimulationPanel = () => {
             </div>
           </div>
           <div className="rounded-lg border border-primary/40 p-3">
-            <div className="text-xs text-primary">✓ Synchronisées</div>
+            <div className="text-xs text-primary flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Synchronisées</div>
             <div className="text-xl font-bold text-primary" data-testid="synced-count">
               {syncedCount}
             </div>
@@ -287,9 +287,9 @@ export const OfflinePOSSimulationPanel = () => {
               )}
             </div>
             <ul className="text-sm space-y-1">
-              <li>📦 Ventes locales : <strong>{report.totalLocal}</strong></li>
-              <li>✅ Insérées côté serveur : <strong className="text-primary">{report.inserted}</strong></li>
-              <li>🔁 Doublons bloqués (idempotence) : <strong>{report.duplicates}</strong></li>
+              <li>Ventes locales : <strong>{report.totalLocal}</strong></li>
+              <li>Insérées côté serveur : <strong className="text-primary">{report.inserted}</strong></li>
+              <li>Doublons bloqués (idempotence) : <strong>{report.duplicates}</strong></li>
               <li>⏱ Durée : <strong>{report.durationMs} ms</strong></li>
             </ul>
             {report.failed > 0 && (
@@ -334,7 +334,7 @@ export const OfflinePOSSimulationPanel = () => {
                       )}
                       {s.status === "duplicate" && (
                         <Badge variant="outline" className="border-destructive/50 text-destructive">
-                          🔁 dédupliqué
+                          dédupliqué
                         </Badge>
                       )}
                     </TableCell>

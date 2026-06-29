@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,7 +9,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, FolderOpen, Pencil, Trash2, Loader2, GripVertical, Search, ArrowUpDown, Tag } from "lucide-react";
+import { Plus, FolderOpen, Pencil, Trash2, Loader2, Search, ArrowUpDown, Tag, Package, Wheat, CupSoda, Sparkles, Brush, Wrench, Smartphone, Shirt, Croissant, Leaf, Drumstick, Snowflake } from "lucide-react";
+
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  Package, Wheat, CupSoda, Sparkles, Brush, Wrench, Smartphone, Shirt, Croissant, Leaf, Drumstick, Snowflake,
+};
+
 import {
   Dialog,
   DialogContent,
@@ -34,11 +39,7 @@ type Category = Database["public"]["Tables"]["categories"]["Row"] & {
 };
 type CategoryInsert = Database["public"]["Tables"]["categories"]["Insert"];
 
-const PRESET_ICONS = [
-  "📦", "🍚", "🥤", "🧴", "🧹", "🔧", "📱", "👕", "🍞", "🥬", "🍗", "🧊",
-  "☕", "💊", "🏠", "🍼", "🎮", "🎁", "📚", "⚽", "💍", "🛒", "🍖", "🍝",
-  "🥩", "🐟", "🧈", "🫒", "🧂", "🍯"
-];
+const PRESET_ICONS = ["Package", "Wheat", "CupSoda", "Sparkles", "Brush", "Wrench", "Smartphone", "Shirt", "Croissant", "Leaf", "Drumstick", "Snowflake"];
 const PRESET_COLORS = [
   "#E57E4D", "#F59E0B", "#10B981", "#3B82F6", "#8B5CF6",
   "#EC4899", "#EF4444", "#6366F1", "#14B8A6", "#F97316",
@@ -57,7 +58,7 @@ const Categories = () => {
 
   const [formData, setFormData] = useState({
     name: "",
-    icon: "📦",
+    icon: "Package",
     color: "#E57E4D",
     description: "",
   });
@@ -166,13 +167,13 @@ const Categories = () => {
       setSelectedCategory(category);
       setFormData({
         name: category.name,
-        icon: category.icon || "📦",
+        icon: category.icon || "Package",
         color: category.color || "#E57E4D",
         description: (category as any).description || "",
       });
     } else {
       setSelectedCategory(null);
-      setFormData({ name: "", icon: "📦", color: "#E57E4D", description: "" });
+      setFormData({ name: "", icon: "Package", color: "#E57E4D", description: "" });
     }
     setIsFormOpen(true);
   };
@@ -180,7 +181,7 @@ const Categories = () => {
   const handleCloseForm = () => {
     setIsFormOpen(false);
     setSelectedCategory(null);
-    setFormData({ name: "", icon: "📦", color: "#E57E4D", description: "" });
+    setFormData({ name: "", icon: "Package", color: "#E57E4D", description: "" });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -295,10 +296,10 @@ const Categories = () => {
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
                         <div
-                          className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl"
+                          className="w-12 h-12 rounded-xl flex items-center justify-center"
                           style={{ backgroundColor: `${category.color}20` }}
                         >
-                          {category.icon}
+                          {category.icon && ICON_MAP[category.icon] ? React.createElement(ICON_MAP[category.icon], { className: "h-6 w-6" }) : <Package className="h-6 w-6" />}
                         </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
@@ -410,20 +411,23 @@ const Categories = () => {
               <div className="space-y-2">
                 <Label>Icône</Label>
                 <div className="flex flex-wrap gap-2">
-                  {PRESET_ICONS.map((icon) => (
+                  {PRESET_ICONS.map((iconName) => {
+                    const IconComp = ICON_MAP[iconName];
+                    return (
                     <button
-                      key={icon}
+                      key={iconName}
                       type="button"
-                      onClick={() => setFormData({ ...formData, icon })}
-                      className={`w-10 h-10 rounded-lg text-xl flex items-center justify-center transition-all ${
-                        formData.icon === icon
+                      onClick={() => setFormData({ ...formData, icon: iconName })}
+                      className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
+                        formData.icon === iconName
                           ? "bg-primary/20 ring-2 ring-primary"
                           : "bg-muted hover:bg-muted/80"
                       }`}
                     >
-                      {icon}
+                      {IconComp ? <IconComp className="h-5 w-5" /> : <Package className="h-5 w-5" />}
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -458,10 +462,10 @@ const Categories = () => {
                 <p className="text-sm text-muted-foreground mb-2">Aperçu</p>
                 <div className="flex items-center gap-3">
                   <div
-                    className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl"
+                    className="w-12 h-12 rounded-xl flex items-center justify-center"
                     style={{ backgroundColor: `${formData.color}20` }}
                   >
-                    {formData.icon}
+                    {formData.icon && ICON_MAP[formData.icon] ? React.createElement(ICON_MAP[formData.icon], { className: "h-6 w-6" }) : <Package className="h-6 w-6" />}
                   </div>
                   <div>
                     <span className="font-medium block">

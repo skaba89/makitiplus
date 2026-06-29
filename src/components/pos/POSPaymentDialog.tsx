@@ -14,7 +14,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import { Loader2, Banknote, Smartphone, CreditCard, Clock } from "lucide-react";
+import { Loader2, Banknote, Smartphone, CreditCard, Clock, AlertTriangle} from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
 import { useCurrency } from "@/hooks/useCurrency";
 
@@ -175,7 +175,7 @@ export const POSPaymentDialog = ({
 
               <TabsContent value="credit" className="space-y-4 mt-4">
                 <p className="text-sm text-warning bg-warning/10 p-3 rounded-lg">
-                  ⚠️ Vente à crédit - Le client paiera plus tard
+                  <span className="flex items-center gap-1.5"><AlertTriangle className="h-4 w-4" /> Vente à crédit - Le client paiera plus tard</span>
                 </p>
                 <div className="space-y-2">
                   <Label>Nom du client *</Label>

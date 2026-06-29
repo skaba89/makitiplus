@@ -21,6 +21,7 @@ import {
 import {
   WifiOff, Wifi, QrCode, RefreshCcw, CheckCircle2, AlertTriangle,
   Trash2, Webhook, Smartphone, Undo2, ShieldCheck,
+  XCircle, RotateCcw, Timer,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -253,19 +254,19 @@ export const MobileMoneySimulationPanel = () => {
             <div className="font-bold" data-testid="mm-pending">{counts.pending}</div>
           </div>
           <div className="rounded-lg border p-2 text-center">
-            <div className="text-xs text-muted-foreground">⏱ Webhook</div>
+            <div className="text-xs text-muted-foreground flex items-center justify-center gap-1"><Timer className="h-3 w-3" /> Webhook</div>
             <div className="font-bold">{counts.awaiting}</div>
           </div>
           <div className="rounded-lg border border-primary/40 p-2 text-center">
-            <div className="text-xs text-primary">✓ Succès</div>
+            <div className="text-xs text-primary flex items-center justify-center gap-1"><CheckCircle2 className="h-3 w-3" /> Succès</div>
             <div className="font-bold text-primary" data-testid="mm-success">{counts.success}</div>
           </div>
           <div className="rounded-lg border border-destructive/40 p-2 text-center">
-            <div className="text-xs text-destructive">✗ Échec</div>
+            <div className="text-xs text-destructive flex items-center justify-center gap-1"><XCircle className="h-3 w-3" /> Échec</div>
             <div className="font-bold text-destructive" data-testid="mm-failed">{counts.failed}</div>
           </div>
           <div className="rounded-lg border p-2 text-center">
-            <div className="text-xs text-muted-foreground">↩ Remboursés</div>
+            <div className="text-xs text-muted-foreground flex items-center justify-center gap-1"><RotateCcw className="h-3 w-3" /> Remboursés</div>
             <div className="font-bold" data-testid="mm-refunded">{counts.refunded}</div>
           </div>
         </div>

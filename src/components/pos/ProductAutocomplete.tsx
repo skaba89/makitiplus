@@ -136,7 +136,7 @@ export const ProductAutocomplete = ({
                       {product.image_url ? (
                         <img src={product.image_url} alt="" className="w-full h-full object-cover" />
                       ) : (
-                        <span className="text-xl">{product.categories?.icon || "📦"}</span>
+                        <Package className="h-5 w-5 text-muted-foreground" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">

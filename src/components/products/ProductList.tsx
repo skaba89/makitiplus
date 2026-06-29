@@ -3,7 +3,7 @@ import { Database } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash2, AlertTriangle, Printer, Warehouse, History } from "lucide-react";
+import { Edit, Trash2, AlertTriangle, Printer, Warehouse, History, Package} from "lucide-react";
 import { BarcodeLabelPrinter } from "./BarcodeLabelPrinter";
 import {
   AlertDialog,
@@ -51,7 +51,7 @@ export const ProductList = memo(({ products, onEdit, onDelete, onStockAdjust, on
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <span className="text-6xl">{product.categories?.icon || "📦"}</span>
+                <Package className="h-16 w-16 text-muted-foreground" />
               )}
               {/* Stock badge overlay */}
               <div className="absolute top-2 right-2">

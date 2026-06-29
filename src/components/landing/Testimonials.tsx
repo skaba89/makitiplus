@@ -1,24 +1,27 @@
-import { Star } from "lucide-react";
+import { Star, User, Stethoscope, ChefHat } from "lucide-react";
 
 const testimonials = [
   {
     name: "Mama Fatou Diallo",
     business: "Boutique Fatou, Dakar",
-    image: "👩🏿‍💼",
+    image: "businesswoman",
+    Icon: User,
     content: "Avant j'utilisais un cahier. Maintenant je vois mes ventes en temps réel sur mon téléphone. Même quand le réseau coupe, ça continue de marcher !",
     rating: 5,
   },
   {
     name: "Ibrahim Koné",
     business: "Pharmacie Santé Plus, Abidjan",
-    image: "👨🏿‍⚕️",
+    image: "doctor",
+    Icon: Stethoscope,
     content: "Le suivi des dates de péremption m'a fait économiser beaucoup. Plus de médicaments perdus. L'alerte stock bas est géniale.",
     rating: 5,
   },
   {
     name: "Grace Mensah",
     business: "Restaurant La Terrasse, Accra",
-    image: "👩🏿‍🍳",
+    image: "chef",
+    Icon: ChefHat,
     content: "Mes serveurs apprennent en 5 minutes. Les gros boutons c'est parfait. Le paiement Wave marche très bien avec les clients.",
     rating: 5,
   },
@@ -64,8 +67,8 @@ export const Testimonials = () => {
 
               {/* Author */}
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center text-2xl">
-                  {testimonial.image}
+                <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center">
+                  {testimonial.Icon ? <testimonial.Icon className="h-6 w-6 text-primary" /> : <User className="h-6 w-6 text-primary" />}
                 </div>
                 <div>
                   <p className="font-semibold">{testimonial.name}</p>

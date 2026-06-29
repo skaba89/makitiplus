@@ -98,7 +98,7 @@ function runScenario(s: Scenario, previous: number, localDelta: number, remoteDe
       { label: `3. Δ distant = ${remoteDelta} → stock distant = ${remoteNew}`, status: "info" },
       { label: `4. Fusion : remote + (local - previous) = ${remoteNew} + (${localNew} - ${previous}) = ${resolved}`, status: "ok" },
       { label: `5. Résultat attendu (somme des deltas) : ${expected}`, status: noLoss ? "ok" : "info",
-        detail: noLoss ? "✓ Aucune perte" : "⚠ Borne min 0 appliquée (rupture stock)" },
+        detail: noLoss ? "Aucune perte" : "Borne min 0 appliquée (rupture stock)" },
     ],
     noLoss,
     expected,

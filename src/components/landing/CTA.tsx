@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Phone } from "lucide-react";
+import { ArrowRight, Phone, Globe } from "lucide-react";
 
 export const CTA = () => {
   return (
@@ -35,7 +35,7 @@ export const CTA = () => {
             </div>
 
             <p className="text-sm text-primary-foreground/70 mt-8">
-              🌍 Disponible au Sénégal, Côte d'Ivoire, Mali, Burkina Faso, Ghana, Nigeria, Kenya et RDC
+              <span className="flex items-center justify-center gap-1.5"><Globe className="h-4 w-4" /> Disponible au Sénégal, Côte d'Ivoire, Mali, Burkina Faso, Ghana, Nigeria, Kenya et RDC</span>
             </p>
           </div>
         </div>

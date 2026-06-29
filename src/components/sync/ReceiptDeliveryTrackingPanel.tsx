@@ -18,6 +18,7 @@ import {
   Send, MessageCircle, MessageSquare, RefreshCw, CheckCircle2,
   Clock, AlertTriangle, Trash2, WifiOff, Wifi, Download, FileText,
   ArrowDownAZ, ArrowUpAZ, Languages, Hourglass, Ban, Copy, Archive, GitMerge, Eye, Undo2,
+  XCircle, RotateCcw,
 } from "lucide-react";
 import {
   getQueue, retryOne, removeOne, isOnline, MAX_ATTEMPTS,
@@ -256,14 +257,14 @@ export const ReceiptDeliveryTrackingPanel = () => {
     });
     setSyncProgress(null);
     refresh();
-    toast({ title: dict.retryAll, description: `✓${r.sent} ✗${r.failed} ↺${r.skipped} ⏳${r.deferred}` });
+    toast({ title: dict.retryAll, description: `Envoyés: ${r.sent} | Échoués: ${r.failed} | Ignorés: ${r.skipped} | En attente: ${r.deferred}` });
   };
 
   const handleBulkRetry = () => {
     if (selected.size === 0) { toast({ title: dict.noneSelected }); return; }
     const r = retryMany(Array.from(selected));
     refresh();
-    toast({ title: dict.bulkRetry, description: `✓${r.sent} ✗${r.failed} ↺${r.skipped}` });
+    toast({ title: dict.bulkRetry, description: `Envoyés: ${r.sent} | Échoués: ${r.failed} | Ignorés: ${r.skipped}` });
     setSelected(new Set());
   };
 
@@ -342,7 +343,7 @@ export const ReceiptDeliveryTrackingPanel = () => {
     refresh();
     toast({
       title: dict.remoteMerged,
-      description: `±${report.conflictsResolved} +${report.addedFromRemote}${ghostsPurged.length ? ` 👻${ghostsPurged.length}` : ""}`,
+      description: `±${report.conflictsResolved} +${report.addedFromRemote}${ghostsPurged.length ? ` ${ghostsPurged.length}` : ""}`,
     });
     return report;
   };
@@ -397,10 +398,10 @@ export const ReceiptDeliveryTrackingPanel = () => {
             </div>
           </div>
           <div className="flex gap-2 text-xs flex-wrap">
-            <span data-testid="rt-count-pending">⏳ {counts.pending} {dict.pending}</span>
-            <span data-testid="rt-count-sent" className="text-primary">✓ {counts.sent} {dict.sent}</span>
-            <span data-testid="rt-count-failed" className="text-destructive">✗ {counts.failed} {dict.failed}</span>
-            <span className="text-muted-foreground">↺ {counts.duplicate} {dict.duplicate}</span>
+            <span data-testid="rt-count-pending" className="flex items-center gap-1"><Hourglass className="h-3 w-3" /> {counts.pending} {dict.pending}</span>
+            <span data-testid="rt-count-sent" className="text-primary flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> {counts.sent} {dict.sent}</span>
+            <span data-testid="rt-count-failed" className="text-destructive flex items-center gap-1"><XCircle className="h-3 w-3" /> {counts.failed} {dict.failed}</span>
+            <span className="text-muted-foreground flex items-center gap-1"><RotateCcw className="h-3 w-3" /> {counts.duplicate} {dict.duplicate}</span>
           </div>
         </div>
 
@@ -487,8 +488,8 @@ export const ReceiptDeliveryTrackingPanel = () => {
                 <RefreshCw className="h-3 w-3 animate-spin" /> {dict.syncing}
               </span>
               <span className="text-muted-foreground">
-                <span className="text-primary">✓{syncProgress.sent}</span>{" "}
-                <span className="text-destructive">✗{syncProgress.failed}</span>{" "}
+                <span className="text-primary flex items-center gap-0.5"><CheckCircle2 className="h-3 w-3" />{syncProgress.sent}</span>{" "}
+                <span className="text-destructive flex items-center gap-0.5"><XCircle className="h-3 w-3" />{syncProgress.failed}</span>{" "}
                 · {syncProgress.processed}/{Math.max(1, syncProgress.total)}{" "}
                 <span className="opacity-70">{dict.syncProgress}</span>
               </span>

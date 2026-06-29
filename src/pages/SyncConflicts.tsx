@@ -239,7 +239,7 @@ const SyncConflicts = () => {
               <CardContent className="space-y-2">
                 {rows.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
-                    Aucun conflit enregistré — synchronisation 100 % propre 🎉
+                    Aucun conflit enregistré — synchronisation 100 % propre
                   </div>
                 ) : (
                   rows.map((r) => {
@@ -397,7 +397,7 @@ const SyncConflicts = () => {
                         {rows.length === 0 && (
                           <TableRow>
                             <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
-                              Aucun conflit {tab === "unack" ? "non acquitté" : ""} 🎉
+                              Aucun conflit {tab === "unack" ? "non acquitté" : ""}
                             </TableCell>
                           </TableRow>
                         )}

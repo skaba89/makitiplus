@@ -1,3 +1,4 @@
+import React from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +15,12 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   AlertTriangle,
+  Wheat, CupSoda, Sparkles, Brush, Wrench, Smartphone, Shirt, Croissant, Leaf, Drumstick, Snowflake,
 } from "lucide-react";
+
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  Package, Wheat, CupSoda, Sparkles, Brush, Wrench, Smartphone, Shirt, Croissant, Leaf, Drumstick, Snowflake,
+};
 import { startOfDay, endOfDay, startOfMonth, endOfMonth } from "date-fns";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -150,7 +156,7 @@ const Dashboard = () => {
       <div className="space-y-8">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
-            Bonjour, {profile?.owner_name?.split(" ")[0] || "Utilisateur"} 👋
+            Bonjour, {profile?.owner_name?.split(" ")[0] || "Utilisateur"}
           </h1>
           <p className="text-muted-foreground mt-1">
             Voici un aperçu de votre activité - {userRole && roleLabels[userRole]}
@@ -195,7 +201,7 @@ const Dashboard = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {lowStockProducts.slice(0, 6).map((p: ProductWithCategoryIcon) => (
                   <div key={p.id} className="flex items-center gap-3 p-3 bg-destructive/5 rounded-lg">
-                    <span className="text-xl">{p.categories?.icon || "📦"}</span>
+                    {p.categories?.icon && ICON_MAP[p.categories.icon] ? React.createElement(ICON_MAP[p.categories.icon], { className: "h-5 w-5" }) : <Package className="h-5 w-5" />}
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">{p.name}</p>
                       <p className="text-xs text-destructive">

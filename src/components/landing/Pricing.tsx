@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Check } from "lucide-react";
+import { Check, CreditCard, Smartphone, Lock } from "lucide-react";
 
 const plans = [
   {
@@ -126,7 +126,7 @@ export const Pricing = () => {
 
         {/* Trust note */}
         <p className="text-center text-sm text-muted-foreground mt-12">
-          💳 Paiement sécurisé via Flutterwave • 📱 Mobile Money accepté • 🔒 Données chiffrées
+          <span className="flex items-center justify-center gap-4 flex-wrap"><span className="flex items-center gap-1.5"><CreditCard className="h-4 w-4" /> Paiement sécurisé via Flutterwave</span> <span className="flex items-center gap-1.5"><Smartphone className="h-4 w-4" /> Mobile Money accepté</span> <span className="flex items-center gap-1.5"><Lock className="h-4 w-4" /> Données chiffrées</span></span>
         </p>
       </div>
     </section>

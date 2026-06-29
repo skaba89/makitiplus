@@ -16,7 +16,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Loader2, Plus, Minus, RotateCcw } from "lucide-react";
+import { Loader2, Plus, Minus, RotateCcw, AlertTriangle} from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
 import { useCurrency } from "@/hooks/useCurrency";
 
@@ -191,7 +191,7 @@ export const StockAdjustDialog = ({
             </div>
             {product.min_stock_alert && newQuantity <= product.min_stock_alert && (
               <p className="text-xs text-warning mt-1">
-                ⚠️ En dessous du seuil d'alerte ({product.min_stock_alert})
+                <span className="flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> En dessous du seuil d'alerte ({product.min_stock_alert})</span>
               </p>
             )}
           </div>

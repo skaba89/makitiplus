@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Play, Wifi, WifiOff, Smartphone } from "lucide-react";
+import { ArrowRight, Play, Wifi, WifiOff, Smartphone, ShoppingCart as CartIcon, Package, BarChart3, Users, Banknote, QrCode } from "lucide-react";
 
 export const Hero = () => {
   return (
@@ -114,25 +114,25 @@ export const Hero = () => {
                       <div className="grid grid-cols-2 gap-2">
                         <Button variant="touch" className="flex-col h-20 gap-1">
                           <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                            <span className="text-lg">🛒</span>
+                            <CartIcon className="w-5 h-5" />
                           </div>
                           <span className="text-xs font-medium">Nouvelle vente</span>
                         </Button>
                         <Button variant="touch" className="flex-col h-20 gap-1">
                           <div className="w-8 h-8 rounded-full bg-success/10 flex items-center justify-center">
-                            <span className="text-lg">📦</span>
+                            <Package className="w-5 h-5" />
                           </div>
                           <span className="text-xs font-medium">Stock</span>
                         </Button>
                         <Button variant="touch" className="flex-col h-20 gap-1">
                           <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center">
-                            <span className="text-lg">📊</span>
+                            <BarChart3 className="w-5 h-5" />
                           </div>
                           <span className="text-xs font-medium">Rapports</span>
                         </Button>
                         <Button variant="touch" className="flex-col h-20 gap-1">
                           <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
-                            <span className="text-lg">👥</span>
+                            <Users className="w-5 h-5" />
                           </div>
                           <span className="text-xs font-medium">Clients</span>
                         </Button>
@@ -146,7 +146,7 @@ export const Hero = () => {
               <div className="absolute -left-16 top-20 card-elevated p-4 shadow-medium animate-fade-in" style={{ animationDelay: "0.3s" }}>
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center">
-                    <span className="text-xl">💰</span>
+                    <Banknote className="w-6 h-6" />
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Paiement reçu</p>
@@ -158,7 +158,7 @@ export const Hero = () => {
               <div className="absolute -right-12 bottom-32 card-elevated p-4 shadow-medium animate-fade-in" style={{ animationDelay: "0.6s" }}>
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center">
-                    <span className="text-xl">📱</span>
+                    <QrCode className="w-6 h-6" />
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Mobile Money</p>

@@ -123,7 +123,7 @@ export const ReceiptDeliveryMergeLogPanel = () => {
       }
       toast.success(`${dict.mergeLogCopied} (${uuids.length})`);
     } catch {
-      toast.error(dict.mergeLogCopied + " ✕");
+      toast.error(dict.mergeLogCopied);
     }
   };
 

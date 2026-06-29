@@ -38,7 +38,7 @@
  } from "@/components/ui/table";
  import { Badge } from "@/components/ui/badge";
  import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, Wallet, TrendingDown, Calendar, Loader2 } from "lucide-react";
+import { Plus, Trash2, Wallet, TrendingDown, Calendar, Loader2, Home, Zap, Droplets, Globe, Phone, ShoppingCart as CartIcon, Car, Users, Wrench, ClipboardList, Package } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Database } from "@/integrations/supabase/types";
@@ -48,17 +48,17 @@ import { useCurrency } from "@/hooks/useCurrency";
  type PaymentMethod = Database["public"]["Enums"]["payment_method"];
  
  const EXPENSE_CATEGORIES = [
-   { value: "loyer", label: "🏠 Loyer", color: "bg-blue-100 text-blue-800" },
-   { value: "electricite", label: "⚡ Électricité", color: "bg-yellow-100 text-yellow-800" },
-   { value: "eau", label: "💧 Eau", color: "bg-cyan-100 text-cyan-800" },
-   { value: "internet", label: "🌐 Internet", color: "bg-purple-100 text-purple-800" },
-   { value: "telephone", label: "📱 Téléphone", color: "bg-indigo-100 text-indigo-800" },
-   { value: "achats", label: "🛒 Achats/Stock", color: "bg-green-100 text-green-800" },
-   { value: "transport", label: "🚗 Transport", color: "bg-orange-100 text-orange-800" },
-   { value: "salaires", label: "👥 Salaires", color: "bg-pink-100 text-pink-800" },
-   { value: "maintenance", label: "🔧 Maintenance", color: "bg-gray-100 text-gray-800" },
-   { value: "taxes", label: "📋 Taxes/Impôts", color: "bg-red-100 text-red-800" },
-   { value: "autre", label: "📦 Autre", color: "bg-slate-100 text-slate-800" },
+   { value: "loyer", label: "Loyer", icon: Home, color: "bg-blue-100 text-blue-800" },
+   { value: "electricite", label: "Électricité", icon: Zap, color: "bg-yellow-100 text-yellow-800" },
+   { value: "eau", label: "Eau", icon: Droplets, color: "bg-cyan-100 text-cyan-800" },
+   { value: "internet", label: "Internet", icon: Globe, color: "bg-purple-100 text-purple-800" },
+   { value: "telephone", label: "Téléphone", icon: Phone, color: "bg-indigo-100 text-indigo-800" },
+   { value: "achats", label: "Achats/Stock", icon: CartIcon, color: "bg-green-100 text-green-800" },
+   { value: "transport", label: "Transport", icon: Car, color: "bg-orange-100 text-orange-800" },
+   { value: "salaires", label: "Salaires", icon: UsersIcon, color: "bg-pink-100 text-pink-800" },
+   { value: "maintenance", label: "Maintenance", icon: Wrench, color: "bg-gray-100 text-gray-800" },
+   { value: "taxes", label: "Taxes/Impôts", icon: ClipboardList, color: "bg-red-100 text-red-800" },
+   { value: "autre", label: "Autre", icon: Package, color: "bg-slate-100 text-slate-800" },
  ];
  
  const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
