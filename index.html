@@ -1,19 +1,26 @@
 <!doctype html>
-<html lang="en">
+<html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
     <title>MakitiPlus — Caisse mobile hors-ligne pour l'Afrique</title>
     <meta name="description" content="MakitiPlus : caisse mobile hors-ligne pour commerces africains. Ventes, stock, clients et reçus, même sans réseau." />
     <meta name="author" content="MakitiPlus" />
 
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#0F172A" />
+    <meta name="theme-color" content="#E8612D" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0F172A" media="(prefers-color-scheme: dark)" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/icon-152.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icon-192.png" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="MakitiPlus" />
+
+    <!-- Preconnect to Supabase for faster API calls -->
+    <link rel="preconnect" href="https://exxntkuursgwhxvehekr.supabase.co" />
+    <link rel="dns-prefetch" href="https://exxntkuursgwhxvehekr.supabase.co" />
 
     <meta property="og:title" content="MakitiPlus — Caisse mobile hors-ligne" />
     <meta property="og:description" content="Caisse mobile hors-ligne pour commerces africains. Ventes, stock, clients et reçus, même sans réseau." />

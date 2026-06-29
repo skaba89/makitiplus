@@ -8,6 +8,7 @@ import { installAutoFlush } from "@/lib/receiptDeliveryQueue";
 import { SentryErrorBoundary } from "@/lib/sentry";
 import { toast as sonnerToast } from "sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { OfflineProvider } from "@/contexts/OfflineContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
@@ -91,6 +92,7 @@ const App = () => {
   <QueryClientProvider client={queryClient}>
     <SentryErrorBoundary fallback={<ErrorFallback />}>
     <AuthProvider>
+    <OfflineProvider>
       <TooltipProvider>
         <Toaster />
         <Sonner />
@@ -195,6 +197,7 @@ const App = () => {
           </Routes>
         </BrowserRouter>
       </TooltipProvider>
+    </OfflineProvider>
     </AuthProvider>
     </SentryErrorBoundary>
   </QueryClientProvider>

@@ -29,6 +29,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { MobileBottomNav } from "./MobileBottomNav";
+import { OfflineIndicator, OfflineBanner } from "@/components/ui/offline-indicator";
+import { PWAInstallPrompt } from "@/components/ui/pwa-install-prompt";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -136,6 +139,9 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Offline Banner */}
+      <OfflineBanner />
+
       {/* Mobile Header */}
       <header className="lg:hidden fixed top-0 left-0 right-0 z-50 glass h-16 flex items-center justify-between px-4">
         <button
@@ -153,32 +159,35 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           <span className="font-bold">MakitiPlus</span>
         </div>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="rounded-full" aria-label="Menu utilisateur">
-              <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>
-              <div className="flex flex-col">
-                <span>{profile?.owner_name || "Utilisateur"}</span>
-                <span className="text-xs font-normal text-muted-foreground">
-                  {userRole && roleLabels[userRole]}
-                </span>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
-              <LogOut className="mr-2 h-4 w-4" />
-              Déconnexion
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center gap-2">
+          <OfflineIndicator />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="rounded-full" aria-label="Menu utilisateur">
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>
+                <div className="flex flex-col">
+                  <span>{profile?.owner_name || "Utilisateur"}</span>
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {userRole && roleLabels[userRole]}
+                  </span>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
+                <LogOut className="mr-2 h-4 w-4" />
+                Déconnexion
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </header>
 
       {/* Sidebar */}
@@ -189,18 +198,22 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         )}
       >
         {/* Logo */}
-        <div className="h-16 flex items-center gap-3 px-6 border-b border-sidebar-border">
-          <div className="w-10 h-10 rounded-xl bg-hero-gradient flex items-center justify-center">
-            <span className="text-xl font-bold text-primary-foreground">M</span>
+        <div className="h-16 flex items-center justify-between gap-3 px-6 border-b border-sidebar-border">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-hero-gradient flex items-center justify-center">
+              <span className="text-xl font-bold text-primary-foreground">M</span>
+            </div>
+            <div>
+              <span className="font-bold text-sidebar-foreground">MakitiPlus</span>
+              <p className="text-xs text-muted-foreground">{profile?.business_name}</p>
+            </div>
           </div>
-          <div>
-            <span className="font-bold text-sidebar-foreground">MakitiPlus</span>
-            <p className="text-xs text-muted-foreground">{profile?.business_name}</p>
-          </div>
+          {/* Online indicator in sidebar header */}
+          <OfflineIndicator />
         </div>
 
         {/* Navigation */}
-        <nav className="p-4 space-y-1">
+        <nav className="p-4 space-y-1 overflow-y-auto" style={{ maxHeight: "calc(100vh - 140px)" }}>
           {filteredMenuItems.map((item) => {
             const isActive = location.pathname === item.href;
             return (
@@ -268,8 +281,14 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
       {/* Main content */}
       <main className="lg:ml-64 min-h-screen pt-16 lg:pt-0">
-        <div className="p-4 lg:p-8">{children}</div>
+        <div className="p-4 lg:p-8 pb-24 lg:pb-8">{children}</div>
       </main>
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav />
+
+      {/* PWA Install Prompt */}
+      <PWAInstallPrompt />
     </div>
   );
 };

@@ -41,6 +41,7 @@ export default defineConfig(({ mode }) => ({
         navigateFallbackDenylist: [/^\/~oauth/, /^\/api\//],
         globPatterns: ["**/*.{js,css,html,svg,png,ico,webmanifest,woff2}"],
         runtimeCaching: [
+          // HTML navigations — NetworkFirst for fresh content
           {
             urlPattern: ({ request }) => request.mode === "navigate",
             handler: "NetworkFirst",
@@ -50,6 +51,7 @@ export default defineConfig(({ mode }) => ({
               expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 7 },
             },
           },
+          // Static assets — CacheFirst for performance
           {
             urlPattern: ({ url, sameOrigin }) =>
               sameOrigin && /\.(?:js|css|woff2|png|svg|ico)$/.test(url.pathname),
@@ -58,6 +60,29 @@ export default defineConfig(({ mode }) => ({
               cacheName: "static-assets",
               expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
             },
+          },
+          // Supabase REST API (GET only) — NetworkFirst with cache fallback
+          // This caches API responses so the app works offline via IndexedDB fallback
+          {
+            urlPattern: ({ url }) =>
+              url.hostname.includes("supabase.co") &&
+              url.pathname.includes("/rest/v1/"),
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "supabase-api",
+              networkTimeoutSeconds: 5,
+              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
+          // Supabase Auth — NetworkOnly (never cache auth tokens)
+          {
+            urlPattern: ({ url }) =>
+              url.hostname.includes("supabase.co") &&
+              url.pathname.includes("/auth/v1/"),
+            handler: "NetworkOnly",
           },
         ],
       },

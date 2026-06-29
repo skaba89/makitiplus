@@ -13,5 +13,10 @@ runMigrations().catch(() => {
   console.warn("[MalikiPlus] IndexedDB migration failed, falling back to localStorage");
 });
 
+// Initialize the offline queue DB (creates v2 stores if needed)
+import("./lib/offlineQueue").catch(() => {
+  console.warn("[MalikiPlus] Offline queue initialization failed");
+});
+
 createRoot(document.getElementById("root")!).render(<App />);
 registerServiceWorker();
