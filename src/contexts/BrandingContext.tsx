@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
 import { useAuth } from "./AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { reportError } from "@/lib/sentry";
 
 export interface BrandingConfig {
   appName: string;
@@ -230,7 +231,7 @@ export const BrandingProvider = ({ children }: { children: ReactNode }) => {
           .eq("user_id", user!.id);
       }
     } catch (err) {
-      console.error("[Branding] Failed to save:", err);
+      reportError(err instanceof Error ? err : new Error('[Branding] Failed to save: ' + String(err)));
       // Revert on error
       setBranding(branding);
       throw err;

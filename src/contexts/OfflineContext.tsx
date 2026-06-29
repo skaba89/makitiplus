@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
 import { toast } from "@/hooks/use-toast";
+import { reportError } from "@/lib/sentry";
 
 interface OfflineContextType {
   isOnline: boolean;
@@ -98,7 +99,7 @@ export const OfflineProvider = ({ children }: { children: ReactNode }) => {
       }
       await refreshPendingCount();
     } catch (err) {
-      console.error("[Offline] Sync failed:", err);
+      reportError(err instanceof Error ? err : new Error('[Offline] Sync failed: ' + String(err)));
     } finally {
       setIsSyncing(false);
     }

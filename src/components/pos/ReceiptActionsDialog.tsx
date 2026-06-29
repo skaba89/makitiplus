@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Download, MessageCircle, Check, Copy, MessageSquare, WifiOff, Send } from "lucide-react";
+import { Download, MessageCircle, Check, Copy, MessageSquare, WifiOff, Send, CircleCheck, Clock } from "lucide-react";
 import {
   ReceiptData,
   downloadReceipt,
@@ -169,11 +169,11 @@ export const ReceiptActionsDialog = ({
               variant="outline"
               className={online ? "border-primary/50 text-primary" : "border-accent/50 text-accent-foreground"}
             >
-              {online ? "🟢 En ligne" : <><WifiOff className="h-3 w-3 mr-1" /> Hors ligne</>}
+              {online ? <><CircleCheck className="h-3 w-3 mr-1 text-green-500" /> En ligne</> : <><WifiOff className="h-3 w-3 mr-1" /> Hors ligne</>}
             </Badge>
             {pending > 0 && (
               <span className="text-muted-foreground">
-                ⏳ {pending} ticket(s) en attente
+                <Clock className="h-3 w-3 inline mr-1" />{pending} ticket(s) en attente
               </span>
             )}
           </div>

@@ -55,7 +55,7 @@ import { useCurrency } from "@/hooks/useCurrency";
    { value: "telephone", label: "Téléphone", icon: Phone, color: "bg-indigo-100 text-indigo-800" },
    { value: "achats", label: "Achats/Stock", icon: CartIcon, color: "bg-green-100 text-green-800" },
    { value: "transport", label: "Transport", icon: Car, color: "bg-orange-100 text-orange-800" },
-   { value: "salaires", label: "Salaires", icon: UsersIcon, color: "bg-pink-100 text-pink-800" },
+   { value: "salaires", label: "Salaires", icon: Users, color: "bg-pink-100 text-pink-800" },
    { value: "maintenance", label: "Maintenance", icon: Wrench, color: "bg-gray-100 text-gray-800" },
    { value: "taxes", label: "Taxes/Impôts", icon: ClipboardList, color: "bg-red-100 text-red-800" },
    { value: "autre", label: "Autre", icon: Package, color: "bg-slate-100 text-slate-800" },

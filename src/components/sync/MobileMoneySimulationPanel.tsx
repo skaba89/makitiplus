@@ -21,7 +21,7 @@ import {
 import {
   WifiOff, Wifi, QrCode, RefreshCcw, CheckCircle2, AlertTriangle,
   Trash2, Webhook, Smartphone, Undo2, ShieldCheck,
-  XCircle, RotateCcw, Timer,
+  XCircle, RotateCcw, Timer, Clock,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -177,9 +177,9 @@ export const MobileMoneySimulationPanel = () => {
 
   const StatusBadge = ({ status }: { status: MMStatus }) => {
     if (status === "pending_sync")
-      return <Badge variant="outline" className="border-accent/50 text-accent-foreground">⏳ sync pending</Badge>;
+      return <Badge variant="outline" className="border-accent/50 text-accent-foreground"><Clock className="h-3 w-3 inline mr-1" />sync pending</Badge>;
     if (status === "awaiting_webhook")
-      return <Badge variant="outline">⏱ awaiting webhook</Badge>;
+      return <Badge variant="outline"><Timer className="h-3 w-3 mr-1" />awaiting webhook</Badge>;
     if (status === "success")
       return <Badge variant="outline" className="border-primary/50 text-primary"><CheckCircle2 className="h-3 w-3 mr-1" /> succès</Badge>;
     if (status === "failed")
@@ -250,7 +250,7 @@ export const MobileMoneySimulationPanel = () => {
         {/* KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
           <div className="rounded-lg border p-2 text-center">
-            <div className="text-xs text-muted-foreground">⏳ Sync pending</div>
+            <div className="text-xs text-muted-foreground"><Clock className="h-3 w-3 inline mr-1" />Sync pending</div>
             <div className="font-bold" data-testid="mm-pending">{counts.pending}</div>
           </div>
           <div className="rounded-lg border p-2 text-center">

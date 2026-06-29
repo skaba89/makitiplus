@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode, useCallback 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { reportError } from "@/lib/sentry";
 
 export interface StoreSettings {
   id: string;
@@ -111,7 +112,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
         .maybeSingle();
 
       if (error) {
-        console.error("Error fetching store settings:", error);
+        reportError(new Error('Error fetching store settings: ' + error.message));
         return null;
       }
 
@@ -127,7 +128,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
           .single();
 
         if (insertError) {
-          console.error("Error creating store settings:", insertError);
+          reportError(new Error('Error creating store settings: ' + insertError.message));
           return null;
         }
         return newSettings as StoreSettings;

@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Clock } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -244,7 +245,7 @@ export const OfflinePOSSimulationPanel = () => {
             <div className="text-xl font-bold">{sales.length}</div>
           </div>
           <div className="rounded-lg border border-accent/40 p-3">
-            <div className="text-xs text-accent-foreground">⏳ En attente sync</div>
+            <div className="text-xs text-accent-foreground"><Clock className="h-3 w-3 inline mr-1" />En attente sync</div>
             <div className="text-xl font-bold text-accent-foreground" data-testid="pending-count">
               {pendingCount}
             </div>
@@ -290,7 +291,7 @@ export const OfflinePOSSimulationPanel = () => {
               <li>Ventes locales : <strong>{report.totalLocal}</strong></li>
               <li>Insérées côté serveur : <strong className="text-primary">{report.inserted}</strong></li>
               <li>Doublons bloqués (idempotence) : <strong>{report.duplicates}</strong></li>
-              <li>⏱ Durée : <strong>{report.durationMs} ms</strong></li>
+              <li><Clock className="h-3 w-3 inline mr-1" />Durée : <strong>{report.durationMs} ms</strong></li>
             </ul>
             {report.failed > 0 && (
               <div className="flex items-center gap-2 text-destructive text-sm">
@@ -324,7 +325,7 @@ export const OfflinePOSSimulationPanel = () => {
                     <TableCell>
                       {s.status === "pending" && (
                         <Badge variant="outline" className="border-accent/50 text-accent-foreground">
-                          ⏳ sync pending
+                          <Clock className="h-3 w-3 inline mr-1" />sync pending
                         </Badge>
                       )}
                       {s.status === "synced" && (

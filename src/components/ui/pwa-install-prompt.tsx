@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Download, X, Smartphone } from "lucide-react";
+import { reportError } from "@/lib/sentry";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -60,7 +61,7 @@ export const PWAInstallPrompt = () => {
         setIsStandalone(true);
       }
     } catch (err) {
-      console.error("[PWA] Install prompt failed:", err);
+      reportError(err instanceof Error ? err : new Error(String(err)));
     } finally {
       setDeferredPrompt(null);
       setShowPrompt(false);
