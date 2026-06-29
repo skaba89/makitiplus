@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Store, MapPin, Phone, Globe, Smartphone, Nfc, Palette } from "lucide-react";
+import StoreCustomization from "@/components/settings/StoreCustomization";
 import {
   Select,
   SelectContent,
@@ -130,7 +131,7 @@ const Settings = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 max-w-2xl mx-auto">
+      <div className="space-y-6 max-w-4xl mx-auto">
         {/* Header */}
         <div>
           <h1 className="text-2xl font-bold">Paramètres</h1>
@@ -389,7 +390,7 @@ const Settings = () => {
             <TaxSettingsCard />
           </>
         ) : (
-          <BrandingSettings />
+          <StoreCustomization />
         )}
       </div>
     </DashboardLayout>

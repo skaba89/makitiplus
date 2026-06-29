@@ -18,28 +18,37 @@ export type Database = {
         Row: {
           color: string | null
           created_at: string
+          description: string | null
           icon: string | null
           id: string
+          is_default: boolean | null
           name: string
           organization_id: string | null
+          sort_order: number | null
           user_id: string
         }
         Insert: {
           color?: string | null
           created_at?: string
+          description?: string | null
           icon?: string | null
           id?: string
+          is_default?: boolean | null
           name: string
           organization_id?: string | null
+          sort_order?: number | null
           user_id: string
         }
         Update: {
           color?: string | null
           created_at?: string
+          description?: string | null
           icon?: string | null
           id?: string
+          is_default?: boolean | null
           name?: string
           organization_id?: string | null
+          sort_order?: number | null
           user_id?: string
         }
         Relationships: []
@@ -671,6 +680,77 @@ export type Database = {
         }
         Relationships: []
       }
+      store_settings: {
+        Row: {
+          id: string
+          organization_id: string
+          store_name: string | null
+          logo_url: string | null
+          favicon_url: string | null
+          primary_color: string | null
+          secondary_color: string | null
+          accent_color: string | null
+          success_color: string | null
+          template: string | null
+          sidebar_style: string | null
+          card_style: string | null
+          receipt_footer: string | null
+          receipt_show_logo: boolean | null
+          receipt_show_tax: boolean | null
+          extra_settings: Json | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          store_name?: string | null
+          logo_url?: string | null
+          favicon_url?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
+          accent_color?: string | null
+          success_color?: string | null
+          template?: string | null
+          sidebar_style?: string | null
+          card_style?: string | null
+          receipt_footer?: string | null
+          receipt_show_logo?: boolean | null
+          receipt_show_tax?: boolean | null
+          extra_settings?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          store_name?: string | null
+          logo_url?: string | null
+          favicon_url?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
+          accent_color?: string | null
+          success_color?: string | null
+          template?: string | null
+          sidebar_style?: string | null
+          card_style?: string | null
+          receipt_footer?: string | null
+          receipt_show_logo?: boolean | null
+          receipt_show_tax?: boolean | null
+          extra_settings?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -716,6 +796,7 @@ export type Database = {
       }
       is_member_of_organization: { Args: { _org_id: string }; Returns: boolean }
       is_user_active: { Args: { _user_id: string }; Returns: boolean }
+      insert_default_categories: { Args: { p_org_id: string; p_user_id: string }; Returns: undefined }
       resolve_stock_conflict: {
         Args: {
           local_new_qty: number

@@ -10,6 +10,7 @@ import { toast as sonnerToast } from "sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { OfflineProvider } from "@/contexts/OfflineContext";
 import { BrandingProvider } from "@/contexts/BrandingContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
@@ -95,6 +96,7 @@ const App = () => {
     <AuthProvider>
     <OfflineProvider>
     <BrandingProvider>
+    <ThemeProvider>
       <TooltipProvider>
         <Toaster />
         <Sonner />
@@ -199,6 +201,7 @@ const App = () => {
           </Routes>
         </BrowserRouter>
       </TooltipProvider>
+    </ThemeProvider>
     </BrandingProvider>
     </OfflineProvider>
     </AuthProvider>
