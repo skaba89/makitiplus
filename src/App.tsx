@@ -9,6 +9,7 @@ import { SentryErrorBoundary } from "@/lib/sentry";
 import { toast as sonnerToast } from "sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { OfflineProvider } from "@/contexts/OfflineContext";
+import { BrandingProvider } from "@/contexts/BrandingContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
@@ -93,6 +94,7 @@ const App = () => {
     <SentryErrorBoundary fallback={<ErrorFallback />}>
     <AuthProvider>
     <OfflineProvider>
+    <BrandingProvider>
       <TooltipProvider>
         <Toaster />
         <Sonner />
@@ -197,6 +199,7 @@ const App = () => {
           </Routes>
         </BrowserRouter>
       </TooltipProvider>
+    </BrandingProvider>
     </OfflineProvider>
     </AuthProvider>
     </SentryErrorBoundary>

@@ -1,6 +1,7 @@
 import { ReactNode, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBranding } from "@/contexts/BrandingContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -39,6 +40,7 @@ interface DashboardLayoutProps {
 
 export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const { user, userRole, profile, signOut } = useAuth();
+  const { branding } = useBranding();
   const location = useLocation();
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -153,10 +155,14 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         </button>
 
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-hero-gradient flex items-center justify-center">
-            <span className="text-sm font-bold text-primary-foreground">M</span>
+          <div className="w-8 h-8 rounded-lg bg-hero-gradient flex items-center justify-center overflow-hidden">
+            {branding.logoUrl ? (
+              <img src={branding.logoUrl} alt={branding.appName} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-sm font-bold text-primary-foreground">{branding.appName.charAt(0)}</span>
+            )}
           </div>
-          <span className="font-bold">MakitiPlus</span>
+          <span className="font-bold">{branding.appName}</span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -200,11 +206,15 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         {/* Logo */}
         <div className="h-16 flex items-center justify-between gap-3 px-6 border-b border-sidebar-border">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-hero-gradient flex items-center justify-center">
-              <span className="text-xl font-bold text-primary-foreground">M</span>
+            <div className="w-10 h-10 rounded-xl bg-hero-gradient flex items-center justify-center overflow-hidden">
+              {branding.logoUrl ? (
+                <img src={branding.logoUrl} alt={branding.appName} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-xl font-bold text-primary-foreground">{branding.appName.charAt(0)}</span>
+              )}
             </div>
             <div>
-              <span className="font-bold text-sidebar-foreground">MakitiPlus</span>
+              <span className="font-bold text-sidebar-foreground">{branding.appName}</span>
               <p className="text-xs text-muted-foreground">{profile?.business_name}</p>
             </div>
           </div>
