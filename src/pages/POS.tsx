@@ -22,6 +22,8 @@ import { Search, ShoppingCart, Camera } from "lucide-react";
 import { CategoryIcon } from "@/components/ui/category-icon";
 import { Database } from "@/integrations/supabase/types";
 import { ReceiptData } from "@/utils/receiptGenerator";
+import { useBranding } from "@/contexts/BrandingContext";
+import { useThemeSettings } from "@/contexts/ThemeContext";
 
 type Product = Database["public"]["Tables"]["products"]["Row"] & {
   categories?: { name: string; color: string | null; icon: string | null } | null;
@@ -34,6 +36,8 @@ const POS = () => {
   const { toast } = useToast();
   const { currency, formatPrice } = useCurrency();
   const orgTaxRate = useOrgTaxRate();
+  const { branding } = useBranding();
+  const { settings } = useThemeSettings();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const cart = usePOSCartStore((s) => s.items);
@@ -201,6 +205,14 @@ const POS = () => {
         sellerName: profile?.owner_name || undefined,
         currencySymbol: currency.symbol,
         currencyPosition: currency.position,
+        logoUrl: settings?.logo_url || branding.logoUrl,
+        template: branding.receiptTemplate,
+        paperSize: (settings?.extra_settings as Record<string, string>)?.receiptPaperSize as ReceiptData["paperSize"] || "80mm",
+        showLogo: settings?.receipt_show_logo ?? true,
+        showTax: settings?.receipt_show_tax ?? true,
+        footerText: settings?.receipt_footer || undefined,
+        organizationId: profile?.organization_id,
+        taxRate: orgTaxRate,
       };
 
       setLastReceiptData(receiptData);

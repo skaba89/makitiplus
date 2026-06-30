@@ -29,6 +29,7 @@ import {
   Loader2,
   Check,
   Image as ImageIcon,
+  Printer,
 } from "lucide-react";
 
 // Utility: parse HSL string "16 80% 50%" to hex for color input
@@ -107,6 +108,9 @@ const StoreCustomization = () => {
   const [receiptFooter, setReceiptFooter] = useState(settings?.receipt_footer || "");
   const [receiptShowLogo, setReceiptShowLogo] = useState(settings?.receipt_show_logo ?? true);
   const [receiptShowTax, setReceiptShowTax] = useState(settings?.receipt_show_tax ?? true);
+  const [receiptPaperSize, setReceiptPaperSize] = useState<"58mm" | "80mm" | "A4">(
+    (settings?.extra_settings as Record<string, string>)?.receiptPaperSize as "58mm" | "80mm" | "A4" || "80mm"
+  );
 
   // Store name
   const [storeName, setStoreName] = useState(settings?.store_name || profile?.business_name || "");
@@ -225,13 +229,18 @@ const StoreCustomization = () => {
 
   // Save receipt settings
   const handleSaveReceiptSettings = useCallback(async () => {
+    const currentExtra = (settings?.extra_settings as Record<string, unknown>) || {};
     await updateSettings({
       receipt_footer: receiptFooter,
       receipt_show_logo: receiptShowLogo,
       receipt_show_tax: receiptShowTax,
+      extra_settings: {
+        ...currentExtra,
+        receiptPaperSize,
+      },
     });
     toast({ title: "Paramètres de ticket enregistrés" });
-  }, [receiptFooter, receiptShowLogo, receiptShowTax, updateSettings, toast]);
+  }, [receiptFooter, receiptShowLogo, receiptShowTax, receiptPaperSize, settings?.extra_settings, updateSettings, toast]);
 
   // Reset to defaults
   const handleReset = useCallback(async () => {
@@ -638,6 +647,46 @@ const StoreCustomization = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Paper size */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Printer className="h-4 w-4 text-muted-foreground" />
+                  <Label>Format du papier</Label>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Choisissez le format adapté à votre imprimante
+                </p>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { value: "58mm" as const, label: "58 mm", desc: "Thermique compact", icon: "📜" },
+                    { value: "80mm" as const, label: "80 mm", desc: "Thermique standard", icon: "🧾" },
+                    { value: "A4" as const, label: "A4", desc: "Imprimante bureau", icon: "📄" },
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => setReceiptPaperSize(option.value)}
+                      className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all text-center ${
+                        receiptPaperSize === option.value
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/50"
+                      }`}
+                    >
+                      <span className="text-lg">{option.icon}</span>
+                      <span className={`text-sm font-semibold ${
+                        receiptPaperSize === option.value ? "text-primary" : "text-foreground"
+                      }`}>
+                        {option.label}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {option.desc}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="border-t pt-4" />
+
               {/* Show logo on receipt */}
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">

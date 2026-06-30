@@ -10,9 +10,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Download, MessageCircle, Check, Copy, MessageSquare, WifiOff, Send, CircleCheck, Clock } from "lucide-react";
+import { Download, MessageCircle, Check, Copy, MessageSquare, WifiOff, Send, CircleCheck, Clock, Printer } from "lucide-react";
 import {
   ReceiptData,
+  ReceiptPaperSize,
   downloadReceipt,
   shareViaWhatsApp,
   generateReceiptText,
@@ -50,6 +51,16 @@ export const ReceiptActionsDialog = ({
   const [autoChannel, setAutoChannel] = useState<DeliveryChannel>("whatsapp");
   const [pending, setPending] = useState(pendingCount());
   const [autoTriggered, setAutoTriggered] = useState(false);
+  const [selectedPaperSize, setSelectedPaperSize] = useState<ReceiptPaperSize>(
+    receiptData?.paperSize || "80mm"
+  );
+
+  // Sync paper size when receiptData changes
+  useEffect(() => {
+    if (receiptData?.paperSize) {
+      setSelectedPaperSize(receiptData.paperSize);
+    }
+  }, [receiptData?.paperSize]);
 
   useEffect(() => {
     localStorage.setItem(AUTO_SEND_KEY, autoSend ? "1" : "0");
@@ -92,10 +103,12 @@ export const ReceiptActionsDialog = ({
     );
 
   const handleDownloadPDF = () => {
-    downloadReceipt(receiptData);
+    const dataWithFormat = { ...receiptData, paperSize: selectedPaperSize };
+    downloadReceipt(dataWithFormat);
+    const formatLabel = selectedPaperSize === "A4" ? "A4 (facture)" : selectedPaperSize;
     toast({
       title: "Ticket téléchargé",
-      description: `ticket-${receiptData.saleNumber}.pdf`,
+      description: `ticket-${receiptData.saleNumber}.pdf — format ${formatLabel}`,
     });
   };
 
@@ -249,6 +262,31 @@ export const ReceiptActionsDialog = ({
               >
                 <Send className="h-4 w-4 mr-1" /> SMS
               </Button>
+            </div>
+          </div>
+
+          {/* Format papier */}
+          <div className="rounded-lg border p-3 space-y-2">
+            <div className="flex items-center gap-2">
+              <Printer className="h-4 w-4 text-muted-foreground" />
+              <Label className="text-sm">Format d'impression</Label>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                { value: "58mm" as const, label: "58 mm" },
+                { value: "80mm" as const, label: "80 mm" },
+                { value: "A4" as const, label: "A4" },
+              ]).map((opt) => (
+                <Button
+                  key={opt.value}
+                  size="sm"
+                  variant={selectedPaperSize === opt.value ? "default" : "outline"}
+                  onClick={() => setSelectedPaperSize(opt.value)}
+                  className="text-xs"
+                >
+                  {opt.label}
+                </Button>
+              ))}
             </div>
           </div>
 
