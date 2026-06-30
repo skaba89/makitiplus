@@ -122,158 +122,133 @@ CREATE POLICY "admins_view_audit_log" ON public.user_audit_log
 DROP INDEX IF EXISTS public.idx_single_admin;
 
 -- 1i. Create missing RPC functions + Grant EXECUTE
--- Some functions may not exist in production yet, so we create stubs first
--- then grant EXECUTE only if the function exists.
+-- Strategy: create functions if they don't exist, then grant using dynamic SQL
+-- built from pg_proc to match the ACTUAL function signature (with or without params).
 
--- ── Create missing functions (safe CREATE OR REPLACE) ──
+-- ── Create missing functions ONLY if they don't exist yet ──
 
-CREATE OR REPLACE FUNCTION public.batch_update_stock()
-RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
+DO $$
 BEGIN
-  RAISE NOTICE 'batch_update_stock() stub — replace with real implementation';
-END;
-$$;
+  -- batch_update_stock()
+  IF NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = 'public' AND p.proname = 'batch_update_stock') THEN
+    CREATE FUNCTION public.batch_update_stock()
+    RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+    AS $inner$ BEGIN RAISE NOTICE 'batch_update_stock() stub'; END; $inner$;
+    RAISE NOTICE 'Created batch_update_stock()';
+  END IF;
 
-CREATE OR REPLACE FUNCTION public.check_account_status()
-RETURNS TABLE(is_active boolean, deactivation_reason text)
-LANGUAGE plpgsql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-BEGIN
-  RETURN QUERY
-    SELECT p.is_active, p.deactivation_reason
-    FROM public.profiles p
-    WHERE p.user_id = auth.uid();
-END;
-$$;
+  -- check_account_status()
+  IF NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = 'public' AND p.proname = 'check_account_status') THEN
+    CREATE FUNCTION public.check_account_status()
+    RETURNS TABLE(is_active boolean, deactivation_reason text)
+    LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public
+    AS $inner$
+    BEGIN
+      RETURN QUERY SELECT p.is_active, p.deactivation_reason FROM public.profiles p WHERE p.user_id = auth.uid();
+    END;
+    $inner$;
+    RAISE NOTICE 'Created check_account_status()';
+  END IF;
 
-CREATE OR REPLACE FUNCTION public.touch_last_login()
-RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-BEGIN
-  UPDATE public.profiles
-  SET last_login_at = now()
-  WHERE user_id = auth.uid();
-END;
-$$;
+  -- touch_last_login()
+  IF NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = 'public' AND p.proname = 'touch_last_login') THEN
+    CREATE FUNCTION public.touch_last_login()
+    RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+    AS $inner$
+    BEGIN
+      UPDATE public.profiles SET last_login_at = now() WHERE user_id = auth.uid();
+    END;
+    $inner$;
+    RAISE NOTICE 'Created touch_last_login()';
+  END IF;
 
-CREATE OR REPLACE FUNCTION public.generate_sale_number()
-RETURNS text
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_num text;
-  v_org_id uuid;
-BEGIN
-  v_org_id := public.get_user_organization_id();
-  v_num := 'VNT-' || to_char(now(), 'YYYYMMDD') || '-' || lpad(nextval('sale_number_seq')::text, 4, '0');
-  RETURN v_num;
-  EXCEPTION WHEN undefined_object THEN
-    -- Fallback if sequence doesn't exist
-    v_num := 'VNT-' || to_char(now(), 'YYYYMMDDHH24MISS');
-    RETURN v_num;
-END;
-$$;
+  -- generate_sale_number()
+  IF NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = 'public' AND p.proname = 'generate_sale_number') THEN
+    CREATE FUNCTION public.generate_sale_number()
+    RETURNS text
+    LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+    AS $inner$
+    DECLARE
+      v_num text;
+    BEGIN
+      v_num := 'VNT-' || to_char(now(), 'YYYYMMDDHH24MISS');
+      RETURN v_num;
+    END;
+    $inner$;
+    RAISE NOTICE 'Created generate_sale_number()';
+  END IF;
 
-CREATE OR REPLACE FUNCTION public.is_user_active(p_user_id uuid)
-RETURNS boolean
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT COALESCE(is_active, true) FROM public.profiles WHERE user_id = p_user_id;
-$$;
+  -- is_user_active(uuid)
+  IF NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = 'public' AND p.proname = 'is_user_active') THEN
+    CREATE FUNCTION public.is_user_active(p_user_id uuid)
+    RETURNS boolean
+    LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+    AS $inner$ SELECT COALESCE(is_active, true) FROM public.profiles WHERE user_id = p_user_id; $inner$;
+    RAISE NOTICE 'Created is_user_active()';
+  END IF;
 
-CREATE OR REPLACE FUNCTION public.resolve_stock_conflict()
-RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-BEGIN
-  RAISE NOTICE 'resolve_stock_conflict() stub — replace with real implementation';
+  -- resolve_stock_conflict()
+  IF NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = 'public' AND p.proname = 'resolve_stock_conflict') THEN
+    CREATE FUNCTION public.resolve_stock_conflict()
+    RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+    AS $inner$ BEGIN RAISE NOTICE 'resolve_stock_conflict() stub'; END; $inner$;
+    RAISE NOTICE 'Created resolve_stock_conflict()';
+  END IF;
 END;
 $$;
 
 -- ── Grant EXECUTE on all RPC functions ──
--- Using DO blocks with pg_proc checks to avoid errors if a function signature differs
+-- Uses dynamic SQL built from pg_proc to match the ACTUAL function signature.
+-- Each grant is wrapped in EXCEPTION WHEN to never abort the script.
 
 DO $$
+DECLARE
+  r RECORD;
+  grant_sql text;
 BEGIN
-  -- check_account_status
-  IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = 'public' AND p.proname = 'check_account_status') THEN
-    EXECUTE 'REVOKE EXECUTE ON FUNCTION public.check_account_status() FROM anon';
-    EXECUTE 'GRANT EXECUTE ON FUNCTION public.check_account_status() TO authenticated, service_role';
-    RAISE NOTICE 'GRANT check_account_status OK';
-  ELSE
-    RAISE NOTICE 'SKIP check_account_status — function not found';
-  END IF;
+  FOR r IN
+    SELECT
+      n.nspname AS schema,
+      p.proname AS name,
+      pg_get_function_identity_arguments(p.oid) AS args
+    FROM pg_proc p
+    JOIN pg_namespace n ON p.pronamespace = n.oid
+    WHERE n.nspname = 'public'
+      AND p.proname IN (
+        'check_account_status',
+        'touch_last_login',
+        'generate_sale_number',
+        'batch_update_stock',
+        'get_user_organization_id',
+        'is_member_of_organization',
+        'has_role',
+        'is_user_active',
+        'resolve_stock_conflict',
+        'set_organization_id'
+      )
+  LOOP
+    BEGIN
+      grant_sql := format('GRANT EXECUTE ON FUNCTION %I.%I(%s) TO authenticated',
+        r.schema, r.name, r.args);
 
-  -- touch_last_login
-  IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = 'public' AND p.proname = 'touch_last_login') THEN
-    EXECUTE 'GRANT EXECUTE ON FUNCTION public.touch_last_login() TO authenticated';
-    RAISE NOTICE 'GRANT touch_last_login OK';
-  END IF;
-
-  -- generate_sale_number
-  IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = 'public' AND p.proname = 'generate_sale_number') THEN
-    EXECUTE 'GRANT EXECUTE ON FUNCTION public.generate_sale_number() TO authenticated';
-    RAISE NOTICE 'GRANT generate_sale_number OK';
-  END IF;
-
-  -- batch_update_stock
-  IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = 'public' AND p.proname = 'batch_update_stock') THEN
-    EXECUTE 'GRANT EXECUTE ON FUNCTION public.batch_update_stock() TO authenticated';
-    RAISE NOTICE 'GRANT batch_update_stock OK';
-  END IF;
-
-  -- get_user_organization_id
-  IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = 'public' AND p.proname = 'get_user_organization_id') THEN
-    EXECUTE 'GRANT EXECUTE ON FUNCTION public.get_user_organization_id() TO authenticated';
-    RAISE NOTICE 'GRANT get_user_organization_id OK';
-  END IF;
-
-  -- is_member_of_organization
-  IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = 'public' AND p.proname = 'is_member_of_organization') THEN
-    EXECUTE 'GRANT EXECUTE ON FUNCTION public.is_member_of_organization(uuid) TO authenticated';
-    RAISE NOTICE 'GRANT is_member_of_organization OK';
-  END IF;
-
-  -- has_role
-  IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = 'public' AND p.proname = 'has_role') THEN
-    EXECUTE 'GRANT EXECUTE ON FUNCTION public.has_role(uuid, app_role) TO authenticated';
-    RAISE NOTICE 'GRANT has_role OK';
-  END IF;
-
-  -- is_user_active
-  IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = 'public' AND p.proname = 'is_user_active') THEN
-    EXECUTE 'GRANT EXECUTE ON FUNCTION public.is_user_active(uuid) TO authenticated';
-    RAISE NOTICE 'GRANT is_user_active OK';
-  END IF;
-
-  -- resolve_stock_conflict
-  IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = 'public' AND p.proname = 'resolve_stock_conflict') THEN
-    EXECUTE 'GRANT EXECUTE ON FUNCTION public.resolve_stock_conflict() TO authenticated';
-    RAISE NOTICE 'GRANT resolve_stock_conflict OK';
-  END IF;
-
-  -- set_organization_id
-  IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = 'public' AND p.proname = 'set_organization_id') THEN
-    EXECUTE 'GRANT EXECUTE ON FUNCTION public.set_organization_id() TO authenticated';
-    RAISE NOTICE 'GRANT set_organization_id OK';
-  END IF;
+      -- Special case: also revoke anon for check_account_status
+      IF r.name = 'check_account_status' THEN
+        EXECUTE format('REVOKE EXECUTE ON FUNCTION %I.%I(%s) FROM anon',
+          r.schema, r.name, r.args);
+        EXECUTE format('GRANT EXECUTE ON FUNCTION %I.%I(%s) TO authenticated, service_role',
+          r.schema, r.name, r.args);
+        RAISE NOTICE 'GRANT % (%) OK (with REVOKE anon)', r.name, r.args;
+      ELSE
+        EXECUTE grant_sql;
+        RAISE NOTICE 'GRANT % (%) OK', r.name, r.args;
+      END IF;
+    EXCEPTION WHEN OTHERS THEN
+      RAISE NOTICE 'GRANT % (%) SKIPPED: %', r.name, r.args, SQLERRM;
+    END;
+  END LOOP;
 END;
 $$;
 
