@@ -1,30 +1,36 @@
 -- Migration: Fix RLS self-escalation vulnerability and include super_admin in all policies
 -- Date: 2026-07-01
--- Issue: user_roles_insert_self_or_admin allowed any user to self-assign vendeur/manager/comptable roles
--- Also: super_admin was excluded from audit_log, reset_tokens, and user_roles DELETE policies
--- Idempotent: uses DROP POLICY IF EXISTS before every CREATE POLICY
+-- Fully idempotent: uses DO blocks with EXCEPTION handling
 
 -- ============================================
 -- 1. FIX: Prevent self-role-escalation on user_roles INSERT
--- Remove the clause allowing users to self-assign vendeur/manager/comptable
--- Only admin/super_admin should assign roles
 -- ============================================
-DROP POLICY IF EXISTS "user_roles_insert_self_or_admin" ON user_roles;
-DROP POLICY IF EXISTS "user_roles_insert_admin_only" ON user_roles;
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "user_roles_insert_self_or_admin" ON user_roles;
+  DROP POLICY IF EXISTS "user_roles_insert_admin_only" ON user_roles;
+  DROP POLICY IF EXISTS "Users can create their own role" ON user_roles;
+  DROP POLICY IF EXISTS "Allow first admin or admin-created roles" ON user_roles;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'Drop policies on user_roles: %', SQLERRM;
+END$$;
 
 CREATE POLICY "user_roles_insert_admin_only" ON user_roles
   FOR INSERT TO authenticated
   WITH CHECK (
-    -- Admin can assign any role
     has_role(auth.uid(), 'admin')
-    -- Super admin can assign any role
     OR is_super_admin()
   );
 
 -- ============================================
 -- 2. FIX: Include super_admin in user_roles DELETE
 -- ============================================
-DROP POLICY IF EXISTS "Admins can delete user roles" ON user_roles;
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Admins can delete user roles" ON user_roles;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'Drop delete policy on user_roles: %', SQLERRM;
+END$$;
 
 CREATE POLICY "Admins can delete user roles" ON user_roles
   FOR DELETE TO authenticated
@@ -36,7 +42,12 @@ CREATE POLICY "Admins can delete user roles" ON user_roles
 -- ============================================
 -- 3. FIX: Include super_admin in audit_log INSERT
 -- ============================================
-DROP POLICY IF EXISTS "admins_insert_audit_log" ON user_audit_log;
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "admins_insert_audit_log" ON user_audit_log;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'Drop audit_log policy: %', SQLERRM;
+END$$;
 
 CREATE POLICY "admins_insert_audit_log" ON user_audit_log
   FOR INSERT TO authenticated
@@ -48,7 +59,12 @@ CREATE POLICY "admins_insert_audit_log" ON user_audit_log
 -- ============================================
 -- 4. FIX: Include super_admin in reset_tokens INSERT
 -- ============================================
-DROP POLICY IF EXISTS "admins_insert_reset_tokens" ON password_reset_tokens;
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "admins_insert_reset_tokens" ON password_reset_tokens;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'Drop reset_tokens policy: %', SQLERRM;
+END$$;
 
 CREATE POLICY "admins_insert_reset_tokens" ON password_reset_tokens
   FOR INSERT TO authenticated
@@ -59,9 +75,13 @@ CREATE POLICY "admins_insert_reset_tokens" ON password_reset_tokens
 
 -- ============================================
 -- 5. FIX: Include super_admin in profiles UPDATE
--- (Allows super_admin to edit other users' profiles)
 -- ============================================
-DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'Drop profiles update policy: %', SQLERRM;
+END$$;
 
 CREATE POLICY "Users can update own profile" ON profiles
   FOR UPDATE TO authenticated
@@ -77,7 +97,7 @@ CREATE POLICY "Users can update own profile" ON profiles
   );
 
 -- ============================================
--- 6. FIX: check_account_status should return FALSE when no profile exists
+-- 6. FIX: check_account_status returns FALSE when no profile
 -- ============================================
 CREATE OR REPLACE FUNCTION check_account_status(check_user_id UUID)
 RETURNS TABLE(is_active BOOLEAN, role TEXT, organization_id UUID)
