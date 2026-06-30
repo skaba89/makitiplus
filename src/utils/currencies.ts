@@ -254,9 +254,13 @@ export const formatPrice = (amount: number, currency: CurrencyConfig): string =>
     maximumFractionDigits: currency.decimals,
   }).format(amount);
 
+  // Replace Unicode non-breaking spaces (U+202F, U+00A0) with regular spaces
+  // for consistent rendering across PDF, HTML, and text outputs
+  const cleanFormatted = formatted.replace(/[\u202F\u00A0]/g, ' ');
+
   return currency.position === "before"
-    ? `${currency.symbol}${formatted}`
-    : `${formatted} ${currency.symbol}`;
+    ? `${currency.symbol}${cleanFormatted}`
+    : `${cleanFormatted} ${currency.symbol}`;
 };
 
 // Default currency (Guinée — Franc Guinéen)

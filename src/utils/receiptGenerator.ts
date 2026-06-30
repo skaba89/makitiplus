@@ -48,7 +48,11 @@ export const formatPriceWithCurrency = (
     minimumFractionDigits: hasDecimals ? 2 : 0,
     maximumFractionDigits: hasDecimals ? 2 : 0,
   }).format(price);
-  return position === "before" ? `${symbol} ${formatted}` : `${formatted} ${symbol}`;
+  // Replace Unicode non-breaking spaces (U+202F, U+00A0) with regular spaces
+  // jsPDF's built-in fonts (Helvetica, Courier) cannot render these characters
+  // and they appear as individual spaced characters (e.g. "1 5   0 0 0" instead of "15 000")
+  const cleanFormatted = formatted.replace(/[\u202F\u00A0]/g, ' ');
+  return position === "before" ? `${symbol} ${cleanFormatted}` : `${cleanFormatted} ${symbol}`;
 };
 
 // Legacy function for backward compatibility
@@ -180,7 +184,7 @@ export const generateReceiptPDF = (data: ReceiptData): jsPDF => {
     }
     doc.setTextColor(120);
     doc.setFontSize(7);
-    doc.text(`  ${item.quantity} × ${fPrice(item.unit_price)}`, margin, y);
+    doc.text(`  ${item.quantity} x ${fPrice(item.unit_price)}`, margin, y);
     doc.setTextColor(0);
     doc.setFontSize(8);
     y += 4;
