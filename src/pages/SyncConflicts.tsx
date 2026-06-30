@@ -129,8 +129,8 @@ const SyncConflicts = () => {
       <div className="space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <GitMerge className="h-7 w-7 text-primary" />
+            <h1 className="text-2xl lg:text-3xl font-bold flex items-center gap-2">
+              <GitMerge className="h-6 w-6 lg:h-7 lg:w-7 text-primary" />
               Conflits de synchronisation
             </h1>
             <p className="text-muted-foreground mt-1">
@@ -333,8 +333,8 @@ const SyncConflicts = () => {
                           <TableHead>Quand</TableHead>
                           <TableHead>Entité</TableHead>
                           <TableHead>Élément</TableHead>
-                          <TableHead>Stratégie</TableHead>
-                          <TableHead>Appareil</TableHead>
+                          <TableHead className="hidden sm:table-cell">Stratégie</TableHead>
+                          <TableHead className="hidden md:table-cell">Appareil</TableHead>
                           <TableHead>Résultat</TableHead>
                           <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
@@ -358,10 +358,10 @@ const SyncConflicts = () => {
                               <TableCell className="font-medium max-w-[200px] truncate">
                                 {r.entity_label || "—"}
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="hidden sm:table-cell">
                                 <Badge className={strat.tone} variant="outline">{strat.label}</Badge>
                               </TableCell>
-                              <TableCell className="text-xs text-muted-foreground">
+                              <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
                                 <span className="flex items-center gap-1">
                                   <Smartphone className="h-3 w-3" />
                                   {r.device_id?.slice(0, 12) ?? "—"}

@@ -191,7 +191,7 @@ const Expenses = () => {
          {/* Header */}
          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
            <div>
-             <h1 className="text-2xl font-bold">Dépenses</h1>
+             <h1 className="text-2xl lg:text-3xl font-bold">Dépenses</h1>
              <p className="text-muted-foreground">
                Gérez les charges de votre boutique
              </p>
@@ -365,7 +365,7 @@ const Expenses = () => {
                      <TableRow>
                        <TableHead>Date</TableHead>
                        <TableHead>Catégorie</TableHead>
-                       <TableHead>Description</TableHead>
+                       <TableHead className="hidden sm:table-cell">Description</TableHead>
                        <TableHead className="text-right">Montant</TableHead>
                        <TableHead></TableHead>
                      </TableRow>
@@ -385,7 +385,7 @@ const Expenses = () => {
                                {catInfo.label}
                              </Badge>
                            </TableCell>
-                           <TableCell className="max-w-xs truncate">
+                           <TableCell className="hidden sm:table-cell max-w-xs truncate">
                              {expense.description || "-"}
                            </TableCell>
                            <TableCell className="text-right font-medium text-destructive">

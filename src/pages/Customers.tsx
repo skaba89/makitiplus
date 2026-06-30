@@ -224,8 +224,8 @@ const Customers = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nom</TableHead>
-                    <TableHead>Téléphone</TableHead>
-                    <TableHead>Achats totaux</TableHead>
+                    <TableHead className="hidden sm:table-cell">Téléphone</TableHead>
+                    <TableHead className="hidden md:table-cell">Achats totaux</TableHead>
                     <TableHead>Crédit</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -234,8 +234,8 @@ const Customers = () => {
                   {filtered.map((customer) => (
                     <TableRow key={customer.id}>
                       <TableCell className="font-medium">{customer.name}</TableCell>
-                      <TableCell>{customer.phone || "-"}</TableCell>
-                      <TableCell>{formatPrice(Number(customer.total_purchases))}</TableCell>
+                      <TableCell className="hidden sm:table-cell">{customer.phone || "-"}</TableCell>
+                      <TableCell className="hidden md:table-cell">{formatPrice(Number(customer.total_purchases))}</TableCell>
                       <TableCell>
                         {Number(customer.total_credit) > 0 ? (
                           <Badge variant="destructive">{formatPrice(Number(customer.total_credit))}</Badge>
@@ -245,10 +245,10 @@ const Customers = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="icon" onClick={() => { setSelectedCustomer(customer); setIsDetailOpen(true); }} aria-label="Voir les détails">
+                          <Button variant="ghost" size="icon" className="hidden sm:inline-flex" onClick={() => { setSelectedCustomer(customer); setIsDetailOpen(true); }} aria-label="Voir les détails">
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" onClick={() => { setSelectedCustomer(customer); setIsCreditOpen(true); }} aria-label="Crédit client">
+                          <Button variant="ghost" size="icon" className="hidden sm:inline-flex" onClick={() => { setSelectedCustomer(customer); setIsCreditOpen(true); }} aria-label="Crédit client">
                             <Wallet className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="icon" onClick={() => handleEdit(customer)} aria-label="Modifier le client">
@@ -289,7 +289,7 @@ const Customers = () => {
                 <Label>Nom *</Label>
                 <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Téléphone</Label>
                   <Input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />

@@ -95,7 +95,7 @@ export const ProductForm = ({ product, onSubmit, isLoading }: ProductFormProps) 
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="price">Prix de vente ({currency.symbol}) *</Label>
           <Input
@@ -123,7 +123,7 @@ export const ProductForm = ({ product, onSubmit, isLoading }: ProductFormProps) 
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="stock_quantity">Quantité en stock *</Label>
           <Input
@@ -157,7 +157,7 @@ export const ProductForm = ({ product, onSubmit, isLoading }: ProductFormProps) 
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="category">Catégorie</Label>
           <Select

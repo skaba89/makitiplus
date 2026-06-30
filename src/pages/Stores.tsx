@@ -388,7 +388,7 @@ const Stores = () => {
                   </Select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Pays</Label>
                     <Select value={storeCountry} onValueChange={setStoreCountry}>
@@ -515,11 +515,11 @@ const Stores = () => {
                   <TableRow>
                     <TableHead>Magasin</TableHead>
                     <TableHead>Type</TableHead>
-                    <TableHead>Pays</TableHead>
-                    <TableHead>Devise</TableHead>
+                    <TableHead className="hidden sm:table-cell">Pays</TableHead>
+                    <TableHead className="hidden md:table-cell">Devise</TableHead>
                     <TableHead>Admin</TableHead>
-                    <TableHead>Utilisateurs</TableHead>
-                    <TableHead>Plan</TableHead>
+                    <TableHead className="hidden lg:table-cell">Utilisateurs</TableHead>
+                    <TableHead className="hidden md:table-cell">Plan</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -530,13 +530,13 @@ const Stores = () => {
                       <TableCell>
                         <CategoryBadge value={store.category} />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         <div className="flex items-center gap-1">
                           <MapPin className="h-3 w-3" />
                           {store.country || "—"}
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         <Badge variant="outline">{store.currency || "GNF"}</Badge>
                       </TableCell>
                       <TableCell>
@@ -552,7 +552,7 @@ const Stores = () => {
                         )}
                       </TableCell>
                       <TableCell>{store.user_count || 0}</TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         <Badge variant="outline" className="capitalize">
                           {store.subscription_plan || "starter"}
                         </Badge>

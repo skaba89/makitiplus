@@ -268,6 +268,8 @@ const POS = () => {
     ? filteredProducts?.filter((p) => p.category_id === selectedCategory)
     : filteredProducts;
 
+  const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
   return (
     <DashboardLayout>
       <div className="h-[calc(100vh-6rem)] lg:h-[calc(100vh-2rem)] flex flex-col lg:flex-row gap-4">
@@ -364,8 +366,8 @@ const POS = () => {
           </div>
         </div>
 
-        {/* Cart Section */}
-        <div className="w-full lg:w-96 flex-shrink-0">
+        {/* Cart Section — hidden on mobile, visible on lg+ */}
+        <div className="hidden lg:block w-96 flex-shrink-0">
           <POSCart
             items={cart}
             total={cartTotal}
@@ -375,6 +377,26 @@ const POS = () => {
             onCheckout={() => setIsPaymentOpen(true)}
           />
         </div>
+
+        {/* Mobile floating cart button */}
+        {itemCount > 0 && (
+          <div className="lg:hidden fixed bottom-20 right-4 z-40">
+            <Button
+              size="lg"
+              className="rounded-full shadow-lg h-14 w-14 relative"
+              onClick={() => setIsPaymentOpen(true)}
+              aria-label="Voir le panier"
+            >
+              <ShoppingCart className="h-6 w-6" />
+              <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                {itemCount}
+              </span>
+            </Button>
+            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 whitespace-nowrap bg-primary text-primary-foreground text-xs font-bold px-2 py-1 rounded-md shadow">
+              {formatPrice(cartTotal)}
+            </div>
+          </div>
+        )}
 
         {/* Payment Dialog */}
         <POSPaymentDialog

@@ -469,8 +469,8 @@ const Users = () => {
       <div className="space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <Shield className="h-7 w-7 text-primary" />
+            <h1 className="text-2xl lg:text-3xl font-bold flex items-center gap-2">
+              <Shield className="h-6 w-6 lg:h-7 lg:w-7 text-primary" />
               Gestion des utilisateurs
             </h1>
             <p className="text-muted-foreground mt-1">
@@ -615,10 +615,10 @@ const Users = () => {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Nom</TableHead>
-                          <TableHead>Téléphone</TableHead>
+                          <TableHead className="hidden sm:table-cell">Téléphone</TableHead>
                           <TableHead>Rôle</TableHead>
                           <TableHead>Statut</TableHead>
-                          <TableHead>Dernière connexion</TableHead>
+                          <TableHead className="hidden md:table-cell">Dernière connexion</TableHead>
                           <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -650,7 +650,7 @@ const Users = () => {
                                   <div className="text-xs text-muted-foreground mt-0.5">{u.email}</div>
                                 )}
                               </TableCell>
-                              <TableCell>{u.phone || "—"}</TableCell>
+                              <TableCell className="hidden sm:table-cell">{u.phone || "—"}</TableCell>
                               <TableCell>
                                 <Badge className={roleColors[u.role]}>{roleLabels[u.role]}</Badge>
                               </TableCell>
@@ -665,7 +665,7 @@ const Users = () => {
                                   </Badge>
                                 )}
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="hidden md:table-cell">
                                 <span className="flex items-center gap-1 text-sm text-muted-foreground">
                                   <Clock className="h-3 w-3" />
                                   {formatDate(u.last_login_at)}
