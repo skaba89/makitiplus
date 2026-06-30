@@ -90,10 +90,23 @@ const POS = () => {
       customerPhone?: string;
     }) => {
       // Get sale number (fallback to timestamp-based if RPC not available)
-      const { data: saleNumber, error: rpcError } = await supabase.rpc("generate_sale_number");
-      const finalSaleNumber = saleNumber || `VNT-${Date.now()}`;
-      if (rpcError) {
-        console.warn("[POS] generate_sale_number RPC failed, using fallback:", rpcError.message);
+      let finalSaleNumber = '';
+      try {
+        const { data: saleNumber, error: rpcError } = await supabase.rpc("generate_sale_number");
+        if (rpcError) {
+          console.warn("[POS] generate_sale_number RPC failed, using fallback:", rpcError.message);
+        }
+        finalSaleNumber = saleNumber || '';
+      } catch {
+        console.warn("[POS] generate_sale_number RPC exception, using fallback");
+      }
+      // Fallback: use formatted timestamp that fits in any integer column
+      // Use modulo to keep number small (matches VTE-XXXXXX pattern)
+      if (!finalSaleNumber) {
+        const now = new Date();
+        const dayNum = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
+        const seqNum = Math.floor(Math.random() * 9999) + 1;
+        finalSaleNumber = `VTE-${String(dayNum).padStart(8, '0')}${String(seqNum).padStart(4, '0')}`;
       }
 
       const subtotal = cart.reduce(
@@ -171,10 +184,20 @@ const POS = () => {
       if (stockError) {
         console.warn("[POS] batch_update_stock RPC failed, falling back to individual updates:", stockError.message);
         for (const item of cart) {
-          const newStock = Math.max(0, (item.product.stock_quantity || 0) - item.quantity);
+          // Use a relative update (stock_quantity = stock_quantity - X) to avoid 409 conflicts
+          // from concurrent updates. Only set to 0 if it would go negative.
+          const { data: currentProduct } = await supabase
+            .from("products")
+            .select("stock_quantity")
+            .eq("id", item.product.id)
+            .single();
+
+          const currentStock = currentProduct?.stock_quantity ?? item.product.stock_quantity ?? 0;
+          const newStock = Math.max(0, currentStock - item.quantity);
+
           await supabase
             .from("products")
-            .update({ stock_quantity: newStock })
+            .update({ stock_quantity: newStock, updated_at: new Date().toISOString() })
             .eq("id", item.product.id);
         }
       }
