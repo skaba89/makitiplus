@@ -24,6 +24,8 @@ export const BarcodeScannerDialog = ({
   const [error, setError] = useState<string | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const onScanRef = useRef(onScan);
+  onScanRef.current = onScan; // always up-to-date, no stale closure
 
   useEffect(() => {
     if (!isOpen) return;
@@ -44,7 +46,7 @@ export const BarcodeScannerDialog = ({
             aspectRatio: 1.5,
           },
           (decodedText) => {
-            onScan(decodedText);
+            onScanRef.current(decodedText);
             handleClose();
           },
           () => {

@@ -89,7 +89,7 @@ const POS = () => {
       customerName?: string;
       customerPhone?: string;
     }) => {
-      // Get sale number (fallback to timestamp-based if RPC not available)
+      // Get sale number (fallback to timestamp+uuid if RPC not available)
       let finalSaleNumber = '';
       try {
         const { data: saleNumber, error: rpcError } = await supabase.rpc("generate_sale_number");
@@ -100,13 +100,10 @@ const POS = () => {
       } catch {
         console.warn("[POS] generate_sale_number RPC exception, using fallback");
       }
-      // Fallback: use formatted timestamp that fits in any integer column
-      // Use modulo to keep number small (matches VTE-XXXXXX pattern)
+      // Fallback: use crypto.randomUUID fragment — no collision risk across terminals
       if (!finalSaleNumber) {
-        const now = new Date();
-        const dayNum = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
-        const seqNum = Math.floor(Math.random() * 9999) + 1;
-        finalSaleNumber = `VTE-${String(dayNum).padStart(8, '0')}${String(seqNum).padStart(4, '0')}`;
+        const uid = crypto.randomUUID().replace(/-/g, '').substring(0, 12).toUpperCase();
+        finalSaleNumber = `VTE-${uid}`;
       }
 
       const subtotal = cart.reduce(
@@ -124,85 +121,124 @@ const POS = () => {
       const htAmount = subtotal - taxAmount;
       const changeAmount = amountPaid - totalAmount;
 
-      // Create sale
-      const saleInsert: Record<string, unknown> = {
-        user_id: user!.id,
-        sale_number: finalSaleNumber,
-        subtotal: htAmount,
-        tax_amount: taxAmount,
-        total_amount: totalAmount,
-        payment_method: paymentMethod,
-        amount_paid: amountPaid,
-        change_amount: changeAmount > 0 ? changeAmount : 0,
-        customer_name: customerName || null,
-        customer_phone: customerPhone || null,
-        seller_name: profile?.owner_name || null,
-      };
-      if (profile?.organization_id) {
-        saleInsert.organization_id = profile.organization_id;
-      }
-
-      const { data: sale, error: saleError } = await supabase
-        .from("sales")
-        .insert(saleInsert)
-        .select()
-        .single();
-
-      if (saleError) throw saleError;
-
-      // Create sale items
-      const saleItems = cart.map((item) => {
-        const itemData: Record<string, unknown> = {
-          sale_id: sale.id,
-          product_id: item.product.id,
-          product_name: item.product.name,
-          quantity: item.quantity,
-          unit_price: item.product.price,
-          total_price: item.product.price * item.quantity,
-        };
-        if (profile?.organization_id) {
-          itemData.organization_id = profile.organization_id;
-        }
-        return itemData;
-      });
-
-      const { error: itemsError } = await supabase
-        .from("sale_items")
-        .insert(saleItems);
-
-      if (itemsError) throw itemsError;
-
-      // Batch update stock atomically via RPC (single transaction, prevents race conditions)
-      const stockItems = cart.map((item) => ({
+      // Try atomic sale creation via RPC first (C4: single transaction)
+      const saleItems = cart.map((item) => ({
         product_id: item.product.id,
+        product_name: item.product.name,
         quantity: item.quantity,
-        previous_quantity: item.product.stock_quantity,
+        unit_price: item.product.price,
+        total_price: item.product.price * item.quantity,
       }));
 
-      const { error: stockError } = await supabase.rpc("batch_update_stock", {
-        p_sale_id: sale.id,
-        p_items: stockItems,
-      });
+      const orgId = profile?.organization_id || null;
+      let sale: { id: string; sale_number: string; payment_method: string; amount_paid: number; customer_name: string | null; customer_phone: string | null } | null = null;
+      let usedAtomicRPC = false;
 
-      // If batch_update_stock RPC fails (e.g. not granted yet), fall back to individual updates
-      if (stockError) {
-        console.warn("[POS] batch_update_stock RPC failed, falling back to individual updates:", stockError.message);
-        for (const item of cart) {
-          // Use a relative update (stock_quantity = stock_quantity - X) to avoid 409 conflicts
-          // from concurrent updates. Only set to 0 if it would go negative.
-          const { data: currentProduct } = await supabase
-            .from("products")
-            .select("stock_quantity")
-            .eq("id", item.product.id)
+      try {
+        const { data: rpcSaleId, error: rpcError } = await supabase.rpc("create_full_sale", {
+          p_user_id: user!.id,
+          p_organization_id: orgId,
+          p_sale_number: finalSaleNumber,
+          p_subtotal: htAmount,
+          p_tax_amount: taxAmount,
+          p_total_amount: totalAmount,
+          p_payment_method: paymentMethod,
+          p_amount_paid: amountPaid,
+          p_change_amount: changeAmount > 0 ? changeAmount : 0,
+          p_customer_name: customerName || null,
+          p_customer_phone: customerPhone || null,
+          p_seller_name: profile?.owner_name || null,
+          p_items: saleItems,
+        });
+
+        if (!rpcError && rpcSaleId) {
+          // Atomic RPC succeeded — fetch the sale record for receipt
+          const { data: saleRow } = await supabase
+            .from("sales")
+            .select("id, sale_number, payment_method, amount_paid, customer_name, customer_phone")
+            .eq("id", rpcSaleId)
             .single();
+          sale = saleRow;
+          usedAtomicRPC = true;
+        } else if (rpcError) {
+          console.warn("[POS] create_full_sale RPC failed, falling back:", rpcError.message);
+        }
+      } catch {
+        console.warn("[POS] create_full_sale RPC exception, falling back");
+      }
 
-          const currentStock = currentProduct?.stock_quantity ?? item.product.stock_quantity ?? 0;
-          const newStock = Math.max(0, currentStock - item.quantity);
+      // Fallback: non-atomic path (for older DB without the RPC)
+      if (!usedAtomicRPC || !sale) {
+        const saleInsert: Record<string, unknown> = {
+          user_id: user!.id,
+          sale_number: finalSaleNumber,
+          subtotal: htAmount,
+          tax_amount: taxAmount,
+          total_amount: totalAmount,
+          payment_method: paymentMethod,
+          amount_paid: amountPaid,
+          change_amount: changeAmount > 0 ? changeAmount : 0,
+          customer_name: customerName || null,
+          customer_phone: customerPhone || null,
+          seller_name: profile?.owner_name || null,
+        };
+        if (orgId) saleInsert.organization_id = orgId;
 
-          await supabase
-            .from("products")
-            .update({ stock_quantity: newStock, updated_at: new Date().toISOString() })
-            .eq("id", item.product.id);
+        const { data: fallbackSale, error: saleError } = await supabase
+          .from("sales")
+          .insert(saleInsert)
+          .select()
+          .single();
+
+        if (saleError) throw saleError;
+        sale = fallbackSale;
+
+        // Insert sale items
+        const insertItems = saleItems.map((item) => ({
+          ...item,
+          sale_id: sale!.id,
+          organization_id: orgId,
+        }));
+        const { error: itemsError } = await supabase
+          .from("sale_items")
+          .insert(insertItems);
+        if (itemsError) throw itemsError;
+
+        // Update stock — use batch_update_stock RPC, then relative fallback
+        const stockItems = cart.map((item) => ({
+          product_id: item.product.id,
+          quantity: item.quantity,
+          previous_quantity: item.product.stock_quantity,
+        }));
+
+        const { error: stockError } = await supabase.rpc("batch_update_stock", {
+          p_sale_id: sale.id,
+          p_items: stockItems,
+        });
+
+        if (stockError) {
+          console.warn("[POS] batch_update_stock RPC failed, using relative updates:", stockError.message);
+          // Relative atomic update: stock_quantity = GREATEST(stock_quantity - X, 0)
+          // This avoids the SELECT-then-UPDATE race condition (C5)
+          for (const item of cart) {
+            await supabase.rpc('decrement_stock', {
+              p_product_id: item.product.id,
+              p_quantity: item.quantity,
+            }).catch(async () => {
+              // Final fallback: just do the relative update via raw SQL-like approach
+              // Since we can't use raw SQL client-side, use the old approach as last resort
+              const { data: currentProduct } = await supabase
+                .from("products")
+                .select("stock_quantity")
+                .eq("id", item.product.id)
+                .single();
+              const currentStock = currentProduct?.stock_quantity ?? 0;
+              await supabase
+                .from("products")
+                .update({ stock_quantity: Math.max(0, currentStock - item.quantity), updated_at: new Date().toISOString() })
+                .eq("id", item.product.id);
+            });
+          }
         }
       }
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -308,15 +308,18 @@ const Products = () => {
     (safeCurrentPage - 1) * PAGE_SIZE,
     safeCurrentPage * PAGE_SIZE
   );
-  // Reset page when filters change
-  if (currentPage !== safeCurrentPage && safeCurrentPage > 0) {
-    setCurrentPage(safeCurrentPage);
-  }
+  // Reset page when filters change (C8: moved to useEffect to avoid setState during render)
+  useEffect(() => {
+    const safePage = Math.min(currentPage, totalPages);
+    if (currentPage !== safePage && safePage > 0) {
+      setCurrentPage(safePage);
+    }
+  }, [currentPage, totalPages]);
 
   // Stats
   const totalProducts = products?.length || 0;
   const lowStockCount = products?.filter(
-    (p) => p.min_stock_alert && p.stock_quantity <= p.min_stock_alert
+    (p) => p.min_stock_alert != null && p.stock_quantity <= p.min_stock_alert
   ).length || 0;
   const outOfStockCount = products?.filter((p) => p.stock_quantity === 0).length || 0;
 

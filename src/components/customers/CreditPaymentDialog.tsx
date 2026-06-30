@@ -32,15 +32,35 @@ export const CreditPaymentDialog = ({ customer, isOpen, onClose }: Props) => {
   const paymentMutation = useMutation({
     mutationFn: async () => {
       const numAmount = parseFloat(amount);
-      if (!numAmount || numAmount <= 0) throw new Error("Montant invalide");
+      if (!numAmount || isNaN(numAmount) || numAmount <= 0) {
+        throw new Error("Montant invalide");
+      }
+      if (numAmount > Number(customer.total_credit)) {
+        throw new Error("Le montant depasse le credit restant");
+      }
 
-      // Record payment
+      // Try atomic RPC first (C6: single transaction)
+      try {
+        const { error: rpcError } = await supabase.rpc("process_credit_payment", {
+          p_user_id: user!.id,
+          p_organization_id: profile?.organization_id || null,
+          p_customer_id: customer.id,
+          p_amount: numAmount,
+          p_description: description || "Paiement de credit",
+        });
+        if (!rpcError) return; // atomic success
+        console.warn("[CreditPayment] RPC failed, falling back:", rpcError.message);
+      } catch {
+        console.warn("[CreditPayment] RPC exception, falling back");
+      }
+
+      // Fallback: non-atomic (two-step)
       const creditInsert: Record<string, unknown> = {
         user_id: user!.id,
         customer_id: customer.id,
         amount: numAmount,
         type: "payment",
-        description: description || "Paiement de crédit",
+        description: description || "Paiement de credit",
       };
       if (profile?.organization_id) {
         creditInsert.organization_id = profile.organization_id;
@@ -48,7 +68,6 @@ export const CreditPaymentDialog = ({ customer, isOpen, onClose }: Props) => {
       const { error: creditError } = await supabase.from("customer_credits").insert(creditInsert);
       if (creditError) throw creditError;
 
-      // Update customer credit
       const newCredit = Math.max(0, Number(customer.total_credit) - numAmount);
       const { error: updateError } = await supabase
         .from("customers")
@@ -64,8 +83,9 @@ export const CreditPaymentDialog = ({ customer, isOpen, onClose }: Props) => {
       setDescription("");
       onClose();
     },
-    onError: () => {
-      toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer le paiement" });
+    onError: (error: unknown) => {
+      const msg = error instanceof Error ? error.message : "Impossible d'enregistrer le paiement";
+      toast({ variant: "destructive", title: "Erreur", description: msg });
     },
   });
 

@@ -23,6 +23,15 @@ dist-ssr
 *.sln
 *.sw?
 
+# Environment variables (contains live API keys)
+.env
+.env.local
+.env.*.local
+
+# Stray artifacts
+*.pdf
+upload/
+
 # Capacitor
 android/app/build
 android/.gradle

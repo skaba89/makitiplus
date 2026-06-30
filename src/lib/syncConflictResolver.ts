@@ -41,7 +41,7 @@ const DEVICE_ID_KEY = "malikiplus_device_id";
 export function getDeviceId(): string {
   let id = localStorage.getItem(DEVICE_ID_KEY);
   if (!id) {
-    id = `dev_${Math.random().toString(36).slice(2, 10)}_${Date.now().toString(36)}`;
+    id = `dev_${crypto.randomUUID().replace(/-/g, '').substring(0, 16)}`;
     localStorage.setItem(DEVICE_ID_KEY, id);
   }
   return id;

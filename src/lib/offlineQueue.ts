@@ -39,6 +39,18 @@ export interface QueuedMutation {
   error?: string;
 }
 
+// H3: Allowlist of permitted tables for offline mutations — prevents arbitrary table writes
+const ALLOWED_TABLES = new Set([
+  "sales",
+  "sale_items",
+  "products",
+  "expenses",
+  "customer_credits",
+  "customers",
+  "stock_movements",
+  "categories",
+]);
+
 let dbInstance: IDBDatabase | null = null;
 let dbInitPromise: Promise<IDBDatabase> | null = null;
 
@@ -119,6 +131,11 @@ function generateId(): string {
  * Returns the queued mutation with its ID.
  */
 export async function enqueueMutation(mutation: Omit<QueuedMutation, "id" | "createdAt" | "retryCount" | "status">): Promise<QueuedMutation> {
+  // Validate table against allowlist (H3: prevent arbitrary table writes)
+  if (!ALLOWED_TABLES.has(mutation.table)) {
+    throw new Error(`Offline queue: table "${mutation.table}" is not in the allowed list`);
+  }
+
   const db = await openOfflineDB();
   const entry: QueuedMutation = {
     ...mutation,

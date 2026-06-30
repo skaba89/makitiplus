@@ -113,9 +113,13 @@ const Expenses = () => {
 
    const createExpenseMutation = useMutation({
      mutationFn: async () => {
+       const numAmount = parseFloat(amount);
+       if (isNaN(numAmount) || numAmount <= 0) {
+         throw new Error("Montant invalide");
+       }
        const insertData: Record<string, unknown> = {
          user_id: user!.id,
-         amount: parseFloat(amount),
+         amount: numAmount,
          category,
          payment_method: paymentMethod,
          description: description || null,
@@ -137,20 +141,26 @@ const Expenses = () => {
          description: "La dépense a été ajoutée avec succès",
        });
      },
-     onError: () => {
+     onError: (error: unknown) => {
+       const msg = error instanceof Error ? error.message : "Impossible d'enregistrer la depense";
        toast({
          variant: "destructive",
          title: "Erreur",
-         description: "Impossible d'enregistrer la dépense",
+         description: msg,
        });
+       reportError(error instanceof Error ? error : new Error(msg));
      },
    });
  
    const updateExpenseMutation = useMutation({
      mutationFn: async () => {
        if (!editingExpense) return;
+       const numAmount = parseFloat(amount);
+       if (isNaN(numAmount) || numAmount <= 0) {
+         throw new Error("Montant invalide");
+       }
        const updateData: Record<string, unknown> = {
-         amount: parseFloat(amount),
+         amount: numAmount,
          category,
          payment_method: paymentMethod,
          description: description || null,
@@ -172,12 +182,14 @@ const Expenses = () => {
          description: "La dépense a été mise à jour avec succès",
        });
      },
-     onError: () => {
+     onError: (error: unknown) => {
+       const msg = error instanceof Error ? error.message : "Impossible de modifier la depense";
        toast({
          variant: "destructive",
          title: "Erreur",
-         description: "Impossible de modifier la dépense",
+         description: msg,
        });
+       reportError(error instanceof Error ? error : new Error(msg));
      },
    });
 
@@ -193,12 +205,14 @@ const Expenses = () => {
          description: "La dépense a été supprimée",
        });
      },
-     onError: () => {
+     onError: (error: unknown) => {
+       const msg = error instanceof Error ? error.message : "Impossible de supprimer la depense";
        toast({
          variant: "destructive",
          title: "Erreur",
-         description: "Impossible de supprimer la dépense",
+         description: msg,
        });
+       reportError(error instanceof Error ? error : new Error(msg));
      },
    });
  

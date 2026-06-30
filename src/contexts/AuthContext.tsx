@@ -43,22 +43,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const fetchUserData = async (userId: string) => {
     try {
       // Fetch user role
-      const { data: roleData } = await supabase
+      const { data: roleData, error: roleError } = await supabase
         .from("user_roles")
         .select("role")
         .eq("user_id", userId)
         .single();
+
+      if (roleError) {
+        console.warn("[Auth] Failed to fetch user role:", roleError.message);
+      }
 
       if (roleData) {
         setUserRole(roleData.role);
       }
 
       // Fetch profile
-      const { data: profileData } = await supabase
+      const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select("*")
         .eq("user_id", userId)
         .single();
+
+      if (profileError) {
+        console.warn("[Auth] Failed to fetch profile:", profileError.message);
+      }
 
       if (profileData) {
         setProfile(profileData);
@@ -71,6 +79,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         });
       }
     } catch (error) {
+      console.error("[Auth] fetchUserData error:", error);
       reportError(error instanceof Error ? error : new Error(String(error)));
     }
   };
@@ -204,14 +213,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return { error: profileError };
       }
 
-      // Create user role
+      // Create user role — C9: if role insert fails, log and attempt recovery
       const { error: roleError } = await supabase.from("user_roles").insert({
         user_id: data.user.id,
         role: profileData.role,
       });
 
       if (roleError) {
-        return { error: roleError };
+        // Role creation failed — the user exists but has no role.
+        // This is a known edge case with the admin-only INSERT policy.
+        // Log the error but don't block signup — the first admin can assign roles later.
+        console.error("[Auth] Failed to create user role (may need admin assignment):", roleError.message);
+        // If the user is signing up as admin/super_admin, the role MUST exist
+        // for them to access the dashboard. Show a warning.
+        if (profileData.role === "admin" || profileData.role === "super_admin") {
+          return { error: new Error("Compte cree mais role non assigne. Contactez un administrateur existant pour vous attribuer le role.") };
+        }
+        // For vendeur/comptable, they can be assigned later — signup still succeeds
       }
     }
 
