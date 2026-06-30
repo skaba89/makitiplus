@@ -166,7 +166,7 @@ const Categories = () => {
         name: category.name,
         icon: category.icon || "Package",
         color: category.color || "#E57E4D",
-        description: (category as any).description || "",
+        description: category.description || "",
       });
     } else {
       setSelectedCategory(null);
@@ -209,13 +209,13 @@ const Categories = () => {
   const filteredCategories = categories
     ?.filter((c) =>
       c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ((c as any).description || "").toLowerCase().includes(searchQuery.toLowerCase())
+      (c.description || "").toLowerCase().includes(searchQuery.toLowerCase())
     )
     ?.sort((a, b) => {
       if (sortBy === "name") return a.name.localeCompare(b.name);
       if (sortBy === "products") {
-        const aCount = (a as any).products?.[0]?.count || 0;
-        const bCount = (b as any).products?.[0]?.count || 0;
+        const aCount = a.products?.[0]?.count || 0;
+        const bCount = b.products?.[0]?.count || 0;
         return bCount - aCount;
       }
       // Default: sort_order then name
@@ -223,7 +223,7 @@ const Categories = () => {
     });
 
   const totalProducts = categories?.reduce(
-    (sum, c) => sum + ((c as any).products?.[0]?.count || 0),
+    (sum, c) => sum + (c.products?.[0]?.count || 0),
     0
   ) || 0;
 
@@ -285,8 +285,8 @@ const Categories = () => {
         ) : filteredCategories && filteredCategories.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredCategories.map((category) => {
-              const productCount = (category as any).products?.[0]?.count || 0;
-              const isDefault = (category as any).is_default;
+              const productCount = category.products?.[0]?.count || 0;
+              const isDefault = category.is_default;
               return (
                 <Card key={category.id} className="card-elevated group">
                   <CardContent className="p-4">
@@ -316,9 +316,9 @@ const Categories = () => {
                               {productCount} produit{productCount !== 1 ? "s" : ""}
                             </span>
                           </div>
-                          {(category as any).description && (
+                          {category.description && (
                             <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                              {(category as any).description}
+                              {category.description}
                             </p>
                           )}
                         </div>

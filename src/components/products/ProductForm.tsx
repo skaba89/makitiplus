@@ -16,6 +16,7 @@ import { Loader2, Barcode } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
 import { BarcodeGenerator, generateBarcode } from "./BarcodeGenerator";
 import { useCurrency } from "@/hooks/useCurrency";
+import { CategoryIcon } from "@/components/ui/category-icon";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
 type ProductInsert = Database["public"]["Tables"]["products"]["Insert"];
@@ -172,7 +173,10 @@ export const ProductForm = ({ product, onSubmit, isLoading }: ProductFormProps) 
             <SelectContent>
               {categories?.map((category) => (
                 <SelectItem key={category.id} value={category.id}>
-                  {category.icon} {category.name}
+                  <span className="flex items-center gap-2">
+                    <CategoryIcon iconName={category.icon} className="h-4 w-4" />
+                    {category.name}
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>
