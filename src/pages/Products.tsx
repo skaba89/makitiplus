@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+import { ProductsPageSkeleton } from "@/components/skeletons/PageSkeletons";
 import { ProductList } from "@/components/products/ProductList";
 import { ProductForm } from "@/components/products/ProductForm";
 import { StockAdjustDialog } from "@/components/products/StockAdjustDialog";
@@ -494,9 +495,7 @@ const Products = () => {
 
         {/* Products List */}
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-          </div>
+          <ProductsPageSkeleton />
         ) : paginatedProducts && paginatedProducts.length > 0 ? (
           <ProductList
             products={paginatedProducts}

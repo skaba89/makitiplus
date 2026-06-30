@@ -48,6 +48,7 @@ import {
 import { CustomerDetailDialog } from "@/components/customers/CustomerDetailDialog";
 import { CreditPaymentDialog } from "@/components/customers/CreditPaymentDialog";
 import { exportCustomersToCSV } from "@/utils/exportUtils";
+import { CustomersPageSkeleton } from "@/components/skeletons/PageSkeletons";
 import { Customer, CustomerUpdateParams } from "@/types";
 
 const Customers = () => {
@@ -190,6 +191,9 @@ const Customers = () => {
 
   return (
     <DashboardLayout>
+      {isLoading ? (
+        <CustomersPageSkeleton />
+      ) : (
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -282,11 +286,7 @@ const Customers = () => {
         </div>
 
         {/* Table */}
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-          </div>
-        ) : filtered && filtered.length > 0 ? (
+        {filtered && filtered.length > 0 ? (
           <Card className="card-elevated">
             <CardContent className="p-0">
               <div className="overflow-x-auto">
@@ -488,6 +488,7 @@ const Customers = () => {
           </AlertDialogContent>
         </AlertDialog>
       </div>
+      )}
     </DashboardLayout>
   );
 };

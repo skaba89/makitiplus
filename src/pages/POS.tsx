@@ -15,16 +15,24 @@ import { ProductAutocomplete } from "@/components/pos/ProductAutocomplete";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useOrgTaxRate } from "@/hooks/useOrgTaxRate";
 import { computeTax } from "@/lib/taxUtils";
-import { ShoppingCart, Camera, LayoutGrid, List } from "lucide-react";
+import { ShoppingCart, Camera, LayoutGrid, List, Keyboard } from "lucide-react";
 import { CategoryIcon } from "@/components/ui/category-icon";
 import { Database } from "@/integrations/supabase/types";
 import { ReceiptData } from "@/utils/receiptGenerator";
 import { useBranding } from "@/contexts/BrandingContext";
 import { useThemeSettings } from "@/contexts/ThemeContext";
+import { usePOSKeyboardShortcuts } from "@/hooks/usePOSKeyboardShortcuts";
+import { POSProductGridSkeleton, POSProductListSkeleton, POSCartSkeleton } from "@/components/pos/POSSkeletons";
 
 type Product = Database["public"]["Tables"]["products"]["Row"] & {
   categories?: { name: string; color: string | null; icon: string | null } | null;
@@ -51,6 +59,7 @@ const POS = () => {
   const [showOutOfStock, setShowOutOfStock] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const lastSubmitRef = useRef(0);
 
   const { data: products, isLoading } = useQuery({
@@ -480,6 +489,21 @@ const POS = () => {
 
   const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
+  // Keyboard shortcuts
+  usePOSKeyboardShortcuts({
+    onFocusSearch: useCallback(() => {
+      const input = document.querySelector<HTMLInputElement>('input[placeholder*="Rechercher"]');
+      input?.focus();
+    }, []),
+    onOpenPayment: useCallback(() => setIsPaymentOpen(true), []),
+    onClearCart: useCallback(() => clearCart(), [clearCart]),
+    onToggleView: useCallback(() => setViewMode((v) => v === "grid" ? "list" : "grid"), []),
+    onToggleOutOfStock: useCallback(() => setShowOutOfStock((v) => !v), []),
+    onOpenScanner: useCallback(() => setIsScannerOpen(true), []),
+    hasCartItems: cart.length > 0,
+    isPaymentOpen,
+  });
+
   return (
     <DashboardLayout>
       <div className="h-[calc(100vh-6rem)] lg:h-[calc(100vh-2rem)] flex flex-col lg:flex-row gap-4">
@@ -507,10 +531,19 @@ const POS = () => {
                 variant="outline"
                 size="icon"
                 onClick={() => setIsScannerOpen(true)}
-                title="Scanner un code-barres"
+                title="F7 : Scanner un code-barres"
                 aria-label="Scanner un code-barres"
               >
                 <Camera className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setShowShortcuts(true)}
+                title="Raccourcis clavier"
+                aria-label="Raccourcis clavier"
+              >
+                <Keyboard className="h-4 w-4" />
               </Button>
             </div>
 
@@ -585,9 +618,11 @@ const POS = () => {
           {/* Products Grid */}
           <div className="flex-1 overflow-y-auto">
             {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-              </div>
+              viewMode === "grid" ? (
+                <POSProductGridSkeleton />
+              ) : (
+                <POSProductListSkeleton />
+              )
             ) : displayedProducts && displayedProducts.length > 0 ? (
               viewMode === "grid" ? (
                 <POSProductGrid products={displayedProducts} onAddToCart={addToCart} />
@@ -605,14 +640,18 @@ const POS = () => {
 
         {/* Cart Section — hidden on mobile, visible on lg+ */}
         <div className="hidden lg:block w-96 flex-shrink-0">
-          <POSCart
-            items={cart}
-            total={cartTotal}
-            onUpdateQuantity={updateCartQuantity}
-            onRemove={removeFromCart}
-            onClear={clearCart}
-            onCheckout={() => setIsPaymentOpen(true)}
-          />
+          {isLoading ? (
+            <POSCartSkeleton />
+          ) : (
+            <POSCart
+              items={cart}
+              total={cartTotal}
+              onUpdateQuantity={updateCartQuantity}
+              onRemove={removeFromCart}
+              onClear={clearCart}
+              onCheckout={() => setIsPaymentOpen(true)}
+            />
+          )}
         </div>
 
         {/* Mobile floating cart button */}
@@ -676,6 +715,36 @@ const POS = () => {
           onClose={() => setIsScannerOpen(false)}
           onScan={handleBarcodeScan}
         />
+
+        {/* Keyboard Shortcuts Dialog */}
+        <Dialog open={showShortcuts} onOpenChange={setShowShortcuts}>
+          <DialogContent className="max-w-sm" aria-describedby={undefined}>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Keyboard className="h-5 w-5" />
+                Raccourcis clavier
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2 text-sm">
+              {[
+                { keys: "/ ou Ctrl+K", action: "Rechercher un produit" },
+                { keys: "F2", action: "Ouvrir le paiement" },
+                { keys: "F4", action: "Vider le panier" },
+                { keys: "F5", action: "Basculer grille / liste" },
+                { keys: "F6", action: "Afficher / masquer ruptures" },
+                { keys: "F7", action: "Scanner un code-barres" },
+                { keys: "Escape", action: "Fermer / annuler" },
+              ].map((shortcut) => (
+                <div key={shortcut.keys} className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0">
+                  <span className="text-muted-foreground">{shortcut.action}</span>
+                  <kbd className="px-2 py-0.5 bg-muted rounded text-xs font-mono">
+                    {shortcut.keys}
+                  </kbd>
+                </div>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );

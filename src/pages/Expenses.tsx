@@ -3,6 +3,7 @@
  import { supabase } from "@/integrations/supabase/client";
  import { useAuth } from "@/contexts/AuthContext";
  import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+ import { ExpensesPageSkeleton } from "@/components/skeletons/PageSkeletons";
  import { Button } from "@/components/ui/button";
  import { Input } from "@/components/ui/input";
  import { Label } from "@/components/ui/label";
@@ -474,9 +475,7 @@ const Expenses = () => {
            </CardHeader>
            <CardContent>
              {isLoading ? (
-               <div className="flex justify-center py-8">
-                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-               </div>
+               <ExpensesPageSkeleton />
              ) : filteredExpenses && filteredExpenses.length > 0 ? (
                <div className="overflow-x-auto">
                  <Table>
