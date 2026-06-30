@@ -456,6 +456,10 @@ const Customers = () => {
           customer={selectedCustomer}
           isOpen={isCreditOpen}
           onClose={() => setIsCreditOpen(false)}
+          onViewHistory={() => {
+            setIsCreditOpen(false);
+            setIsDetailOpen(true);
+          }}
         />
 
         {/* Delete Confirmation Dialog */}

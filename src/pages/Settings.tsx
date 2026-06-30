@@ -39,7 +39,7 @@ const Settings = () => {
     country: "GN",
   });
 
-  const [nfcEnabled, setNfcEnabled] = useState(false);
+  const [nfcEnabled, setNfcEnabled] = useState(profile?.nfc_enabled ?? false);
   const [nfcSupported, setNfcSupported] = useState(false);
   const [activeTab, setActiveTab] = useState<"general" | "branding">("general");
 
@@ -53,6 +53,7 @@ const Settings = () => {
         city: profile.city || "",
         country: profile.country?.length === 2 ? profile.country : "GN",
       });
+      setNfcEnabled(profile.nfc_enabled ?? false);
     }
   }, [profile]);
 
@@ -103,28 +104,45 @@ const Settings = () => {
     updateProfileMutation.mutate(formData);
   };
 
-  const handleNfcToggle = async (enabled: boolean) => {
-    if (enabled && nfcSupported) {
+  const handleNfcToggle = async (checked: boolean) => {
+    if (checked && nfcSupported) {
       try {
         // Request NFC permission
         const NDEFReaderCtor = window.NDEFReader;
         if (!NDEFReaderCtor) throw new Error("NDEFReader not available");
         const ndef = new NDEFReaderCtor();
         await ndef.scan();
-        setNfcEnabled(true);
-        toast({
-          title: "NFC activé",
-          description: "Le paiement sans contact est maintenant disponible",
-        });
       } catch (error) {
         toast({
           variant: "destructive",
           title: "Erreur NFC",
           description: "Impossible d'activer le NFC. Vérifiez les permissions.",
         });
+        return;
       }
-    } else {
-      setNfcEnabled(false);
+    }
+
+    // Persist NFC preference to Supabase
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ nfc_enabled: checked })
+        .eq("user_id", user!.id);
+      if (error) throw error;
+      setNfcEnabled(checked);
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      toast({
+        title: checked ? "NFC activé" : "NFC désactivé",
+        description: checked
+          ? "Le paiement sans contact est maintenant disponible"
+          : "Le paiement sans contact a été désactivé",
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "Impossible de sauvegarder la préférence NFC",
+      });
     }
   };
 

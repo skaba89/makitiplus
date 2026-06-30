@@ -357,6 +357,7 @@ export type Database = {
           is_active: boolean
           is_test_account: boolean
           last_login_at: string | null
+          nfc_enabled: boolean | null
           organization_id: string | null
           owner_name: string
           phone: string | null
@@ -381,6 +382,7 @@ export type Database = {
           is_active?: boolean
           is_test_account?: boolean
           last_login_at?: string | null
+          nfc_enabled?: boolean | null
           organization_id?: string | null
           owner_name: string
           phone?: string | null
@@ -405,6 +407,7 @@ export type Database = {
           is_active?: boolean
           is_test_account?: boolean
           last_login_at?: string | null
+          nfc_enabled?: boolean | null
           organization_id?: string | null
           owner_name?: string
           phone?: string | null

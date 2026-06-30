@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useDeferredValue } from "react";
+import { useState, useEffect, useCallback, useDeferredValue } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -32,6 +32,7 @@ import { Database } from "@/integrations/supabase/types";
 import { exportProductsToCSV } from "@/utils/exportUtils";
 import { useCurrency } from "@/hooks/useCurrency";
 import { ProductWithCategory } from "@/types";
+import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
 type ProductInsert = Database["public"]["Tables"]["products"]["Insert"];
@@ -57,12 +58,50 @@ const Products = () => {
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const [isStockHistoryOpen, setIsStockHistoryOpen] = useState(false);
 
-  const { data: products, isLoading } = useQuery({
-    queryKey: ["products", user?.id],
+  // ── Server-side paginated + filtered query ────────────────────────────────
+  const PAGE_SIZE = 20;
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Reset to page 1 whenever filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedCategory]);
+
+  const filters: Array<{
+    column: string;
+    operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "is";
+    value: unknown;
+  }> = [];
+  if (selectedCategory) {
+    filters.push({ column: "category_id", operator: "eq", value: selectedCategory });
+  }
+
+  const {
+    data: paginatedProducts,
+    totalCount,
+    totalPages,
+    isLoading,
+  } = usePaginatedQuery<ProductWithCategory>({
+    table: "products",
+    select: "*, categories(name, color, icon)",
+    filters,
+    search: searchQuery
+      ? { columns: ["name", "barcode"], query: searchQuery }
+      : undefined,
+    orderBy: { column: "created_at", ascending: false },
+    page: currentPage,
+    pageSize: PAGE_SIZE,
+    queryKey: ["products", user?.id ?? ""],
+    enabled: !!user,
+  });
+
+  // ── Lightweight stats query (no joins, minimal columns) ───────────────────
+  const { data: allProductStats } = useQuery({
+    queryKey: ["products-stats", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("*, categories(name, color, icon)")
+        .select("id, category_id, stock_quantity, min_stock_alert")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -106,6 +145,7 @@ const Products = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["products-stats"] });
       toast({ title: "Produit créé avec succès" });
       setIsFormOpen(false);
     },
@@ -137,6 +177,7 @@ const Products = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["products-stats"] });
       toast({ title: "Produit mis à jour" });
       setIsFormOpen(false);
       setSelectedProduct(null);
@@ -162,6 +203,7 @@ const Products = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["products-stats"] });
       toast({ title: "Produit supprimé" });
     },
     onError: (error: unknown) => {
@@ -234,6 +276,7 @@ const Products = () => {
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["products-stats"] });
       queryClient.invalidateQueries({ queryKey: ["stock-movements", variables.productId] });
 
       const typeLabels = {
@@ -269,7 +312,7 @@ const Products = () => {
   };
 
   const handleDelete = (id: string) => {
-    const product = products?.find((p) => p.id === id) || null;
+    const product = paginatedProducts?.find((p) => p.id === id) || null;
     setDeleteTarget(product);
   };
 
@@ -288,41 +331,71 @@ const Products = () => {
     setIsStockHistoryOpen(true);
   };
 
-  const filteredProducts = useMemo(() => products?.filter((product) => {
-    const q = searchQuery.toLowerCase();
-    const matchesSearch =
-      !q ||
-      product.name.toLowerCase().includes(q) ||
-      (product.barcode &&
-        product.barcode.toLowerCase().includes(q));
-    const matchesCategory =
-      !selectedCategory || product.category_id === selectedCategory;
-    return matchesSearch && matchesCategory;
-  }), [products, searchQuery, selectedCategory]);
-
-  // Client-side pagination
-  const PAGE_SIZE = 20;
-  const [currentPage, setCurrentPage] = useState(1);
-  const totalPages = Math.max(1, Math.ceil((filteredProducts?.length || 0) / PAGE_SIZE));
-  const safeCurrentPage = Math.min(currentPage, totalPages);
-  const paginatedProducts = filteredProducts?.slice(
-    (safeCurrentPage - 1) * PAGE_SIZE,
-    safeCurrentPage * PAGE_SIZE
-  );
-  // Reset page when filters change (C8: moved to useEffect to avoid setState during render)
+  // Clamp current page to valid range (e.g. after deletion reduces totalPages)
+  const safeCurrentPage = Math.min(currentPage, Math.max(1, totalPages));
   useEffect(() => {
-    const safePage = Math.min(currentPage, totalPages);
-    if (currentPage !== safePage && safePage > 0) {
-      setCurrentPage(safePage);
+    if (currentPage !== safeCurrentPage && safeCurrentPage > 0) {
+      setCurrentPage(safeCurrentPage);
     }
-  }, [currentPage, totalPages]);
+  }, [currentPage, safeCurrentPage]);
 
-  // Stats
-  const totalProducts = products?.length || 0;
-  const lowStockCount = products?.filter(
+  // Stats (derived from lightweight stats query)
+  const totalProducts = allProductStats?.length || 0;
+  const lowStockCount = allProductStats?.filter(
     (p) => p.min_stock_alert != null && p.stock_quantity <= p.min_stock_alert
   ).length || 0;
-  const outOfStockCount = products?.filter((p) => p.stock_quantity === 0).length || 0;
+  const outOfStockCount = allProductStats?.filter((p) => p.stock_quantity === 0).length || 0;
+
+  // Category counts for filter buttons
+  const categoryCounts = useCallback(() => {
+    const map = new Map<string, number>();
+    allProductStats?.forEach((p) => {
+      if (p.category_id) {
+        map.set(p.category_id, (map.get(p.category_id) || 0) + 1);
+      }
+    });
+    return map;
+  }, [allProductStats]);
+  const catCounts = categoryCounts();
+
+  // On-demand fetch for CSV export (avoids loading all products on page load)
+  const handleExport = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("products")
+      .select("*, categories(name, color, icon)")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      toast({ variant: "destructive", title: "Erreur", description: "Impossible d'exporter les produits" });
+      return;
+    }
+
+    if (data && data.length > 0) {
+      exportProductsToCSV(
+        (data as ProductWithCat[]).map((p) => ({
+          name: p.name,
+          category: p.categories?.name || "",
+          price: p.price,
+          cost_price: p.cost_price,
+          stock_quantity: p.stock_quantity,
+          min_stock_alert: p.min_stock_alert,
+          unit: p.unit,
+          is_active: p.is_active,
+        })),
+        currency.displaySymbol || currency.symbol
+      );
+      toast({
+        title: "Export réussi",
+        description: `${data.length} produits exportés`,
+      });
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Aucun produit",
+        description: "Pas de produits à exporter",
+      });
+    }
+  }, [currency, toast]);
 
   return (
     <DashboardLayout>
@@ -340,33 +413,7 @@ const Products = () => {
           <div className="flex gap-2">
             <Button
               variant="outline"
-              onClick={() => {
-                if (products && products.length > 0) {
-                  exportProductsToCSV(
-                    (products as ProductWithCat[]).map((p) => ({
-                      name: p.name,
-                      category: p.categories?.name || "",
-                      price: p.price,
-                      cost_price: p.cost_price,
-                      stock_quantity: p.stock_quantity,
-                      min_stock_alert: p.min_stock_alert,
-                      unit: p.unit,
-                      is_active: p.is_active,
-                    })),
-                    currency.displaySymbol || currency.symbol
-                  );
-                  toast({
-                    title: "Export réussi",
-                    description: `${products.length} produits exportés`,
-                  });
-                } else {
-                  toast({
-                    variant: "destructive",
-                    title: "Aucun produit",
-                    description: "Pas de produits à exporter",
-                  });
-                }
-              }}
+              onClick={handleExport}
             >
               <Download className="mr-2 h-4 w-4" />
               Exporter
@@ -421,10 +468,10 @@ const Products = () => {
               size="sm"
               onClick={() => setSelectedCategory(null)}
             >
-              Toutes ({products?.length || 0})
+              Toutes ({totalProducts})
             </Button>
             {categories.map((category) => {
-              const count = products?.filter((p) => p.category_id === category.id).length || 0;
+              const count = catCounts.get(category.id) || 0;
               return (
                 <Button
                   key={category.id}
@@ -478,7 +525,7 @@ const Products = () => {
         {totalPages > 1 && (
           <div className="flex items-center justify-between pt-4 border-t">
             <p className="text-sm text-muted-foreground">
-              {((safeCurrentPage - 1) * PAGE_SIZE) + 1}–{Math.min(safeCurrentPage * PAGE_SIZE, filteredProducts?.length || 0)} sur {filteredProducts?.length || 0}
+              {((safeCurrentPage - 1) * PAGE_SIZE) + 1}–{Math.min(safeCurrentPage * PAGE_SIZE, totalCount)} sur {totalCount}
             </p>
             <div className="flex gap-2">
               <Button

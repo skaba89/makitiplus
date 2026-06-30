@@ -19,9 +19,10 @@ interface Props {
   customer: Customer | null;
   isOpen: boolean;
   onClose: () => void;
+  onViewHistory?: () => void;
 }
 
-export const CreditPaymentDialog = ({ customer, isOpen, onClose }: Props) => {
+export const CreditPaymentDialog = ({ customer, isOpen, onClose, onViewHistory }: Props) => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const { formatPrice } = useCurrency();
@@ -102,6 +103,11 @@ export const CreditPaymentDialog = ({ customer, isOpen, onClose }: Props) => {
             <p className="text-sm text-muted-foreground">Crédit en cours</p>
             <p className="text-2xl font-bold text-destructive">{formatPrice(Number(customer.total_credit))}</p>
           </div>
+          {onViewHistory && (
+            <Button variant="link" size="sm" className="px-0" onClick={onViewHistory}>
+              Voir l'historique
+            </Button>
+          )}
           <div className="space-y-2">
             <Label>Montant du paiement</Label>
             <Input
@@ -112,6 +118,14 @@ export const CreditPaymentDialog = ({ customer, isOpen, onClose }: Props) => {
               placeholder="0"
             />
           </div>
+          {amount && parseFloat(amount) > 0 && (
+            <div className="p-3 bg-muted rounded-lg text-sm">
+              <span className="text-muted-foreground">Reste à payer après ce paiement : </span>
+              <span className="font-bold">
+                {formatPrice(Math.max(0, Number(customer.total_credit) - parseFloat(amount)))}
+              </span>
+            </div>
+          )}
           <div className="space-y-2">
             <Label>Description (optionnel)</Label>
             <Input

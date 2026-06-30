@@ -1,4 +1,5 @@
 import jsPDF from "jspdf";
+import QRCode from "qrcode";
 import { DEFAULT_CURRENCY } from "@/utils/currencies";
 
 interface ReceiptItem {
@@ -38,6 +39,8 @@ export interface ReceiptData {
   // Org info for detailed template
   organizationId?: string;
   taxRate?: number;
+  // QR code
+  showQrCode?: boolean;
 }
 
 const paymentMethodLabels: Record<string, string> = {
@@ -123,6 +126,66 @@ const PAPER_CONFIGS: Record<ReceiptPaperSize, { width: number; defaultHeight: nu
   },
 };
 
+// ─── QR Code helper ────────────────────────────────────────────
+/** Generate a QR code data URL from text content */
+async function generateQrDataUrl(text: string): Promise<string> {
+  return QRCode.toDataURL(text, {
+    width: 200,
+    margin: 1,
+    color: { dark: "#000000", light: "#FFFFFF" },
+    errorCorrectionLevel: "M",
+  });
+}
+
+/** Build QR content string from receipt data */
+function buildQrContent(data: ReceiptData): string {
+  const parts = [
+    `VTE:${data.saleNumber}`,
+    `DT:${data.date.toISOString().slice(0, 10)}`,
+    `TOT:${data.total}`,
+    `PAI:${data.paymentMethod}`,
+  ];
+  if (data.businessName) parts.push(`BIZ:${data.businessName}`);
+  if (data.organizationId) parts.push(`ORG:${data.organizationId}`);
+  return parts.join("|");
+}
+
+/** Add QR code image to PDF doc, returns the Y position after the QR block */
+async function addQrCodeToPdf(
+  doc: jsPDF,
+  data: ReceiptData,
+  config: typeof PAPER_CONFIGS[ReceiptPaperSize],
+  yStart: number
+): Promise<number> {
+  if (data.showQrCode === false) return yStart;
+
+  const content = buildQrContent(data);
+  const qrDataUrl = await generateQrDataUrl(content);
+
+  // QR size depends on paper: 58mm→15mm, 80mm→20mm, A4→25mm
+  const qrSize = config.width < 70 ? 15 : config.width < 100 ? 20 : 25;
+  const qrX = (config.width - qrSize) / 2;
+  let y = yStart + 2;
+
+  doc.setFontSize(config.baseFontSize - 1);
+  doc.setTextColor(120);
+  const centerText = (text: string, yPos: number) => {
+    const tw = doc.getTextWidth(text);
+    doc.text(text, (config.width - tw) / 2, yPos);
+  };
+  centerText("Scanner pour vérifier", y);
+  y += 2;
+
+  doc.addImage(qrDataUrl, "PNG", qrX, y, qrSize, qrSize, undefined, "NONE");
+  y += qrSize + 1;
+
+  doc.setFontSize(config.baseFontSize - 2);
+  centerText(data.saleNumber, y);
+  doc.setTextColor(0);
+
+  return y + 3;
+}
+
 // ─── African template decorative helpers ───────────────────────
 function drawAfricanBorder(doc: jsPDF, x: number, y: number, w: number, h: number, config: typeof PAPER_CONFIGS[ReceiptPaperSize]) {
   const m = config.margin;
@@ -154,7 +217,7 @@ function drawAfricanBorder(doc: jsPDF, x: number, y: number, w: number, h: numbe
 }
 
 // ─── CLASSIC TEMPLATE (default) ────────────────────────────────
-function generateClassicReceipt(data: ReceiptData, doc: jsPDF, config: typeof PAPER_CONFIGS[ReceiptPaperSize]): jsPDF {
+function generateClassicReceipt(data: ReceiptData, doc: jsPDF, config: typeof PAPER_CONFIGS[ReceiptPaperSize]): number {
   const symbol = data.currencySymbol || "F";
   const position = data.currencyPosition || "after";
   const fPrice = (p: number) => formatPriceWithCurrency(p, symbol, position, true);
@@ -366,11 +429,11 @@ function generateClassicReceipt(data: ReceiptData, doc: jsPDF, config: typeof PA
   centerText("Ticket édité par MakitiPlus", y, config.baseFontSize - 1);
   doc.setTextColor(0);
 
-  return doc;
+  return y;
 }
 
 // ─── MINIMAL TEMPLATE ──────────────────────────────────────────
-function generateMinimalReceipt(data: ReceiptData, doc: jsPDF, config: typeof PAPER_CONFIGS[ReceiptPaperSize]): jsPDF {
+function generateMinimalReceipt(data: ReceiptData, doc: jsPDF, config: typeof PAPER_CONFIGS[ReceiptPaperSize]): number {
   const symbol = data.currencySymbol || "F";
   const position = data.currencyPosition || "after";
   const fPrice = (p: number) => formatPriceWithCurrency(p, symbol, position, true);
@@ -453,11 +516,11 @@ function generateMinimalReceipt(data: ReceiptData, doc: jsPDF, config: typeof PA
   centerText("MakitiPlus", y);
   doc.setTextColor(0);
 
-  return doc;
+  return y;
 }
 
 // ─── DETAILED TEMPLATE ─────────────────────────────────────────
-function generateDetailedReceipt(data: ReceiptData, doc: jsPDF, config: typeof PAPER_CONFIGS[ReceiptPaperSize]): jsPDF {
+function generateDetailedReceipt(data: ReceiptData, doc: jsPDF, config: typeof PAPER_CONFIGS[ReceiptPaperSize]): number {
   const symbol = data.currencySymbol || "F";
   const position = data.currencyPosition || "after";
   const fPrice = (p: number) => formatPriceWithCurrency(p, symbol, position, true);
@@ -681,11 +744,11 @@ function generateDetailedReceipt(data: ReceiptData, doc: jsPDF, config: typeof P
   centerText("Ticket édité par MakitiPlus", y);
   doc.setTextColor(0);
 
-  return doc;
+  return y;
 }
 
 // ─── AFRICAN TEMPLATE ──────────────────────────────────────────
-function generateAfricanReceipt(data: ReceiptData, doc: jsPDF, config: typeof PAPER_CONFIGS[ReceiptPaperSize]): jsPDF {
+function generateAfricanReceipt(data: ReceiptData, doc: jsPDF, config: typeof PAPER_CONFIGS[ReceiptPaperSize]): number {
   const symbol = data.currencySymbol || "F";
   const position = data.currencyPosition || "after";
   const fPrice = (p: number) => formatPriceWithCurrency(p, symbol, position, true);
@@ -916,11 +979,11 @@ function generateAfricanReceipt(data: ReceiptData, doc: jsPDF, config: typeof PA
   centerText("Ticket édité par MakitiPlus", y + 5, config.baseFontSize - 1);
   doc.setTextColor(0);
 
-  return doc;
+  return y + 5;
 }
 
 // ─── Main entry point ──────────────────────────────────────────
-export const generateReceiptPDF = (data: ReceiptData): jsPDF => {
+export const generateReceiptPDF = async (data: ReceiptData): Promise<jsPDF> => {
   const paperSize: ReceiptPaperSize = data.paperSize || "80mm";
   const template: ReceiptTemplate = data.template || "default";
   const config = PAPER_CONFIGS[paperSize];
@@ -938,17 +1001,32 @@ export const generateReceiptPDF = (data: ReceiptData): jsPDF => {
   });
 
   // Dispatch to template
+  let finalY: number;
   switch (template) {
     case "minimal":
-      return generateMinimalReceipt(data, doc, config);
+      finalY = generateMinimalReceipt(data, doc, config);
+      break;
     case "detailed":
-      return generateDetailedReceipt(data, doc, config);
+      finalY = generateDetailedReceipt(data, doc, config);
+      break;
     case "african":
-      return generateAfricanReceipt(data, doc, config);
+      finalY = generateAfricanReceipt(data, doc, config);
+      break;
     case "default":
     default:
-      return generateClassicReceipt(data, doc, config);
+      finalY = generateClassicReceipt(data, doc, config);
+      break;
   }
+
+  // Add QR code after footer (if enabled — default true)
+  if (data.showQrCode !== false) {
+    // Get the current page height and add QR
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const qrY = Math.min(finalY + 2, pageHeight - 30);
+    await addQrCodeToPdf(doc, data, config, qrY);
+  }
+
+  return doc;
 };
 
 // ─── Text version for WhatsApp/SMS ─────────────────────────────
@@ -1006,6 +1084,7 @@ export const generateReceiptText = (data: ReceiptData): string => {
       lines.push("-------------------------");
       lines.push("*Merci de votre confiance !*");
       if (data.footerText) lines.push(data.footerText);
+      if (data.showQrCode !== false) lines.push(`[QR: VTE:${data.saleNumber}|TOT:${data.total}]`);
       break;
     }
     case "african": {
@@ -1045,6 +1124,7 @@ export const generateReceiptText = (data: ReceiptData): string => {
       lines.push(`_"${proverb}"_`);
       lines.push("*Merci de votre confiance !*");
       if (data.footerText) lines.push(data.footerText);
+      if (data.showQrCode !== false) lines.push(`[QR: VTE:${data.saleNumber}|TOT:${data.total}]`);
       break;
     }
     default: { // classic
@@ -1086,6 +1166,7 @@ export const generateReceiptText = (data: ReceiptData): string => {
       lines.push("*Merci de votre confiance !*");
       lines.push("À bientôt!");
       if (data.footerText) lines.push(data.footerText);
+      if (data.showQrCode !== false) lines.push(`[QR: VTE:${data.saleNumber}|TOT:${data.total}]`);
       break;
     }
   }
@@ -1104,14 +1185,14 @@ export const shareViaWhatsApp = (data: ReceiptData, phoneNumber?: string): void 
   window.open(url, "_blank");
 };
 
-export const downloadReceipt = (data: ReceiptData): void => {
-  const doc = generateReceiptPDF(data);
+export const downloadReceipt = async (data: ReceiptData): Promise<void> => {
+  const doc = await generateReceiptPDF(data);
   const ext = data.paperSize === "A4" ? "facture" : "ticket";
   doc.save(`${ext}-${data.saleNumber}.pdf`);
 };
 
-export const printReceipt = (data: ReceiptData): void => {
-  const doc = generateReceiptPDF(data);
+export const printReceipt = async (data: ReceiptData): Promise<void> => {
+  const doc = await generateReceiptPDF(data);
   const pdfBlob = doc.output("blob");
   const pdfUrl = URL.createObjectURL(pdfBlob);
   const printWindow = window.open(pdfUrl);

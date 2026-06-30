@@ -102,9 +102,9 @@ export const ReceiptActionsDialog = ({
       receiptData.currencyPosition || currency.position
     );
 
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     const dataWithFormat = { ...receiptData, paperSize: selectedPaperSize };
-    downloadReceipt(dataWithFormat);
+    await downloadReceipt(dataWithFormat);
     const formatLabel = selectedPaperSize === "A4" ? "A4 (facture)" : selectedPaperSize;
     toast({
       title: "Ticket téléchargé",
