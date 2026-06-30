@@ -74,6 +74,28 @@ export default {
         micro: "10px",
         fine: "11px",
       },
+      spacing: {
+        'touch': '56px',
+        'drawer-handle': '100px',
+        'filter-sm': '90px',
+        'filter-md': '130px',
+        'filter-lg': '160px',
+        'filter-xl': '220px',
+        'dropdown-min': '8rem',
+        'touch-btn-h': '64px',
+        'touch-btn-w': '80px',
+      },
+      maxWidth: {
+        'filter-sm': '140px',
+        'filter-md': '260px',
+        'filter-lg': '280px',
+        'toast': '420px',
+      },
+      maxHeight: {
+        'scroll': '300px',
+        'dropdown': '28rem',
+        'scroll-lg': '400px',
+      },
       fontFamily: {
         sans: ["'Plus Jakarta Sans'", "system-ui", "sans-serif"],
       },

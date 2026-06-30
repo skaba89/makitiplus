@@ -18,7 +18,7 @@ const buttonVariants = cva(
         success: "bg-success text-success-foreground hover:bg-success/90 shadow-soft",
         hero: "bg-gradient-to-r from-primary to-[hsl(38_80%_55%)] text-primary-foreground shadow-glow hover:shadow-strong hover:scale-[1.02]",
         "hero-outline": "border-2 border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground backdrop-blur-sm hover:bg-primary-foreground/20",
-        touch: "bg-card text-card-foreground border-2 border-border shadow-soft hover:shadow-medium hover:border-primary/30 min-h-[64px]",
+        touch: "bg-card text-card-foreground border-2 border-border shadow-soft hover:shadow-medium hover:border-primary/30 min-h-touch-btn-h",
       },
       size: {
         default: "h-12 px-6 py-3",
@@ -28,7 +28,7 @@ const buttonVariants = cva(
         icon: "h-12 w-12",
         "icon-lg": "h-14 w-14",
         "icon-xl": "h-16 w-16",
-        touch: "h-16 min-w-[80px] px-6",
+        touch: "h-16 min-w-touch-btn-w px-6",
       },
     },
     defaultVariants: {

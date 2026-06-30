@@ -108,7 +108,7 @@ export const POSProductList = memo(({ products, onAddToCart }: POSProductListPro
                     Rupture
                   </Badge>
                 ) : product.stock_quantity <= 5 ? (
-                  <Badge variant="outline" className="text-micro px-1.5 py-0 border-warning text-warning">
+                  <Badge variant="outline" className="text-micro px-1.5 py-0 border-warning text-warning" aria-label={`Stock bas : ${product.stock_quantity} restants`}>
                     x{product.stock_quantity}
                   </Badge>
                 ) : (
@@ -128,6 +128,7 @@ export const POSProductList = memo(({ products, onAddToCart }: POSProductListPro
                       className="h-6 w-6"
                       onClick={() => setQty(product.id, qty - 1)}
                       disabled={qty <= 1}
+                      aria-label={`Diminuer quantité ${product.name}`}
                     >
                       <Minus className="h-3 w-3" />
                     </Button>
@@ -150,6 +151,7 @@ export const POSProductList = memo(({ products, onAddToCart }: POSProductListPro
                       className="h-6 w-6"
                       onClick={() => setQty(product.id, qty + 1)}
                       disabled={qty >= product.stock_quantity}
+                      aria-label={`Augmenter quantité ${product.name}`}
                     >
                       <Plus className="h-3 w-3" />
                     </Button>
@@ -192,6 +194,7 @@ export const POSProductList = memo(({ products, onAddToCart }: POSProductListPro
                     size="sm"
                     onClick={() => handleAdd(product)}
                     className="h-7 w-7 p-0"
+                    aria-label={`Ajouter ${product.name}`}
                   >
                     <Plus className="h-4 w-4" />
                   </Button>

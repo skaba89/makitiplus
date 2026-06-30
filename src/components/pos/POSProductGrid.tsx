@@ -29,8 +29,17 @@ export const POSProductGrid = memo(({ products, onAddToCart }: POSProductGridPro
         {visibleProducts.map((product) => (
           <Card
             key={product.id}
+            role="button"
+            tabIndex={product.stock_quantity > 0 ? 0 : -1}
+            aria-label={`${product.name} — ${formatPrice(product.price)}${product.stock_quantity === 0 ? ' — Rupture' : ''}`}
             className={`card-elevated cursor-pointer hover:shadow-medium transition-all active:scale-95 overflow-hidden ${product.stock_quantity === 0 ? 'opacity-50 pointer-events-none' : ''}`}
             onClick={() => product.stock_quantity > 0 && onAddToCart(product)}
+            onKeyDown={(e) => {
+              if ((e.key === 'Enter' || e.key === ' ') && product.stock_quantity > 0) {
+                e.preventDefault();
+                onAddToCart(product);
+              }
+            }}
           >
             <div className="aspect-square bg-muted flex items-center justify-center">
               {product.image_url ? (

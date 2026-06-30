@@ -138,8 +138,9 @@ export const POSPaymentDialog = ({
 
               <TabsContent value="cash" className="space-y-4 mt-4">
                 <div className="space-y-2">
-                  <Label>Montant reçu</Label>
+                  <Label htmlFor="pos-amount-paid">Montant reçu</Label>
                   <Input
+                    id="pos-amount-paid"
                     type="number"
                     max="100000000"
                     value={amountPaid}
@@ -190,8 +191,9 @@ export const POSPaymentDialog = ({
                   <span className="flex items-center gap-1.5"><AlertTriangle className="h-4 w-4" /> Vente à crédit - Le client paiera plus tard</span>
                 </p>
                 <div className="space-y-2">
-                  <Label>Nom du client *</Label>
+                  <Label htmlFor="pos-customer-name">Nom du client *</Label>
                   <Input
+                    id="pos-customer-name"
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
                     placeholder="Nom du client"
@@ -199,12 +201,13 @@ export const POSPaymentDialog = ({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Téléphone du client</Label>
+                  <Label htmlFor="pos-customer-phone">Téléphone du client</Label>
                   <div className="flex gap-2">
                     <div className="w-20 flex items-center justify-center px-2 bg-muted rounded-lg text-sm font-medium">
                       {phoneCode}
                     </div>
                     <Input
+                      id="pos-customer-phone"
                       value={customerPhone}
                       onChange={(e) => setCustomerPhone(e.target.value)}
                       placeholder="77 000 00 00"
@@ -221,16 +224,18 @@ export const POSPaymentDialog = ({
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Nom client (optionnel)</Label>
+                  <Label htmlFor="pos-opt-name">Nom client (optionnel)</Label>
                   <Input
+                    id="pos-opt-name"
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
                     placeholder="Nom"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Téléphone (optionnel)</Label>
+                  <Label htmlFor="pos-opt-phone">Téléphone (optionnel)</Label>
                   <Input
+                    id="pos-opt-phone"
                     value={customerPhone}
                     onChange={(e) => setCustomerPhone(e.target.value)}
                     placeholder="Téléphone"

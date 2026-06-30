@@ -24,13 +24,13 @@ export function useAccountStatusGuard() {
       checkingRef.current = true;
       try {
         const { data, error } = await supabase.rpc("check_account_status");
-        // 401 means the function doesn't have EXECUTE grant for authenticated users yet
-        // (migration not applied) — silently skip in that case
+        // 401 = la fonction n'a pas encore le droit EXECUTE pour les utilisateurs authentifiés
+        // (migration non appliquée) — on ignore silencieusement dans ce cas
         if (error) {
           if (error.status === 401 || error.code === '42501') {
             console.warn("[AccountGuard] check_account_status not authorized. Run fix_production_database.sql to grant EXECUTE.");
           }
-          return; // réseau down / RPC non disponible → on ne déconnecte pas
+          return; // Réseau indisponible / RPC non disponible → on ne déconnecte pas
         }
         const row = Array.isArray(data) ? data[0] : data;
         if (row && row.is_active === false) {
@@ -45,7 +45,7 @@ export function useAccountStatusGuard() {
           navigate("/auth", { replace: true });
         }
       } catch {
-        // silent
+        // Silencieux : ne pas déconnecter sur erreur réseau
       } finally {
         checkingRef.current = false;
       }
@@ -54,10 +54,10 @@ export function useAccountStatusGuard() {
     // Vérification immédiate
     check();
 
-    // Polling 60s
+    // Polling toutes les 60 secondes
     const interval = setInterval(check, 60_000);
 
-    // Vérification au retour de focus
+    // Vérification au retour du focus
     const onFocus = () => check();
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onFocus);

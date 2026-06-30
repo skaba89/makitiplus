@@ -63,10 +63,10 @@ const uuid = () =>
   `r_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 
 // ---------------------------------------------------------------------------
-// Storage abstraction: IndexedDB primary, localStorage fallback
+// Abstraction de stockage : IndexedDB principal, localStorage en repli
 // ---------------------------------------------------------------------------
 
-/** Synchronous localStorage load (fallback / legacy) */
+/** Chargement synchrone depuis localStorage (repli / legacy) */
 const lsLoad = (): QueuedDelivery[] => {
   try {
     const raw = localStorage.getItem(LS_KEY);
@@ -76,7 +76,7 @@ const lsLoad = (): QueuedDelivery[] => {
   }
 };
 
-/** Synchronous localStorage save (fallback / legacy) */
+/** Sauvegarde synchrone dans localStorage (repli / legacy) */
 const lsSave = (q: QueuedDelivery[]) => {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(q));
@@ -85,15 +85,15 @@ const lsSave = (q: QueuedDelivery[]) => {
   }
 };
 
-/** Async IndexedDB load */
+/** Chargement asynchrone depuis IndexedDB */
 const idbLoad = (): Promise<QueuedDelivery[]> =>
   idbGetAll<QueuedDelivery>(STORES.RECEIPT_QUEUE).catch(() => lsLoad());
 
-/** Async IndexedDB save (full replace) */
+/** Sauvegarde asynchrone dans IndexedDB (remplacement complet) */
 const idbSave = (q: QueuedDelivery[]): Promise<void> =>
   idbReplaceAll(STORES.RECEIPT_QUEUE, q).catch(() => { lsSave(q); });
 
-/** Async IndexedDB put single */
+/** Insertion asynchrone d'une entrée dans IndexedDB */
 const idbPutOne = (entry: QueuedDelivery): Promise<void> =>
   idbPut(STORES.RECEIPT_QUEUE, entry).catch(() => {
     const q = lsLoad();
@@ -103,14 +103,14 @@ const idbPutOne = (entry: QueuedDelivery): Promise<void> =>
   });
 
 /**
- * Unified load: returns from IndexedDB if available, else localStorage.
- * For backwards compatibility with sync callers, also provides lsLoad.
+ * Chargement unifié : retourne depuis IndexedDB si disponible, sinon localStorage.
+ * Pour la rétrocompatibilité avec les appelants synchrones, lsLoad reste disponible.
  */
-const load = lsLoad; // kept for sync internal use (retryOne, flushQueue sync)
-const save = lsSave; // kept for sync internal use
+const load = lsLoad; // conservé pour usage synchrone interne (retryOne, flushQueue sync)
+const save = lsSave; // conservé pour usage synchrone interne
 
 // ---------------------------------------------------------------------------
-// Public API — Async versions (recommended for new code)
+// API publique — Versions asynchrones (recommandées pour le nouveau code)
 // ---------------------------------------------------------------------------
 
 export const isOnline = (): boolean =>
@@ -233,7 +233,7 @@ export const enqueueOrSendReceipt = (
   queue.push(entry);
   lsSave(queue);
 
-  // Also persist to IndexedDB in background (fire-and-forget)
+  // Persister aussi dans IndexedDB en arrière-plan (fire-and-forget)
   if (isIndexedDBAvailable()) {
     idbPutOne(entry).catch((err) => { console.warn("[IDB] Operation failed:", err); });
   }

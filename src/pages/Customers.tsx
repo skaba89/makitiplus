@@ -416,26 +416,26 @@ const Customers = () => {
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label>Nom *</Label>
-                <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
+                <Label htmlFor="customer-name">Nom *</Label>
+                <Input id="customer-name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Téléphone</Label>
-                  <Input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} pattern="[0-9+\-\s]{8,15}" />
+                  <Label htmlFor="customer-phone">Téléphone</Label>
+                  <Input id="customer-phone" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} pattern="[0-9+\-\s]{8,15}" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Email</Label>
-                  <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
+                  <Label htmlFor="customer-email">Email</Label>
+                  <Input id="customer-email" type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Adresse</Label>
-                <Input value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} />
+                <Label htmlFor="customer-address">Adresse</Label>
+                <Input id="customer-address" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} />
               </div>
               <div className="space-y-2">
-                <Label>Notes</Label>
-                <Input value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} />
+                <Label htmlFor="customer-notes">Notes</Label>
+                <Input id="customer-notes" value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} />
               </div>
               <Button type="submit" className="w-full" disabled={createMutation.isPending || updateMutation.isPending}>
                 {selectedCustomer ? "Enregistrer" : "Ajouter"}

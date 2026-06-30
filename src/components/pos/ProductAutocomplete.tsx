@@ -102,6 +102,10 @@ export const ProductAutocomplete = ({
       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
       <Input
         ref={inputRef}
+        role="combobox"
+        aria-expanded={open && matches.length > 0}
+        aria-autocomplete="list"
+        aria-label="Rechercher un produit"
         value={query}
         onChange={(e) => {
           setQuery(e.target.value);
@@ -113,7 +117,7 @@ export const ProductAutocomplete = ({
         className="pl-10"
       />
       {open && query.trim() && (
-        <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg max-h-[28rem] overflow-y-auto">
+        <div role="listbox" className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg max-h-dropdown overflow-y-auto">
           {matches.length === 0 ? (
             <div className="p-4 text-sm text-muted-foreground text-center">
               Aucun produit trouvé
@@ -131,6 +135,8 @@ export const ProductAutocomplete = ({
               return (
                 <div
                   key={product.id}
+                  role="option"
+                  aria-selected={idx === highlight}
                   onMouseEnter={() => setHighlight(idx)}
                   className={cn(
                     "px-3 py-2 border-b last:border-0 transition-colors",
@@ -228,6 +234,7 @@ export const ProductAutocomplete = ({
                           handleAdd(product, false);
                         }}
                         title="Ajouter sans fermer"
+                        aria-label="Ajouter sans fermer"
                       >
                         <Plus className="h-3 w-3" />
                       </Button>

@@ -59,7 +59,7 @@ export const ReceiptActionsDialog = ({
     receiptData?.showQrCode !== false
   );
 
-  // Sync paper size when receiptData changes
+  // Synchroniser le format papier quand receiptData change
   useEffect(() => {
     if (receiptData?.paperSize) {
       setSelectedPaperSize(receiptData.paperSize);
@@ -70,7 +70,7 @@ export const ReceiptActionsDialog = ({
     localStorage.setItem(AUTO_SEND_KEY, autoSend ? "1" : "0");
   }, [autoSend]);
 
-  // Envoi automatique à l'ouverture si activé et téléphone client connu
+  // Envoi automatique à l'ouverture si activé et numéro client connu
   useEffect(() => {
     if (!isOpen || !receiptData || !autoSend || autoTriggered) return;
     const phone =
@@ -92,7 +92,7 @@ export const ReceiptActionsDialog = ({
     }
   }, [isOpen, receiptData, autoSend, autoChannel, whatsappNumber, autoTriggered, toast]);
 
-  // Reset trigger quand on rouvre
+  // Réinitialiser le déclencheur à la réouverture
   useEffect(() => {
     if (!isOpen) setAutoTriggered(false);
   }, [isOpen]);
@@ -140,7 +140,7 @@ export const ReceiptActionsDialog = ({
         description: "Sera envoyé automatiquement à la reconnexion.",
       });
     } else {
-      // duplicate (déjà envoyé)
+      // Doublon (déjà envoyé)
       toast({
         title: "Déjà envoyé",
         description: "Ce ticket a déjà été envoyé via ce canal/numéro (idempotence).",
@@ -181,7 +181,7 @@ export const ReceiptActionsDialog = ({
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Sale Summary */}
+          {/* Résumé de la vente */}
           <div className="bg-muted/50 rounded-lg p-4 text-center">
             <p className="text-sm text-muted-foreground">Ticket N°</p>
             <p className="font-bold text-lg">{receiptData.saleNumber}</p>
@@ -205,7 +205,7 @@ export const ReceiptActionsDialog = ({
             )}
           </div>
 
-          {/* Auto-send toggle */}
+          {/* Toggle envoi automatique */}
           <div className="rounded-lg border p-3 space-y-2">
             <div className="flex items-center justify-between">
               <Label htmlFor="auto-send" className="text-sm cursor-pointer">
@@ -248,12 +248,13 @@ export const ReceiptActionsDialog = ({
 
           {/* Téléphone destinataire */}
           <div className="space-y-2">
-            <Label>Numéro du client</Label>
+            <Label htmlFor="receipt-phone">Numéro du client</Label>
             <div className="flex gap-2">
               <div className="w-16 flex items-center justify-center px-2 bg-muted rounded-lg text-sm font-medium">
                 {phoneCode}
               </div>
               <Input
+                id="receipt-phone"
                 placeholder="77 xxx xx xx"
                 value={whatsappNumber}
                 onChange={(e) => setWhatsappNumber(e.target.value)}
@@ -322,7 +323,7 @@ export const ReceiptActionsDialog = ({
             />
           </div>
 
-          {/* Action Buttons */}
+          {/* Boutons d'action */}
           <div className="grid grid-cols-2 gap-3">
             <Button variant="outline" onClick={handleDownloadPDF}>
               <Download className="mr-2 h-4 w-4" />
@@ -338,7 +339,7 @@ export const ReceiptActionsDialog = ({
             </Button>
           </div>
 
-          {/* Close */}
+          {/* Fermer */}
           <Button className="w-full" onClick={onClose}>
             Nouvelle vente
           </Button>

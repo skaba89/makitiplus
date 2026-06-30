@@ -82,8 +82,8 @@ export const ReceiptDeliveryTrackingPanel = () => {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [pageSize, setPageSize] = useState<number>(10);
   const [page, setPage] = useState(1);
-  // Persist selection in localStorage so it survives hard refresh / tab reload.
-  // (Previously sessionStorage — which is lost on full reload.)
+  // Persistance de la sélection dans localStorage pour survivre au rechargement complet / onglet.
+  // (Anciennement sessionStorage — perdu lors d'un rechargement complet.)
   const SELECTION_KEY = "malikiplus:receipt_delivery_selection";
   const readPersistedSelection = (): Set<string> => {
     try {
@@ -108,11 +108,11 @@ export const ReceiptDeliveryTrackingPanel = () => {
     const q = getQueue();
     setQueue(q);
     setOnline(isOnline());
-    // Auto-prune ghost UUIDs : if entries selected no longer exist in the
-    // queue (removed or never present after reload), drop them silently.
-    // Selection is also pruned for archived entries via the same path
-    // because callers explicitly call setSelected(new Set()) after archive,
-    // but if user manually deletes a selected row we still clean up here.
+    // Nettoyage auto des UUID fantômes : si les entrées sélectionnées n'existent plus
+    // dans la file (supprimées ou jamais présentes après rechargement), on les retire silencieusement.
+    // La sélection est aussi nettoyée pour les entrées archivées via le même chemin
+    // car les appelants appellent explicitement setSelected(new Set()) après archivage,
+    // mais si l'utilisateur supprime manuellement une ligne sélectionnée, on nettoie ici aussi.
     setSelected((prev) => {
       if (prev.size === 0) return prev;
       const ids = new Set(q.map((e) => e.client_uuid));

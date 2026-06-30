@@ -237,7 +237,7 @@ const POS = () => {
 
         if (stockError) {
           console.warn("[POS] batch_update_stock RPC failed, using relative updates:", stockError.message);
-          // Relative atomic update: stock_quantity = GREATEST(stock_quantity - X, 0)
+          // Mise à jour atomique relative : stock_quantity = GREATEST(stock_quantity - X, 0)
           // Cela évite la condition de course SELECT-then-UPDATE (C5)
           for (const item of cart) {
             await supabase.rpc('decrement_stock', {

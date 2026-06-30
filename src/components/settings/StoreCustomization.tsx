@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCurrency } from "@/hooks/useCurrency";
+import { BRAND_DEFAULTS } from "@/constants/brandDefaults";
 import { useThemeSettings, TEMPLATE_PRESETS, type TemplateName, type StoreSettings } from "@/contexts/ThemeContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,7 +36,7 @@ import {
 // Utility: parse HSL string "16 80% 50%" to hex for color input
 const hslStringToHex = (hsl: string): string => {
   const parts = hsl.split(/\s+/);
-  if (parts.length !== 3) return "#E8612D";
+  if (parts.length !== 3) return BRAND_DEFAULTS.primary;
   const h = parseFloat(parts[0]);
   const s = parseFloat(parts[1]);
   const l = parseFloat(parts[2]);
@@ -93,16 +94,16 @@ const StoreCustomization = () => {
 
   // Color state
   const [primaryHex, setPrimaryHex] = useState(
-    settings?.primary_color ? hslStringToHex(settings.primary_color) : "#E8612D"
+    settings?.primary_color ? hslStringToHex(settings.primary_color) : BRAND_DEFAULTS.primary
   );
   const [secondaryHex, setSecondaryHex] = useState(
-    settings?.secondary_color ? hslStringToHex(settings.secondary_color) : "#FAF0E2"
+    settings?.secondary_color ? hslStringToHex(settings.secondary_color) : BRAND_DEFAULTS.secondary
   );
   const [accentHex, setAccentHex] = useState(
-    settings?.accent_color ? hslStringToHex(settings.accent_color) : "#F5E6CE"
+    settings?.accent_color ? hslStringToHex(settings.accent_color) : BRAND_DEFAULTS.accent
   );
   const [successHex, setSuccessHex] = useState(
-    settings?.success_color ? hslStringToHex(settings.success_color) : "#2BA84A"
+    settings?.success_color ? hslStringToHex(settings.success_color) : BRAND_DEFAULTS.success
   );
 
   // Receipt state

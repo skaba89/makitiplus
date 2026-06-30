@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, ReactNode 
 import { useAuth } from "./AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { reportError } from "@/lib/sentry";
+import { BRAND_DEFAULTS } from "@/constants/brandDefaults";
 
 export interface BrandingConfig {
   appName: string;
@@ -46,7 +47,7 @@ export const useBranding = () => {
 /** Convert HSL string "16 80% 50%" to hex for display */
 export function hslToHex(hsl: string): string {
   const parts = hsl.split(" ");
-  if (parts.length !== 3) return "#E8612D"; // fallback
+  if (parts.length !== 3) return BRAND_DEFAULTS.primary; // repli
 
   const h = parseFloat(parts[0]);
   const s = parseFloat(parts[1]) / 100;

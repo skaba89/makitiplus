@@ -3,6 +3,7 @@ import { useBranding, hslToHex, hexToHsl, type BrandingConfig } from "@/contexts
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { BRAND_DEFAULTS } from "@/constants/brandDefaults";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,9 +19,9 @@ import {
 import { Loader2, Palette, Upload, X, Sun, Moon, Monitor, Image, FileText, Type, Languages, Eye } from "lucide-react";
 
 const PRESET_COLORS = [
-  { name: "Terracotta", hsl: "16 80% 50%", hex: "#E8612D" },
+  { name: "Terracotta", hsl: "16 80% 50%", hex: BRAND_DEFAULTS.primary },
   { name: "Bleu Océan", hsl: "210 80% 50%", hex: "#1A8FE3" },
-  { name: "Vert Forêt", hsl: "152 60% 42%", hex: "#2BA84A" },
+  { name: "Vert Forêt", hsl: "152 60% 42%", hex: BRAND_DEFAULTS.success },
   { name: "Violet Royal", hsl: "270 70% 55%", hex: "#8B47CB" },
   { name: "Or Solaire", hsl: "45 90% 50%", hex: "#F5A623" },
   { name: "Rose Sahel", hsl: "340 75% 50%", hex: "#D6336C" },
@@ -303,7 +304,7 @@ export const BrandingSettings = () => {
               value={customColor}
               onChange={(e) => handleCustomColorChange(e.target.value)}
               className="w-32 font-mono text-sm"
-              placeholder="#E8612D"
+              placeholder={BRAND_DEFAULTS.primary}
             />
           </div>
         </CardContent>

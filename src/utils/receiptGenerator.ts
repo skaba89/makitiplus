@@ -681,7 +681,7 @@ function generateDetailedReceipt(data: ReceiptData, doc: jsPDF, config: typeof P
     y += isA4 ? 5 : 3.5;
   }
 
-  // Remises / autres lignes possibles ici...
+  // Remises / autres lignes possibles ici…
 
   y += 1;
   // Total box

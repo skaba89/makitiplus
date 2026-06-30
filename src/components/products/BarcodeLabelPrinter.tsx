@@ -313,7 +313,7 @@ export const BarcodeLabelPrinter = ({
                     )}
                     <span
                       className="font-bold text-center w-full leading-tight"
-                      style={{ color: "#dc2626" }}
+                      style={{ color: "hsl(var(--destructive))" }}
                     >
                       {formatPrice(product.price)}
                     </span>

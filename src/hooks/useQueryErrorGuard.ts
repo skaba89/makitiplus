@@ -31,9 +31,9 @@ export function useQueryErrorGuard() {
         msg.includes("user not found") ||
         code === "PGRST301"
       ) {
-        // Re-vérifie avec le serveur avant de déconnecter
+        // Re-vérification avec le serveur avant déconnexion
         supabase.rpc("check_account_status").then(({ data, error }) => {
-          // If the RPC itself fails (401 = missing GRANT, etc.), don't disconnect
+          // Si le RPC échoue lui-même (401 = GRANT manquant, etc.), ne pas déconnecter
           if (error) return;
           const row = Array.isArray(data) ? data[0] : data;
           if (row && row.is_active === false) {

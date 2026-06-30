@@ -81,7 +81,7 @@ interface StoreWithAdmin extends Organization {
   user_count?: number;
 }
 
-// Catégories de magasins avec labels et vraies icônes Lucide
+// Catégories de magasins avec labels et icônes Lucide
 interface CategoryConfig {
   value: StoreCategory;
   label: string;
@@ -113,14 +113,14 @@ const getCategoryConfig = (value: StoreCategory | null): CategoryConfig => {
   return STORE_CATEGORIES.find((c) => c.value === value) || STORE_CATEGORIES[STORE_CATEGORIES.length - 1];
 };
 
-// Composant pour afficher l'icône d'une catégorie
+// Affiche l'icône d'une catégorie de magasin
 const CategoryIcon = ({ value, className }: { value: StoreCategory | null; className?: string }) => {
   const config = getCategoryConfig(value);
   const Icon = config.icon;
   return <Icon className={className || `h-4 w-4 ${config.color}`} />;
 };
 
-// Composant badge catégorie avec icône
+// Badge catégorie avec icône intégrée
 const CategoryBadge = ({ value }: { value: StoreCategory | null }) => {
   const config = getCategoryConfig(value);
   const Icon = config.icon;
@@ -141,13 +141,13 @@ const Stores = () => {
   const [selectedStore, setSelectedStore] = useState<StoreWithAdmin | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>("all");
 
-  // New store form
+  // Formulaire nouveau magasin
   const [storeName, setStoreName] = useState("");
   const [storeCategory, setStoreCategory] = useState<StoreCategory>("epicerie");
   const [storeCountry, setStoreCountry] = useState(COUNTRIES[0]?.name || "Guinée");
   const [storeCurrency, setStoreCurrency] = useState(COUNTRIES[0]?.currency.symbol || DEFAULT_CURRENCY.symbol);
 
-  // Auto-select currency when country changes
+  // Sélection auto de la devise selon le pays
   const handleCountryChange = (countryName: string) => {
     setStoreCountry(countryName);
     const country = COUNTRIES.find((c) => c.name === countryName);
@@ -157,18 +157,18 @@ const Stores = () => {
   };
   const [creating, setCreating] = useState(false);
 
-  // New admin form
+  // Formulaire nouvel admin
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
   const [adminName, setAdminName] = useState("");
   const [adminPhone, setAdminPhone] = useState("");
   const [creatingAdmin, setCreatingAdmin] = useState(false);
 
-  // Fetch stores with React Query — single batch query to avoid N+1
+  // Récupération des magasins avec React Query — requête groupée pour éviter N+1
   const { data: stores = [], isLoading: loading } = useQuery({
     queryKey: ["stores"],
     queryFn: async () => {
-      // 1. Fetch all organizations
+      // 1. Récupérer toutes les organisations
       const { data: orgs, error: orgsError } = await supabase
         .from("organizations")
         .select("*")
@@ -177,25 +177,25 @@ const Stores = () => {
       if (orgsError) throw orgsError;
       if (!orgs || orgs.length === 0) return [];
 
-      // 2. Batch fetch ALL profiles for these orgs (2 queries instead of N*2)
+      // 2. Récupérer en lot TOUS les profils de ces orgs (2 requêtes au lieu de N*2)
       const orgIds = orgs.map((o) => o.id);
 
-      // Get first admin profile per org
+      // Premier profil admin par org
       const { data: adminProfiles } = await supabase
         .from("profiles")
         .select("owner_name, user_id, organization_id")
         .in("organization_id", orgIds);
 
-      // Get user count per org using a single query
+      // Nombre d'utilisateurs par org en une seule requête
       const { data: allProfiles } = await supabase
         .from("profiles")
         .select("organization_id")
         .in("organization_id", orgIds);
 
-      // Build lookup maps
+      // Construction des maps de recherche
       const adminMap = new Map<string, { owner_name: string | null; user_id: string | null }>();
       const seenOrgs = new Set<string>();
-      // Take only the first admin per org
+      // Prendre uniquement le premier admin par org
       for (const p of adminProfiles || []) {
         if (p.organization_id && !seenOrgs.has(p.organization_id)) {
           seenOrgs.add(p.organization_id);
@@ -210,7 +210,7 @@ const Stores = () => {
         }
       }
 
-      // 3. Merge
+      // 3. Fusion
       return orgs.map((org) => ({
         ...org,
         admin_name: adminMap.get(org.id)?.owner_name || "—",
@@ -252,7 +252,7 @@ const Stores = () => {
     if (!selectedStore) return;
     setCreatingAdmin(true);
     try {
-      // Use Edge Function to bypass client-side rate limits (429)
+      // Utiliser l'Edge Function pour contourner les limites de débit côté client (429)
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
       if (!accessToken) throw new Error("Non authentifié");
@@ -287,7 +287,7 @@ const Stores = () => {
         description: `${adminName} est maintenant admin de "${selectedStore.name}".`,
       });
 
-      // Reset form
+      // Réinitialiser le formulaire
       setAdminEmail("");
       setAdminPassword("");
       setAdminName("");
@@ -315,13 +315,13 @@ const Stores = () => {
     }
   };
 
-  // Filter stores by category
+  // Filtrer les magasins par catégorie
   const filteredStores =
     filterCategory === "all"
       ? stores
       : stores.filter((s) => s.category === filterCategory);
 
-  // Count stores per category
+  // Compter les magasins par catégorie
   const categoryCounts = stores.reduce<Record<string, number>>((acc, s) => {
     const key = s.category || "autre";
     acc[key] = (acc[key] || 0) + 1;

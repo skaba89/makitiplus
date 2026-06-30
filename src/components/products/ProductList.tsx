@@ -71,7 +71,7 @@ export const ProductList = memo(({ products, onEdit, onDelete, onStockAdjust, on
                   className="mb-2"
                   style={{
                     backgroundColor: product.categories.color || undefined,
-                    color: product.categories.color ? "#fff" : undefined,
+                    color: product.categories.color ? "hsl(0 0% 100%)" : undefined,
                   }}
                 >
                   <CategoryIcon iconName={product.categories.icon} className="h-3 w-3 mr-1" /> {product.categories.name}
@@ -111,6 +111,7 @@ export const ProductList = memo(({ products, onEdit, onDelete, onStockAdjust, on
                   size="sm"
                   className="gap-1"
                   onClick={() => onStockHistory(product)}
+                  aria-label={`Historique stock ${product.name}`}
                 >
                   <History className="h-3.5 w-3.5" />
                 </Button>

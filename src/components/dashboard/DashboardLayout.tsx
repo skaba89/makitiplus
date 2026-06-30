@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBranding } from "@/contexts/BrandingContext";
@@ -47,6 +47,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
 
   // Use theme settings (store_settings) with fallback to branding context
   const displayName = settings?.store_name || branding.appName || "MalikiPlus";
@@ -154,6 +155,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       {/* Mobile Header */}
       <header className="lg:hidden fixed top-0 left-0 right-0 z-50 glass h-16 flex items-center justify-between px-4">
         <button
+          ref={menuButtonRef}
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
           className="p-2 rounded-lg hover:bg-muted"
           aria-label={isSidebarOpen ? "Fermer le menu" : "Ouvrir le menu"}
@@ -292,7 +294,10 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       {isSidebarOpen && (
         <div
           className="fixed inset-0 z-30 bg-background/80 backdrop-blur-sm lg:hidden"
-          onClick={() => setIsSidebarOpen(false)}
+          onClick={() => {
+            setIsSidebarOpen(false);
+            menuButtonRef.current?.focus();
+          }}
         />
       )}
 
