@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useCurrency } from "@/hooks/useCurrency";
 import { ProductWithCategoryIcon, POS_ROLES, INVENTORY_ROLES, FINANCIAL_ROLES } from "@/types";
 import { DashboardPageSkeleton } from "@/components/skeletons/PageSkeletons";
+import { fetchAllRows } from "@/lib/batchedFetch";
 import {
   TrendingUp,
   ShoppingCart,
@@ -82,17 +83,17 @@ const Dashboard = () => {
     enabled: !!user,
   });
 
-  // Nombre de produits et alertes de stock
+  // Nombre de produits et alertes de stock — fetchAllRows pour contourner la limite PostgREST
   const { data: products, isLoading: isLoadingProducts } = useQuery({
     queryKey: ["dashboard-products", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("products")
-        .select("id, name, stock_quantity, min_stock_alert, categories(icon)")
-        .eq("is_active", true);
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () =>
+      fetchAllRows<ProductWithCategoryIcon>(
+        "products",
+        "id, name, stock_quantity, min_stock_alert, categories(icon)",
+        {
+          filters: [{ column: "is_active", operator: "eq", value: true }],
+        }
+      ),
     enabled: !!user,
   });
 

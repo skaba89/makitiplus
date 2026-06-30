@@ -34,6 +34,7 @@ import { exportProductsToCSV } from "@/utils/exportUtils";
 import { useCurrency } from "@/hooks/useCurrency";
 import { ProductWithCategory } from "@/types";
 import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
+import { fetchAllRows } from "@/lib/batchedFetch";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
 type ProductInsert = Database["public"]["Tables"]["products"]["Insert"];
@@ -96,18 +97,17 @@ const Products = () => {
     enabled: !!user,
   });
 
-  // ── Lightweight stats query (no joins, minimal columns) ───────────────────
+  // ── Lightweight stats query (no joins, minimal columns) — fetchAllRows pour contourner la limite PostgREST ──
   const { data: allProductStats } = useQuery({
     queryKey: ["products-stats", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("products")
-        .select("id, category_id, stock_quantity, min_stock_alert")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () =>
+      fetchAllRows<{ id: string; category_id: string | null; stock_quantity: number; min_stock_alert: number | null }>(
+        "products",
+        "id, category_id, stock_quantity, min_stock_alert",
+        {
+          orderBy: { column: "created_at", ascending: false },
+        }
+      ),
     enabled: !!user,
   });
 
@@ -359,42 +359,44 @@ const Products = () => {
   }, [allProductStats]);
   const catCounts = categoryCounts();
 
-  // On-demand fetch for CSV export (avoids loading all products on page load)
+  // On-demand fetch for CSV export — fetchAllRows pour contourner la limite PostgREST
   const handleExport = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("products")
-      .select("*, categories(name, color, icon)")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      toast({ variant: "destructive", title: "Erreur", description: "Impossible d'exporter les produits" });
-      return;
-    }
-
-    if (data && data.length > 0) {
-      exportProductsToCSV(
-        (data as ProductWithCat[]).map((p) => ({
-          name: p.name,
-          category: p.categories?.name || "",
-          price: p.price,
-          cost_price: p.cost_price,
-          stock_quantity: p.stock_quantity,
-          min_stock_alert: p.min_stock_alert,
-          unit: p.unit,
-          is_active: p.is_active,
-        })),
-        currency.displaySymbol || currency.symbol
+    try {
+      const data = await fetchAllRows<ProductWithCat>(
+        "products",
+        "*, categories(name, color, icon)",
+        {
+          orderBy: { column: "created_at", ascending: false },
+        }
       );
-      toast({
-        title: "Export réussi",
-        description: `${data.length} produits exportés`,
-      });
-    } else {
-      toast({
-        variant: "destructive",
-        title: "Aucun produit",
-        description: "Pas de produits à exporter",
-      });
+
+      if (data && data.length > 0) {
+        exportProductsToCSV(
+          data.map((p) => ({
+            name: p.name,
+            category: p.categories?.name || "",
+            price: p.price,
+            cost_price: p.cost_price,
+            stock_quantity: p.stock_quantity,
+            min_stock_alert: p.min_stock_alert,
+            unit: p.unit,
+            is_active: p.is_active,
+          })),
+          currency.displaySymbol || currency.symbol
+        );
+        toast({
+          title: "Export réussi",
+          description: `${data.length} produits exportés`,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Aucun produit",
+          description: "Pas de produits à exporter",
+        });
+      }
+    } catch {
+      toast({ variant: "destructive", title: "Erreur", description: "Impossible d'exporter les produits" });
     }
   }, [currency, toast]);
 

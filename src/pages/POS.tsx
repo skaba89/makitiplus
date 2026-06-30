@@ -32,6 +32,7 @@ import { ReceiptData } from "@/utils/receiptGenerator";
 import { useBranding } from "@/contexts/BrandingContext";
 import { useThemeSettings } from "@/contexts/ThemeContext";
 import { usePOSKeyboardShortcuts } from "@/hooks/usePOSKeyboardShortcuts";
+import { useAllProducts } from "@/hooks/useAllProducts";
 import { POSProductGridSkeleton, POSProductListSkeleton, POSCartSkeleton } from "@/components/pos/POSSkeletons";
 
 type Product = Database["public"]["Tables"]["products"]["Row"] & {
@@ -64,20 +65,8 @@ const POS = () => {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const confirmPaymentRef = useRef<(() => void) | null>(null);
 
-  const { data: products, isLoading } = useQuery({
-    queryKey: ["products", "pos"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("products")
-        .select("*, categories(name, color, icon)")
-        .eq("is_active", true)
-        .order("name");
-
-      if (error) throw error;
-      return data as Product[];
-    },
-    enabled: !!user,
-  });
+  // Récupérer TOUS les produits actifs en lots paginés (contourne la limite PostgREST de 500 lignes)
+  const { data: products, isLoading } = useAllProducts();
 
   const { data: categories } = useQuery({
     queryKey: ["categories", user?.id],
