@@ -75,15 +75,15 @@ CREATE OR REPLACE FUNCTION public.create_full_sale(
   p_organization_id UUID,
   p_sale_number TEXT,
   p_subtotal NUMERIC,
-  p_tax_amount NUMERIC DEFAULT 0,
   p_total_amount NUMERIC,
+  p_items JSONB,
+  p_tax_amount NUMERIC DEFAULT 0,
   p_payment_method TEXT DEFAULT 'cash',
   p_amount_paid NUMERIC DEFAULT 0,
   p_change_amount NUMERIC DEFAULT 0,
   p_customer_name TEXT DEFAULT NULL,
   p_customer_phone TEXT DEFAULT NULL,
-  p_seller_name TEXT DEFAULT NULL,
-  p_items JSONB DEFAULT '[]'  -- [{product_id, product_name, quantity, unit_price, total_price}]
+  p_seller_name TEXT DEFAULT NULL
 )
 RETURNS UUID
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
