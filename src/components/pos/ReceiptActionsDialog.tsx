@@ -145,13 +145,21 @@ export const ReceiptActionsDialog = ({
 
   const handleCopyText = () => {
     const text = generateReceiptText(receiptData);
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    toast({
-      title: "Copié !",
-      description: "Le ticket a été copié dans le presse-papiers",
-    });
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      navigator.clipboard.writeText(text);
+      setCopied(true);
+      toast({
+        title: "Copié !",
+        description: "Le ticket a été copié dans le presse-papiers",
+      });
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast({
+        variant: "destructive",
+        title: "Échec de la copie",
+        description: "Impossible de copier dans le presse-papiers. Essayez manuellement.",
+      });
+    }
   };
 
   const online = isOnline();

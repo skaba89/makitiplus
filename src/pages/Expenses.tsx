@@ -48,7 +48,7 @@ import {
  } from "@/components/ui/table";
  import { Badge } from "@/components/ui/badge";
  import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, Wallet, TrendingDown, Calendar, Loader2, Home, Zap, Droplets, Globe, Phone, ShoppingCart as CartIcon, Car, Users, Wrench, ClipboardList, Package } from "lucide-react";
+import { Plus, Trash2, Pencil, Wallet, TrendingDown, Calendar, Loader2, Home, Zap, Droplets, Globe, Phone, ShoppingCart as CartIcon, Car, Users, Wrench, ClipboardList, Package } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Database } from "@/integrations/supabase/types";
@@ -84,6 +84,7 @@ const Expenses = () => {
   const { formatPrice } = useCurrency();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Expense | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>("all");
  
@@ -145,6 +146,41 @@ const Expenses = () => {
      },
    });
  
+   const updateExpenseMutation = useMutation({
+     mutationFn: async () => {
+       if (!editingExpense) return;
+       const updateData: Record<string, unknown> = {
+         amount: parseFloat(amount),
+         category,
+         payment_method: paymentMethod,
+         description: description || null,
+         expense_date: expenseDate,
+       };
+       const { error } = await supabase
+         .from("expenses")
+         .update(updateData)
+         .eq("id", editingExpense.id);
+       if (error) throw error;
+     },
+     onSuccess: () => {
+       queryClient.invalidateQueries({ queryKey: ["expenses"] });
+       setIsDialogOpen(false);
+       setEditingExpense(null);
+       resetForm();
+       toast({
+         title: "Dépense modifiée",
+         description: "La dépense a été mise à jour avec succès",
+       });
+     },
+     onError: () => {
+       toast({
+         variant: "destructive",
+         title: "Erreur",
+         description: "Impossible de modifier la dépense",
+       });
+     },
+   });
+
    const deleteExpenseMutation = useMutation({
      mutationFn: async (id: string) => {
        const { error } = await supabase.from("expenses").delete().eq("id", id);
@@ -174,12 +210,40 @@ const Expenses = () => {
      setExpenseDate(format(new Date(), "yyyy-MM-dd"));
    };
  
+   const openEditDialog = (expense: Expense) => {
+     setEditingExpense(expense);
+     setAmount(String(expense.amount));
+     setCategory(expense.category);
+     setPaymentMethod(expense.payment_method || "cash");
+     setDescription(expense.description || "");
+     setExpenseDate(format(new Date(expense.expense_date), "yyyy-MM-dd"));
+     setIsDialogOpen(true);
+   };
+
+   const openCreateDialog = () => {
+     setEditingExpense(null);
+     resetForm();
+     setIsDialogOpen(true);
+   };
+
+   const handleDialogClose = (open: boolean) => {
+     setIsDialogOpen(open);
+     if (!open) {
+       setEditingExpense(null);
+       resetForm();
+     }
+   };
+
    const handleSubmit = (e: React.FormEvent) => {
      e.preventDefault();
      if (!amount || !category) return;
-     createExpenseMutation.mutate();
+     if (editingExpense) {
+       updateExpenseMutation.mutate();
+     } else {
+       createExpenseMutation.mutate();
+     }
    };
- 
+
   // formatPrice is now from useCurrency
  
    const getCategoryInfo = (categoryValue: string) => {
@@ -197,11 +261,13 @@ const Expenses = () => {
    const totalExpenses = filteredExpenses?.reduce((sum, e) => sum + e.amount, 0) || 0;
  
    const thisMonthExpenses = expenses?.filter((e) => {
-     const expenseMonth = new Date(e.expense_date).getMonth();
-     const currentMonth = new Date().getMonth();
-     return expenseMonth === currentMonth;
+     const d = new Date(e.expense_date);
+     const now = new Date();
+     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
    }).reduce((sum, e) => sum + e.amount, 0) || 0;
  
+   const isMutating = createExpenseMutation.isPending || updateExpenseMutation.isPending;
+
    return (
      <DashboardLayout>
        <div className="space-y-6">
@@ -214,10 +280,10 @@ const Expenses = () => {
              </p>
            </div>
  
-           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+           <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
              {canModify && (
                <DialogTrigger asChild>
-                 <Button>
+                 <Button onClick={openCreateDialog}>
                    <Plus className="mr-2 h-4 w-4" />
                    Nouvelle dépense
                  </Button>
@@ -225,7 +291,9 @@ const Expenses = () => {
              )}
              <DialogContent className="max-w-md" aria-describedby={undefined}>
                <DialogHeader>
-                 <DialogTitle>Ajouter une dépense</DialogTitle>
+                 <DialogTitle>
+                   {editingExpense ? "Modifier la dépense" : "Ajouter une dépense"}
+                 </DialogTitle>
                </DialogHeader>
  
                <form onSubmit={handleSubmit} className="space-y-4">
@@ -297,15 +365,15 @@ const Expenses = () => {
                  <Button
                    type="submit"
                    className="w-full"
-                   disabled={!amount || !category || createExpenseMutation.isPending}
+                   disabled={!amount || !category || isMutating}
                  >
-                   {createExpenseMutation.isPending ? (
+                   {isMutating ? (
                      <>
                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                       Enregistrement...
+                       {editingExpense ? "Modification..." : "Enregistrement..."}
                      </>
                    ) : (
-                     "Enregistrer"
+                     editingExpense ? "Modifier" : "Enregistrer"
                    )}
                  </Button>
                </form>
@@ -412,15 +480,26 @@ const Expenses = () => {
                            </TableCell>
                            <TableCell>
                              {canModify && (
-                               <Button
-                                 variant="ghost"
-                                 size="icon"
-                                 onClick={() => setDeleteTarget(expense)}
-                                 disabled={deleteExpenseMutation.isPending}
-                                 aria-label="Supprimer la dépense"
-                               >
-                                 <Trash2 className="h-4 w-4 text-destructive" />
-                               </Button>
+                               <div className="flex gap-1">
+                                 <Button
+                                   variant="ghost"
+                                   size="icon"
+                                   onClick={() => openEditDialog(expense)}
+                                   disabled={isMutating}
+                                   aria-label="Modifier la dépense"
+                                 >
+                                   <Pencil className="h-4 w-4 text-muted-foreground" />
+                                 </Button>
+                                 <Button
+                                   variant="ghost"
+                                   size="icon"
+                                   onClick={() => setDeleteTarget(expense)}
+                                   disabled={deleteExpenseMutation.isPending}
+                                   aria-label="Supprimer la dépense"
+                                 >
+                                   <Trash2 className="h-4 w-4 text-destructive" />
+                                 </Button>
+                               </div>
                              )}
                            </TableCell>
                          </TableRow>
@@ -436,7 +515,7 @@ const Expenses = () => {
                  <Button
                    variant="outline"
                    className="mt-4"
-                   onClick={() => setIsDialogOpen(true)}
+                   onClick={openCreateDialog}
                  >
                    <Plus className="mr-2 h-4 w-4" />
                    Ajouter une dépense
@@ -445,7 +524,7 @@ const Expenses = () => {
              )}
            </CardContent>
          </Card>
-
+ 
         {/* Delete Confirmation Dialog */}
         <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
           <AlertDialogContent>

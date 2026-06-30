@@ -351,7 +351,7 @@ const Reports = () => {
           <Card className="card-elevated">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Bénéfice net
+                Résultat net
               </CardTitle>
               <div className={`p-2 rounded-lg ${netProfit >= 0 ? "bg-success/10" : "bg-destructive/10"}`}>
                 <Package className={`h-4 w-4 ${netProfit >= 0 ? "text-success" : "text-destructive"}`} />
@@ -364,6 +364,9 @@ const Reports = () => {
               <div className="text-muted-foreground text-sm mt-1">
                 Ventes - Dépenses
               </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Indicatif. Ne tient pas compte des coûts d'achat.
+              </p>
             </CardContent>
           </Card>
         </div>

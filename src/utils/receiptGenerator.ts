@@ -52,7 +52,7 @@ const paymentMethodLabels: Record<string, string> = {
 
 export const formatPriceWithCurrency = (
   price: number,
-  symbol: string = "GNF",
+  symbol: string = "F",
   position: "before" | "after" = "after",
   forPdf: boolean = false
 ): string => {
@@ -89,9 +89,9 @@ export const formatPriceWithCurrency = (
   return position === "before" ? `${symbol} ${cleanFormatted}` : `${cleanFormatted} ${symbol}`;
 };
 
-// Legacy function for backward compatibility — uses GNF as default
+// Legacy function for backward compatibility — uses F (display symbol) as default
 export const formatPrice = (price: number): string => {
-  return formatPriceWithCurrency(price, "GNF", "after");
+  return formatPriceWithCurrency(price, "F", "after");
 };
 
 // ─── Paper size configurations ─────────────────────────────────
@@ -154,7 +154,7 @@ function drawAfricanBorder(doc: jsPDF, x: number, y: number, w: number, h: numbe
 
 // ─── CLASSIC TEMPLATE (default) ────────────────────────────────
 function generateClassicReceipt(data: ReceiptData, doc: jsPDF, config: typeof PAPER_CONFIGS[ReceiptPaperSize]): jsPDF {
-  const symbol = data.currencySymbol || "GNF";
+  const symbol = data.currencySymbol || "F";
   const position = data.currencyPosition || "after";
   const fPrice = (p: number) => formatPriceWithCurrency(p, symbol, position, true);
   const { width: pw, margin: m } = config;
@@ -370,7 +370,7 @@ function generateClassicReceipt(data: ReceiptData, doc: jsPDF, config: typeof PA
 
 // ─── MINIMAL TEMPLATE ──────────────────────────────────────────
 function generateMinimalReceipt(data: ReceiptData, doc: jsPDF, config: typeof PAPER_CONFIGS[ReceiptPaperSize]): jsPDF {
-  const symbol = data.currencySymbol || "GNF";
+  const symbol = data.currencySymbol || "F";
   const position = data.currencyPosition || "after";
   const fPrice = (p: number) => formatPriceWithCurrency(p, symbol, position, true);
   const { width: pw, margin: m } = config;
@@ -457,7 +457,7 @@ function generateMinimalReceipt(data: ReceiptData, doc: jsPDF, config: typeof PA
 
 // ─── DETAILED TEMPLATE ─────────────────────────────────────────
 function generateDetailedReceipt(data: ReceiptData, doc: jsPDF, config: typeof PAPER_CONFIGS[ReceiptPaperSize]): jsPDF {
-  const symbol = data.currencySymbol || "GNF";
+  const symbol = data.currencySymbol || "F";
   const position = data.currencyPosition || "after";
   const fPrice = (p: number) => formatPriceWithCurrency(p, symbol, position, true);
   const { width: pw, margin: m } = config;
@@ -685,7 +685,7 @@ function generateDetailedReceipt(data: ReceiptData, doc: jsPDF, config: typeof P
 
 // ─── AFRICAN TEMPLATE ──────────────────────────────────────────
 function generateAfricanReceipt(data: ReceiptData, doc: jsPDF, config: typeof PAPER_CONFIGS[ReceiptPaperSize]): jsPDF {
-  const symbol = data.currencySymbol || "GNF";
+  const symbol = data.currencySymbol || "F";
   const position = data.currencyPosition || "after";
   const fPrice = (p: number) => formatPriceWithCurrency(p, symbol, position, true);
   const { width: pw, margin: m } = config;

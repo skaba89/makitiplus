@@ -207,17 +207,52 @@ const POS = () => {
       }
 
       // If credit sale, create a customer_credits entry for debt tracking
-      if (paymentMethod === "credit" && customerPhone && totalAmount > 0) {
-        // Try to find existing customer by phone
-        const { data: existingCustomer } = await supabase
-          .from("customers")
-          .select("id")
-          .eq("phone", customerPhone)
-          .maybeSingle();
+      if (paymentMethod === "credit" && totalAmount > 0) {
+        let customerId: string | null = null;
 
-        if (existingCustomer) {
+        // Try to find existing customer by phone (if provided)
+        if (customerPhone) {
+          const { data: existingCustomer } = await supabase
+            .from("customers")
+            .select("id")
+            .eq("phone", customerPhone)
+            .maybeSingle();
+
+          if (existingCustomer) {
+            customerId = existingCustomer.id;
+          } else {
+            // Auto-create customer if phone is provided but no record exists
+            const newCustomer: Record<string, unknown> = {
+              name: customerName || customerPhone,
+              phone: customerPhone,
+            };
+            if (profile?.organization_id) {
+              newCustomer.organization_id = profile.organization_id;
+            }
+            const { data: created, error: custErr } = await supabase
+              .from("customers")
+              .insert(newCustomer)
+              .select("id")
+              .single();
+            if (!custErr && created) {
+              customerId = created.id;
+            }
+          }
+        } else if (customerName) {
+          // No phone but name provided — try to find by name
+          const { data: existingCustomer } = await supabase
+            .from("customers")
+            .select("id")
+            .eq("name", customerName)
+            .maybeSingle();
+          if (existingCustomer) {
+            customerId = existingCustomer.id;
+          }
+        }
+
+        if (customerId) {
           const creditInsert: Record<string, unknown> = {
-            customer_id: existingCustomer.id,
+            customer_id: customerId,
             sale_id: sale.id,
             amount: totalAmount,
             remaining_balance: totalAmount,

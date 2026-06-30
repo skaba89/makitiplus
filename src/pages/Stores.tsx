@@ -66,6 +66,7 @@ import {
   LucideIcon,
 } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
+import { COUNTRIES } from "@/utils/currencies";
 
 type Organization = Database["public"]["Tables"]["organizations"]["Row"];
 type StoreCategory = Database["public"]["Enums"]["store_category"];
@@ -141,8 +142,17 @@ const Stores = () => {
   // New store form
   const [storeName, setStoreName] = useState("");
   const [storeCategory, setStoreCategory] = useState<StoreCategory>("epicerie");
-  const [storeCountry, setStoreCountry] = useState("Guinée");
-  const [storeCurrency, setStoreCurrency] = useState("GNF");
+  const [storeCountry, setStoreCountry] = useState(COUNTRIES[0]?.name || "Guinée");
+  const [storeCurrency, setStoreCurrency] = useState(COUNTRIES[0]?.currency.symbol || "GNF");
+
+  // Auto-select currency when country changes
+  const handleCountryChange = (countryName: string) => {
+    setStoreCountry(countryName);
+    const country = COUNTRIES.find((c) => c.name === countryName);
+    if (country) {
+      setStoreCurrency(country.currency.symbol);
+    }
+  };
   const [creating, setCreating] = useState(false);
 
   // New admin form
@@ -391,17 +401,15 @@ const Stores = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Pays</Label>
-                    <Select value={storeCountry} onValueChange={setStoreCountry}>
+                    <Select value={storeCountry} onValueChange={handleCountryChange}>
                       <SelectTrigger>
                         <MapPin className="h-4 w-4 mr-2" />
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Guinée">Guinée</SelectItem>
-                        <SelectItem value="Sénégal">Sénégal</SelectItem>
-                        <SelectItem value="Mali">Mali</SelectItem>
-                        <SelectItem value="Côte d'Ivoire">Côte d'Ivoire</SelectItem>
-                        <SelectItem value="Cameroun">Cameroun</SelectItem>
+                        {COUNTRIES.map((c) => (
+                          <SelectItem key={c.code} value={c.name}>{c.name}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -413,8 +421,9 @@ const Stores = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="GNF">GNF (Franc Guinéen)</SelectItem>
-                        <SelectItem value="FCFA">FCFA (Franc CFA)</SelectItem>
+                        {Array.from(new Map(COUNTRIES.map((c) => [c.currency.symbol, c.currency])).values()).map((cur) => (
+                          <SelectItem key={cur.symbol} value={cur.symbol}>{cur.symbol} ({cur.name})</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
