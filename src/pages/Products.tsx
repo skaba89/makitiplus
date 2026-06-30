@@ -114,7 +114,7 @@ const Products = () => {
   const { data: categories } = useQuery({
     queryKey: ["categories", "products-page"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("categories").select("*").order("name");
+      const { data, error } = await supabase.from("categories").select("*").order("name").limit(500);
       if (error) throw error;
       return data;
     },

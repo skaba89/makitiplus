@@ -45,6 +45,7 @@ import { fr } from "date-fns/locale";
 import { exportSalesToCSV, exportExpensesToCSV } from "@/utils/exportUtils";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
+import { fetchAllRows } from "@/lib/batchedFetch";
 import { ReportsPageSkeleton } from "@/components/skeletons/PageSkeletons";
 import { CHART_COLORS } from "@/constants/colors";
 
@@ -70,40 +71,34 @@ const Reports = () => {
 
   const { start, end } = getDateRange();
 
-  // Récupérer les ventes pour la période
+  // Récupérer les ventes pour la période — fetchAllRows pour éviter la troncature silencieuse à 500 lignes
   const { data: sales, isLoading: isLoadingSales } = useQuery({
     queryKey: ["reports-sales", user?.id, period],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("sales")
-        .select("*, sale_items(*)")
-        .gte("created_at", start.toISOString())
-        .lte("created_at", end.toISOString())
-        .order("created_at", { ascending: true });
-
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () =>
+      fetchAllRows("sales", "*, sale_items(*)", {
+        filters: [
+          { column: "created_at", operator: "gte", value: start.toISOString() },
+          { column: "created_at", operator: "lte", value: end.toISOString() },
+        ],
+        orderBy: { column: "created_at", ascending: true },
+      }),
     enabled: !!user,
   });
 
-  // Récupérer les dépenses pour la période
+  // Récupérer les dépenses pour la période — fetchAllRows pour éviter la troncature silencieuse
   const { data: expenses, isLoading: isLoadingExpenses } = useQuery({
     queryKey: ["reports-expenses", user?.id, period],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("expenses")
-        .select("*")
-        .gte("expense_date", format(start, "yyyy-MM-dd"))
-        .lte("expense_date", format(end, "yyyy-MM-dd"));
-
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () =>
+      fetchAllRows("expenses", "*", {
+        filters: [
+          { column: "expense_date", operator: "gte", value: format(start, "yyyy-MM-dd") },
+          { column: "expense_date", operator: "lte", value: format(end, "yyyy-MM-dd") },
+        ],
+      }),
     enabled: !!user,
   });
 
-  // Récupérer les produits les plus vendus
+  // Récupérer les produits les plus vendus — scope organisation (tous les vendeurs)
   const { data: topProducts, isLoading: isLoadingTopProducts } = useQuery({
     queryKey: ["reports-top-products", user?.id, period],
     queryFn: async () => {
@@ -113,11 +108,12 @@ const Reports = () => {
           product_name,
           quantity,
           total_price,
-          sales!inner(user_id, created_at)
+          sales!inner(created_at)
         `)
-        .eq("sales.user_id", user!.id)
         .gte("sales.created_at", start.toISOString())
-        .lte("sales.created_at", end.toISOString());
+        .lte("sales.created_at", end.toISOString())
+        .order("quantity", { ascending: false })
+        .limit(100);
 
       if (error) throw error;
 

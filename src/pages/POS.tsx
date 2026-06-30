@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef, useDeferredValue, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -32,7 +32,8 @@ import { ReceiptData } from "@/utils/receiptGenerator";
 import { useBranding } from "@/contexts/BrandingContext";
 import { useThemeSettings } from "@/contexts/ThemeContext";
 import { usePOSKeyboardShortcuts } from "@/hooks/usePOSKeyboardShortcuts";
-import { useAllProducts } from "@/hooks/useAllProducts";
+import { usePOSProducts, ProductWithCategory as POSProduct } from "@/hooks/usePOSProducts";
+import { lookupBarcode } from "@/hooks/useProductSearch";
 import { POSProductGridSkeleton, POSProductListSkeleton, POSCartSkeleton } from "@/components/pos/POSSkeletons";
 
 type Product = Database["public"]["Tables"]["products"]["Row"] & {
@@ -49,7 +50,6 @@ const POS = () => {
   const { branding } = useBranding();
   const { settings } = useThemeSettings();
   const queryClient = useQueryClient();
-  const [searchQuery, setSearchQuery] = useState("");
   const cart = usePOSCartStore((s) => s.items);
   const { addToCart: addToCartStore, updateQuantity, removeItem, clearCart } = usePOSCartStore();
   const cartTotal = useCartTotal();
@@ -65,15 +65,35 @@ const POS = () => {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const confirmPaymentRef = useRef<(() => void) | null>(null);
 
-  // Récupérer TOUS les produits actifs en lots paginés (contourne la limite PostgREST de 500 lignes)
-  const { data: products, isLoading } = useAllProducts();
+  // Produits du POS — pagination serveur avec filtres (catégorie, stock, recherche)
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [gridSearchQuery, setGridSearchQuery] = useState("");
+
+  const {
+    data: infiniteData,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = usePOSProducts({
+    categoryId: selectedCategory,
+    showOutOfStock,
+    searchQuery: gridSearchQuery || undefined,
+    pageSize: viewMode === "grid" ? 24 : 30,
+  });
+
+  // Accumuler toutes les pages chargées
+  const products = infiniteData?.pages.flatMap((page) => page.data) ?? [];
+  const totalProductCount = infiniteData?.pages[0]?.totalCount ?? 0;
 
   const { data: categories } = useQuery({
     queryKey: ["categories", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("categories")
-        .select("*");
+        .select("*")
+        .order("name")
+        .limit(500);
 
       if (error) throw error;
       return data;
@@ -447,13 +467,22 @@ const POS = () => {
     removeItem(productId);
   }, [removeItem]);
 
-  const handleBarcodeScan = (barcode: string) => {
-    // Trouver le produit par code-barres et l'ajouter au panier
-    const found = products?.find((p) => p.barcode === barcode);
-    if (found) {
-      addToCart(found);
-    } else {
-      setSearchQuery(barcode);
+  const handleBarcodeScan = async (barcode: string) => {
+    // Recherche serveur du produit par code-barres
+    try {
+      const found = await lookupBarcode(barcode);
+      if (found) {
+        addToCart(found as Product);
+      } else {
+        setGridSearchQuery(barcode);
+        toast({
+          variant: "destructive",
+          title: "Produit non trouvé",
+          description: `Aucun produit avec le code-barres: ${barcode}`,
+        });
+      }
+    } catch {
+      setGridSearchQuery(barcode);
       toast({
         variant: "destructive",
         title: "Produit non trouvé",
@@ -462,21 +491,7 @@ const POS = () => {
     }
   };
 
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-
-  const deferredSearch = useDeferredValue(searchQuery);
-  const filteredProducts = useMemo(() => products?.filter((product) => {
-    const matchesSearch =
-      !deferredSearch ||
-      product.name.toLowerCase().includes(deferredSearch.toLowerCase()) ||
-      (product.barcode && product.barcode.includes(deferredSearch));
-    const matchesStock = showOutOfStock || product.stock_quantity > 0;
-    return matchesSearch && matchesStock;
-  }), [products, deferredSearch, showOutOfStock]);
-
-  const displayedProducts = useMemo(() => selectedCategory
-    ? filteredProducts?.filter((p) => p.category_id === selectedCategory)
-    : filteredProducts, [filteredProducts, selectedCategory]);
+  // Les filtres (catégorie, stock, recherche) sont gérés côté serveur par usePOSProducts
 
   const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -526,7 +541,6 @@ const POS = () => {
             <div className="flex gap-2">
               <ProductAutocomplete
                 inputRef={searchInputRef}
-                products={products || []}
                 onSelect={(p, qty) => {
                   if (p.stock_quantity === 0) {
                     toast({
@@ -562,8 +576,8 @@ const POS = () => {
 
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div className="text-xs text-muted-foreground">
-                {displayedProducts?.length || 0} produit(s)
-                {products && ` / ${products.length}`}
+                {products.length} produit(s) affiché(s)
+                {totalProductCount > 0 && ` / ${totalProductCount} au total`}
               </div>
               <div className="flex items-center gap-2 sm:gap-3">
                 {/* View mode toggle */}
@@ -636,11 +650,25 @@ const POS = () => {
               ) : (
                 <POSProductListSkeleton />
               )
-            ) : displayedProducts && displayedProducts.length > 0 ? (
+            ) : products.length > 0 ? (
               viewMode === "grid" ? (
-                <POSProductGrid products={displayedProducts} onAddToCart={addToCart} />
+                <POSProductGrid
+                  products={products}
+                  onAddToCart={addToCart}
+                  hasMore={hasNextPage ?? false}
+                  isLoadingMore={isFetchingNextPage}
+                  onLoadMore={fetchNextPage}
+                  totalCount={totalProductCount}
+                />
               ) : (
-                <POSProductList products={displayedProducts} onAddToCart={addToCart} />
+                <POSProductList
+                  products={products}
+                  onAddToCart={addToCart}
+                  hasMore={hasNextPage ?? false}
+                  isLoadingMore={isFetchingNextPage}
+                  onLoadMore={fetchNextPage}
+                  totalCount={totalProductCount}
+                />
               )
             ) : (
               <div className="text-center py-12">

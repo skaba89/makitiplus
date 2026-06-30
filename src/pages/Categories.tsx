@@ -71,7 +71,8 @@ const Categories = () => {
           .from("categories")
           .select("*, products(count)")
           .order("sort_order", { ascending: true, nullsFirst: false })
-          .order("name");
+          .order("name")
+          .limit(500);
 
         if (!error) {
           setHasSortOrder(true);
@@ -88,7 +89,8 @@ const Categories = () => {
       const { data, error } = await supabase
         .from("categories")
         .select("*")
-        .order("name");
+        .order("name")
+        .limit(500);
 
       if (error) throw error;
       setHasSortOrder(false);

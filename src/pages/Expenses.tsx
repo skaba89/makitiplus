@@ -54,6 +54,7 @@ import { format } from "date-fns";
 import { formatDate } from "@/lib/utils";
 import { Database } from "@/integrations/supabase/types";
 import { useCurrency } from "@/hooks/useCurrency";
+import { fetchAllRows } from "@/lib/batchedFetch";
  
  type Expense = Database["public"]["Tables"]["expenses"]["Row"];
  type PaymentMethod = Database["public"]["Enums"]["payment_method"];
@@ -96,17 +97,13 @@ const Expenses = () => {
    const [description, setDescription] = useState("");
    const [expenseDate, setExpenseDate] = useState(format(new Date(), "yyyy-MM-dd"));
  
+   // Récupérer toutes les dépenses — fetchAllRows pour éviter la troncature silencieuse à 500 lignes
    const { data: expenses, isLoading } = useQuery({
      queryKey: ["expenses", user?.id],
-     queryFn: async () => {
-         const { data, error } = await supabase
-         .from("expenses")
-         .select("*")
-         .order("expense_date", { ascending: false });
- 
-       if (error) throw error;
-       return data as Expense[];
-     },
+     queryFn: () =>
+       fetchAllRows<Expense>("expenses", "*", {
+         orderBy: { column: "expense_date", ascending: false },
+       }),
      enabled: !!user,
    });
  

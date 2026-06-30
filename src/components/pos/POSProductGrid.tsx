@@ -1,8 +1,8 @@
-import { memo, useState } from "react";
+import { memo } from "react";
 import { Database } from "@/integrations/supabase/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Package } from "lucide-react";
+import { Package, Loader2 } from "lucide-react";
 import { useCurrency } from "@/hooks/useCurrency";
 
 type Product = Database["public"]["Tables"]["products"]["Row"] & {
@@ -12,21 +12,19 @@ type Product = Database["public"]["Tables"]["products"]["Row"] & {
 interface POSProductGridProps {
   products: Product[];
   onAddToCart: (product: Product) => void;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
+  onLoadMore?: () => void;
+  totalCount?: number;
 }
 
-const PAGE_SIZE = 24;
-
-export const POSProductGrid = memo(({ products, onAddToCart }: POSProductGridProps) => {
+export const POSProductGrid = memo(({ products, onAddToCart, hasMore, isLoadingMore, onLoadMore, totalCount }: POSProductGridProps) => {
   const { formatPrice } = useCurrency();
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-
-  const visibleProducts = products.slice(0, visibleCount);
-  const hasMore = visibleCount < products.length;
 
   return (
     <div>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3">
-        {visibleProducts.map((product) => (
+        {products.map((product) => (
           <Card
             key={product.id}
             role="button"
@@ -66,13 +64,21 @@ export const POSProductGrid = memo(({ products, onAddToCart }: POSProductGridPro
           </Card>
         ))}
       </div>
-      {hasMore && (
+      {hasMore && onLoadMore && (
         <div className="flex justify-center mt-4">
           <Button
             variant="outline"
-            onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+            onClick={onLoadMore}
+            disabled={isLoadingMore}
           >
-            Charger plus ({products.length - visibleCount} restant{products.length - visibleCount > 1 ? "s" : ""})
+            {isLoadingMore ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Chargement...
+              </>
+            ) : (
+              <>Charger plus{(totalCount ? ` (${totalCount - products.length} restant${totalCount - products.length > 1 ? 's' : ''})` : '')}</>
+            )}
           </Button>
         </div>
       )}

@@ -38,48 +38,42 @@ const Dashboard = () => {
   const monthStart = startOfMonth(today).toISOString();
   const monthEnd = endOfMonth(today).toISOString();
 
-  // Ventes du jour
+  // Ventes du jour — fetchAllRows pour éviter la troncature silencieuse à 500 lignes
   const { data: todaySales, isLoading: isLoadingTodaySales } = useQuery({
     queryKey: ["dashboard-sales-today", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("sales")
-        .select("total_amount")
-        .gte("created_at", dayStart)
-        .lte("created_at", dayEnd);
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () =>
+      fetchAllRows<{ total_amount: number }>("sales", "total_amount", {
+        filters: [
+          { column: "created_at", operator: "gte", value: dayStart },
+          { column: "created_at", operator: "lte", value: dayEnd },
+        ],
+      }),
     enabled: !!user,
   });
 
-  // Ventes du mois
+  // Ventes du mois — fetchAllRows pour éviter la troncature silencieuse
   const { data: monthSales, isLoading: isLoadingMonthSales } = useQuery({
     queryKey: ["dashboard-sales-month", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("sales")
-        .select("total_amount, payment_method")
-        .gte("created_at", monthStart)
-        .lte("created_at", monthEnd);
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () =>
+      fetchAllRows<{ total_amount: number; payment_method: string }>("sales", "total_amount, payment_method", {
+        filters: [
+          { column: "created_at", operator: "gte", value: monthStart },
+          { column: "created_at", operator: "lte", value: monthEnd },
+        ],
+      }),
     enabled: !!user,
   });
 
-  // Dépenses du mois
+  // Dépenses du mois — fetchAllRows pour éviter la troncature silencieuse
   const { data: monthExpenses, isLoading: isLoadingExpenses } = useQuery({
     queryKey: ["dashboard-expenses-month", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("expenses")
-        .select("amount")
-        .gte("expense_date", format(startOfMonth(today), "yyyy-MM-dd"))
-        .lte("expense_date", format(endOfMonth(today), "yyyy-MM-dd"));
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () =>
+      fetchAllRows<{ amount: number }>("expenses", "amount", {
+        filters: [
+          { column: "expense_date", operator: "gte", value: format(startOfMonth(today), "yyyy-MM-dd") },
+          { column: "expense_date", operator: "lte", value: format(endOfMonth(today), "yyyy-MM-dd") },
+        ],
+      }),
     enabled: !!user,
   });
 
@@ -97,17 +91,15 @@ const Dashboard = () => {
     enabled: !!user,
   });
 
-  // Crédits clients
+  // Crédits clients — fetchAllRows pour éviter la troncature silencieuse
   const { data: credits } = useQuery({
     queryKey: ["dashboard-credits", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("customers")
-        .select("total_credit")
-        .gt("total_credit", 0);
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () =>
+      fetchAllRows<{ total_credit: number }>("customers", "total_credit", {
+        filters: [
+          { column: "total_credit", operator: "gt", value: 0 },
+        ],
+      }),
     enabled: !!user,
   });
 

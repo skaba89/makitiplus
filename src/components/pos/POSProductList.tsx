@@ -3,7 +3,7 @@ import { Database } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Package, Plus, Minus } from "lucide-react";
+import { Package, Plus, Minus, Loader2 } from "lucide-react";
 import { useCurrency } from "@/hooks/useCurrency";
 
 type Product = Database["public"]["Tables"]["products"]["Row"] & {
@@ -13,17 +13,15 @@ type Product = Database["public"]["Tables"]["products"]["Row"] & {
 interface POSProductListProps {
   products: Product[];
   onAddToCart: (product: Product, qty?: number) => void;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
+  onLoadMore?: () => void;
+  totalCount?: number;
 }
 
-const PAGE_SIZE = 30;
-
-export const POSProductList = memo(({ products, onAddToCart }: POSProductListProps) => {
+export const POSProductList = memo(({ products, onAddToCart, hasMore, isLoadingMore, onLoadMore, totalCount }: POSProductListProps) => {
   const { formatPrice } = useCurrency();
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
-
-  const visibleProducts = products.slice(0, visibleCount);
-  const hasMore = visibleCount < products.length;
 
   const getQty = (productId: string) => quantities[productId] || 1;
 
@@ -57,7 +55,7 @@ export const POSProductList = memo(({ products, onAddToCart }: POSProductListPro
 
       {/* Product rows */}
       <div className="divide-y">
-        {visibleProducts.map((product) => {
+        {products.map((product) => {
           const outOfStock = product.stock_quantity === 0;
           const qty = getQty(product.id);
 
@@ -205,15 +203,23 @@ export const POSProductList = memo(({ products, onAddToCart }: POSProductListPro
         })}
       </div>
 
-      {/* Load more */}
-      {hasMore && (
+      {/* Load more — server-side pagination */}
+      {hasMore && onLoadMore && (
         <div className="flex justify-center mt-4 pb-2">
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+            onClick={onLoadMore}
+            disabled={isLoadingMore}
           >
-            Charger plus ({products.length - visibleCount} restant{products.length - visibleCount > 1 ? "s" : ""})
+            {isLoadingMore ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Chargement...
+              </>
+            ) : (
+              <>Charger plus{(totalCount ? ` (${totalCount - products.length} restant${totalCount - products.length > 1 ? 's' : ''})` : '')}</>
+            )}
           </Button>
         </div>
       )}

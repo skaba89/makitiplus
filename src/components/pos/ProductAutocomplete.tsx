@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Search, Package, Plus, Minus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -6,9 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Database } from "@/integrations/supabase/types";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useOrgTaxRate } from "@/hooks/useOrgTaxRate";
-import { buildProductSearchIndex } from "@/lib/productSearchIndex";
 import { computeTax } from "@/lib/taxUtils";
 import { cn } from "@/lib/utils";
+import { useProductSearch, lookupBarcode } from "@/hooks/useProductSearch";
 
 type Product = Database["public"]["Tables"]["products"]["Row"] & {
   categories?: { name: string; color: string | null; icon: string | null } | null;
@@ -16,15 +16,18 @@ type Product = Database["public"]["Tables"]["products"]["Row"] & {
 };
 
 interface ProductAutocompleteProps {
-  products: Product[];
+  /** No longer needs products prop — uses server-side search */
+  products?: never;
   onSelect: (product: Product, quantity: number) => void;
   placeholder?: string;
   /** External ref to allow parent to focus the input (keyboard shortcut) */
   inputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
+/** Debounce delay in ms for server-side search */
+const DEBOUNCE_MS = 200;
+
 export const ProductAutocomplete = ({
-  products,
   onSelect,
   placeholder = "Rechercher par nom ou code-barres...",
   inputRef,
@@ -32,18 +35,26 @@ export const ProductAutocomplete = ({
   const { formatPrice } = useCurrency();
   const orgTaxRate = useOrgTaxRate();
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const containerRef = useRef<HTMLDivElement>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
-  // Construire l'index de recherche une seule fois par liste de produits — mémoïsé pour les grands catalogues
-  const index = useMemo(() => buildProductSearchIndex(products), [products]);
+  // Debounce the search query before hitting the server
+  useEffect(() => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      setDebouncedQuery(query);
+    }, DEBOUNCE_MS);
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+  }, [query]);
 
-  const matches = useMemo(
-    () => (query.trim() ? index.search(query, 8) : []),
-    [query, index]
-  );
+  // Server-side search
+  const { data: matches = [], isLoading: isSearching } = useProductSearch(debouncedQuery, 8);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -57,29 +68,38 @@ export const ProductAutocomplete = ({
 
   useEffect(() => {
     setHighlight(0);
-  }, [query]);
+  }, [debouncedQuery]);
 
   const getQty = (id: string) => quantities[id] || 1;
   const setQty = (id: string, q: number) =>
     setQuantities((prev) => ({ ...prev, [id]: Math.max(1, q) }));
 
   const handleAdd = (product: Product, closeAfter = true) => {
-    if (product.stock_quantity === 0) return; // Empêcher l'ajout d'un produit en rupture
+    if (product.stock_quantity === 0) return;
     const qty = getQty(product.id);
-    if (qty > product.stock_quantity) return; // Empêcher de dépasser le stock
+    if (qty > product.stock_quantity) return;
     onSelect(product, qty);
     setQuantities((prev) => ({ ...prev, [product.id]: 1 }));
     if (closeAfter) {
       setQuery("");
+      setDebouncedQuery("");
       setOpen(false);
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = useCallback(async (e: React.KeyboardEvent) => {
     if (!open || matches.length === 0) {
+      // Exact barcode match on Enter — server-side lookup
       if (e.key === "Enter" && query.trim()) {
-        const exact = products.find((p) => p.barcode === query.trim());
-        if (exact && exact.stock_quantity > 0) handleAdd(exact, true);
+        e.preventDefault();
+        try {
+          const found = await lookupBarcode(query.trim());
+          if (found && found.stock_quantity > 0) {
+            handleAdd(found as Product, true);
+          }
+        } catch {
+          // Barcode not found — silently ignore
+        }
       }
       return;
     }
@@ -91,11 +111,11 @@ export const ProductAutocomplete = ({
       setHighlight((h) => Math.max(h - 1, 0));
     } else if (e.key === "Enter") {
       e.preventDefault();
-      handleAdd(matches[highlight], true);
+      handleAdd(matches[highlight] as Product, true);
     } else if (e.key === "Escape") {
       setOpen(false);
     }
-  };
+  }, [open, matches, highlight, query, handleAdd]);
 
   return (
     <div ref={containerRef} className="relative flex-1">
@@ -118,7 +138,11 @@ export const ProductAutocomplete = ({
       />
       {open && query.trim() && (
         <div role="listbox" className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg max-h-dropdown sm:max-h-dropdown overflow-y-auto">
-          {matches.length === 0 ? (
+          {isSearching && debouncedQuery ? (
+            <div className="p-4 text-sm text-muted-foreground text-center">
+              Recherche...
+            </div>
+          ) : matches.length === 0 ? (
             <div className="p-4 text-sm text-muted-foreground text-center">
               Aucun produit trouvé
             </div>
@@ -236,7 +260,7 @@ export const ProductAutocomplete = ({
                         disabled={isOOS}
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleAdd(product, false);
+                          handleAdd(product as Product, false);
                         }}
                         title="Ajouter sans fermer"
                         aria-label="Ajouter sans fermer"
@@ -250,7 +274,7 @@ export const ProductAutocomplete = ({
                         disabled={isOOS}
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleAdd(product, true);
+                          handleAdd(product as Product, true);
                         }}
                       >
                         <Plus className="h-3 w-3 hidden sm:inline" />

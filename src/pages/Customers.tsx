@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
+import { fetchAllRows } from "@/lib/batchedFetch";
 import {
   Dialog,
   DialogContent,
@@ -71,16 +72,13 @@ const Customers = () => {
     notes: "",
   });
 
+  // Récupérer tous les clients — fetchAllRows pour éviter la troncature silencieuse à 500 lignes
   const { data: customers, isLoading } = useQuery({
     queryKey: ["customers", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("customers")
-        .select("*")
-        .order("name");
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () =>
+      fetchAllRows<Customer>("customers", "*", {
+        orderBy: { column: "name", ascending: true },
+      }),
     enabled: !!user,
   });
 
