@@ -14,6 +14,7 @@
  * automatiquement appliquée à chaque lecture, et déclencher manuellement
  * via `purgeMergeLogNow()` — 100% hors-ligne.
  */
+import { logger } from "./logger";
 import jsPDF from "jspdf";
 import type { ConflictLogEntry } from "./receiptDeliveryConflict";
 import type { DeliveryStatus } from "./receiptDeliveryQueue";
@@ -188,7 +189,7 @@ export const clearMergeLogAsync = async (): Promise<void> => {
 
 export const clearMergeLog = (): void => {
   try { localStorage.removeItem(LS_KEY); } catch { /* ignore */ }
-  if (isIndexedDBAvailable()) idbClearStore(STORES.MERGE_LOG).catch((err) => { console.warn("[IDB] Operation failed:", err); });
+  if (isIndexedDBAvailable()) idbClearStore(STORES.MERGE_LOG).catch((err) => { logger.warn("[IDB] Operation failed:", err); });
 };
 
 const rand = () => Math.random().toString(36).slice(2, 10);
@@ -270,7 +271,7 @@ export const recordMergeBatch = (input: RecordMergeBatchInput): MergeLogEntry[] 
   const next = [...lsLoadRaw(), ...added];
   lsPersist(next);
   // Background sync to IndexedDB
-  if (isIndexedDBAvailable()) idbPersist(next).catch((err) => { console.warn("[IDB] Operation failed:", err); });
+  if (isIndexedDBAvailable()) idbPersist(next).catch((err) => { logger.warn("[IDB] Operation failed:", err); });
   return added;
 };
 

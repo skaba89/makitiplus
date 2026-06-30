@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useDeferredValue } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useMemo } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
-import { fetchAllRows } from "@/lib/batchedFetch";
+import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import {
   Dialog,
   DialogContent,
@@ -52,13 +52,15 @@ import { exportCustomersToCSV } from "@/utils/exportUtils";
 import { CustomersPageSkeleton } from "@/components/skeletons/PageSkeletons";
 import { Customer, CustomerUpdateParams } from "@/types";
 
+const PAGE_SIZE = 20;
+
 const Customers = () => {
   const { user, profile, userRole } = useAuth();
   const { toast } = useToast();
   const { formatPrice, currency } = useCurrency();
   const queryClient = useQueryClient();
   const [searchInput, setSearchInput] = useState("");
-  const searchQuery = useDeferredValue(searchInput);
+  const [currentPage, setCurrentPage] = useState(1);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -72,15 +74,38 @@ const Customers = () => {
     notes: "",
   });
 
-  // Récupérer tous les clients — fetchAllRows pour éviter la troncature silencieuse à 500 lignes
-  const { data: customers, isLoading } = useQuery({
-    queryKey: ["customers", user?.id],
-    queryFn: () =>
-      fetchAllRows<Customer>("customers", "*", {
-        orderBy: { column: "name", ascending: true },
-      }),
+  // Pagination côté serveur avec recherche
+  const { data: customers, totalCount, totalPages, isLoading } = usePaginatedQuery<Customer>({
+    table: "customers",
+    select: "*",
+    search: searchInput
+      ? { columns: ["name", "phone"], query: searchInput }
+      : undefined,
+    orderBy: { column: "name", ascending: true },
+    page: currentPage,
+    pageSize: PAGE_SIZE,
+    queryKey: ["customers", user?.id ?? ""],
     enabled: !!user,
   });
+
+  // Stats rapides (nombre total et crédits) — requête légère séparée
+  const { data: statsData } = usePaginatedQuery<{ total_credit: number }>({
+    table: "customers",
+    select: "total_credit",
+    page: 1,
+    pageSize: 1000,
+    queryKey: ["customers-stats", user?.id ?? ""],
+    enabled: !!user,
+  });
+
+  const totalCredit = useMemo(
+    () => statsData?.reduce((sum, c) => sum + Number(c.total_credit || 0), 0) || 0,
+    [statsData]
+  );
+  const customersWithCredit = useMemo(
+    () => statsData?.filter((c) => Number(c.total_credit) > 0).length || 0,
+    [statsData]
+  );
 
   const canModify = userRole === 'admin' || userRole === 'manager' || userRole === 'super_admin';
 
@@ -93,7 +118,7 @@ const Customers = () => {
       if (profile?.organization_id) {
         insertData.organization_id = profile.organization_id;
       }
-      const { error } = await supabase.from("customers").insert(insertData);
+      const { error } = await supabase.from("customers").insert(insertData as never);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -164,32 +189,15 @@ const Customers = () => {
     }
   };
 
-  const totalCredit = customers?.reduce((sum, c) => sum + Number(c.total_credit || 0), 0) || 0;
-  const filtered = useMemo(() => customers?.filter((c) =>
-    c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (c.phone && c.phone.includes(searchQuery))
-  ), [customers, searchQuery]);
-
-  // Client-side pagination
-  const PAGE_SIZE = 20;
-  const [currentPage, setCurrentPage] = useState(1);
-  const totalPages = Math.max(1, Math.ceil((filtered?.length || 0) / PAGE_SIZE));
-  const safeCurrentPage = Math.min(currentPage, totalPages);
-  const paginatedCustomers = filtered?.slice(
-    (safeCurrentPage - 1) * PAGE_SIZE,
-    safeCurrentPage * PAGE_SIZE
-  );
-  // Reset page when filters change
-  useEffect(() => {
-    const safePage = Math.min(currentPage, totalPages);
-    if (currentPage !== safePage && safePage > 0) {
-      setCurrentPage(safePage);
-    }
-  }, [currentPage, totalPages]);
+  // Reset page quand la recherche change
+  const handleSearchChange = (value: string) => {
+    setSearchInput(value);
+    setCurrentPage(1);
+  };
 
   return (
     <DashboardLayout>
-      {isLoading ? (
+      {isLoading && !customers ? (
         <CustomersPageSkeleton />
       ) : (
       <div className="space-y-4 sm:space-y-6">
@@ -248,7 +256,7 @@ const Customers = () => {
                 <div className="p-2 rounded-lg bg-primary/10"><Users className="h-5 w-5 text-primary" /></div>
                 <div>
                   <p className="text-sm text-muted-foreground">Total clients</p>
-                  <p className="text-lg sm:text-2xl font-bold">{customers?.length || 0}</p>
+                  <p className="text-lg sm:text-2xl font-bold">{totalCount}</p>
                 </div>
               </div>
             </CardContent>
@@ -270,7 +278,7 @@ const Customers = () => {
                 <div className="p-2 rounded-lg bg-success/10"><CreditCard className="h-5 w-5 text-success" /></div>
                 <div>
                   <p className="text-sm text-muted-foreground">Clients avec crédit</p>
-                  <p className="text-lg sm:text-2xl font-bold">{customers?.filter((c) => Number(c.total_credit) > 0).length || 0}</p>
+                  <p className="text-lg sm:text-2xl font-bold">{customersWithCredit}</p>
                 </div>
               </div>
             </CardContent>
@@ -280,11 +288,11 @@ const Customers = () => {
         {/* Search */}
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Rechercher par nom ou téléphone..." value={searchInput} onChange={(e) => setSearchInput(e.target.value)} className="pl-10" />
+          <Input placeholder="Rechercher par nom ou téléphone..." value={searchInput} onChange={(e) => handleSearchChange(e.target.value)} className="pl-10" />
         </div>
 
         {/* Table */}
-        {filtered && filtered.length > 0 ? (
+        {customers && customers.length > 0 ? (
           <Card className="card-elevated">
             <CardContent className="p-0">
               <div className="overflow-x-auto">
@@ -299,7 +307,7 @@ const Customers = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedCustomers?.map((customer) => (
+                  {customers.map((customer) => (
                     <TableRow key={customer.id}>
                       <TableCell className="font-medium">{customer.name}</TableCell>
                       <TableCell className="hidden sm:table-cell">{customer.phone || "-"}</TableCell>
@@ -341,17 +349,18 @@ const Customers = () => {
         ) : null}
 
         {/* Pagination */}
-        {filtered && filtered.length > 0 && totalPages > 1 && (
+        {totalPages > 1 && (
           <div className="flex items-center justify-between pt-4 border-t">
             <p className="text-sm text-muted-foreground">
-              {((safeCurrentPage - 1) * PAGE_SIZE) + 1}–{Math.min(safeCurrentPage * PAGE_SIZE, filtered.length)} sur {filtered.length}
+              {((currentPage - 1) * PAGE_SIZE) + 1}–{Math.min(currentPage * PAGE_SIZE, totalCount)} sur {totalCount}
             </p>
             <div className="flex gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={safeCurrentPage <= 1}
+                disabled={currentPage <= 1}
+                aria-label="Page précédente"
               >
                 Précédent
               </Button>
@@ -360,20 +369,21 @@ const Customers = () => {
                   let page: number;
                   if (totalPages <= 5) {
                     page = i + 1;
-                  } else if (safeCurrentPage <= 3) {
+                  } else if (currentPage <= 3) {
                     page = i + 1;
-                  } else if (safeCurrentPage >= totalPages - 2) {
+                  } else if (currentPage >= totalPages - 2) {
                     page = totalPages - 4 + i;
                   } else {
-                    page = safeCurrentPage - 2 + i;
+                    page = currentPage - 2 + i;
                   }
                   return (
                     <Button
                       key={page}
-                      variant={page === safeCurrentPage ? "default" : "outline"}
+                      variant={page === currentPage ? "default" : "outline"}
                       size="sm"
                       className="w-8 h-8 p-0"
                       onClick={() => setCurrentPage(page)}
+                      aria-label={`Page ${page}`}
                     >
                       {page}
                     </Button>
@@ -384,7 +394,8 @@ const Customers = () => {
                 variant="outline"
                 size="sm"
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                disabled={safeCurrentPage >= totalPages}
+                disabled={currentPage >= totalPages}
+                aria-label="Page suivante"
               >
                 Suivant
               </Button>
@@ -392,7 +403,7 @@ const Customers = () => {
           </div>
         )}
 
-        {!(filtered && filtered.length > 0) && !isLoading && (
+        {!(customers && customers.length > 0) && !isLoading && (
           <div className="text-center py-12 bg-card rounded-xl border">
             <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
             <h3 className="text-lg font-medium mb-2">Aucun client</h3>

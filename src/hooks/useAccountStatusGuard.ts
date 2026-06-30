@@ -27,8 +27,8 @@ export function useAccountStatusGuard() {
         // 401 = la fonction n'a pas encore le droit EXECUTE pour les utilisateurs authentifiés
         // (migration non appliquée) — on ignore silencieusement dans ce cas
         if (error) {
-          if (error.status === 401 || error.code === '42501') {
-            console.warn("[AccountGuard] check_account_status not authorized. Run fix_production_database.sql to grant EXECUTE.");
+          if (error.code === '42501' || error.message?.includes('not allowed')) {
+            // check_account_status non autorisée — silencieux
           }
           return; // Réseau indisponible / RPC non disponible → on ne déconnecte pas
         }

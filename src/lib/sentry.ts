@@ -14,6 +14,7 @@
  * - VITE_SENTRY_REPLAY_SAMPLE_RATE: Optional. Default 0.05 (5%)
  */
 
+import { logger } from "@/lib/logger";
 import * as Sentry from "@sentry/react";
 
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN as string | undefined;
@@ -55,7 +56,7 @@ let initialized = false;
 export function initSentry(): void {
   if (initialized) return;
   if (!SENTRY_DSN) {
-    console.info("[Sentry] VITE_SENTRY_DSN not set — monitoring disabled");
+    logger.info("[Sentry] VITE_SENTRY_DSN not set — monitoring disabled");
     return;
   }
   if (!IS_PROD && !SENTRY_DSN) return;

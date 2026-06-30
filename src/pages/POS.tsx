@@ -26,6 +26,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { useOrgTaxRate } from "@/hooks/useOrgTaxRate";
 import { computeTax } from "@/lib/taxUtils";
 import { ShoppingCart, Camera, LayoutGrid, List, Keyboard } from "lucide-react";
+import { CurrencySelector } from "@/components/ui/currency-selector";
 import { CategoryIcon } from "@/components/ui/category-icon";
 import { Database } from "@/integrations/supabase/types";
 import { ReceiptData } from "@/utils/receiptGenerator";
@@ -122,11 +123,11 @@ const POS = () => {
       try {
         const { data: saleNumber, error: rpcError } = await supabase.rpc("generate_sale_number");
         if (rpcError) {
-          console.warn("[POS] generate_sale_number RPC failed, using fallback:", rpcError.message);
+          // generate_sale_number RPC indisponible, utilisation du fallback
         }
         finalSaleNumber = saleNumber || '';
       } catch {
-        console.warn("[POS] generate_sale_number RPC exception, using fallback");
+        // generate_sale_number RPC indisponible, utilisation du fallback
       }
       // Fallback : utiliser un fragment crypto.randomUUID — pas de risque de collision entre terminaux
       if (!finalSaleNumber) {
@@ -159,148 +160,69 @@ const POS = () => {
       }));
 
       const orgId = profile?.organization_id || null;
-      let sale: { id: string; sale_number: string; payment_method: string; amount_paid: number; customer_name: string | null; customer_phone: string | null } | null = null;
-      let usedAtomicRPC = false;
 
-      try {
-        const { data: rpcSaleId, error: rpcError } = await supabase.rpc("create_full_sale", {
-          p_user_id: user!.id,
-          p_organization_id: orgId,
-          p_sale_number: finalSaleNumber,
-          p_subtotal: htAmount,
-          p_tax_amount: taxAmount,
-          p_total_amount: totalAmount,
-          p_payment_method: paymentMethod,
-          p_amount_paid: amountPaid,
-          p_change_amount: changeAmount > 0 ? changeAmount : 0,
-          p_customer_name: customerName || null,
-          p_customer_phone: customerPhone || null,
-          p_seller_name: profile?.owner_name || null,
-          p_items: saleItems,
-        });
+      // ⚠️ create_full_sale RPC est OBLIGATOIRE — plus de fallback non-atomique.
+      // L'ancien chemin (INSERT sale + INSERT items + batch_update_stock) était
+      // non-atomique : une panne entre les étapes laissait des données incohérentes.
+      const { data: rpcSaleId, error: rpcError } = await supabase.rpc("create_full_sale", {
+        p_user_id: user!.id,
+        p_organization_id: orgId,
+        p_sale_number: finalSaleNumber,
+        p_subtotal: htAmount,
+        p_tax_amount: taxAmount,
+        p_total_amount: totalAmount,
+        p_payment_method: paymentMethod,
+        p_amount_paid: amountPaid,
+        p_change_amount: changeAmount > 0 ? changeAmount : 0,
+        p_customer_name: customerName || null,
+        p_customer_phone: customerPhone || null,
+        p_seller_name: profile?.owner_name || null,
+        p_items: saleItems,
+      });
 
-        if (!rpcError && rpcSaleId) {
-          // RPC atomique réussie — récupérer l'enregistrement de vente pour le ticket
-          const { data: saleRow } = await supabase
-            .from("sales")
-            .select("id, sale_number, payment_method, amount_paid, customer_name, customer_phone")
-            .eq("id", rpcSaleId)
-            .single();
-          sale = saleRow;
-          usedAtomicRPC = true;
-        } else if (rpcError) {
-          console.warn("[POS] create_full_sale RPC failed, falling back:", rpcError.message);
-        }
-      } catch {
-        console.warn("[POS] create_full_sale RPC exception, falling back");
+      if (rpcError || !rpcSaleId) {
+        throw new Error(
+          `Impossible de créer la vente (RPC create_full_sale) : ${rpcError?.message || 'Réponse vide'}. Veuillez réessayer.`
+        );
       }
 
-      // Fallback : chemin non atomique (pour les anciennes DB sans la RPC)
-      if (!usedAtomicRPC || !sale) {
-        const saleInsert: Record<string, unknown> = {
-          user_id: user!.id,
-          sale_number: finalSaleNumber,
-          subtotal: htAmount,
-          tax_amount: taxAmount,
-          total_amount: totalAmount,
-          payment_method: paymentMethod,
-          amount_paid: amountPaid,
-          change_amount: changeAmount > 0 ? changeAmount : 0,
-          customer_name: customerName || null,
-          customer_phone: customerPhone || null,
-          seller_name: profile?.owner_name || null,
-        };
-        if (orgId) saleInsert.organization_id = orgId;
+      // Récupérer l'enregistrement de vente pour le ticket
+      const { data: sale } = await supabase
+        .from("sales")
+        .select("id, sale_number, payment_method, amount_paid, customer_name, customer_phone")
+        .eq("id", rpcSaleId)
+        .single();
 
-        const { data: fallbackSale, error: saleError } = await supabase
-          .from("sales")
-          .insert(saleInsert)
-          .select()
-          .single();
-
-        if (saleError) throw saleError;
-        sale = fallbackSale;
-
-        // Insérer les articles de la vente
-        const insertItems = saleItems.map((item) => ({
-          ...item,
-          sale_id: sale!.id,
-          organization_id: orgId,
-        }));
-        const { error: itemsError } = await supabase
-          .from("sale_items")
-          .insert(insertItems);
-        if (itemsError) throw itemsError;
-
-        // Mettre à jour le stock — utiliser la RPC batch_update_stock, puis fallback relatif
-        const stockItems = cart.map((item) => ({
-          product_id: item.product.id,
-          quantity: item.quantity,
-          previous_quantity: item.product.stock_quantity,
-        }));
-
-        const { error: stockError } = await supabase.rpc("batch_update_stock", {
-          p_sale_id: sale.id,
-          p_items: stockItems,
-        });
-
-        if (stockError) {
-          console.warn("[POS] batch_update_stock RPC failed, using relative updates:", stockError.message);
-          // Mise à jour atomique relative : stock_quantity = GREATEST(stock_quantity - X, 0)
-          // Cela évite la condition de course SELECT-then-UPDATE (C5)
-          for (const item of cart) {
-            await supabase.rpc('decrement_stock', {
-              p_product_id: item.product.id,
-              p_quantity: item.quantity,
-            }).catch(async () => {
-              // Dernier recours : mise à jour relative via une approche pseudo-SQL brute
-              // Puisqu'on ne peut pas utiliser du SQL brut côté client, utiliser l'ancienne approche en dernier recours
-              const { data: currentProduct } = await supabase
-                .from("products")
-                .select("stock_quantity")
-                .eq("id", item.product.id)
-                .single();
-              const currentStock = currentProduct?.stock_quantity ?? 0;
-              await supabase
-                .from("products")
-                .update({ stock_quantity: Math.max(0, currentStock - item.quantity), updated_at: new Date().toISOString() })
-                .eq("id", item.product.id);
-            });
-          }
-        }
+      if (!sale) {
+        throw new Error('Vente créée mais introuvable. Veuillez réessayer.');
       }
 
       // Si vente à crédit, créer une entrée customer_credits pour le suivi de la dette
       if (paymentMethod === "credit" && totalAmount > 0) {
         let customerId: string | null = null;
 
-        // Essayer de trouver un client existant par téléphone (si fourni)
+        // Upsert atomique du client — évite la race condition SELECT→INSERT
+        // où deux vendeurs concurrents créeraient des doublons pour le même téléphone.
+        // La contrainte unique sur customers(phone, organization_id) garantit l'atomicité.
         if (customerPhone) {
-          const { data: existingCustomer } = await supabase
+          const upsertData: Record<string, unknown> = {
+            name: customerName || customerPhone,
+            phone: customerPhone,
+          };
+          if (profile?.organization_id) {
+            upsertData.organization_id = profile.organization_id;
+          }
+          const { data: upsertedCustomer, error: custErr } = await supabase
             .from("customers")
+            .upsert(upsertData as never, {
+              onConflict: 'phone,organization_id',
+              ignoreDuplicates: false,
+            })
             .select("id")
-            .eq("phone", customerPhone)
             .maybeSingle();
 
-          if (existingCustomer) {
-            customerId = existingCustomer.id;
-          } else {
-            // Créer automatiquement un client si le téléphone est fourni mais aucun enregistrement n'existe
-            const newCustomer: Record<string, unknown> = {
-              name: customerName || customerPhone,
-              phone: customerPhone,
-            };
-            if (profile?.organization_id) {
-              newCustomer.organization_id = profile.organization_id;
-            }
-            const { data: created, error: custErr } = await supabase
-              .from("customers")
-              .insert(newCustomer)
-              .select("id")
-              .single();
-            if (!custErr && created) {
-              customerId = created.id;
-            }
+          if (!custErr && upsertedCustomer) {
+            customerId = upsertedCustomer.id;
           }
         } else if (customerName) {
           // Pas de téléphone mais nom fourni — essayer de trouver par nom
@@ -326,24 +248,20 @@ const POS = () => {
           if (profile?.organization_id) {
             creditInsert.organization_id = profile.organization_id;
           }
-          await supabase.from("customer_credits").insert(creditInsert);
+          await supabase.from("customer_credits").insert(creditInsert as never);
 
-          // Mettre à jour total_credit du client atomiquement
-          await supabase.rpc("increment_customer_credit", {
+          // Mettre à jour total_credit du client atomiquement via RPC
+          const { error: creditUpdateError } = await supabase.rpc("increment_customer_credit", {
             p_customer_id: customerId,
             p_amount: totalAmount,
-          }).catch(async () => {
-            // Fallback : mise à jour relative
-            const { data: cust } = await supabase
-              .from("customers")
-              .select("total_credit")
-              .eq("id", customerId)
-              .single();
-            await supabase
-              .from("customers")
-              .update({ total_credit: (Number(cust?.total_credit || 0) + totalAmount) })
-              .eq("id", customerId);
           });
+
+          if (creditUpdateError) {
+            // La vente est déjà enregistrée mais la mise à jour du crédit a échoué.
+            // On ne fait PAS de fallback non-atomique pour éviter les incohérences.
+            // L'utilisateur sera notifié et pourra relancer la synchronisation.
+            reportError(new Error(`increment_customer_credit RPC failed: ${creditUpdateError.message}`));
+          }
         }
       }
 
@@ -386,7 +304,7 @@ const POS = () => {
         showLogo: settings?.receipt_show_logo ?? true,
         showTax: settings?.receipt_show_tax ?? true,
         footerText: settings?.receipt_footer || undefined,
-        organizationId: profile?.organization_id,
+        organizationId: profile?.organization_id ?? undefined,
         taxRate: orgTaxRate,
       };
 
@@ -580,6 +498,7 @@ const POS = () => {
                 {totalProductCount > 0 && ` / ${totalProductCount} au total`}
               </div>
               <div className="flex items-center gap-2 sm:gap-3">
+                <CurrencySelector variant="compact" />
                 {/* View mode toggle */}
                 <div className="flex items-center border rounded-md">
                   <Button

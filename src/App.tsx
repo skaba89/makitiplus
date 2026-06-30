@@ -2,7 +2,7 @@ import { useEffect, lazy, Suspense, Component, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { installAutoFlush } from "@/lib/receiptDeliveryQueue";
 import { SentryErrorBoundary } from "@/lib/sentry";
@@ -54,29 +54,63 @@ const ErrorFallback = () => (
   </div>
 );
 
+/** Page-level error fallback — shows inline error with option to go back */
+const PageErrorFallback = () => (
+  <div className="flex flex-col items-center justify-center min-h-[60vh] bg-background p-8 text-center">
+    <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
+    <h2 className="text-xl font-bold text-foreground mb-2">Erreur sur cette page</h2>
+    <p className="text-muted-foreground mb-4 max-w-md">
+      Une erreur inattendue s'est produite. Essayez de recharger la page.
+    </p>
+    <div className="flex gap-3">
+      <Button variant="outline" onClick={() => window.history.back()}>
+        Retour
+      </Button>
+      <Button onClick={() => window.location.reload()}>
+        Recharger
+      </Button>
+    </div>
+  </div>
+);
+
+/** Page-level error boundary for critical pages (POS, Reports) */
+class PageErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    reportError(error);
+  }
+  render() {
+    if (this.state.hasError) return <PageErrorFallback />;
+    return this.props.children;
+  }
+}
+
 const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      // Suppress noise from offline/background requests
+      if (message.includes('Failed to fetch') || message.includes('NetworkError')) return;
+      sonnerToast.error('Erreur de chargement', {
+        description: message.length > 120 ? message.slice(0, 120) + '…' : message,
+        duration: 4000,
+      });
+    },
+  }),
+  mutationCache: new MutationCache({
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      sonnerToast.error('Erreur', {
+        description: message.length > 120 ? message.slice(0, 120) + '…' : message,
+        duration: 5000,
+      });
+    },
+  }),
   defaultOptions: {
     queries: {
       staleTime: 5 * 60 * 1000, // 5 minutes — reduces redundant network requests
       retry: 1,
-      onError: (error: unknown) => {
-        const message = error instanceof Error ? error.message : String(error);
-        // Suppress noise from offline/background requests
-        if (message.includes('Failed to fetch') || message.includes('NetworkError')) return;
-        sonnerToast.error('Erreur de chargement', {
-          description: message.length > 120 ? message.slice(0, 120) + '…' : message,
-          duration: 4000,
-        });
-      },
-    },
-    mutations: {
-      onError: (error: unknown) => {
-        const message = error instanceof Error ? error.message : String(error);
-        sonnerToast.error('Erreur', {
-          description: message.length > 120 ? message.slice(0, 120) + '…' : message,
-          duration: 5000,
-        });
-      },
     },
   },
 });
@@ -102,7 +136,7 @@ const App = () => {
         <Toaster />
         <Sonner />
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          <Routes future={{ v7_relativeSplatPath: true }}>
+          <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             <Route
@@ -125,9 +159,11 @@ const App = () => {
               path="/dashboard/pos"
               element={
                 <ProtectedRoute allowedRoles={POS_ROLES}>
-                  <Suspense fallback={<PageLoader />}>
-                    <POS />
-                  </Suspense>
+                  <PageErrorBoundary>
+                    <Suspense fallback={<PageLoader />}>
+                      <POS />
+                    </Suspense>
+                  </PageErrorBoundary>
                 </ProtectedRoute>
               }
             />
@@ -143,9 +179,11 @@ const App = () => {
               path="/dashboard/reports"
               element={
                 <ProtectedRoute allowedRoles={FINANCIAL_ROLES}>
-                  <Suspense fallback={<PageLoader />}>
-                    <Reports />
-                  </Suspense>
+                  <PageErrorBoundary>
+                    <Suspense fallback={<PageLoader />}>
+                      <Reports />
+                    </Suspense>
+                  </PageErrorBoundary>
                 </ProtectedRoute>
               }
             />

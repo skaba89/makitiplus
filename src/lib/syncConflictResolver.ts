@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -73,10 +74,13 @@ export async function logConflict(entry: ConflictLog): Promise<void> {
       ...entry,
       device_id: entry.device_id ?? getDeviceId(),
       status: entry.status ?? "resolved",
-    });
+      local_data: entry.local_data as unknown as import("@/integrations/supabase/types").Json,
+      remote_data: entry.remote_data as unknown as import("@/integrations/supabase/types").Json,
+      resolved_data: entry.resolved_data as unknown as import("@/integrations/supabase/types").Json | undefined,
+    } as never);
   } catch (e) {
     // silent : ne jamais bloquer la sync
-    console.warn("[sync] logConflict failed", e);
+    logger.warn("[sync] logConflict failed", e);
   }
 }
 

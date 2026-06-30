@@ -6,9 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useCurrency } from "@/hooks/useCurrency";
-import { ProductWithCategoryIcon, POS_ROLES, INVENTORY_ROLES, FINANCIAL_ROLES } from "@/types";
+import { POS_ROLES, INVENTORY_ROLES, FINANCIAL_ROLES } from "@/types";
 import { DashboardPageSkeleton } from "@/components/skeletons/PageSkeletons";
-import { fetchAllRows } from "@/lib/batchedFetch";
 import {
   TrendingUp,
   ShoppingCart,
@@ -38,118 +37,98 @@ const Dashboard = () => {
   const monthStart = startOfMonth(today).toISOString();
   const monthEnd = endOfMonth(today).toISOString();
 
-  // Ventes du jour — fetchAllRows pour éviter la troncature silencieuse à 500 lignes
-  const { data: todaySales, isLoading: isLoadingTodaySales } = useQuery({
-    queryKey: ["dashboard-sales-today", user?.id],
-    queryFn: () =>
-      fetchAllRows<{ total_amount: number }>("sales", "total_amount", {
-        filters: [
-          { column: "created_at", operator: "gte", value: dayStart },
-          { column: "created_at", operator: "lte", value: dayEnd },
-        ],
-      }),
+  // ⚡ Stats du Dashboard via RPC — une seule requête au lieu de 5+ fetchAllRows
+  // L'agrégation (SUM, COUNT) se fait côté serveur, réduisant drastiquement le transfert de données
+  const { data: dashboardStats, isLoading: isLoadingStats } = useQuery({
+    queryKey: ["dashboard-stats", user?.id, profile?.organization_id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_dashboard_stats", {
+        p_organization_id: profile?.organization_id || null,
+        p_day_start: dayStart,
+        p_day_end: dayEnd,
+        p_month_start: monthStart,
+        p_month_end: monthEnd,
+      });
+      if (error) throw error;
+      // RPC returns array with single object
+      return Array.isArray(data) ? data[0] : data;
+    },
     enabled: !!user,
   });
 
-  // Ventes du mois — fetchAllRows pour éviter la troncature silencieuse
-  const { data: monthSales, isLoading: isLoadingMonthSales } = useQuery({
-    queryKey: ["dashboard-sales-month", user?.id],
-    queryFn: () =>
-      fetchAllRows<{ total_amount: number; payment_method: string }>("sales", "total_amount, payment_method", {
-        filters: [
-          { column: "created_at", operator: "gte", value: monthStart },
-          { column: "created_at", operator: "lte", value: monthEnd },
-        ],
-      }),
-    enabled: !!user,
-  });
-
-  // Dépenses du mois — fetchAllRows pour éviter la troncature silencieuse
-  const { data: monthExpenses, isLoading: isLoadingExpenses } = useQuery({
-    queryKey: ["dashboard-expenses-month", user?.id],
-    queryFn: () =>
-      fetchAllRows<{ amount: number }>("expenses", "amount", {
-        filters: [
-          { column: "expense_date", operator: "gte", value: format(startOfMonth(today), "yyyy-MM-dd") },
-          { column: "expense_date", operator: "lte", value: format(endOfMonth(today), "yyyy-MM-dd") },
-        ],
-      }),
-    enabled: !!user,
-  });
-
-  // Nombre de produits et alertes de stock — fetchAllRows pour contourner la limite PostgREST
-  const { data: products, isLoading: isLoadingProducts } = useQuery({
-    queryKey: ["dashboard-products", user?.id],
-    queryFn: () =>
-      fetchAllRows<ProductWithCategoryIcon>(
-        "products",
-        "id, name, stock_quantity, min_stock_alert, categories(icon)",
-        {
-          filters: [{ column: "is_active", operator: "eq", value: true }],
-        }
-      ),
-    enabled: !!user,
-  });
-
-  // Crédits clients — fetchAllRows pour éviter la troncature silencieuse
-  const { data: credits } = useQuery({
-    queryKey: ["dashboard-credits", user?.id],
-    queryFn: () =>
-      fetchAllRows<{ total_credit: number }>("customers", "total_credit", {
-        filters: [
-          { column: "total_credit", operator: "gt", value: 0 },
-        ],
-      }),
-    enabled: !!user,
-  });
-
-  // Produits les plus vendus (30 derniers jours)
+  // Produits les plus vendus (30 derniers jours) — RPC avec agrégation serveur
   const { data: topProducts } = useQuery({
-    queryKey: ["dashboard-top-products", user?.id],
+    queryKey: ["dashboard-top-products", user?.id, profile?.organization_id],
     queryFn: async () => {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const { data, error } = await supabase
-        .from("sale_items")
-        .select("product_name, quantity, total_price")
-        .gte("created_at", thirtyDaysAgo.toISOString())
-        .order("quantity", { ascending: false })
-        .limit(5);
+      const { data, error } = await supabase.rpc("get_top_products", {
+        p_organization_id: profile?.organization_id || null,
+        p_since: thirtyDaysAgo.toISOString(),
+        p_limit: 5,
+      });
       if (error) throw error;
       return data;
     },
     enabled: !!user,
   });
 
-  // Ventes récentes
+  // Ventes récentes — petite requête limitée, filtrée par organisation
   const { data: recentSales } = useQuery({
-    queryKey: ["dashboard-recent-sales", user?.id],
+    queryKey: ["dashboard-recent-sales", user?.id, profile?.organization_id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("sales")
         .select("id, sale_number, total_amount, payment_method, created_at, customer_name")
         .order("created_at", { ascending: false })
         .limit(5);
+      // Filtrer par organisation si disponible (évite de voir les ventes d'autres orgs)
+      if (profile?.organization_id) {
+        query = query.eq("organization_id", profile.organization_id);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
     enabled: !!user,
   });
 
-  const totalSalesToday = todaySales?.reduce((s, sale) => s + sale.total_amount, 0) || 0;
-  const transactionsToday = todaySales?.length || 0;
-  const totalSalesMonth = monthSales?.reduce((s, sale) => s + sale.total_amount, 0) || 0;
-  const creditSalesMonth = monthSales?.filter((s) => s.payment_method === "credit").length || 0;
-  const totalExpensesMonth = monthExpenses?.reduce((s, e) => s + e.amount, 0) || 0;
-  const totalProducts = products?.length || 0;
-  const lowStockProducts = products?.filter(
-    (p) => p.stock_quantity <= (p.min_stock_alert || 5)
-  ) || [];
-  const totalCredits = credits?.reduce((s, c) => s + Number(c.total_credit), 0) || 0;
-  const creditsCount = credits?.length || 0;
+  // Produits en alerte stock — RPC pour comparaison croisée (stock_quantity <= min_stock_alert)
+  // PostgREST ne permet pas les comparaisons entre colonnes, d'où le RPC.
+  // Avant: .lte("stock_quantity", 5) — seuil codé en dur, ne respectait pas min_stock_alert.
+  const { data: lowStockProducts } = useQuery({
+    queryKey: ["dashboard-low-stock", user?.id, profile?.organization_id],
+    queryFn: async () => {
+      if (!profile?.organization_id) return [];
+      const { data, error } = await supabase.rpc("get_low_stock_products", {
+        p_organization_id: profile.organization_id,
+        p_limit: 6,
+      });
+      if (error) throw error;
+      // Mapper le résultat pour correspondre au format attendu par le JSX
+      return (data || []).map((p: { id: string; name: string; stock_quantity: number; min_stock_alert: number | null; category_icon: string | null }) => ({
+        id: p.id,
+        name: p.name,
+        stock_quantity: p.stock_quantity,
+        min_stock_alert: p.min_stock_alert,
+        categories: { icon: p.category_icon },
+      }));
+    },
+    enabled: !!user && !!profile?.organization_id,
+  });
+
+  const totalSalesToday = dashboardStats?.todaySales ?? 0;
+  const transactionsToday = dashboardStats?.todayTransactions ?? 0;
+  const totalSalesMonth = dashboardStats?.monthSales ?? 0;
+  const creditSalesMonth = dashboardStats?.monthCreditCount ?? 0;
+  const totalExpensesMonth = dashboardStats?.monthExpenses ?? 0;
+  const totalProducts = dashboardStats?.totalProducts ?? 0;
+  const lowStockCount = dashboardStats?.lowStockProducts ?? 0;
+  const totalCredits = dashboardStats?.totalCredits ?? 0;
+  const creditsCount = dashboardStats?.creditsCount ?? 0;
   const netResult = totalSalesMonth - totalExpensesMonth;
 
-  const isDashboardLoading = isLoadingTodaySales || isLoadingMonthSales || isLoadingExpenses || isLoadingProducts;
+  const isDashboardLoading = isLoadingStats;
 
   if (isDashboardLoading) {
     return (
@@ -186,15 +165,15 @@ const Dashboard = () => {
     {
       title: "Ventes du mois",
       value: formatPrice(totalSalesMonth),
-      change: creditSalesMonth > 0 ? `${creditSalesMonth} a crédit` : `${monthSales?.length || 0} vente(s)`,
+      change: creditSalesMonth > 0 ? `${creditSalesMonth} a credit` : "voir rapports",
       trend: "up" as const,
       icon: BarChart3,
     },
     {
       title: "Produits en stock",
       value: String(totalProducts),
-      change: lowStockProducts.length > 0 ? `${lowStockProducts.length} en alerte` : "Stock OK",
-      trend: lowStockProducts.length > 0 ? "down" as const : "up" as const,
+      change: lowStockCount > 0 ? `${lowStockCount} en alerte` : "Stock OK",
+      trend: lowStockCount > 0 ? "down" as const : "up" as const,
       icon: Package,
     },
     {
@@ -244,17 +223,17 @@ const Dashboard = () => {
         </div>
 
         {/* Stock Alerts */}
-        {lowStockProducts.length > 0 && (
+        {lowStockProducts && lowStockProducts.length > 0 && (
           <Card className="card-elevated border-destructive/30">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-destructive">
                 <AlertTriangle className="h-5 w-5" />
-                Alertes de stock ({lowStockProducts.length})
+                Alertes de stock ({lowStockCount})
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {lowStockProducts.slice(0, 6).map((p: ProductWithCategoryIcon) => (
+                {lowStockProducts.map((p) => (
                   <div key={p.id} className="flex items-center gap-3 p-3 bg-destructive/5 rounded-lg">
                     <CategoryIcon iconName={p.categories?.icon} className="h-5 w-5" />
                     <div className="flex-1 min-w-0">
@@ -423,8 +402,8 @@ const Dashboard = () => {
                           <span className="truncate">{item.product_name}</span>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
-                          <Badge variant="secondary" className="text-micro">x{item.quantity}</Badge>
-                          <span className="font-medium">{formatPrice(item.total_price)}</span>
+                          <Badge variant="secondary" className="text-micro">x{item.total_quantity}</Badge>
+                          <span className="font-medium">{formatPrice(item.total_revenue)}</span>
                         </div>
                       </div>
                     ))}

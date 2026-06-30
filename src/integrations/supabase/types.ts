@@ -187,48 +187,72 @@ export type Database = {
       }
       organizations: {
         Row: {
+          accent_color: string | null
+          app_name: string | null
+          brand_color: string | null
           category: Database["public"]["Enums"]["store_category"] | null
           country: string | null
           created_at: string
           currency: string | null
           default_tax_rate: number
+          font_family: string | null
           id: string
+          language: string | null
+          logo_url: string | null
           name: string
           owner_user_id: string
+          receipt_template: string | null
           subscription_expires_at: string | null
           subscription_plan:
             | Database["public"]["Enums"]["subscription_plan"]
             | null
+          theme_mode: string | null
           updated_at: string
         }
         Insert: {
+          accent_color?: string | null
+          app_name?: string | null
+          brand_color?: string | null
           category?: Database["public"]["Enums"]["store_category"] | null
           country?: string | null
           created_at?: string
           currency?: string | null
           default_tax_rate?: number
+          font_family?: string | null
           id?: string
+          language?: string | null
+          logo_url?: string | null
           name: string
           owner_user_id: string
+          receipt_template?: string | null
           subscription_expires_at?: string | null
           subscription_plan?:
             | Database["public"]["Enums"]["subscription_plan"]
             | null
+          theme_mode?: string | null
           updated_at?: string
         }
         Update: {
+          accent_color?: string | null
+          app_name?: string | null
+          brand_color?: string | null
           category?: Database["public"]["Enums"]["store_category"] | null
           country?: string | null
           created_at?: string
           currency?: string | null
           default_tax_rate?: number
+          font_family?: string | null
           id?: string
+          language?: string | null
+          logo_url?: string | null
           name?: string
           owner_user_id?: string
+          receipt_template?: string | null
           subscription_expires_at?: string | null
           subscription_plan?:
             | Database["public"]["Enums"]["subscription_plan"]
             | null
+          theme_mode?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -356,6 +380,7 @@ export type Database = {
           id: string
           is_active: boolean
           is_test_account: boolean
+          language: string | null
           last_login_at: string | null
           nfc_enabled: boolean | null
           organization_id: string | null
@@ -366,6 +391,7 @@ export type Database = {
             | Database["public"]["Enums"]["subscription_plan"]
             | null
           test_expires_at: string | null
+          theme_mode: string | null
           updated_at: string
           user_id: string
         }
@@ -381,6 +407,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_test_account?: boolean
+          language?: string | null
           last_login_at?: string | null
           nfc_enabled?: boolean | null
           organization_id?: string | null
@@ -391,6 +418,7 @@ export type Database = {
             | Database["public"]["Enums"]["subscription_plan"]
             | null
           test_expires_at?: string | null
+          theme_mode?: string | null
           updated_at?: string
           user_id: string
         }
@@ -406,6 +434,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_test_account?: boolean
+          language?: string | null
           last_login_at?: string | null
           nfc_enabled?: boolean | null
           organization_id?: string | null
@@ -416,6 +445,7 @@ export type Database = {
             | Database["public"]["Enums"]["subscription_plan"]
             | null
           test_expires_at?: string | null
+          theme_mode?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -819,6 +849,122 @@ export type Database = {
         Returns: number
       }
       touch_last_login: { Args: never; Returns: undefined }
+      create_full_sale: {
+        Args: {
+          p_user_id: string
+          p_organization_id: string | null
+          p_sale_number: string
+          p_subtotal: number
+          p_total_amount: number
+          p_items: {
+            product_id: string
+            product_name: string
+            quantity: number
+            unit_price: number
+            total_price: number
+          }[]
+          p_tax_amount?: number
+          p_payment_method?: string
+          p_amount_paid?: number
+          p_change_amount?: number
+          p_customer_name?: string | null
+          p_customer_phone?: string | null
+          p_seller_name?: string | null
+        }
+        Returns: string
+      }
+      adjust_product_stock: {
+        Args: {
+          p_product_id: string
+          p_type: string
+          p_quantity: number
+          p_reason?: string | null
+          p_user_id?: string | null
+          p_organization_id?: string | null
+        }
+        Returns: {
+          new_quantity: number
+          previous_quantity: number
+        }[]
+      }
+      increment_customer_credit: {
+        Args: {
+          p_customer_id: string
+          p_amount: number
+        }
+        Returns: undefined
+      }
+      process_credit_payment: {
+        Args: {
+          p_user_id: string
+          p_organization_id: string | null
+          p_customer_id: string
+          p_amount: number
+          p_description?: string
+        }
+        Returns: undefined
+      }
+      register_user: {
+        Args: {
+          p_user_id: string
+          p_business_name: string
+          p_owner_name: string
+          p_phone?: string | null
+          p_role?: string
+          p_organization_id?: string | null
+        }
+        Returns: undefined
+      }
+      batch_update_stock: {
+        Args: {
+          p_sale_id: string
+          p_items: {
+            product_id: string
+            quantity: number
+            previous_quantity: number
+          }[]
+        }
+        Returns: undefined
+      }
+      decrement_stock: {
+        Args: {
+          p_product_id: string
+          p_quantity: number
+        }
+        Returns: undefined
+      }
+      get_dashboard_stats: {
+        Args: {
+          p_organization_id?: string | null
+          p_day_start?: string | null
+          p_day_end?: string | null
+          p_month_start?: string | null
+          p_month_end?: string | null
+        }
+        Returns: {
+          todaySales: number
+          todayTransactions: number
+          monthSales: number
+          monthCreditCount: number
+          monthExpenses: number
+          totalProducts: number
+          lowStockProducts: number
+          totalCredits: number
+          creditsCount: number
+        }[]
+      }
+      get_top_products: {
+        Args: {
+          p_organization_id?: string | null
+          p_since?: string | null
+          p_limit?: number
+        }
+        Returns: {
+          product_name: string
+          total_quantity: number
+          total_revenue: number
+        }[]
+      }
     }
     Enums: {
       app_role: "super_admin" | "admin" | "manager" | "vendeur" | "comptable"

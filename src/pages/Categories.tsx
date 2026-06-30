@@ -80,7 +80,7 @@ const Categories = () => {
         }
 
         // If the full query fails (missing columns or relationship), try simpler query
-        console.warn("[Categories] Full query failed, falling back to simpler query:", error.message);
+        // Full query échouée, utilisation du fallback simplifié
       } catch {
         // Fall through to simpler query
       }
@@ -115,17 +115,15 @@ const Categories = () => {
 
       // Only include sort_order if the column exists in the database
       if (hasSortOrder) {
-        // Get max sort_order for this org
+        // Use RPC for atomic sort_order — avoids TOCTOU race condition
+        // where two concurrent category creates could get the same sort_order.
         try {
-          const { data: maxOrder } = await supabase
-            .from("categories")
-            .select("sort_order")
-            .order("sort_order", { ascending: false })
-            .limit(1);
-          insertData.sort_order = (maxOrder?.[0]?.sort_order || 0) + 1;
+          const { data: nextOrder } = await supabase.rpc("get_next_category_sort_order", {
+            p_organization_id: profile?.organization_id,
+          });
+          insertData.sort_order = nextOrder || 1;
         } catch {
-          // sort_order column may not exist — skip it
-          console.warn("[Categories] sort_order column not available, skipping in INSERT");
+          // RPC or sort_order column may not exist — skip it
           delete insertData.sort_order;
         }
       } else {

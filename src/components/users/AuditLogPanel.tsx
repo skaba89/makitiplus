@@ -44,6 +44,7 @@ const actionLabels: Record<string, { label: string; tone: string }> = {
 };
 
 const roleLabels: Record<AppRole, string> = {
+  super_admin: "Super Administrateur",
   admin: "Administrateur",
   manager: "Manager",
   vendeur: "Vendeur",
@@ -116,7 +117,7 @@ export const AuditLogPanel = ({ users }: { users: UserOption[] }) => {
       return (
         r.target_user_name?.toLowerCase().includes(s) ||
         r.actor_name?.toLowerCase().includes(s) ||
-        r.details?.email?.toLowerCase()?.includes(s) ||
+        (typeof r.details?.email === 'string' && r.details.email.toLowerCase().includes(s)) ||
         r.ip_address?.toLowerCase().includes(s)
       );
     });

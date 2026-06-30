@@ -3,8 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -23,14 +23,11 @@ import {
   XAxis,
   YAxis,
   ResponsiveContainer,
-  LineChart,
-  Line,
   PieChart,
   Pie,
   Cell,
 } from "recharts";
 import {
-  TrendingUp,
   ShoppingCart,
   Package,
   Wallet,
@@ -40,7 +37,7 @@ import {
   Download,
   FileSpreadsheet,
 } from "lucide-react";
-import { format, subDays, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
+import { format, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
 import { fr } from "date-fns/locale";
 import { exportSalesToCSV, exportExpensesToCSV } from "@/utils/exportUtils";
 import { useToast } from "@/hooks/use-toast";
@@ -48,11 +45,15 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { fetchAllRows } from "@/lib/batchedFetch";
 import { ReportsPageSkeleton } from "@/components/skeletons/PageSkeletons";
 import { CHART_COLORS } from "@/constants/colors";
+import type { Database } from "@/integrations/supabase/types";
+
+type Sale = Database["public"]["Tables"]["sales"]["Row"];
+type Expense = Database["public"]["Tables"]["expenses"]["Row"];
 
 const COLORS = [...CHART_COLORS];
 
 const Reports = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { toast } = useToast();
   const { formatPrice, currency } = useCurrency();
   const [period, setPeriod] = useState<"day" | "week" | "month">("day");
@@ -71,74 +72,22 @@ const Reports = () => {
 
   const { start, end } = getDateRange();
 
-  // Récupérer les ventes pour la période — fetchAllRows pour éviter la troncature silencieuse à 500 lignes
-  const { data: sales, isLoading: isLoadingSales } = useQuery({
-    queryKey: ["reports-sales", user?.id, period],
-    queryFn: () =>
-      fetchAllRows("sales", "*, sale_items(*)", {
-        filters: [
-          { column: "created_at", operator: "gte", value: start.toISOString() },
-          { column: "created_at", operator: "lte", value: end.toISOString() },
-        ],
-        orderBy: { column: "created_at", ascending: true },
-      }),
-    enabled: !!user,
-  });
-
-  // Récupérer les dépenses pour la période — fetchAllRows pour éviter la troncature silencieuse
-  const { data: expenses, isLoading: isLoadingExpenses } = useQuery({
-    queryKey: ["reports-expenses", user?.id, period],
-    queryFn: () =>
-      fetchAllRows("expenses", "*", {
-        filters: [
-          { column: "expense_date", operator: "gte", value: format(start, "yyyy-MM-dd") },
-          { column: "expense_date", operator: "lte", value: format(end, "yyyy-MM-dd") },
-        ],
-      }),
-    enabled: !!user,
-  });
-
-  // Récupérer les produits les plus vendus — scope organisation (tous les vendeurs)
-  const { data: topProducts, isLoading: isLoadingTopProducts } = useQuery({
-    queryKey: ["reports-top-products", user?.id, period],
+  // ⚡ Stats via RPC — une seule requête au lieu de 3 fetchAllRows + 3 client-side reduce()
+  // L'agrégation (SUM, COUNT, GROUP BY) se fait côté serveur, réduisant drastiquement le transfert.
+  const { data: reportsStats, isLoading: isReportsLoading } = useQuery({
+    queryKey: ["reports-stats", user?.id, profile?.organization_id, period],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("sale_items")
-        .select(`
-          product_name,
-          quantity,
-          total_price,
-          sales!inner(created_at)
-        `)
-        .gte("sales.created_at", start.toISOString())
-        .lte("sales.created_at", end.toISOString())
-        .order("quantity", { ascending: false })
-        .limit(100);
-
+      if (!profile?.organization_id) return null;
+      const { data, error } = await supabase.rpc("get_reports_stats", {
+        p_organization_id: profile.organization_id,
+        p_start: start.toISOString(),
+        p_end: end.toISOString(),
+      });
       if (error) throw error;
-
-      // Agréger par produit
-      const aggregated = data.reduce((acc, item) => {
-        const existing = acc.find((p) => p.name === item.product_name);
-        if (existing) {
-          existing.quantity += item.quantity;
-          existing.revenue += item.total_price;
-        } else {
-          acc.push({
-            name: item.product_name,
-            quantity: item.quantity,
-            revenue: item.total_price,
-          });
-        }
-        return acc;
-      }, [] as { name: string; quantity: number; revenue: number }[]);
-
-      return aggregated.sort((a, b) => b.quantity - a.quantity).slice(0, 5);
+      return data;
     },
-    enabled: !!user,
+    enabled: !!user && !!profile?.organization_id,
   });
-
-  const isReportsLoading = isLoadingSales || isLoadingExpenses || isLoadingTopProducts;
 
   if (isReportsLoading) {
     return (
@@ -148,23 +97,14 @@ const Reports = () => {
     );
   }
 
-  // Calculer les statistiques
-  const totalSales = sales?.reduce((sum, sale) => sum + sale.total_amount, 0) || 0;
-  const totalTransactions = sales?.length || 0;
-  const totalExpenses = expenses?.reduce((sum, exp) => sum + exp.amount, 0) || 0;
+  // Stats from RPC
+  const totalSales = reportsStats?.totalSales ?? 0;
+  const totalTransactions = reportsStats?.totalTransactions ?? 0;
+  const totalExpenses = reportsStats?.totalExpenses ?? 0;
   const netProfit = totalSales - totalExpenses;
 
-  // Répartition par mode de paiement
-  const paymentDistribution = sales?.reduce((acc, sale) => {
-    const method = sale.payment_method;
-    const existing = acc.find((p) => p.method === method);
-    if (existing) {
-      existing.value += sale.total_amount;
-    } else {
-      acc.push({ method, value: sale.total_amount });
-    }
-    return acc;
-  }, [] as { method: string; value: number }[]) || [];
+  // Payment distribution from RPC
+  const paymentDistribution: { method: string; value: number }[] = reportsStats?.paymentBreakdown ?? [];
 
   const paymentLabels: Record<string, string> = {
     cash: "Espèces",
@@ -177,32 +117,22 @@ const Reports = () => {
     credit: "Crédit",
   };
 
-  // Ventes journalières pour le graphique
-  const dailySalesData = () => {
-    if (!sales) return [];
-    
-    const days = period === "day" ? 1 : period === "week" ? 7 : 30;
-    const data = [];
-    
-    for (let i = days - 1; i >= 0; i--) {
-      const date = subDays(new Date(), i);
-      const dayStart = startOfDay(date);
-      const dayEnd = endOfDay(date);
-      
-      const daySales = sales.filter((sale) => {
-        const saleDate = new Date(sale.created_at);
-        return saleDate >= dayStart && saleDate <= dayEnd;
-      });
-      
-      data.push({
-        date: format(date, period === "month" ? "dd" : "EEE", { locale: fr }),
-        ventes: daySales.reduce((sum, s) => sum + s.total_amount, 0),
-        transactions: daySales.length,
-      });
-    }
-    
-    return data;
-  };
+  // Daily sales for chart — from RPC (server-side generate_series)
+  const dailySalesData: { date: string; ventes: number; transactions: number }[] = (() => {
+    if (!reportsStats?.dailySales) return [];
+    return reportsStats.dailySales.map((d: { date: string; sales: number; transactions: number }) => {
+      // Format date labels
+      const dateObj = new Date(d.date);
+      const label = period === "month"
+        ? format(dateObj, "dd", { locale: fr })
+        : format(dateObj, "EEE", { locale: fr });
+      return {
+        date: label,
+        ventes: Number(d.sales),
+        transactions: Number(d.transactions),
+      };
+    });
+  })();
 
   // formatPrice provient maintenant de useCurrency
 
@@ -253,19 +183,23 @@ const Reports = () => {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem
-                  onClick={() => {
-                    if (sales && sales.length > 0) {
-                      exportSalesToCSV(sales, currency.displaySymbol || currency.symbol);
-                      toast({
-                        title: "Export réussi",
-                        description: `${sales.length} ventes exportées`,
+                  onClick={async () => {
+                    try {
+                      const sales = await fetchAllRows<Sale>("sales", "*, sale_items(*)", {
+                        filters: [
+                          { column: "created_at", operator: "gte", value: start.toISOString() },
+                          { column: "created_at", operator: "lte", value: end.toISOString() },
+                        ],
+                        orderBy: { column: "created_at", ascending: true },
                       });
-                    } else {
-                      toast({
-                        variant: "destructive",
-                        title: "Aucune donnée",
-                        description: "Pas de ventes à exporter",
-                      });
+                      if (sales && sales.length > 0) {
+                        exportSalesToCSV(sales as Sale[], currency.displaySymbol || currency.symbol);
+                        toast({ title: "Export réussi", description: `${sales.length} ventes exportées` });
+                      } else {
+                        toast({ variant: "destructive", title: "Aucune donnée", description: "Pas de ventes à exporter" });
+                      }
+                    } catch {
+                      toast({ variant: "destructive", title: "Erreur", description: "Impossible d'exporter les ventes" });
                     }
                   }}
                 >
@@ -273,19 +207,22 @@ const Reports = () => {
                   Ventes (CSV)
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => {
-                    if (expenses && expenses.length > 0) {
-                      exportExpensesToCSV(expenses, currency.displaySymbol || currency.symbol);
-                      toast({
-                        title: "Export réussi",
-                        description: `${expenses.length} dépenses exportées`,
+                  onClick={async () => {
+                    try {
+                      const expenses = await fetchAllRows<Expense>("expenses", "*", {
+                        filters: [
+                          { column: "expense_date", operator: "gte", value: format(start, "yyyy-MM-dd") },
+                          { column: "expense_date", operator: "lte", value: format(end, "yyyy-MM-dd") },
+                        ],
                       });
-                    } else {
-                      toast({
-                        variant: "destructive",
-                        title: "Aucune donnée",
-                        description: "Pas de dépenses à exporter",
-                      });
+                      if (expenses && expenses.length > 0) {
+                        exportExpensesToCSV(expenses as Expense[], currency.displaySymbol || currency.symbol);
+                        toast({ title: "Export réussi", description: `${expenses.length} dépenses exportées` });
+                      } else {
+                        toast({ variant: "destructive", title: "Aucune donnée", description: "Pas de dépenses à exporter" });
+                      }
+                    } catch {
+                      toast({ variant: "destructive", title: "Erreur", description: "Impossible d'exporter les dépenses" });
                     }
                   }}
                 >
@@ -350,7 +287,7 @@ const Reports = () => {
               <div className="flex items-center gap-1 mt-1">
                 <ArrowDownRight className="h-4 w-4 text-destructive" />
                 <span className="text-destructive text-sm">
-                  {expenses?.length || 0} dépenses
+                  {reportsStats?.expenseCount || 0} dépenses
                 </span>
               </div>
             </CardContent>
@@ -389,7 +326,7 @@ const Reports = () => {
             <CardContent>
               <ChartContainer config={chartConfig} className="h-[220px] sm:h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={dailySalesData()}>
+                  <BarChart data={dailySalesData}>
                     <XAxis dataKey="date" />
                     <YAxis tickFormatter={(value) => `${value / 1000}k`} />
                     <ChartTooltip content={<ChartTooltipContent />} />
@@ -449,9 +386,9 @@ const Reports = () => {
             <CardTitle>Produits les plus vendus</CardTitle>
           </CardHeader>
           <CardContent>
-            {topProducts && topProducts.length > 0 ? (
+            {reportsStats?.topProducts && reportsStats.topProducts.length > 0 ? (
               <div className="space-y-4">
-                {topProducts.map((product, index) => (
+                {reportsStats.topProducts.map((product: { name: string; quantity: number; revenue: number }, index: number) => (
                   <div key={product.name} className="flex items-center gap-4">
                     <div
                       className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold text-primary-foreground"

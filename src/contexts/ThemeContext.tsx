@@ -113,9 +113,9 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
 
       if (error) {
         // Gracefully handle missing table (404) or other errors
-        const isMissingTable = error.code === '42P01' || error.message?.includes('does not exist') || error.status === 404;
+        const isMissingTable = error.code === '42P01' || error.message?.includes('does not exist') || (error as unknown as { status?: number }).status === 404;
         if (isMissingTable) {
-          console.warn("[Theme] store_settings table not found. Run fix_production_database.sql to create it.");
+          // store_settings table non disponible — silencieux, non critique
         } else {
           reportError(new Error('Error fetching store settings: ' + error.message));
         }
@@ -135,7 +135,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
 
         if (insertError) {
           // Don't crash if table doesn't exist
-          const isMissingTable = insertError.code === '42P01' || insertError.message?.includes('does not exist') || insertError.status === 404;
+          const isMissingTable = insertError.code === '42P01' || insertError.message?.includes('does not exist') || (insertError as unknown as { status?: number }).status === 404;
           if (!isMissingTable) {
             reportError(new Error('Error creating store settings: ' + insertError.message));
           }
@@ -238,7 +238,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
       try {
         const { error } = await supabase
           .from("store_settings")
-          .update(data)
+          .update(data as Record<string, unknown>)
           .eq("id", settings.id);
 
         if (error) throw error;

@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyQuery = any;
 
 interface Filter {
   column: string;
@@ -68,8 +70,9 @@ export function usePaginatedQuery<T = unknown>(
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
 
-      let query = supabase
-        .from(table)
+      // Use dynamic table name — cast through any to satisfy Supabase's typed .from()
+      let query: AnyQuery = supabase
+        .from(table as never)
         .select(select, { count: "exact" })
         .range(from, to);
 
@@ -95,7 +98,7 @@ export function usePaginatedQuery<T = unknown>(
             query = query.lte(f.column, f.value as number);
             break;
           case "is":
-            query = query.is(f.column, f.value);
+            query = query.is(f.column, f.value as boolean | null);
             break;
         }
       }

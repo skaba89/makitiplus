@@ -64,7 +64,7 @@ const downloadCSV = (content: string, filename: string): void => {
   URL.revokeObjectURL(link.href);
 };
 
-export const exportSalesToCSV = (sales: SaleExportRow[], currencySymbol: string = "F"): void => {
+export const exportSalesToCSV = (sales: SaleExportRow[], currencySymbol: string = "GNF"): void => {
   const sym = currencySymbol;
   const headers = [
     "N° Vente",
@@ -100,7 +100,7 @@ export const exportSalesToCSV = (sales: SaleExportRow[], currencySymbol: string 
   downloadCSV(csv, filename);
 };
 
-export const exportProductsToCSV = (products: ProductExportRow[], currencySymbol: string = "F"): void => {
+export const exportProductsToCSV = (products: ProductExportRow[], currencySymbol: string = "GNF"): void => {
   const sym = currencySymbol;
   const headers = [
     "Nom",
@@ -139,7 +139,7 @@ interface CustomerExportRow {
   created_at: string;
 }
 
-export const exportCustomersToCSV = (customers: CustomerExportRow[], currencySymbol: string = "F"): void => {
+export const exportCustomersToCSV = (customers: CustomerExportRow[], currencySymbol: string = "GNF"): void => {
   const sym = currencySymbol;
   const headers = [
     "Nom",
@@ -166,7 +166,7 @@ export const exportCustomersToCSV = (customers: CustomerExportRow[], currencySym
   downloadCSV(csv, filename);
 };
 
-export const exportExpensesToCSV = (expenses: ExpenseExportRow[], currencySymbol: string = "F"): void => {
+export const exportExpensesToCSV = (expenses: ExpenseExportRow[], currencySymbol: string = "GNF"): void => {
   const sym = currencySymbol;
   const headers = [
     "Date",

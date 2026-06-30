@@ -10,12 +10,12 @@ initSentry();
 
 // Run localStorage → IndexedDB migrations before rendering
 runMigrations().catch(() => {
-  console.warn("[MalikiPlus] IndexedDB migration failed, falling back to localStorage");
+  // IndexedDB migration échouée — fallback localStorage sera utilisé
 });
 
 // Initialize the offline queue DB (creates v2 stores if needed)
 import("./lib/offlineQueue").catch(() => {
-  console.warn("[MalikiPlus] Offline queue initialization failed");
+  // Offline queue init échouée — mode hors-ligne dégradé
 });
 
 createRoot(document.getElementById("root")!).render(<App />);

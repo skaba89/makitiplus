@@ -350,7 +350,13 @@ export const ReceiptDeliveryTrackingPanel = () => {
   };
   // Exposé pour les tests E2E uniquement en développement
   if (import.meta.env.DEV) {
-    window.__malikiplus_mergeRemote = handleMergeRemote;
+    // Type-safe wrapper: window API accepts unknown, we validate at runtime
+    window.__malikiplus_mergeRemote = (data: unknown) => {
+      if (Array.isArray(data)) {
+        return handleMergeRemote(data as QueuedDelivery[]);
+      }
+      return undefined;
+    };
   }
 
   const selectedRows = useMemo(

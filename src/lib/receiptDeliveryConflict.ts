@@ -12,6 +12,7 @@
  * Chaque résolution produit un log (console + retour) pour audit.
  */
 
+import { logger } from "./logger";
 import type { QueuedDelivery, DeliveryStatus } from "./receiptDeliveryQueue";
 
 export interface ConflictLogEntry {
@@ -94,8 +95,7 @@ export const mergeRemoteQueue = (
     };
     logs.push(log);
     // Trace lisible pour le support / audit
-    // eslint-disable-next-line no-console
-    console.info("[receipt-delivery] conflict resolved", log);
+    logger.info("[receipt-delivery] conflict resolved", log);
   }
 
   return {

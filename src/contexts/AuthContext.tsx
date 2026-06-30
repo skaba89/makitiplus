@@ -51,7 +51,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .single();
 
       if (roleError) {
-        console.warn("[Auth] Failed to fetch user role:", roleError.message);
+        reportError(new Error(`[Auth] Failed to fetch user role: ${roleError.message}`));
       }
 
       if (roleData) {
@@ -66,7 +66,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .single();
 
       if (profileError) {
-        console.warn("[Auth] Failed to fetch profile:", profileError.message);
+        reportError(new Error(`[Auth] Failed to fetch profile: ${profileError.message}`));
       }
 
       if (profileData) {
@@ -148,8 +148,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // Track last login (best-effort, non-blocking)
       supabase.rpc("touch_last_login").then(({ error }) => {
-        if (error && (error.status === 401 || error.code === '42501')) {
-          console.warn("[Auth] touch_last_login RPC not authorized. Run fix_production_database.sql to grant EXECUTE.");
+        if (error && (error.code === '42501' || error.message?.includes('not allowed'))) {
+          // touch_last_login non autorisée — silencieux, non critique
         }
       });
     }
@@ -217,7 +217,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       // Fallback: non-atomic path (for older DB without the RPC)
-      console.warn("[Auth] register_user RPC failed, falling back to sequential inserts:", rpcError.message);
+      // register_user RPC indisponible — fallback séquentiel utilisé
 
       // Create profile (linked to org if admin)
       const { error: profileError } = await supabase.from("profiles").insert({

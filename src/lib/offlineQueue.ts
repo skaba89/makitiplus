@@ -11,6 +11,8 @@
  */
 
 import { STORES, type StoreName } from "./indexedDBStorage";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyQuery = any;
 
 // Extend the STORES constant with new stores for offline queue
 const OFFLINE_DB_NAME = "malikiplus_offline";
@@ -248,10 +250,10 @@ export async function flushQueue(): Promise<{ synced: number; failed: number }> 
 
       switch (mutation.operation) {
         case "INSERT":
-          result = await supabase.from(mutation.table).insert(mutation.data);
+          result = await (supabase.from(mutation.table as never) as AnyQuery).insert(mutation.data as never);
           break;
         case "UPDATE": {
-          let query = supabase.from(mutation.table).update(mutation.data);
+          let query: AnyQuery = (supabase.from(mutation.table as never) as AnyQuery).update(mutation.data as never);
           // Apply filters
           if (mutation.filter) {
             for (const [key, value] of Object.entries(mutation.filter)) {
@@ -262,7 +264,7 @@ export async function flushQueue(): Promise<{ synced: number; failed: number }> 
           break;
         }
         case "DELETE": {
-          let query = supabase.from(mutation.table).delete();
+          let query: AnyQuery = (supabase.from(mutation.table as never) as AnyQuery).delete();
           if (mutation.filter) {
             for (const [key, value] of Object.entries(mutation.filter)) {
               query = query.eq(key, value as string | number | boolean);

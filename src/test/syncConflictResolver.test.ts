@@ -36,8 +36,8 @@ describe("lastWriteWins", () => {
   });
 
   it("préfère la version avec timestamp si l'autre est nulle", () => {
-    const local = { name: "A", updated_at: null };
-    const remote = { name: "B", updated_at: "2026-01-01T10:00:00Z" };
+    const local = { name: "A", updated_at: null as string | null };
+    const remote = { name: "B", updated_at: "2026-01-01T10:00:00Z" as string | null };
     expect(lastWriteWins(local, remote)).toEqual(remote);
   });
 });

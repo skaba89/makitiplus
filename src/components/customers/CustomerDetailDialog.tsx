@@ -27,6 +27,7 @@ export const CustomerDetailDialog = ({ customer, isOpen, onClose }: Props) => {
   const { data: sales } = useQuery({
     queryKey: ["customer-sales", customer?.id],
     queryFn: async () => {
+      if (!customer) return [];
       const { data, error } = await supabase
         .from("sales")
         .select("*, sale_items(*)")
@@ -42,6 +43,7 @@ export const CustomerDetailDialog = ({ customer, isOpen, onClose }: Props) => {
   const { data: credits } = useQuery({
     queryKey: ["customer-credits", customer?.id],
     queryFn: async () => {
+      if (!customer) return [];
       const { data, error } = await supabase
         .from("customer_credits")
         .select("*")

@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { COUNTRIES, getCountryByCode, DEFAULT_CURRENCY } from "@/utils/currencies";
+import { CurrencySelector } from "@/components/ui/currency-selector";
 import { useCurrency } from "@/hooks/useCurrency";
 import { TaxSettingsCard } from "@/components/settings/TaxSettingsCard";
 import { BrandingSettings } from "@/components/settings/BrandingSettings";
@@ -254,7 +255,7 @@ const Settings = () => {
                     Pays et devise
                   </CardTitle>
                   <CardDescription>
-                    La devise sera automatiquement définie selon le pays sélectionné
+                    Sélectionnez votre pays et votre devise pour les prix et tickets
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -282,17 +283,7 @@ const Settings = () => {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Devise</Label>
-                      <div className="h-10 px-3 flex items-center bg-muted rounded-lg text-sm">
-                        <span className="font-medium">
-                          {selectedCountryData?.currency.symbol}
-                        </span>
-                        <span className="ml-2 text-muted-foreground">
-                          ({selectedCountryData?.currency.name})
-                        </span>
-                      </div>
-                    </div>
+                    <CurrencySelector variant="full" />
                   </div>
 
                   {/* Mobile Payments Available */}

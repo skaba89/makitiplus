@@ -135,7 +135,7 @@ export const COUNTRIES: CountryConfig[] = [
     code: "GN",
     name: "Guinée",
     flag: "",
-    currency: { code: "GNF", symbol: "GNF", displaySymbol: "F", name: "Franc Guinéen", position: "after", decimals: 0 },
+    currency: { code: "GNF", symbol: "GNF", displaySymbol: "GNF", name: "Franc Guinéen", position: "after", decimals: 0 },
     mobilePayments: ["orange_money", "mtn_money"],
     phoneCode: "+224",
   },
@@ -248,6 +248,15 @@ export const COUNTRIES: CountryConfig[] = [
 export const getCountryByCode = (code: string): CountryConfig | undefined => {
   return COUNTRIES.find((c) => c.code === code);
 };
+
+export const getCurrencyByCode = (code: string): CurrencyConfig | undefined => {
+  return COUNTRIES.find((c) => c.currency.code === code)?.currency;
+};
+
+/** Unique currencies deduplicated by code */
+export const UNIQUE_CURRENCIES: CurrencyConfig[] = Array.from(
+  new Map(COUNTRIES.map((c) => [c.currency.code, c.currency])).values()
+);
 
 export const formatPrice = (amount: number, currency: CurrencyConfig): string => {
   const formatted = new Intl.NumberFormat("fr-FR", {

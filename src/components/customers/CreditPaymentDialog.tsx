@@ -51,6 +51,7 @@ export const CreditPaymentDialog = ({ customer, isOpen, onClose, onViewHistory }
 
   const paymentMutation = useMutation({
     mutationFn: async () => {
+      if (!customer) throw new Error("Aucun client sélectionné");
       const numAmount = parseFloat(amount);
       if (!numAmount || isNaN(numAmount) || numAmount <= 0) {
         throw new Error("Montant invalide");
@@ -59,41 +60,19 @@ export const CreditPaymentDialog = ({ customer, isOpen, onClose, onViewHistory }
         throw new Error("Le montant depasse le credit restant");
       }
 
-      // Try atomic RPC first (C6: single transaction)
-      try {
-        const { error: rpcError } = await supabase.rpc("process_credit_payment", {
-          p_user_id: user!.id,
-          p_organization_id: profile?.organization_id || null,
-          p_customer_id: customer.id,
-          p_amount: numAmount,
-          p_description: description || "Paiement de credit",
-        });
-        if (!rpcError) return; // atomic success
-        console.warn("[CreditPayment] RPC failed, falling back:", rpcError.message);
-      } catch {
-        console.warn("[CreditPayment] RPC exception, falling back");
+      // Utiliser la RPC atomique process_credit_payment
+      // Pas de fallback non-atomique : SELECT→UPDATE cause des incohérences
+      // si deux paiements sont traités simultanément.
+      const { error: rpcError } = await supabase.rpc("process_credit_payment", {
+        p_user_id: user!.id,
+        p_organization_id: profile?.organization_id || null,
+        p_customer_id: customer.id,
+        p_amount: numAmount,
+        p_description: description || "Paiement de credit",
+      });
+      if (rpcError) {
+        throw new Error(`Erreur lors du paiement de crédit : ${rpcError.message}`);
       }
-
-      // Fallback: non-atomic (two-step)
-      const creditInsert: Record<string, unknown> = {
-        user_id: user!.id,
-        customer_id: customer.id,
-        amount: numAmount,
-        type: "payment",
-        description: description || "Paiement de credit",
-      };
-      if (profile?.organization_id) {
-        creditInsert.organization_id = profile.organization_id;
-      }
-      const { error: creditError } = await supabase.from("customer_credits").insert(creditInsert);
-      if (creditError) throw creditError;
-
-      const newCredit = Math.max(0, Number(customer.total_credit) - numAmount);
-      const { error: updateError } = await supabase
-        .from("customers")
-        .update({ total_credit: newCredit })
-        .eq("id", customer.id);
-      if (updateError) throw updateError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["customers"] });

@@ -40,5 +40,5 @@ declare const NDEFReader: {
 
 interface Window {
   NDEFReader?: typeof NDEFReader;
-  __malikiplus_mergeRemote?: (data: unknown) => void;
+  __malikiplus_mergeRemote?: (data: unknown) => unknown;
 }

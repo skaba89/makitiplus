@@ -119,6 +119,7 @@ interface AuditRow {
 }
 
 const roleLabels: Record<AppRole, string> = {
+  super_admin: "Super Admin",
   admin: "Administrateur",
   manager: "Manager",
   vendeur: "Vendeur",
@@ -126,6 +127,7 @@ const roleLabels: Record<AppRole, string> = {
 };
 
 const roleColors: Record<AppRole, string> = {
+  super_admin: "bg-purple-600 text-white",
   admin: "bg-primary text-primary-foreground",
   manager: "bg-accent text-accent-foreground",
   vendeur: "bg-secondary text-secondary-foreground",

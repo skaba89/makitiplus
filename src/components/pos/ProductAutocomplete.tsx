@@ -121,7 +121,7 @@ export const ProductAutocomplete = ({
     <div ref={containerRef} className="relative flex-1">
       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
       <Input
-        ref={inputRef}
+        ref={inputRef as React.LegacyRef<HTMLInputElement>}
         role="combobox"
         aria-expanded={open && matches.length > 0}
         aria-autocomplete="list"

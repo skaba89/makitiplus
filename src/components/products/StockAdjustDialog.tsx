@@ -38,7 +38,7 @@ interface StockAdjustDialogProps {
   isLoading: boolean;
 }
 
-const ADJUSTMENT_TYPES: Record<AdjustmentType, { label: string; icon: React.ReactNode; sign: "+" | "-" }> = {
+const ADJUSTMENT_TYPES: Record<AdjustmentType, { label: string; icon: React.ReactNode; sign: "+" | "-" | "=" }> = {
   restock: { label: "Réapprovisionnement", icon: <Plus className="h-4 w-4" />, sign: "+" },
   loss: { label: "Perte / Casse", icon: <Minus className="h-4 w-4" />, sign: "-" },
   adjustment: { label: "Ajustement (définir le stock)", icon: <RotateCcw className="h-4 w-4" />, sign: "=" },

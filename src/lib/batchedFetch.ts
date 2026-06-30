@@ -1,4 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyQuery = any;
 
 /**
  * Fetch all rows from a Supabase table using batched pagination.
@@ -36,8 +38,8 @@ export async function fetchAllRows<T = unknown>(
     const from = page * batchSize;
     const to = from + batchSize - 1;
 
-    let query = supabase
-      .from(table)
+    let query: AnyQuery = supabase
+      .from(table as never)
       .select(select, { count: "exact" })
       .range(from, to);
 
@@ -64,7 +66,7 @@ export async function fetchAllRows<T = unknown>(
             query = query.lte(f.column, f.value as number);
             break;
           case "is":
-            query = query.is(f.column, f.value);
+            query = query.is(f.column, f.value as boolean | null);
             break;
         }
       }

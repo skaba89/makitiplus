@@ -161,7 +161,7 @@ export const BrandingProvider = ({ children }: { children: ReactNode }) => {
           // Gracefully handle missing columns (migration not applied)
           const isMissingColumn = error.code === '42703' || error.message?.includes('does not exist');
           if (isMissingColumn) {
-            console.warn("[Branding] Some org columns missing. Run fix_production_database.sql to add them.");
+            // Colonnes org manquantes — silencieux, non critique
           } else {
             throw error;
           }
@@ -173,14 +173,14 @@ export const BrandingProvider = ({ children }: { children: ReactNode }) => {
             brandColor: data.brand_color || DEFAULT_BRANDING.brandColor,
             accentColor: data.accent_color || DEFAULT_BRANDING.accentColor,
             logoUrl: data.logo_url || DEFAULT_BRANDING.logoUrl,
-            themeMode: data.theme_mode || DEFAULT_BRANDING.themeMode,
-            receiptTemplate: data.receipt_template || DEFAULT_BRANDING.receiptTemplate,
+            themeMode: (data.theme_mode as BrandingConfig["themeMode"]) || DEFAULT_BRANDING.themeMode,
+            receiptTemplate: (data.receipt_template as BrandingConfig["receiptTemplate"]) || DEFAULT_BRANDING.receiptTemplate,
             fontFamily: data.font_family || DEFAULT_BRANDING.fontFamily,
             language: data.language || DEFAULT_BRANDING.language,
           });
         }
       } catch (err) {
-        console.warn("[Branding] Failed to load org branding:", err);
+        // Échec du chargement branding org — silencieux
       } finally {
         setIsLoading(false);
       }

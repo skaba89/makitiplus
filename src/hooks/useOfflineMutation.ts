@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useOnlineStatus } from "@/contexts/OfflineContext";
-import { enqueueMutation, cacheData, getCachedData, OFFLINE_STORES } from "@/lib/offlineQueue";
+import { enqueueMutation, cacheData, getCachedData, OFFLINE_STORES, type OfflineStoreName } from "@/lib/offlineQueue";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyQuery = any;
 
 /**
  * Offline-aware query: fetches from Supabase when online,
@@ -31,12 +33,12 @@ export function useOfflineQuery<T extends { id: string }>(
     queryFn: async () => {
       if (!isOnline) {
         // Offline: read from IndexedDB cache
-        const cached = await getCachedData<T>(cacheStore as keyof typeof OFFLINE_STORES);
+        const cached = await getCachedData<T>(cacheStore as OfflineStoreName);
         return cached;
       }
 
-      // Online: fetch from Supabase
-      let query = supabase.from(table).select(options?.select || "*");
+      // Online: fetch from Supabase (dynamic table — cast through any)
+      let query: AnyQuery = supabase.from(table as never).select(options?.select || "*");
 
       if (options?.filter) {
         for (const [key, value] of Object.entries(options.filter)) {
@@ -54,7 +56,7 @@ export function useOfflineQuery<T extends { id: string }>(
 
       // Cache the data for offline use
       if (data && data.length > 0) {
-        await cacheData(cacheStore as keyof typeof OFFLINE_STORES, data as T[]).catch(() => {
+        await cacheData(cacheStore as OfflineStoreName, data as T[]).catch(() => {
           // Cache failure shouldn't break the query
         });
       }
@@ -104,28 +106,28 @@ export function useOfflineMutation<TData = unknown>(
         return { offline: true, queued: true } as unknown as TData;
       }
 
-      // Online: execute immediately
-      let result;
+      // Online: execute immediately (dynamic table — cast through any)
+      let result: AnyQuery;
 
       switch (operation) {
         case "INSERT":
           result = await supabase
-            .from(table)
-            .insert({ ...mutationData.data, user_id: user!.id })
+            .from(table as never)
+            .insert({ ...mutationData.data, user_id: user!.id } as never)
             .select()
             .single();
           break;
         case "UPDATE":
           result = await supabase
-            .from(table)
-            .update(mutationData.data)
-            .match(mutationData.filter || {});
+            .from(table as never)
+            .update(mutationData.data as never)
+            .match(mutationData.filter || {} as never);
           break;
         case "DELETE":
           result = await supabase
-            .from(table)
+            .from(table as never)
             .delete()
-            .match(mutationData.filter || {});
+            .match(mutationData.filter || {} as never);
           break;
       }
 
@@ -149,7 +151,7 @@ export function useOfflineMutation<TData = unknown>(
         toast({ title: options.successMessage });
       }
 
-      options?.onSuccess(data);
+      options?.onSuccess?.(data);
     },
     onError: (error) => {
       toast({
@@ -157,7 +159,7 @@ export function useOfflineMutation<TData = unknown>(
         title: options?.errorMessage || "Erreur",
         description: error.message,
       });
-      options?.onError(error);
+      options?.onError?.(error);
     },
   });
 }

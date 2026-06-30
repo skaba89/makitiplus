@@ -32,9 +32,9 @@ import {
 import { Database } from "@/integrations/supabase/types";
 import { exportProductsToCSV } from "@/utils/exportUtils";
 import { useCurrency } from "@/hooks/useCurrency";
-import { ProductWithCategory } from "@/types";
 import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import { fetchAllRows } from "@/lib/batchedFetch";
+import { ProductWithCategory } from "@/types";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
 type ProductInsert = Database["public"]["Tables"]["products"]["Insert"];
@@ -97,18 +97,26 @@ const Products = () => {
     enabled: !!user,
   });
 
-  // ── Lightweight stats query (no joins, minimal columns) — fetchAllRows pour contourner la limite PostgREST ──
-  const { data: allProductStats } = useQuery({
-    queryKey: ["products-stats", user?.id],
-    queryFn: () =>
-      fetchAllRows<{ id: string; category_id: string | null; stock_quantity: number; min_stock_alert: number | null }>(
-        "products",
-        "id, category_id, stock_quantity, min_stock_alert",
-        {
-          orderBy: { column: "created_at", ascending: false },
-        }
-      ),
-    enabled: !!user,
+  // ── Product stats via RPC — remplace fetchAllRows qui chargeait TOUS les produits ──
+  // L'agrégation (COUNT, FILTER) se fait côté serveur, réduisant drastiquement le transfert.
+  const { data: productStats } = useQuery({
+    queryKey: ["products-stats", user?.id, profile?.organization_id],
+    queryFn: async () => {
+      if (!profile?.organization_id) {
+        return { totalProducts: 0, lowStockCount: 0, outOfStockCount: 0, categoryCounts: {} as Record<string, number> };
+      }
+      const { data, error } = await supabase.rpc("get_product_stats", {
+        p_organization_id: profile.organization_id,
+      });
+      if (error) throw error;
+      return {
+        totalProducts: data?.totalProducts ?? 0,
+        lowStockCount: data?.lowStockCount ?? 0,
+        outOfStockCount: data?.outOfStockCount ?? 0,
+        categoryCounts: data?.categoryCounts ?? {},
+      };
+    },
+    enabled: !!user && !!profile?.organization_id,
   });
 
   const { data: categories } = useQuery({
@@ -221,59 +229,32 @@ const Products = () => {
     },
   });
 
-  // Stock adjustment mutation
+  // Stock adjustment mutation — atomique via RPC adjust_product_stock
   const stockAdjustMutation = useMutation({
     mutationFn: async (data: {
       productId: string;
       type: "restock" | "adjustment" | "loss";
       quantity: number;
       reason: string;
-      previousQuantity: number;
+      previousQuantity: number; // utilisé uniquement pour l'affichage UI (pas pour le calcul)
     }) => {
-      // Calculate new quantity
-      let newQuantity: number;
-      if (data.type === "restock") {
-        newQuantity = data.previousQuantity + data.quantity;
-      } else if (data.type === "loss") {
-        newQuantity = Math.max(0, data.previousQuantity - data.quantity);
-      } else {
-        newQuantity = data.quantity; // adjustment = absolute
-      }
+      // Utiliser la RPC atomique pour éviter les race conditions (lost updates)
+      // quand plusieurs utilisateurs ajustent le stock simultanément.
+      const { data: result, error: rpcError } = await supabase.rpc(
+        "adjust_product_stock",
+        {
+          p_product_id: data.productId,
+          p_type: data.type,
+          p_quantity: data.quantity,
+          p_reason: data.reason || null,
+          p_user_id: user!.id,
+          p_organization_id: profile?.organization_id || null,
+        }
+      );
 
-      // Update product stock
-      const { error: updateError } = await supabase
-        .from("products")
-        .update({
-          stock_quantity: newQuantity,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", data.productId);
+      if (rpcError) throw rpcError;
 
-      if (updateError) throw updateError;
-
-      // Record stock movement
-      const movementQuantity =
-        data.type === "restock"
-          ? data.quantity
-          : data.type === "loss"
-          ? -data.quantity
-          : newQuantity - data.previousQuantity;
-
-      const { error: movementError } = await supabase
-        .from("stock_movements")
-        .insert({
-          product_id: data.productId,
-          type: data.type,
-          quantity: movementQuantity,
-          previous_quantity: data.previousQuantity,
-          new_quantity: newQuantity,
-          reason: data.reason || null,
-          user_id: user!.id,
-        });
-
-      if (movementError) throw movementError;
-
-      return { newQuantity };
+      return { newQuantity: result?.[0]?.new_quantity ?? data.quantity };
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
@@ -340,24 +321,15 @@ const Products = () => {
     }
   }, [currentPage, safeCurrentPage]);
 
-  // Stats (derived from lightweight stats query)
-  const totalProducts = allProductStats?.length || 0;
-  const lowStockCount = allProductStats?.filter(
-    (p) => p.min_stock_alert != null && p.stock_quantity <= p.min_stock_alert
-  ).length || 0;
-  const outOfStockCount = allProductStats?.filter((p) => p.stock_quantity === 0).length || 0;
+  // Stats (from RPC aggregate)
+  const totalProducts = productStats?.totalProducts ?? 0;
+  const lowStockCount = productStats?.lowStockCount ?? 0;
+  const outOfStockCount = productStats?.outOfStockCount ?? 0;
 
-  // Category counts for filter buttons
-  const categoryCounts = useCallback(() => {
-    const map = new Map<string, number>();
-    allProductStats?.forEach((p) => {
-      if (p.category_id) {
-        map.set(p.category_id, (map.get(p.category_id) || 0) + 1);
-      }
-    });
-    return map;
-  }, [allProductStats]);
-  const catCounts = categoryCounts();
+  // Category counts for filter buttons (from RPC aggregate)
+  const catCounts = new Map<string, number>(
+    Object.entries(productStats?.categoryCounts ?? {}).map(([k, v]) => [k, v as number])
+  );
 
   // On-demand fetch for CSV export — fetchAllRows pour contourner la limite PostgREST
   const handleExport = useCallback(async () => {

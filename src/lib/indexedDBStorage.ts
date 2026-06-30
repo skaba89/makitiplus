@@ -12,6 +12,8 @@
  * with a console warning.
  */
 
+import { logger } from "./logger";
+
 const DB_NAME = "malikiplus_offline";
 const DB_VERSION = 1;
 
@@ -269,7 +271,7 @@ export async function migrateFromLocalStorage<T>(
     localStorage.removeItem(lsKey);
     return { migrated: entries.length, skipped: false };
   } catch (err) {
-    console.warn(`[IndexedDB] Migration failed for ${lsKey} → ${storeName}:`, err);
+    logger.warn(`[IndexedDB] Migration failed for ${lsKey} → ${storeName}:`, err);
     return { migrated: 0, skipped: true };
   }
 }
@@ -299,7 +301,7 @@ export async function runMigrations(): Promise<void> {
       { isSingleEntry: true, entryKey: "policy" },
     );
   } catch (err) {
-    console.warn("[IndexedDB] Migration batch failed:", err);
+    logger.warn("[IndexedDB] Migration batch failed:", err);
   }
 }
 

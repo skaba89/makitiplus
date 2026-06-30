@@ -1,5 +1,5 @@
- import { useState, useEffect, useMemo } from "react";
- import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+ import { useState, useMemo } from "react";
+ import { useMutation, useQueryClient } from "@tanstack/react-query";
  import { supabase } from "@/integrations/supabase/client";
  import { useAuth } from "@/contexts/AuthContext";
  import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -54,7 +54,7 @@ import { format } from "date-fns";
 import { formatDate } from "@/lib/utils";
 import { Database } from "@/integrations/supabase/types";
 import { useCurrency } from "@/hooks/useCurrency";
-import { fetchAllRows } from "@/lib/batchedFetch";
+import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
  
  type Expense = Database["public"]["Tables"]["expenses"]["Row"];
  type PaymentMethod = Database["public"]["Enums"]["payment_method"];
@@ -97,15 +97,30 @@ const Expenses = () => {
    const [description, setDescription] = useState("");
    const [expenseDate, setExpenseDate] = useState(format(new Date(), "yyyy-MM-dd"));
  
-   // Récupérer toutes les dépenses — fetchAllRows pour éviter la troncature silencieuse à 500 lignes
-   const { data: expenses, isLoading } = useQuery({
-     queryKey: ["expenses", user?.id],
-     queryFn: () =>
-       fetchAllRows<Expense>("expenses", "*", {
-         orderBy: { column: "expense_date", ascending: false },
-       }),
-     enabled: !!user,
-   });
+  // Pagination côté serveur avec filtre catégorie
+  const PAGE_SIZE = 20;
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const { data: expenses, totalCount, totalPages, isLoading } = usePaginatedQuery<Expense>({
+    table: "expenses",
+    select: "*",
+    filters: filterCategory !== "all" ? [{ column: "category", operator: "eq" as const, value: filterCategory }] : [],
+    orderBy: { column: "expense_date", ascending: false },
+    page: currentPage,
+    pageSize: PAGE_SIZE,
+    queryKey: ["expenses", user?.id ?? "", filterCategory],
+    enabled: !!user,
+  });
+
+  // Stats — requête légère séparée pour les totaux
+  const { data: allExpensesForStats } = usePaginatedQuery<Expense>({
+    table: "expenses",
+    select: "amount, expense_date",
+    page: 1,
+    pageSize: 1000,
+    queryKey: ["expenses-stats", user?.id ?? ""],
+    enabled: !!user,
+  });
  
    const canModify = userRole === 'admin' || userRole === 'manager' || userRole === 'super_admin' || userRole === 'comptable';
 
@@ -126,7 +141,7 @@ const Expenses = () => {
        if (profile?.organization_id) {
          insertData.organization_id = profile.organization_id;
        }
-       const { error } = await supabase.from("expenses").insert(insertData);
+       const { error } = await supabase.from("expenses").insert(insertData as never);
 
        if (error) throw error;
      },
@@ -266,34 +281,20 @@ const Expenses = () => {
      };
    };
  
-   const filteredExpenses = useMemo(() => filterCategory === "all"
-     ? expenses
-     : expenses?.filter((e) => e.category === filterCategory), [expenses, filterCategory]);
- 
-  // Client-side pagination
-  const PAGE_SIZE = 20;
-  const [currentPage, setCurrentPage] = useState(1);
-  const totalPages = Math.max(1, Math.ceil((filteredExpenses?.length || 0) / PAGE_SIZE));
-  const safeCurrentPage = Math.min(currentPage, totalPages);
-  const paginatedExpenses = filteredExpenses?.slice(
-    (safeCurrentPage - 1) * PAGE_SIZE,
-    safeCurrentPage * PAGE_SIZE
-  );
-  // Reset page when filters change
-  useEffect(() => {
-    const safePage = Math.min(currentPage, totalPages);
-    if (currentPage !== safePage && safePage > 0) {
-      setCurrentPage(safePage);
-    }
-  }, [currentPage, totalPages]);
+  // Les dépenses sont déjà paginées côté serveur
+  const totalExpenses = expenses?.reduce((sum, e) => sum + e.amount, 0) || 0;
 
-   const totalExpenses = filteredExpenses?.reduce((sum, e) => sum + e.amount, 0) || 0;
- 
-   const thisMonthExpenses = expenses?.filter((e) => {
-     const d = new Date(e.expense_date);
-     const now = new Date();
-     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-   }).reduce((sum, e) => sum + e.amount, 0) || 0;
+  const thisMonthExpenses = allExpensesForStats?.filter((e) => {
+    const d = new Date(e.expense_date);
+    const now = new Date();
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }).reduce((sum, e) => sum + e.amount, 0) || 0;
+
+  // Reset page quand le filtre change
+  const handleFilterChange = (value: string) => {
+    setFilterCategory(value);
+    setCurrentPage(1);
+  };
  
    const isMutating = createExpenseMutation.isPending || updateExpenseMutation.isPending;
 
@@ -439,7 +440,7 @@ const Expenses = () => {
                  {formatPrice(totalExpenses)}
                </div>
                <p className="text-xs text-muted-foreground">
-                 {filteredExpenses?.length || 0} dépense(s)
+                 {expenses?.length || 0} dépense(s)
                </p>
              </CardContent>
            </Card>
@@ -455,7 +456,7 @@ const Expenses = () => {
                    Toutes les charges enregistrées
                  </CardDescription>
                </div>
-               <Select value={filterCategory} onValueChange={setFilterCategory}>
+               <Select value={filterCategory} onValueChange={handleFilterChange}>
                  <SelectTrigger className="w-full sm:w-48">
                    <SelectValue placeholder="Filtrer par catégorie" />
                  </SelectTrigger>
@@ -473,7 +474,7 @@ const Expenses = () => {
            <CardContent>
              {isLoading ? (
                <ExpensesPageSkeleton />
-             ) : filteredExpenses && filteredExpenses.length > 0 ? (
+             ) : expenses && expenses.length > 0 ? (
                <div className="overflow-x-auto">
                  <Table>
                    <TableHeader>
@@ -486,7 +487,7 @@ const Expenses = () => {
                      </TableRow>
                    </TableHeader>
                    <TableBody>
-                     {paginatedExpenses?.map((expense) => {
+                     {expenses.map((expense) => {
                        const catInfo = getCategoryInfo(expense.category);
                        return (
                          <TableRow key={expense.id}>
@@ -537,17 +538,18 @@ const Expenses = () => {
              ) : null}
 
              {/* Pagination */}
-             {filteredExpenses && filteredExpenses.length > 0 && totalPages > 1 && (
+             {totalPages > 1 && (
                <div className="flex items-center justify-between pt-4 border-t">
                  <p className="text-sm text-muted-foreground">
-                   {((safeCurrentPage - 1) * PAGE_SIZE) + 1}–{Math.min(safeCurrentPage * PAGE_SIZE, filteredExpenses.length)} sur {filteredExpenses.length}
+                   {((currentPage - 1) * PAGE_SIZE) + 1}–{Math.min(currentPage * PAGE_SIZE, totalCount)} sur {totalCount}
                  </p>
                  <div className="flex gap-2">
                    <Button
                      variant="outline"
                      size="sm"
                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                     disabled={safeCurrentPage <= 1}
+                     disabled={currentPage <= 1}
+                     aria-label="Page précédente"
                    >
                      Précédent
                    </Button>
@@ -556,17 +558,17 @@ const Expenses = () => {
                        let page: number;
                        if (totalPages <= 5) {
                          page = i + 1;
-                       } else if (safeCurrentPage <= 3) {
+                       } else if (currentPage <= 3) {
                          page = i + 1;
-                       } else if (safeCurrentPage >= totalPages - 2) {
+                       } else if (currentPage >= totalPages - 2) {
                          page = totalPages - 4 + i;
                        } else {
-                         page = safeCurrentPage - 2 + i;
+                         page = currentPage - 2 + i;
                        }
                        return (
                          <Button
                            key={page}
-                           variant={page === safeCurrentPage ? "default" : "outline"}
+                           variant={page === currentPage ? "default" : "outline"}
                            size="sm"
                            className="w-8 h-8 p-0"
                            onClick={() => setCurrentPage(page)}
@@ -580,7 +582,8 @@ const Expenses = () => {
                      variant="outline"
                      size="sm"
                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                     disabled={safeCurrentPage >= totalPages}
+                     disabled={currentPage >= totalPages}
+                     aria-label="Page suivante"
                    >
                      Suivant
                    </Button>
@@ -588,7 +591,7 @@ const Expenses = () => {
                </div>
              )}
 
-             {!(filteredExpenses && filteredExpenses.length > 0) && !isLoading && (
+             {!(expenses && expenses.length > 0) && !isLoading && (
                <div className="text-center py-12">
                  <Wallet className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
                  <p className="text-muted-foreground">Aucune dépense enregistrée</p>

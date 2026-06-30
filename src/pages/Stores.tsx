@@ -38,6 +38,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { StoresPageSkeleton } from "@/components/skeletons/PageSkeletons";
 import {
@@ -140,6 +150,8 @@ const Stores = () => {
   const [adminDialogOpen, setAdminDialogOpen] = useState(false);
   const [selectedStore, setSelectedStore] = useState<StoreWithAdmin | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [storeToDelete, setStoreToDelete] = useState<StoreWithAdmin | null>(null);
 
   // Formulaire nouveau magasin
   const [storeName, setStoreName] = useState("");
@@ -227,7 +239,7 @@ const Stores = () => {
       const { error } = await supabase.from("organizations").insert({
         name: storeName,
         category: storeCategory,
-        owner_user_id: (await supabase.auth.getUser()).data.user?.id,
+        owner_user_id: (await supabase.auth.getUser()).data.user?.id ?? "",
         country: storeCountry,
         currency: storeCurrency,
       });
@@ -303,15 +315,23 @@ const Stores = () => {
   };
 
   const handleDeleteStore = async (store: StoreWithAdmin) => {
-    if (!confirm(`Supprimer le magasin "${store.name}" ? Cette action est irréversible.`)) return;
+    setStoreToDelete(store);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteStore = async () => {
+    if (!storeToDelete) return;
     try {
-      const { error } = await supabase.from("organizations").delete().eq("id", store.id);
+      const { error } = await supabase.from("organizations").delete().eq("id", storeToDelete.id);
       if (error) throw error;
-      toast({ title: "Magasin supprimé", description: `"${store.name}" a été supprimé.` });
+      toast({ title: "Magasin supprimé", description: `"${storeToDelete.name}" a été supprimé.` });
       queryClient.invalidateQueries({ queryKey: ["stores"] });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       toast({ variant: "destructive", title: "Erreur", description: message });
+    } finally {
+      setDeleteDialogOpen(false);
+      setStoreToDelete(null);
     }
   };
 
@@ -678,6 +698,27 @@ const Stores = () => {
             </form>
           </DialogContent>
         </Dialog>
+
+        {/* Dialogue de confirmation de suppression */}
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Supprimer le magasin</AlertDialogTitle>
+              <AlertDialogDescription>
+                Êtes-vous sûr de vouloir supprimer le magasin "{storeToDelete?.name}" ? Cette action est irréversible.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Annuler</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDeleteStore}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Supprimer
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );
