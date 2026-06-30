@@ -315,6 +315,7 @@ export const ProductForm = ({ product, onSubmit, isLoading }: ProductFormProps) 
             id="price"
             type="number"
             min="0"
+            max="100000000"
             value={formData.price}
             onChange={(e) =>
               setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })

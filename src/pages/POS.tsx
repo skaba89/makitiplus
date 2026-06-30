@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -10,7 +10,6 @@ import { POSPaymentDialog } from "@/components/pos/POSPaymentDialog";
 import { ReceiptActionsDialog } from "@/components/pos/ReceiptActionsDialog";
 import { BarcodeScannerDialog } from "@/components/pos/BarcodeScannerDialog";
 import { ProductAutocomplete } from "@/components/pos/ProductAutocomplete";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -18,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useOrgTaxRate } from "@/hooks/useOrgTaxRate";
 import { computeTax } from "@/lib/taxUtils";
-import { Search, ShoppingCart, Camera } from "lucide-react";
+import { ShoppingCart, Camera } from "lucide-react";
 import { CategoryIcon } from "@/components/ui/category-icon";
 import { Database } from "@/integrations/supabase/types";
 import { ReceiptData } from "@/utils/receiptGenerator";
@@ -48,6 +47,7 @@ const POS = () => {
   const [lastReceiptData, setLastReceiptData] = useState<ReceiptData | null>(null);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [showOutOfStock, setShowOutOfStock] = useState(false);
+  const lastSubmitRef = useRef(0);
 
   const { data: products, isLoading } = useQuery({
     queryKey: ["products", "pos"],
@@ -89,6 +89,10 @@ const POS = () => {
       customerName?: string;
       customerPhone?: string;
     }) => {
+      if (Date.now() - lastSubmitRef.current < 2000) {
+        throw new Error("Vente déjà en cours de traitement");
+      }
+      lastSubmitRef.current = Date.now();
       // Get sale number (fallback to timestamp+uuid if RPC not available)
       let finalSaleNumber = '';
       try {
@@ -456,18 +460,18 @@ const POS = () => {
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  const filteredProducts = products?.filter((product) => {
+  const filteredProducts = useMemo(() => products?.filter((product) => {
     const matchesSearch =
       !searchQuery ||
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (product.barcode && product.barcode.includes(searchQuery));
     const matchesStock = showOutOfStock || product.stock_quantity > 0;
     return matchesSearch && matchesStock;
-  });
+  }), [products, searchQuery, showOutOfStock]);
 
-  const displayedProducts = selectedCategory
+  const displayedProducts = useMemo(() => selectedCategory
     ? filteredProducts?.filter((p) => p.category_id === selectedCategory)
-    : filteredProducts;
+    : filteredProducts, [filteredProducts, selectedCategory]);
 
   const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 

@@ -1,4 +1,3 @@
-import React from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,7 +18,7 @@ import {
 import { CategoryIcon } from "@/components/ui/category-icon";
 import { startOfDay, endOfDay, startOfMonth, endOfMonth } from "date-fns";
 import { format } from "date-fns";
-import { fr } from "date-fns/locale";
+import { formatDateTime } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
@@ -294,7 +293,7 @@ const Dashboard = () => {
                     <div>
                       <p className="font-medium text-sm">{sale.sale_number}</p>
                       <p className="text-xs text-muted-foreground">
-                        {format(new Date(sale.created_at), "dd MMM à HH:mm", { locale: fr })}
+                        {formatDateTime(sale.created_at)}
                         {sale.customer_name && ` • ${sale.customer_name}`}
                       </p>
                     </div>

@@ -9,8 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
-import { fr } from "date-fns/locale";
+import { formatDate, formatDateTime } from "@/lib/utils";
 import { ShoppingCart, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { Customer } from "@/types";
 import { Database } from "@/integrations/supabase/types";
@@ -98,7 +97,7 @@ export const CustomerDetailDialog = ({ customer, isOpen, onClose }: Props) => {
                         {c.type === "credit" ? "+" : "-"}{formatPrice(Number(c.amount))}
                       </span>
                       <p className="text-xs text-muted-foreground">
-                        {format(new Date(c.created_at), "dd/MM/yy", { locale: fr })}
+                        {formatDate(c.created_at)}
                       </p>
                     </div>
                   </div>
@@ -119,7 +118,7 @@ export const CustomerDetailDialog = ({ customer, isOpen, onClose }: Props) => {
                       <Badge variant="outline">{formatPrice(sale.total_amount)}</Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {format(new Date(sale.created_at), "dd MMM yyyy à HH:mm", { locale: fr })}
+                      {formatDateTime(sale.created_at)}
                     </p>
                     <div className="mt-1 text-xs text-muted-foreground">
                       {sale.sale_items?.map((item: Database["public"]["Tables"]["sale_items"]["Row"]) => item.product_name).join(", ")}

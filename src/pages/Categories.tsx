@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useDeferredValue } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -50,7 +50,8 @@ const Categories = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const searchQuery = useDeferredValue(searchInput);
   const [sortBy, setSortBy] = useState<"name" | "products" | "default">("default");
 
   const [formData, setFormData] = useState({
@@ -263,7 +264,7 @@ const Categories = () => {
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
 
   // Filter and sort categories
-  const filteredCategories = categories
+  const filteredCategories = useMemo(() => categories
     ?.filter((c) =>
       c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (c.description || "").toLowerCase().includes(searchQuery.toLowerCase())
@@ -277,7 +278,7 @@ const Categories = () => {
       }
       // Default: sort_order then name
       return (a.sort_order || 999) - (b.sort_order || 999) || a.name.localeCompare(b.name);
-    });
+    }), [categories, searchQuery, sortBy]);
 
   const totalProducts = categories?.reduce(
     (sum, c) => sum + (c.products?.[0]?.count || 0),
@@ -316,8 +317,8 @@ const Categories = () => {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Rechercher une catégorie..."
                 className="pl-10"
               />
@@ -416,7 +417,7 @@ const Categories = () => {
             <p className="text-muted-foreground mb-4">
               Aucune catégorie ne correspond à votre recherche
             </p>
-            <Button onClick={() => setSearchQuery("")} variant="outline">
+            <Button onClick={() => setSearchInput("")} variant="outline">
               Effacer la recherche
             </Button>
           </div>

@@ -1,4 +1,4 @@
- import { useState } from "react";
+ import { useState, useEffect, useMemo } from "react";
  import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
  import { supabase } from "@/integrations/supabase/client";
  import { useAuth } from "@/contexts/AuthContext";
@@ -50,7 +50,7 @@ import {
  import { useToast } from "@/hooks/use-toast";
 import { Plus, Trash2, Pencil, Wallet, TrendingDown, Calendar, Loader2, Home, Zap, Droplets, Globe, Phone, ShoppingCart as CartIcon, Car, Users, Wrench, ClipboardList, Package } from "lucide-react";
 import { format } from "date-fns";
-import { fr } from "date-fns/locale";
+import { formatDate } from "@/lib/utils";
 import { Database } from "@/integrations/supabase/types";
 import { useCurrency } from "@/hooks/useCurrency";
  
@@ -268,10 +268,27 @@ const Expenses = () => {
      };
    };
  
-   const filteredExpenses = filterCategory === "all"
+   const filteredExpenses = useMemo(() => filterCategory === "all"
      ? expenses
-     : expenses?.filter((e) => e.category === filterCategory);
+     : expenses?.filter((e) => e.category === filterCategory), [expenses, filterCategory]);
  
+  // Client-side pagination
+  const PAGE_SIZE = 20;
+  const [currentPage, setCurrentPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil((filteredExpenses?.length || 0) / PAGE_SIZE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedExpenses = filteredExpenses?.slice(
+    (safeCurrentPage - 1) * PAGE_SIZE,
+    safeCurrentPage * PAGE_SIZE
+  );
+  // Reset page when filters change
+  useEffect(() => {
+    const safePage = Math.min(currentPage, totalPages);
+    if (currentPage !== safePage && safePage > 0) {
+      setCurrentPage(safePage);
+    }
+  }, [currentPage, totalPages]);
+
    const totalExpenses = filteredExpenses?.reduce((sum, e) => sum + e.amount, 0) || 0;
  
    const thisMonthExpenses = expenses?.filter((e) => {
@@ -316,6 +333,7 @@ const Expenses = () => {
                    <Input
                      type="number"
                      placeholder="0"
+                     max="100000000"
                      value={amount}
                      onChange={(e) => setAmount(e.target.value)}
                      required
@@ -472,14 +490,12 @@ const Expenses = () => {
                      </TableRow>
                    </TableHeader>
                    <TableBody>
-                     {filteredExpenses.map((expense) => {
+                     {paginatedExpenses?.map((expense) => {
                        const catInfo = getCategoryInfo(expense.category);
                        return (
                          <TableRow key={expense.id}>
                            <TableCell className="whitespace-nowrap">
-                             {format(new Date(expense.expense_date), "dd MMM yyyy", {
-                               locale: fr,
-                             })}
+                             {formatDate(expense.expense_date)}
                            </TableCell>
                            <TableCell>
                              <Badge variant="secondary" className={catInfo.color}>
@@ -522,7 +538,61 @@ const Expenses = () => {
                    </TableBody>
                  </Table>
                </div>
-             ) : (
+             ) : null}
+
+             {/* Pagination */}
+             {filteredExpenses && filteredExpenses.length > 0 && totalPages > 1 && (
+               <div className="flex items-center justify-between pt-4 border-t">
+                 <p className="text-sm text-muted-foreground">
+                   {((safeCurrentPage - 1) * PAGE_SIZE) + 1}–{Math.min(safeCurrentPage * PAGE_SIZE, filteredExpenses.length)} sur {filteredExpenses.length}
+                 </p>
+                 <div className="flex gap-2">
+                   <Button
+                     variant="outline"
+                     size="sm"
+                     onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                     disabled={safeCurrentPage <= 1}
+                   >
+                     Précédent
+                   </Button>
+                   <div className="flex items-center gap-1">
+                     {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                       let page: number;
+                       if (totalPages <= 5) {
+                         page = i + 1;
+                       } else if (safeCurrentPage <= 3) {
+                         page = i + 1;
+                       } else if (safeCurrentPage >= totalPages - 2) {
+                         page = totalPages - 4 + i;
+                       } else {
+                         page = safeCurrentPage - 2 + i;
+                       }
+                       return (
+                         <Button
+                           key={page}
+                           variant={page === safeCurrentPage ? "default" : "outline"}
+                           size="sm"
+                           className="w-8 h-8 p-0"
+                           onClick={() => setCurrentPage(page)}
+                         >
+                           {page}
+                         </Button>
+                       );
+                     })}
+                   </div>
+                   <Button
+                     variant="outline"
+                     size="sm"
+                     onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                     disabled={safeCurrentPage >= totalPages}
+                   >
+                     Suivant
+                   </Button>
+                 </div>
+               </div>
+             )}
+
+             {!(filteredExpenses && filteredExpenses.length > 0) && !isLoading && (
                <div className="text-center py-12">
                  <Wallet className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
                  <p className="text-muted-foreground">Aucune dépense enregistrée</p>

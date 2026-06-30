@@ -1,10 +1,20 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 import { Database } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Minus, Plus, Trash2, ShoppingCart, X } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useCurrency } from "@/hooks/useCurrency";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
@@ -32,6 +42,7 @@ export const POSCart = memo(({
   onCheckout,
 }: POSCartProps) => {
   const { formatPrice } = useCurrency();
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -52,7 +63,7 @@ export const POSCart = memo(({
             <Button
               variant="ghost"
               size="sm"
-              onClick={onClear}
+              onClick={() => setShowClearConfirm(true)}
               className="text-muted-foreground hover:text-destructive"
             >
               <X className="h-4 w-4 mr-1" />
@@ -146,6 +157,29 @@ export const POSCart = memo(({
           Payer {formatPrice(total)}
         </Button>
       </CardFooter>
+      {/* Clear Cart Confirmation */}
+      <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Vider le panier ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action supprimera tous les articles du panier.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                onClear();
+                setShowClearConfirm(false);
+              }}
+            >
+              Confirmer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 });

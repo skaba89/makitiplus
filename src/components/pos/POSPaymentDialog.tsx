@@ -130,6 +130,7 @@ export const POSPaymentDialog = ({
                   <Label>Montant reçu</Label>
                   <Input
                     type="number"
+                    max="100000000"
                     value={amountPaid}
                     onChange={(e) => setAmountPaid(parseFloat(e.target.value) || 0)}
                     className="text-lg"

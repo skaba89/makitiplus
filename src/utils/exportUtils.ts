@@ -129,6 +129,43 @@ export const exportProductsToCSV = (products: ProductExportRow[], currencySymbol
   downloadCSV(csv, filename);
 };
 
+interface CustomerExportRow {
+  name: string;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  total_credit: number;
+  notes: string | null;
+  created_at: string;
+}
+
+export const exportCustomersToCSV = (customers: CustomerExportRow[], currencySymbol: string = "F"): void => {
+  const sym = currencySymbol;
+  const headers = [
+    "Nom",
+    "Téléphone",
+    "Email",
+    "Adresse",
+    `Crédit total (${sym})`,
+    "Notes",
+    "Date de création",
+  ];
+
+  const rows = customers.map((customer) => [
+    escapeCSV(customer.name),
+    escapeCSV(customer.phone || "-"),
+    escapeCSV(customer.email || "-"),
+    escapeCSV(customer.address || "-"),
+    escapeCSV(customer.total_credit),
+    escapeCSV(customer.notes || "-"),
+    escapeCSV(format(new Date(customer.created_at), "dd/MM/yyyy", { locale: fr })),
+  ].join(","));
+
+  const csv = [headers.join(","), ...rows].join("\n");
+  const filename = `clients_${format(new Date(), "yyyy-MM-dd")}.csv`;
+  downloadCSV(csv, filename);
+};
+
 export const exportExpensesToCSV = (expenses: ExpenseExportRow[], currencySymbol: string = "F"): void => {
   const sym = currencySymbol;
   const headers = [

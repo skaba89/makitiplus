@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useDeferredValue } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -42,7 +42,8 @@ const Products = () => {
   const { currency } = useCurrency();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const searchQuery = useDeferredValue(searchInput);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -287,7 +288,7 @@ const Products = () => {
     setIsStockHistoryOpen(true);
   };
 
-  const filteredProducts = products?.filter((product) => {
+  const filteredProducts = useMemo(() => products?.filter((product) => {
     const q = searchQuery.toLowerCase();
     const matchesSearch =
       !q ||
@@ -297,7 +298,7 @@ const Products = () => {
     const matchesCategory =
       !selectedCategory || product.category_id === selectedCategory;
     return matchesSearch && matchesCategory;
-  });
+  }), [products, searchQuery, selectedCategory]);
 
   // Client-side pagination
   const PAGE_SIZE = 20;
@@ -406,8 +407,8 @@ const Products = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Rechercher un produit..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
             className="pl-10"
           />
         </div>

@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo, useDeferredValue } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,20 +43,20 @@ import {
   Edit,
   Trash2,
   CreditCard,
-  History,
+  Download,
 } from "lucide-react";
-import { format } from "date-fns";
-import { fr } from "date-fns/locale";
 import { CustomerDetailDialog } from "@/components/customers/CustomerDetailDialog";
 import { CreditPaymentDialog } from "@/components/customers/CreditPaymentDialog";
+import { exportCustomersToCSV } from "@/utils/exportUtils";
 import { Customer, CustomerUpdateParams } from "@/types";
 
 const Customers = () => {
   const { user, profile, userRole } = useAuth();
   const { toast } = useToast();
-  const { formatPrice } = useCurrency();
+  const { formatPrice, currency } = useCurrency();
   const queryClient = useQueryClient();
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const searchQuery = useDeferredValue(searchInput);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -166,10 +166,27 @@ const Customers = () => {
   };
 
   const totalCredit = customers?.reduce((sum, c) => sum + Number(c.total_credit || 0), 0) || 0;
-  const filtered = customers?.filter((c) =>
+  const filtered = useMemo(() => customers?.filter((c) =>
     c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (c.phone && c.phone.includes(searchQuery))
+  ), [customers, searchQuery]);
+
+  // Client-side pagination
+  const PAGE_SIZE = 20;
+  const [currentPage, setCurrentPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil((filtered?.length || 0) / PAGE_SIZE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedCustomers = filtered?.slice(
+    (safeCurrentPage - 1) * PAGE_SIZE,
+    safeCurrentPage * PAGE_SIZE
   );
+  // Reset page when filters change
+  useEffect(() => {
+    const safePage = Math.min(currentPage, totalPages);
+    if (currentPage !== safePage && safePage > 0) {
+      setCurrentPage(safePage);
+    }
+  }, [currentPage, totalPages]);
 
   return (
     <DashboardLayout>
@@ -179,12 +196,46 @@ const Customers = () => {
             <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Clients</h1>
             <p className="text-muted-foreground mt-1">Gérez vos clients et suivez les crédits</p>
           </div>
-          {canModify && (
-            <Button onClick={() => { setSelectedCustomer(null); resetForm(); setIsFormOpen(true); }} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Ajouter un client
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (customers && customers.length > 0) {
+                  exportCustomersToCSV(
+                    customers.map((c) => ({
+                      name: c.name,
+                      phone: c.phone,
+                      email: c.email,
+                      address: c.address,
+                      total_credit: Number(c.total_credit || 0),
+                      notes: c.notes,
+                      created_at: c.created_at,
+                    })),
+                    currency.displaySymbol || currency.symbol
+                  );
+                  toast({
+                    title: "Export réussi",
+                    description: `${customers.length} clients exportés`,
+                  });
+                } else {
+                  toast({
+                    variant: "destructive",
+                    title: "Aucun client",
+                    description: "Pas de clients à exporter",
+                  });
+                }
+              }}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Exporter
             </Button>
-          )}
+            {canModify && (
+              <Button onClick={() => { setSelectedCustomer(null); resetForm(); setIsFormOpen(true); }} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Ajouter un client
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Stats */}
@@ -227,7 +278,7 @@ const Customers = () => {
         {/* Search */}
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Rechercher par nom ou téléphone..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
+          <Input placeholder="Rechercher par nom ou téléphone..." value={searchInput} onChange={(e) => setSearchInput(e.target.value)} className="pl-10" />
         </div>
 
         {/* Table */}
@@ -250,7 +301,7 @@ const Customers = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((customer) => (
+                  {paginatedCustomers?.map((customer) => (
                     <TableRow key={customer.id}>
                       <TableCell className="font-medium">{customer.name}</TableCell>
                       <TableCell className="hidden sm:table-cell">{customer.phone || "-"}</TableCell>
@@ -289,7 +340,61 @@ const Customers = () => {
               </div>
             </CardContent>
           </Card>
-        ) : (
+        ) : null}
+
+        {/* Pagination */}
+        {filtered && filtered.length > 0 && totalPages > 1 && (
+          <div className="flex items-center justify-between pt-4 border-t">
+            <p className="text-sm text-muted-foreground">
+              {((safeCurrentPage - 1) * PAGE_SIZE) + 1}–{Math.min(safeCurrentPage * PAGE_SIZE, filtered.length)} sur {filtered.length}
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={safeCurrentPage <= 1}
+              >
+                Précédent
+              </Button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let page: number;
+                  if (totalPages <= 5) {
+                    page = i + 1;
+                  } else if (safeCurrentPage <= 3) {
+                    page = i + 1;
+                  } else if (safeCurrentPage >= totalPages - 2) {
+                    page = totalPages - 4 + i;
+                  } else {
+                    page = safeCurrentPage - 2 + i;
+                  }
+                  return (
+                    <Button
+                      key={page}
+                      variant={page === safeCurrentPage ? "default" : "outline"}
+                      size="sm"
+                      className="w-8 h-8 p-0"
+                      onClick={() => setCurrentPage(page)}
+                    >
+                      {page}
+                    </Button>
+                  );
+                })}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={safeCurrentPage >= totalPages}
+              >
+                Suivant
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {!(filtered && filtered.length > 0) && !isLoading && (
           <div className="text-center py-12 bg-card rounded-xl border">
             <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
             <h3 className="text-lg font-medium mb-2">Aucun client</h3>
@@ -317,7 +422,7 @@ const Customers = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Téléphone</Label>
-                  <Input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
+                  <Input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} pattern="[0-9+\-\s]{8,15}" />
                 </div>
                 <div className="space-y-2">
                   <Label>Email</Label>

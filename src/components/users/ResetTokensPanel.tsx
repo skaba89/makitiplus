@@ -15,12 +15,11 @@ import {
   PaginationLink, PaginationNext, PaginationPrevious,
 } from "@/components/ui/pagination";
 import { supabase } from "@/integrations/supabase/client";
+import { formatDateTime } from "@/lib/utils";
 import {
   Loader2, RefreshCw, Mail, MessageSquare, KeyRound,
   CheckCircle2, Clock, XCircle,
 } from "lucide-react";
-import { format } from "date-fns";
-import { fr } from "date-fns/locale";
 
 interface ResetTokenRow {
   id: string;
@@ -41,7 +40,7 @@ const PAGE_SIZE = 10;
 
 const fmtAbs = (iso: string | null) => {
   if (!iso) return "—";
-  try { return format(new Date(iso), "dd MMM yyyy HH:mm", { locale: fr }); }
+  try { return formatDateTime(iso); }
   catch { return "—"; }
 };
 
