@@ -299,6 +299,20 @@ const Products = () => {
     return matchesSearch && matchesCategory;
   });
 
+  // Client-side pagination
+  const PAGE_SIZE = 20;
+  const [currentPage, setCurrentPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil((filteredProducts?.length || 0) / PAGE_SIZE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedProducts = filteredProducts?.slice(
+    (safeCurrentPage - 1) * PAGE_SIZE,
+    safeCurrentPage * PAGE_SIZE
+  );
+  // Reset page when filters change
+  if (currentPage !== safeCurrentPage && safeCurrentPage > 0) {
+    setCurrentPage(safeCurrentPage);
+  }
+
   // Stats
   const totalProducts = products?.length || 0;
   const lowStockCount = products?.filter(
@@ -432,9 +446,9 @@ const Products = () => {
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
           </div>
-        ) : filteredProducts && filteredProducts.length > 0 ? (
+        ) : paginatedProducts && paginatedProducts.length > 0 ? (
           <ProductList
-            products={filteredProducts}
+            products={paginatedProducts}
             onEdit={handleEdit}
             onDelete={handleDelete}
             onStockAdjust={handleStockAdjust}
@@ -453,6 +467,58 @@ const Products = () => {
                 Ajouter un produit
               </Button>
             )}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between pt-4 border-t">
+            <p className="text-sm text-muted-foreground">
+              {((safeCurrentPage - 1) * PAGE_SIZE) + 1}–{Math.min(safeCurrentPage * PAGE_SIZE, filteredProducts?.length || 0)} sur {filteredProducts?.length || 0}
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={safeCurrentPage <= 1}
+              >
+                Précédent
+              </Button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let page: number;
+                  if (totalPages <= 5) {
+                    page = i + 1;
+                  } else if (safeCurrentPage <= 3) {
+                    page = i + 1;
+                  } else if (safeCurrentPage >= totalPages - 2) {
+                    page = totalPages - 4 + i;
+                  } else {
+                    page = safeCurrentPage - 2 + i;
+                  }
+                  return (
+                    <Button
+                      key={page}
+                      variant={page === safeCurrentPage ? "default" : "outline"}
+                      size="sm"
+                      className="w-8 h-8 p-0"
+                      onClick={() => setCurrentPage(page)}
+                    >
+                      {page}
+                    </Button>
+                  );
+                })}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={safeCurrentPage >= totalPages}
+              >
+                Suivant
+              </Button>
+            </div>
           </div>
         )}
 
