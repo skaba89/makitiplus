@@ -82,6 +82,84 @@ const LABEL_SIZES: Record<LabelSize, LabelSizeConfig> = {
 };
 
 /* ------------------------------------------------------------------ */
+/*  Render barcode to a canvas → return PNG data URL                   */
+/*  This is the reliable way to get crisp barcode bars into jsPDF.     */
+/* ------------------------------------------------------------------ */
+
+function renderBarcodeToCanvas(
+  barcodeValue: string,
+  canvasWidth: number,
+  canvasHeight: number,
+): string | null {
+  try {
+    // Create an off-screen canvas at 3x resolution for crisp rendering
+    const scale = 3;
+    const canvas = document.createElement("canvas");
+    canvas.width = canvasWidth * scale;
+    canvas.height = canvasHeight * scale;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+
+    // White background
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Create a temporary SVG to render the barcode
+    const svgEl = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    JsBarcode(svgEl, barcodeValue, {
+      format: "CODE128",
+      width: 2,
+      height: 100,
+      displayValue: false,
+      margin: 0,
+      background: "#ffffff",
+    });
+
+    // Get the SVG markup
+    const svgData = new XMLSerializer().serializeToString(svgEl);
+    const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(svgBlob);
+
+    // We'll use the canvas 2D approach: draw bars manually from SVG rects
+    // This avoids async image loading issues
+    const bars = svgEl.querySelectorAll("rect");
+
+    // Compute SVG bounds
+    let svgWidth = 0;
+    bars.forEach((bar) => {
+      const x = parseFloat(bar.getAttribute("x") || "0");
+      const w = parseFloat(bar.getAttribute("width") || "0");
+      svgWidth = Math.max(svgWidth, x + w);
+    });
+
+    if (svgWidth === 0 || bars.length === 0) return null;
+
+    // Draw bars on canvas
+    const scaleX = (canvas.width * 0.92) / svgWidth; // 4% quiet zone each side
+    const offsetX = canvas.width * 0.04;
+
+    ctx.fillStyle = "#000000";
+    bars.forEach((bar) => {
+      const x = parseFloat(bar.getAttribute("x") || "0");
+      const w = parseFloat(bar.getAttribute("width") || "0");
+      const fill = bar.getAttribute("fill");
+      // Only draw dark bars (skip any background rects)
+      if (fill && fill !== "#ffffff" && fill !== "white" && fill !== "rgba(0,0,0,0)") {
+        const sx = offsetX + x * scaleX;
+        const sw = Math.max(w * scaleX, 1); // at least 1 pixel
+        ctx.fillRect(sx, 0, sw, canvas.height);
+      }
+    });
+
+    URL.revokeObjectURL(url);
+    return canvas.toDataURL("image/png");
+  } catch {
+    return null;
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /*  Shared PDF generation                                              */
 /* ------------------------------------------------------------------ */
 
@@ -99,6 +177,11 @@ function buildLabelPDF(
 
   const margin = 2;
   const contentW = size.w - margin * 2;
+
+  // Pre-render barcode image (high-res canvas → PNG)
+  const barcodeImageData = product.barcode
+    ? renderBarcodeToCanvas(product.barcode, 600, 200)
+    : null;
 
   for (let i = 0; i < copies; i++) {
     if (i > 0) doc.addPage([size.h, size.w], "landscape");
@@ -120,54 +203,22 @@ function buildLabelPDF(
     doc.text(name, size.w / 2, y + size.nameSize * 0.38, { align: "center" });
     y += size.nameSize * 0.55 + 1;
 
-    /* ── Barcode bars (CODE128 drawn from SVG) ── */
-    const barcodeW = contentW - 6;   // 3mm quiet zone each side
-    const barcodeX = margin + 3;     // quiet zone left
+    /* ── Barcode image (canvas-rendered PNG) ── */
+    const barcodeW = contentW - 4;   // 2mm quiet zone each side
+    const barcodeX = margin + 2;     // quiet zone left
     const barcodeY = y;
 
-    if (product.barcode) {
-      try {
-        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-        JsBarcode(svg, product.barcode, {
-          format: "CODE128",
-          width: 2,
-          height: 80,       // high-res source → scales down cleanly
-          displayValue: false,
-          margin: 0,
-        });
-
-        const bars = svg.querySelectorAll("rect");
-        if (bars.length > 0) {
-          // Compute total SVG width
-          let svgWidth = 0;
-          bars.forEach((bar) => {
-            const x = parseFloat(bar.getAttribute("x") || "0");
-            const w = parseFloat(bar.getAttribute("width") || "0");
-            svgWidth = Math.max(svgWidth, x + w);
-          });
-
-          const scale = barcodeW / Math.max(svgWidth, 1);
-          doc.setFillColor(0, 0, 0);
-
-          bars.forEach((bar) => {
-            const x = parseFloat(bar.getAttribute("x") || "0");
-            const w = parseFloat(bar.getAttribute("width") || "0");
-            const scaledX = barcodeX + x * scale;
-            const scaledW = Math.max(w * scale, 0.18); // min bar width for print clarity
-
-            if (scaledW > 0.1) {
-              doc.rect(scaledX, barcodeY, scaledW, size.barcodeH, "F");
-            }
-          });
-        }
-      } catch {
-        // Fallback: display barcode number as text
-        doc.setFontSize(size.numSize + 1);
-        doc.setFont("courier", "bold");
-        doc.text(product.barcode, size.w / 2, barcodeY + size.barcodeH / 2, {
-          align: "center",
-        });
-      }
+    if (barcodeImageData) {
+      // Add the pre-rendered barcode image
+      // This guarantees crisp, scannable bars at any label size
+      doc.addImage(barcodeImageData, "PNG", barcodeX, barcodeY, barcodeW, size.barcodeH);
+    } else if (product.barcode) {
+      // Fallback: display barcode number as text
+      doc.setFontSize(size.numSize + 1);
+      doc.setFont("courier", "bold");
+      doc.text(product.barcode, size.w / 2, barcodeY + size.barcodeH / 2, {
+        align: "center",
+      });
     }
 
     y += size.barcodeH + 0.5;
@@ -176,7 +227,6 @@ function buildLabelPDF(
     doc.setFontSize(size.numSize);
     doc.setFont("courier", "normal");
     if (product.barcode) {
-      // Add spaces every 4 chars for readability
       const spaced = product.barcode.replace(/(.{4})/g, "$1 ").trim();
       doc.text(spaced, size.w / 2, y + size.numSize * 0.38, { align: "center" });
     }
@@ -261,7 +311,7 @@ export const BarcodeLabelPrinter = ({
                 {product.name || "Produit"}
               </p>
 
-              {/* Barcode SVG */}
+              {/* Barcode SVG preview */}
               {product.barcode && (
                 <svg
                   ref={(el) => {
