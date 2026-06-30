@@ -4,13 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -36,56 +29,36 @@ interface BarcodeLabelPrinterProps {
   onClose: () => void;
 }
 
-type LabelSize = "50x30" | "60x40" | "70x50" | "100x60";
-
-interface LabelSizeConfig {
-  w: number;         // width in mm
-  h: number;         // height in mm
-  label: string;     // display label
-  desc: string;      // short description
-  nameSize: number;  // font size for product name
-  barcodeH: number;  // barcode height in mm
-  numSize: number;   // font size for barcode number
-  priceSize: number; // font size for price
-  maxNameChars: number;
-}
-
 /* ------------------------------------------------------------------ */
-/*  Label size presets — carefully tuned for each size                 */
+/*  A4 layout — 2 columns × 5 rows = 10 labels per page               */
+/*  Each label cell: 95mm × 52mm with 5mm gaps                       */
+/*  A4 usable area: 210mm × 297mm                                     */
+/*  Horizontal: 10 + 95 + 10 + 95 + 10 = 220 → fits in 210 with 5mm margins */
+/*  Vertical:   10 + 52 × 5 + 5 × 4 + 10 = 290 → fits in 297        */
 /* ------------------------------------------------------------------ */
 
-const LABEL_SIZES: Record<LabelSize, LabelSizeConfig> = {
-  "50x30": {
-    w: 50, h: 30,
-    label: "50 × 30 mm", desc: "Petit",
-    nameSize: 6.5, barcodeH: 10, numSize: 5, priceSize: 7,
-    maxNameChars: 20,
-  },
-  "60x40": {
-    w: 60, h: 40,
-    label: "60 × 40 mm", desc: "Standard",
-    nameSize: 7.5, barcodeH: 14, numSize: 5.5, priceSize: 9,
-    maxNameChars: 26,
-  },
-  "70x50": {
-    w: 70, h: 50,
-    label: "70 × 50 mm", desc: "Grand",
-    nameSize: 8.5, barcodeH: 16, numSize: 6.5, priceSize: 11,
-    maxNameChars: 32,
-  },
-  "100x60": {
-    w: 100, h: 60,
-    label: "100 × 60 mm", desc: "XL",
-    nameSize: 10, barcodeH: 20, numSize: 7.5, priceSize: 13,
-    maxNameChars: 40,
-  },
+const A4 = { w: 210, h: 297 };
+const COLS = 2;
+const ROWS = 5;
+const LABELS_PER_PAGE = COLS * ROWS; // 10
+
+const LABEL_CELL = { w: 95, h: 52 };  // each label cell in mm
+const GAP_X = 6;   // horizontal gap between labels
+const GAP_Y = 5;   // vertical gap between labels
+const MARGIN_X = (A4.w - COLS * LABEL_CELL.w - (COLS - 1) * GAP_X) / 2; // ~7mm each side
+const MARGIN_Y = 10; // top/bottom margin
+
+/* Font/layout sizes for each label cell — tuned to fit 95×52mm */
+const FONT = {
+  name: 8,        // product name
+  barcodeH: 18,   // barcode image height in mm
+  num: 5.5,       // barcode number
+  price: 10,      // price
+  maxNameChars: 30,
 };
 
 /* ------------------------------------------------------------------ */
 /*  Render barcode directly to canvas using JsBarcode                  */
-/*  JsBarcode natively supports canvas rendering — much more reliable  */
-/*  than the SVG → querySelector → manual draw approach which fails    */
-/*  when JsBarcode omits the 'fill' attribute (SVG default = black).  */
 /* ------------------------------------------------------------------ */
 
 function renderBarcodeToCanvas(barcodeValue: string): string | null {
@@ -93,14 +66,13 @@ function renderBarcodeToCanvas(barcodeValue: string): string | null {
     const canvas = document.createElement("canvas");
     JsBarcode(canvas, barcodeValue, {
       format: "CODE128",
-      width: 5,            // bar width in px — high resolution for crisp print
-      height: 250,         // tall barcode for better quality when scaled down
+      width: 4,            // bar width in px — high resolution for crisp print
+      height: 200,         // tall barcode for quality when scaled down
       displayValue: false,
-      margin: 5,           // small quiet zone in image
+      margin: 4,           // small quiet zone
       background: "#ffffff",
-      lineColor: "#000000", // explicit black bars for visibility
+      lineColor: "#000000", // explicit black bars
     });
-    // Safety check: verify the canvas was actually rendered
     if (canvas.width === 0 || canvas.height === 0) return null;
     return canvas.toDataURL("image/png");
   } catch {
@@ -109,102 +81,139 @@ function renderBarcodeToCanvas(barcodeValue: string): string | null {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Shared PDF generation                                              */
+/*  Unicode sanitiser for jsPDF                                        */
 /* ------------------------------------------------------------------ */
 
 /**
  * Intl.NumberFormat("fr-FR") uses U+00A0 (non-breaking space) and/or U+202F
  * (narrow no-break space) as thousands separator, but jsPDF's built-in fonts
- * (Helvetica, Courier, Times) lack glyphs for these — they render as invisible
- * or missing-character boxes.  Replace with a regular ASCII space.
+ * lack glyphs for these.  Replace with a regular ASCII space.
  */
 function sanitizeForPdf(text: string): string {
   return text.replace(/[\u00A0\u202F]/g, " ");
 }
 
+/* ------------------------------------------------------------------ */
+/*  Draw a single label at position (x, y) on the jsPDF document       */
+/* ------------------------------------------------------------------ */
+
+function drawLabel(
+  doc: jsPDF,
+  product: Product,
+  x: number,
+  y: number,
+  barcodeImageData: string | null,
+  formatPrice: (n: number) => string,
+): void {
+  const cellW = LABEL_CELL.w;
+  const cellH = LABEL_CELL.h;
+  const padX = 3;  // horizontal padding inside label
+  const padY = 2;  // vertical padding inside label
+  const innerW = cellW - padX * 2;
+  let curY = y + padY;
+
+  /* ── Dashed cut border ── */
+  doc.setDrawColor(160, 160, 160);
+  doc.setLineWidth(0.2);
+  doc.setLineDashPattern([2, 2], 0);
+  doc.rect(x, y, cellW, cellH);
+  doc.setLineDashPattern([], 0); // reset
+
+  /* ── Product name ── */
+  doc.setFontSize(FONT.name);
+  doc.setFont("helvetica", "bold");
+  const rawName =
+    product.name.length > FONT.maxNameChars
+      ? product.name.substring(0, FONT.maxNameChars - 1) + "..."
+      : product.name;
+  doc.text(sanitizeForPdf(rawName), x + cellW / 2, curY + FONT.name * 0.38, {
+    align: "center",
+  });
+  curY += FONT.name * 0.6 + 1;
+
+  /* ── Barcode image ── */
+  const barcodeW = innerW - 6; // 3mm quiet zone each side
+  const barcodeX = x + padX + 3;
+
+  if (barcodeImageData) {
+    doc.addImage(
+      barcodeImageData,
+      "PNG",
+      barcodeX,
+      curY,
+      barcodeW,
+      FONT.barcodeH,
+      undefined,
+      "NONE", // no compression — keeps bars sharp
+    );
+  } else if (product.barcode) {
+    // Fallback: barcode number as text
+    doc.setFontSize(FONT.num + 1);
+    doc.setFont("courier", "bold");
+    doc.text(
+      sanitizeForPdf(product.barcode),
+      x + cellW / 2,
+      curY + FONT.barcodeH / 2,
+      { align: "center" },
+    );
+  }
+  curY += FONT.barcodeH + 0.5;
+
+  /* ── Barcode number ── */
+  doc.setFontSize(FONT.num);
+  doc.setFont("courier", "normal");
+  if (product.barcode) {
+    const spaced = sanitizeForPdf(
+      product.barcode.replace(/(.{4})/g, "$1 ").trim(),
+    );
+    doc.text(spaced, x + cellW / 2, curY + FONT.num * 0.38, {
+      align: "center",
+    });
+  }
+  curY += FONT.num * 0.6 + 0.5;
+
+  /* ── Price (bold, red) ── */
+  doc.setFontSize(FONT.price);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(220, 38, 38); // red-600
+  const priceText = sanitizeForPdf(formatPrice(product.price));
+  doc.text(priceText, x + cellW / 2, curY + FONT.price * 0.38, {
+    align: "center",
+  });
+  doc.setTextColor(0, 0, 0); // reset to black
+}
+
+/* ------------------------------------------------------------------ */
+/*  Build PDF with 10 labels per A4 page                               */
+/* ------------------------------------------------------------------ */
+
 function buildLabelPDF(
   product: Product,
-  size: LabelSizeConfig,
   copies: number,
   formatPrice: (n: number) => string,
 ): jsPDF {
-  const doc = new jsPDF({
-    unit: "mm",
-    format: [size.w, size.h], // [width, height] — intuitive, no orientation flip needed
-  });
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
 
-  const margin = 2;
-  const contentW = size.w - margin * 2;
-
-  // Pre-render barcode image (canvas → PNG via JsBarcode native rendering)
+  // Pre-render barcode image once
   const barcodeImageData = product.barcode
     ? renderBarcodeToCanvas(product.barcode)
     : null;
 
-  for (let i = 0; i < copies; i++) {
-    if (i > 0) doc.addPage([size.w, size.h]);
+  let labelIndex = 0;
 
-    let y = margin;
+  while (labelIndex < copies) {
+    // Add a new page (skip for the very first one)
+    if (labelIndex > 0) doc.addPage("a4");
 
-    /* ── Thin border ── */
-    doc.setDrawColor(180, 180, 180);
-    doc.setLineWidth(0.3);
-    doc.roundedRect(0.5, 0.5, size.w - 1, size.h - 1, 0.5, 0.5);
-
-    /* ── Product name ── */
-    doc.setFontSize(size.nameSize);
-    doc.setFont("helvetica", "bold");
-    const rawName =
-      product.name.length > size.maxNameChars
-        ? product.name.substring(0, size.maxNameChars - 1) + "…"
-        : product.name;
-    const name = sanitizeForPdf(rawName);
-    doc.text(name, size.w / 2, y + size.nameSize * 0.38, { align: "center" });
-    y += size.nameSize * 0.55 + 1;
-
-    /* ── Barcode image (canvas-rendered PNG) ── */
-    const barcodeW = contentW - 4;   // 2mm quiet zone each side
-    const barcodeX = margin + 2;     // quiet zone left
-    const barcodeY = y;
-
-    if (barcodeImageData) {
-      // Add the pre-rendered barcode image (high-res canvas → PNG)
-      // This guarantees crisp, scannable bars at any label size
-      doc.addImage(
-        barcodeImageData,
-        "PNG",
-        barcodeX,
-        barcodeY,
-        barcodeW,
-        size.barcodeH,
-        undefined,
-        "NONE", // no additional compression — keeps barcode bars sharp
-      );
-    } else if (product.barcode) {
-      // Fallback: display barcode number as text when image rendering fails
-      doc.setFontSize(size.numSize + 1);
-      doc.setFont("courier", "bold");
-      doc.text(sanitizeForPdf(product.barcode), size.w / 2, barcodeY + size.barcodeH / 2, {
-        align: "center",
-      });
+    // Draw up to LABELS_PER_PAGE labels on this page
+    for (let row = 0; row < ROWS && labelIndex < copies; row++) {
+      for (let col = 0; col < COLS && labelIndex < copies; col++) {
+        const x = MARGIN_X + col * (LABEL_CELL.w + GAP_X);
+        const y = MARGIN_Y + row * (LABEL_CELL.h + GAP_Y);
+        drawLabel(doc, product, x, y, barcodeImageData, formatPrice);
+        labelIndex++;
+      }
     }
-
-    y += size.barcodeH + 0.5;
-
-    /* ── Barcode number ── */
-    doc.setFontSize(size.numSize);
-    doc.setFont("courier", "normal");
-    if (product.barcode) {
-      const spaced = sanitizeForPdf(product.barcode.replace(/(.{4})/g, "$1 ").trim());
-      doc.text(spaced, size.w / 2, y + size.numSize * 0.38, { align: "center" });
-    }
-    y += size.numSize * 0.55 + 0.5;
-
-    /* ── Price ── */
-    doc.setFontSize(size.priceSize);
-    doc.setFont("helvetica", "bold");
-    const priceText = sanitizeForPdf(formatPrice(product.price));
-    doc.text(priceText, size.w / 2, y + size.priceSize * 0.38, { align: "center" });
   }
 
   return doc;
@@ -220,14 +229,11 @@ export const BarcodeLabelPrinter = ({
   onClose,
 }: BarcodeLabelPrinterProps) => {
   const { formatPrice } = useCurrency();
-  const [copies, setCopies] = useState(1);
-  const [labelSizeKey, setLabelSizeKey] = useState<LabelSize>("60x40");
-
-  const labelSize = LABEL_SIZES[labelSizeKey];
+  const [copies, setCopies] = useState(10); // default: one full A4 page
 
   const handlePrint = useCallback(() => {
     if (!product.barcode) return;
-    const doc = buildLabelPDF(product, labelSize, copies, formatPrice);
+    const doc = buildLabelPDF(product, copies, formatPrice);
     const pdfBlob = doc.output("blob");
     const pdfUrl = URL.createObjectURL(pdfBlob);
     const printWindow = window.open(pdfUrl);
@@ -236,18 +242,21 @@ export const BarcodeLabelPrinter = ({
         printWindow.print();
       };
     }
-  }, [product, labelSize, copies, formatPrice]);
+  }, [product, copies, formatPrice]);
 
   const handleDownload = useCallback(() => {
     if (!product.barcode) return;
-    const doc = buildLabelPDF(product, labelSize, copies, formatPrice);
+    const doc = buildLabelPDF(product, copies, formatPrice);
     const safeName = product.name.replace(/[^a-zA-Z0-9]/g, "_").substring(0, 20);
     doc.save(`etiquette-${safeName}.pdf`);
-  }, [product, labelSize, copies, formatPrice]);
+  }, [product, copies, formatPrice]);
+
+  // Calculate number of pages needed
+  const pages = Math.ceil(copies / LABELS_PER_PAGE);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md" aria-describedby={undefined}>
+      <DialogContent className="max-w-lg" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Printer className="h-5 w-5" />
@@ -256,89 +265,78 @@ export const BarcodeLabelPrinter = ({
         </DialogHeader>
 
         <div className="space-y-5">
-          {/* ── Live preview (proportional to selected size) ── */}
+          {/* ── A4 preview with 10 labels ── */}
           <div className="flex justify-center">
             <div
               className="bg-white text-black rounded-lg border shadow-md relative overflow-hidden"
               style={{
-                width: `${Math.min(labelSize.w * 2.5, 280)}px`,
-                height: `${Math.min(labelSize.h * 2.5, 170)}px`,
-                padding: "6px 8px",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
+                width: "280px",
+                height: `${280 * (A4.h / A4.w)}px`, // proportional A4
+                padding: "4px",
+                display: "grid",
+                gridTemplateColumns: `repeat(${COLS}, 1fr)`,
+                gridTemplateRows: `repeat(${ROWS}, 1fr)`,
                 gap: "2px",
               }}
             >
-              {/* Product name */}
-              <p
-                className="font-bold text-center truncate w-full"
-                style={{ fontSize: `${labelSize.nameSize * 1.6}px` }}
-              >
-                {product.name || "Produit"}
-              </p>
-
-              {/* Barcode preview via canvas — matches the PDF output exactly */}
-              {product.barcode && (
-                <canvas
-                  ref={(el) => {
-                    if (el && product.barcode) {
-                      try {
-                        JsBarcode(el, product.barcode, {
-                          format: "CODE128",
-                          width: 1.5,
-                          height: 45,
-                          displayValue: true,
-                          fontSize: 10,
-                          margin: 2,
-                          textMargin: 1,
-                        });
-                      } catch {
-                        // Invalid barcode — ignore
-                      }
-                    }
-                  }}
-                  style={{ maxWidth: "100%", height: "auto" }}
-                />
+              {Array.from({ length: Math.min(copies, LABELS_PER_PAGE) }).map(
+                (_, i) => (
+                  <div
+                    key={i}
+                    className="border border-dashed border-gray-300 flex flex-col items-center justify-center px-0.5"
+                    style={{ fontSize: "5px" }}
+                  >
+                    <span className="font-bold truncate w-full text-center leading-tight">
+                      {product.name || "Produit"}
+                    </span>
+                    {product.barcode && (
+                      <canvas
+                        ref={(el) => {
+                          if (el && product.barcode) {
+                            try {
+                              JsBarcode(el, product.barcode, {
+                                format: "CODE128",
+                                width: 1,
+                                height: 18,
+                                displayValue: true,
+                                fontSize: 6,
+                                margin: 1,
+                                textMargin: 0,
+                              });
+                            } catch {
+                              // Invalid barcode — ignore
+                            }
+                          }
+                        }}
+                        style={{ maxWidth: "100%", height: "auto" }}
+                      />
+                    )}
+                    <span
+                      className="font-bold text-center w-full leading-tight"
+                      style={{ color: "#dc2626" }}
+                    >
+                      {formatPrice(product.price)}
+                    </span>
+                  </div>
+                ),
               )}
-
-              {/* Price */}
-              <p
-                className="font-bold text-center w-full"
-                style={{
-                  fontSize: `${labelSize.priceSize * 1.6}px`,
-                  color: "#dc2626",
-                }}
-              >
-                {formatPrice(product.price)}
-              </p>
             </div>
           </div>
 
-          {/* ── Label size selector ── */}
-          <div className="space-y-2">
-            <Label>Taille de l'étiquette</Label>
-            <Select
-              value={labelSizeKey}
-              onValueChange={(v) => setLabelSizeKey(v as LabelSize)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(LABEL_SIZES).map(([key, size]) => (
-                  <SelectItem key={key} value={key}>
-                    {size.label} — {size.desc}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* ── Info banner ── */}
+          <div className="bg-muted rounded-lg px-4 py-3 text-sm space-y-1">
+            <p className="font-medium">
+              10 étiquettes par page A4 (2 colonnes × 5 lignes)
+            </p>
+            <p className="text-muted-foreground">
+              Chaque étiquette : {LABEL_CELL.w} × {LABEL_CELL.h} mm — nom,
+              code-barres et prix visibles
+            </p>
           </div>
 
           {/* ── Copies ── */}
           <div className="space-y-2">
-            <Label>Nombre de copies</Label>
+            <Label>Nombre d'étiquettes</Label>
             <Input
               type="number"
               min={1}
@@ -348,6 +346,9 @@ export const BarcodeLabelPrinter = ({
                 setCopies(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))
               }
             />
+            <p className="text-xs text-muted-foreground">
+              {copies} étiquette{copies > 1 ? "s" : ""} → {pages} page{pages > 1 ? "s" : ""} A4
+            </p>
           </div>
 
           {/* ── Action buttons ── */}
