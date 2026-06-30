@@ -1,5 +1,5 @@
  import { useState, useMemo } from "react";
- import { useMutation, useQueryClient } from "@tanstack/react-query";
+ import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
  import { supabase } from "@/integrations/supabase/client";
  import { useAuth } from "@/contexts/AuthContext";
  import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -112,14 +112,23 @@ const Expenses = () => {
     enabled: !!user,
   });
 
-  // Stats — requête légère séparée pour les totaux
-  const { data: allExpensesForStats } = usePaginatedQuery<Expense>({
-    table: "expenses",
-    select: "amount, expense_date",
-    page: 1,
-    pageSize: 1000,
-    queryKey: ["expenses-stats", user?.id ?? ""],
-    enabled: !!user,
+  // Stats via RPC — agrégation côté serveur (remplace pageSize:1000 + reduce client)
+  const { data: expenseStats } = useQuery({
+    queryKey: ["expenses-stats", user?.id, profile?.organization_id],
+    queryFn: async () => {
+      if (!profile?.organization_id) {
+        return { monthTotal: 0, monthCount: 0 };
+      }
+      const { data, error } = await supabase.rpc("get_expense_stats", {
+        p_organization_id: profile.organization_id,
+      });
+      if (error) throw error;
+      return {
+        monthTotal: data?.monthTotal ?? 0,
+        monthCount: data?.monthCount ?? 0,
+      };
+    },
+    enabled: !!user && !!profile?.organization_id,
   });
  
    const canModify = userRole === 'admin' || userRole === 'manager' || userRole === 'super_admin' || userRole === 'comptable';
@@ -284,11 +293,7 @@ const Expenses = () => {
   // Les dépenses sont déjà paginées côté serveur
   const totalExpenses = expenses?.reduce((sum, e) => sum + e.amount, 0) || 0;
 
-  const thisMonthExpenses = allExpensesForStats?.filter((e) => {
-    const d = new Date(e.expense_date);
-    const now = new Date();
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-  }).reduce((sum, e) => sum + e.amount, 0) || 0;
+  const thisMonthExpenses = expenseStats?.monthTotal ?? 0;
 
   // Reset page quand le filtre change
   const handleFilterChange = (value: string) => {

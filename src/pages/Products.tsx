@@ -33,6 +33,7 @@ import { Database } from "@/integrations/supabase/types";
 import { exportProductsToCSV } from "@/utils/exportUtils";
 import { useCurrency } from "@/hooks/useCurrency";
 import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
+import { useCategories } from "@/hooks/useCategories";
 import { fetchAllRows } from "@/lib/batchedFetch";
 import { ProductWithCategory } from "@/types";
 
@@ -119,15 +120,7 @@ const Products = () => {
     enabled: !!user && !!profile?.organization_id,
   });
 
-  const { data: categories } = useQuery({
-    queryKey: ["categories", "products-page"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("categories").select("*").order("name").limit(500);
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user,
-  });
+  const { data: categories } = useCategories();
 
   const canModify = userRole === 'admin' || userRole === 'manager' || userRole === 'super_admin';
 
@@ -331,13 +324,18 @@ const Products = () => {
     Object.entries(productStats?.categoryCounts ?? {}).map(([k, v]) => [k, v as number])
   );
 
-  // On-demand fetch for CSV export — fetchAllRows pour contourner la limite PostgREST
+  // On-demand fetch for CSV export — fetchAllRows avec filtre org_id
   const handleExport = useCallback(async () => {
     try {
+      const filters: Array<{ column: string; operator: "eq"; value: unknown }> = [];
+      if (profile?.organization_id) {
+        filters.push({ column: "organization_id", operator: "eq", value: profile.organization_id });
+      }
       const data = await fetchAllRows<ProductWithCat>(
         "products",
         "*, categories(name, color, icon)",
         {
+          filters,
           orderBy: { column: "created_at", ascending: false },
         }
       );
@@ -370,7 +368,7 @@ const Products = () => {
     } catch {
       toast({ variant: "destructive", title: "Erreur", description: "Impossible d'exporter les produits" });
     }
-  }, [currency, toast]);
+  }, [currency, toast, profile?.organization_id]);
 
   return (
     <DashboardLayout>

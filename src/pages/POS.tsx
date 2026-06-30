@@ -35,6 +35,7 @@ import { useThemeSettings } from "@/contexts/ThemeContext";
 import { usePOSKeyboardShortcuts } from "@/hooks/usePOSKeyboardShortcuts";
 import { usePOSProducts, ProductWithCategory as POSProduct } from "@/hooks/usePOSProducts";
 import { lookupBarcode } from "@/hooks/useProductSearch";
+import { useCategories } from "@/hooks/useCategories";
 import { POSProductGridSkeleton, POSProductListSkeleton, POSCartSkeleton } from "@/components/pos/POSSkeletons";
 
 type Product = Database["public"]["Tables"]["products"]["Row"] & {
@@ -87,20 +88,7 @@ const POS = () => {
   const products = infiniteData?.pages.flatMap((page) => page.data) ?? [];
   const totalProductCount = infiniteData?.pages[0]?.totalCount ?? 0;
 
-  const { data: categories } = useQuery({
-    queryKey: ["categories", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("categories")
-        .select("*")
-        .order("name")
-        .limit(500);
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user,
-  });
+  const { data: categories } = useCategories();
 
   const createSaleMutation = useMutation({
     mutationFn: async ({
@@ -160,6 +148,7 @@ const POS = () => {
       }));
 
       const orgId = profile?.organization_id || null;
+      let creditUpdateFailed = false;
 
       // ⚠️ create_full_sale RPC est OBLIGATOIRE — plus de fallback non-atomique.
       // L'ancien chemin (INSERT sale + INSERT items + batch_update_stock) était
@@ -225,11 +214,12 @@ const POS = () => {
             customerId = upsertedCustomer.id;
           }
         } else if (customerName) {
-          // Pas de téléphone mais nom fourni — essayer de trouver par nom
+          // Pas de téléphone mais nom fourni — essayer de trouver par nom dans l'organisation
           const { data: existingCustomer } = await supabase
             .from("customers")
             .select("id")
             .eq("name", customerName)
+            .eq("organization_id", orgId)
             .maybeSingle();
           if (existingCustomer) {
             customerId = existingCustomer.id;
@@ -259,15 +249,17 @@ const POS = () => {
           if (creditUpdateError) {
             // La vente est déjà enregistrée mais la mise à jour du crédit a échoué.
             // On ne fait PAS de fallback non-atomique pour éviter les incohérences.
-            // L'utilisateur sera notifié et pourra relancer la synchronisation.
+            // L'utilisateur est notifié pour pouvoir relancer la synchronisation.
             reportError(new Error(`increment_customer_credit RPC failed: ${creditUpdateError.message}`));
+            // Stocker l'erreur pour notification dans onError
+            creditUpdateFailed = true;
           }
         }
       }
 
-      return { sale, changeAmount };
+      return { sale, changeAmount, creditUpdateFailed };
     },
-    onSuccess: ({ sale, changeAmount }) => {
+    onSuccess: ({ sale, changeAmount, creditUpdateFailed }) => {
       // Calculer la taxe pour l'affichage du ticket
       const receiptTaxAmount = cart.reduce((sum, item) => {
         const t = computeTax(item.product.price, item.product.tax_rate, orgTaxRate);
@@ -315,6 +307,16 @@ const POS = () => {
       queryClient.invalidateQueries({ queryKey: ["sales"] });
       clearCart();
       setIsPaymentOpen(false);
+
+      // Avertir l'utilisateur si la mise à jour du crédit a échoué
+      if (creditUpdateFailed) {
+        toast({
+          variant: "destructive",
+          title: "Vente enregistrée, crédit en attente",
+          description: "La vente est validée mais la mise à jour du crédit client a échoué. Vérifiez les crédits du client.",
+          duration: 8000,
+        });
+      }
     },
     onError: (error: unknown) => {
       // Les erreurs Supabase sont des objets simples, pas des instances Error
@@ -388,7 +390,7 @@ const POS = () => {
   const handleBarcodeScan = async (barcode: string) => {
     // Recherche serveur du produit par code-barres
     try {
-      const found = await lookupBarcode(barcode);
+      const found = await lookupBarcode(barcode, profile?.organization_id);
       if (found) {
         addToCart(found as Product);
       } else {
@@ -459,6 +461,7 @@ const POS = () => {
             <div className="flex gap-2">
               <ProductAutocomplete
                 inputRef={searchInputRef}
+                organizationId={profile?.organization_id}
                 onSelect={(p, qty) => {
                   if (p.stock_quantity === 0) {
                     toast({

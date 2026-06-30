@@ -24,13 +24,13 @@ import NotFound from "./pages/NotFound";
 import Expenses from "./pages/Expenses";
 import Settings from "./pages/Settings";
 import Customers from "./pages/Customers";
-import Users from "./pages/Users";
-import SyncConflicts from "./pages/SyncConflicts";
-import Stores from "./pages/Stores";
 
-// Lazy-loaded heavy routes (recharts + POS components → significant bundle reduction)
+// Lazy-loaded routes — heavy or admin-only pages
 const Reports = lazy(() => import("./pages/Reports"));
 const POS = lazy(() => import("./pages/POS"));
+const Users = lazy(() => import("./pages/Users"));
+const Stores = lazy(() => import("./pages/Stores"));
+const SyncConflicts = lazy(() => import("./pages/SyncConflicts"));
 
 /** Minimal loading spinner for lazy-loaded routes */
 const PageLoader = () => (
@@ -207,7 +207,9 @@ const App = () => {
               path="/dashboard/users"
               element={
                 <ProtectedRoute allowedRoles={ADMIN_ROLES}>
-                  <Users />
+                  <Suspense fallback={<PageLoader />}>
+                    <Users />
+                  </Suspense>
                 </ProtectedRoute>
               }
             />
@@ -215,7 +217,9 @@ const App = () => {
               path="/dashboard/stores"
               element={
                 <ProtectedRoute allowedRoles={STORE_ROLES}>
-                  <Stores />
+                  <Suspense fallback={<PageLoader />}>
+                    <Stores />
+                  </Suspense>
                 </ProtectedRoute>
               }
             />
@@ -223,7 +227,9 @@ const App = () => {
               path="/dashboard/sync-conflicts"
               element={
                 <ProtectedRoute allowedRoles={ADMIN_ROLES}>
-                  <SyncConflicts />
+                  <Suspense fallback={<PageLoader />}>
+                    <SyncConflicts />
+                  </Suspense>
                 </ProtectedRoute>
               }
             />

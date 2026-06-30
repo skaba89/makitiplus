@@ -27,12 +27,13 @@ export function usePOSProducts({
   searchQuery,
   pageSize = 24,
 }: UsePOSProductsOptions) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   return useInfiniteQuery({
     queryKey: [
       "pos-products",
       user?.id,
+      profile?.organization_id,
       categoryId ?? "all",
       showOutOfStock ? "with-oos" : "in-stock",
       searchQuery ?? "",
@@ -46,6 +47,11 @@ export function usePOSProducts({
         .from("products")
         .select("*, categories(name, color, icon)", { count: "exact" })
         .eq("is_active", true);
+
+      // Filtre organization_id — defense-in-depth (+ performance index)
+      if (profile?.organization_id) {
+        query = query.eq("organization_id", profile.organization_id);
+      }
 
       // Category filter
       if (categoryId) {
@@ -79,7 +85,7 @@ export function usePOSProducts({
       return loaded < lastPage.totalCount ? lastPage.page + 1 : undefined;
     },
     initialPageParam: 0,
-    enabled: !!user,
+    enabled: !!user && !!profile?.organization_id,
     staleTime: 30_000, // 30 seconds — keep POS data fresh
   });
 }

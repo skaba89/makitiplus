@@ -22,6 +22,8 @@ interface ProductAutocompleteProps {
   placeholder?: string;
   /** External ref to allow parent to focus the input (keyboard shortcut) */
   inputRef?: React.RefObject<HTMLInputElement | null>;
+  /** Organization ID for scoped barcode lookup */
+  organizationId?: string | null;
 }
 
 /** Debounce delay in ms for server-side search */
@@ -31,6 +33,7 @@ export const ProductAutocomplete = ({
   onSelect,
   placeholder = "Rechercher par nom ou code-barres...",
   inputRef,
+  organizationId,
 }: ProductAutocompleteProps) => {
   const { formatPrice } = useCurrency();
   const orgTaxRate = useOrgTaxRate();
@@ -93,7 +96,7 @@ export const ProductAutocomplete = ({
       if (e.key === "Enter" && query.trim()) {
         e.preventDefault();
         try {
-          const found = await lookupBarcode(query.trim());
+          const found = await lookupBarcode(query.trim(), organizationId);
           if (found && found.stock_quantity > 0) {
             handleAdd(found as Product, true);
           }

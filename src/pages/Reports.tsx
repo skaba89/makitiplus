@@ -187,6 +187,7 @@ const Reports = () => {
                     try {
                       const sales = await fetchAllRows<Sale>("sales", "*, sale_items(*)", {
                         filters: [
+                          ...(profile?.organization_id ? [{ column: "organization_id", operator: "eq" as const, value: profile.organization_id }] : []),
                           { column: "created_at", operator: "gte", value: start.toISOString() },
                           { column: "created_at", operator: "lte", value: end.toISOString() },
                         ],
@@ -211,6 +212,7 @@ const Reports = () => {
                     try {
                       const expenses = await fetchAllRows<Expense>("expenses", "*", {
                         filters: [
+                          ...(profile?.organization_id ? [{ column: "organization_id", operator: "eq" as const, value: profile.organization_id }] : []),
                           { column: "expense_date", operator: "gte", value: format(start, "yyyy-MM-dd") },
                           { column: "expense_date", operator: "lte", value: format(end, "yyyy-MM-dd") },
                         ],

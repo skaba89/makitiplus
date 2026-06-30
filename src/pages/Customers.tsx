@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -88,24 +88,28 @@ const Customers = () => {
     enabled: !!user,
   });
 
-  // Stats rapides (nombre total et crédits) — requête légère séparée
-  const { data: statsData } = usePaginatedQuery<{ total_credit: number }>({
-    table: "customers",
-    select: "total_credit",
-    page: 1,
-    pageSize: 1000,
-    queryKey: ["customers-stats", user?.id ?? ""],
-    enabled: !!user,
+  // Stats via RPC — agrégation côté serveur (remplace pageSize:1000 + reduce client)
+  const { data: customerStats } = useQuery({
+    queryKey: ["customers-stats", user?.id, profile?.organization_id],
+    queryFn: async () => {
+      if (!profile?.organization_id) {
+        return { totalCustomers: 0, totalCredit: 0, customersWithCredit: 0 };
+      }
+      const { data, error } = await supabase.rpc("get_customer_stats", {
+        p_organization_id: profile.organization_id,
+      });
+      if (error) throw error;
+      return {
+        totalCustomers: data?.totalCustomers ?? 0,
+        totalCredit: data?.totalCredit ?? 0,
+        customersWithCredit: data?.customersWithCredit ?? 0,
+      };
+    },
+    enabled: !!user && !!profile?.organization_id,
   });
 
-  const totalCredit = useMemo(
-    () => statsData?.reduce((sum, c) => sum + Number(c.total_credit || 0), 0) || 0,
-    [statsData]
-  );
-  const customersWithCredit = useMemo(
-    () => statsData?.filter((c) => Number(c.total_credit) > 0).length || 0,
-    [statsData]
-  );
+  const totalCredit = customerStats?.totalCredit ?? 0;
+  const customersWithCredit = customerStats?.customersWithCredit ?? 0;
 
   const canModify = userRole === 'admin' || userRole === 'manager' || userRole === 'super_admin';
 
