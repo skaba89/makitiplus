@@ -87,6 +87,7 @@ export const ProductForm = ({ product, onSubmit, isLoading }: ProductFormProps) 
     category_id: "",
     barcode: "",
     unit: "unité",
+    tax_rate: 0 as number | null,
   });
 
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -119,6 +120,7 @@ export const ProductForm = ({ product, onSubmit, isLoading }: ProductFormProps) 
         category_id: product.category_id || "",
         barcode: product.barcode || "",
         unit: product.unit || "unité",
+        tax_rate: product.tax_rate ?? null,
       });
       setImageUrl(product.image_url || null);
       setImagePreview(product.image_url || null);
@@ -133,6 +135,7 @@ export const ProductForm = ({ product, onSubmit, isLoading }: ProductFormProps) 
         category_id: "",
         barcode: "",
         unit: "unité",
+        tax_rate: null,
       });
       setImageUrl(null);
       setImagePreview(null);
@@ -231,6 +234,7 @@ export const ProductForm = ({ product, onSubmit, isLoading }: ProductFormProps) 
       barcode: formData.barcode || null,
       unit: formData.unit,
       image_url: finalImageUrl || null,
+      tax_rate: formData.tax_rate,
     });
   };
 
@@ -411,6 +415,28 @@ export const ProductForm = ({ product, onSubmit, isLoading }: ProductFormProps) 
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="tax_rate">Taux de taxe (%)</Label>
+        <Input
+          id="tax_rate"
+          type="number"
+          min="0"
+          max="100"
+          step="0.1"
+          placeholder="Laisser vide pour utiliser le taux par défaut"
+          value={formData.tax_rate ?? ""}
+          onChange={(e) =>
+            setFormData({
+              ...formData,
+              tax_rate: e.target.value === "" ? null : parseFloat(e.target.value) || 0,
+            })
+          }
+        />
+        <p className="text-xs text-muted-foreground">
+          Si vide, le taux par défaut de l'organisation sera utilisé.
+        </p>
       </div>
 
       <div className="space-y-2">

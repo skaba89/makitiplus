@@ -1,4 +1,5 @@
-import { useEffect, useState, ReactNode } from "react";
+import { useState, ReactNode } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -132,8 +133,7 @@ const CategoryBadge = ({ value }: { value: StoreCategory | null }) => {
 const Stores = () => {
   const { userRole } = useAuth();
   const { toast } = useToast();
-  const [stores, setStores] = useState<StoreWithAdmin[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [adminDialogOpen, setAdminDialogOpen] = useState(false);
   const [selectedStore, setSelectedStore] = useState<StoreWithAdmin | null>(null);
@@ -162,53 +162,61 @@ const Stores = () => {
   const [adminPhone, setAdminPhone] = useState("");
   const [creatingAdmin, setCreatingAdmin] = useState(false);
 
-  const fetchStores = async () => {
-    setLoading(true);
-    try {
-      // Fetch all organizations
+  // Fetch stores with React Query — single batch query to avoid N+1
+  const { data: stores = [], isLoading: loading } = useQuery({
+    queryKey: ["stores"],
+    queryFn: async () => {
+      // 1. Fetch all organizations
       const { data: orgs, error: orgsError } = await supabase
         .from("organizations")
         .select("*")
         .order("created_at", { ascending: false });
 
       if (orgsError) throw orgsError;
+      if (!orgs || orgs.length === 0) return [];
 
-      // For each org, fetch the admin profile
-      const storesWithAdmins: StoreWithAdmin[] = await Promise.all(
-        (orgs || []).map(async (org) => {
-          const { data: adminProfile } = await supabase
-            .from("profiles")
-            .select("owner_name, user_id")
-            .eq("organization_id", org.id)
-            .limit(1)
-            .maybeSingle();
+      // 2. Batch fetch ALL profiles for these orgs (2 queries instead of N*2)
+      const orgIds = orgs.map((o) => o.id);
 
-          const { count } = await supabase
-            .from("profiles")
-            .select("*", { count: "exact", head: true })
-            .eq("organization_id", org.id);
+      // Get first admin profile per org
+      const { data: adminProfiles } = await supabase
+        .from("profiles")
+        .select("owner_name, user_id, organization_id")
+        .in("organization_id", orgIds);
 
-          return {
-            ...org,
-            admin_name: adminProfile?.owner_name || "—",
-            admin_id: adminProfile?.user_id,
-            user_count: count || 0,
-          };
-        })
-      );
+      // Get user count per org using a single query
+      const { data: allProfiles } = await supabase
+        .from("profiles")
+        .select("organization_id")
+        .in("organization_id", orgIds);
 
-      setStores(storesWithAdmins);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      toast({ variant: "destructive", title: "Erreur", description: message });
-    } finally {
-      setLoading(false);
-    }
-  };
+      // Build lookup maps
+      const adminMap = new Map<string, { owner_name: string | null; user_id: string | null }>();
+      const seenOrgs = new Set<string>();
+      // Take only the first admin per org
+      for (const p of adminProfiles || []) {
+        if (p.organization_id && !seenOrgs.has(p.organization_id)) {
+          seenOrgs.add(p.organization_id);
+          adminMap.set(p.organization_id, { owner_name: p.owner_name, user_id: p.user_id });
+        }
+      }
 
-  useEffect(() => {
-    fetchStores();
-  }, []);
+      const countMap = new Map<string, number>();
+      for (const p of allProfiles || []) {
+        if (p.organization_id) {
+          countMap.set(p.organization_id, (countMap.get(p.organization_id) || 0) + 1);
+        }
+      }
+
+      // 3. Merge
+      return orgs.map((org) => ({
+        ...org,
+        admin_name: adminMap.get(org.id)?.owner_name || "—",
+        admin_id: adminMap.get(org.id)?.user_id,
+        user_count: countMap.get(org.id) || 0,
+      })) as StoreWithAdmin[];
+    },
+  });
 
   const handleCreateStore = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -228,7 +236,7 @@ const Stores = () => {
       setStoreName("");
       setStoreCategory("epicerie");
       setDialogOpen(false);
-      fetchStores();
+      queryClient.invalidateQueries({ queryKey: ["stores"] });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       toast({ variant: "destructive", title: "Erreur", description: message });
@@ -283,7 +291,7 @@ const Stores = () => {
       setAdminName("");
       setAdminPhone("");
       setAdminDialogOpen(false);
-      fetchStores();
+      queryClient.invalidateQueries({ queryKey: ["stores"] });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       toast({ variant: "destructive", title: "Erreur", description: message });
@@ -298,7 +306,7 @@ const Stores = () => {
       const { error } = await supabase.from("organizations").delete().eq("id", store.id);
       if (error) throw error;
       toast({ title: "Magasin supprimé", description: `"${store.name}" a été supprimé.` });
-      fetchStores();
+      queryClient.invalidateQueries({ queryKey: ["stores"] });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       toast({ variant: "destructive", title: "Erreur", description: message });

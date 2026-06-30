@@ -93,14 +93,14 @@ export function hexToHsl(hex: string): string {
 function applyBrandingToDOM(branding: BrandingConfig) {
   const root = document.documentElement;
 
-  // Apply primary/brand color
-  root.style.setProperty("--primary", branding.brandColor);
-  root.style.setProperty("--ring", branding.brandColor);
-  root.style.setProperty("--sidebar-primary", branding.brandColor);
-  root.style.setProperty("--sidebar-ring", branding.brandColor);
+  // NOTE: Do NOT set --primary, --ring, --sidebar-primary here.
+  // Those are managed by ThemeContext (store_settings) which is more granular.
+  // BrandingContext only sets visual properties that ThemeContext does not cover.
 
-  // Apply accent color
-  root.style.setProperty("--accent", branding.accentColor);
+  // Apply accent color (only if ThemeContext has not set one yet)
+  if (!root.style.getPropertyValue("--accent")) {
+    root.style.setProperty("--accent", branding.accentColor);
+  }
 
   // Apply gradient
   root.style.setProperty(

@@ -198,7 +198,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
 
     // Apply store name as document title
     if (settings.store_name) {
-      document.title = `${settings.store_name} — MalikiPlus`;
+      document.title = `${settings.store_name} — MakitiPlus`;
     }
   }, [settings]);
 

@@ -33,15 +33,10 @@ export const BarcodeGenerator = ({ value, width = 2, height = 50 }: Props) => {
 };
 
 export const generateBarcode = (): string => {
-  const timestamp = Date.now().toString().slice(-10);
-  const random = Math.floor(Math.random() * 100).toString().padStart(2, "0");
-  const code = timestamp + random;
-  // Calculate check digit (modulo 10)
-  let sum = 0;
-  for (let i = 0; i < code.length; i++) {
-    const digit = parseInt(code[i]);
-    sum += i % 2 === 0 ? digit : digit * 3;
-  }
-  const check = (10 - (sum % 10)) % 10;
-  return code + check;
+  // Generate a 12-digit code suitable for CODE128 format.
+  // CODE128 can encode any ASCII string; no check digit needed (JsBarcode computes it internally).
+  // We avoid the EAN-13 check digit algorithm since we render as CODE128, not EAN-13.
+  const timestamp = Date.now().toString().slice(-8);
+  const random = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
+  return timestamp + random;
 };
