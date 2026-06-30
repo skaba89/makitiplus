@@ -223,11 +223,11 @@ const Reports = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">
               Rapports
             </h1>
             <p className="text-muted-foreground mt-1">
@@ -302,7 +302,7 @@ const Reports = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <Card className="card-elevated">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -313,7 +313,7 @@ const Reports = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatPrice(totalSales)}</div>
+              <div className="text-lg sm:text-2xl font-bold">{formatPrice(totalSales)}</div>
               <div className="flex items-center gap-1 mt-1">
                 <ArrowUpRight className="h-4 w-4 text-success" />
                 <span className="text-success text-sm">{totalTransactions} ventes</span>
@@ -331,7 +331,7 @@ const Reports = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalTransactions}</div>
+              <div className="text-lg sm:text-2xl font-bold">{totalTransactions}</div>
               <div className="text-muted-foreground text-sm mt-1">
                 {totalTransactions > 0
                   ? `Panier moyen: ${formatPrice(Math.round(totalSales / totalTransactions))}`
@@ -350,7 +350,7 @@ const Reports = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatPrice(totalExpenses)}</div>
+              <div className="text-lg sm:text-2xl font-bold">{formatPrice(totalExpenses)}</div>
               <div className="flex items-center gap-1 mt-1">
                 <ArrowDownRight className="h-4 w-4 text-destructive" />
                 <span className="text-destructive text-sm">
@@ -370,7 +370,7 @@ const Reports = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className={`text-2xl font-bold ${netProfit >= 0 ? "text-success" : "text-destructive"}`}>
+              <div className={`text-lg sm:text-2xl font-bold ${netProfit >= 0 ? "text-success" : "text-destructive"}`}>
                 {formatPrice(netProfit)}
               </div>
               <div className="text-muted-foreground text-sm mt-1">
@@ -384,7 +384,7 @@ const Reports = () => {
         </div>
 
         {/* Charts Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           {/* Sales Chart */}
           <Card className="card-elevated">
             <CardHeader>

@@ -45,7 +45,7 @@ export const MobileCartDrawer = memo(({
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent side="bottom" className="h-[85vh] rounded-t-xl">
+      <SheetContent side="bottom" className="h-[80vh] sm:h-[70vh] rounded-t-xl">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <ShoppingCart className="h-5 w-5" />
@@ -58,7 +58,7 @@ export const MobileCartDrawer = memo(({
           </SheetTitle>
         </SheetHeader>
 
-        <div className="flex flex-col h-[calc(85vh-4rem)]">
+        <div className="flex flex-col h-[calc(80vh-4rem)] sm:h-[calc(70vh-4rem)]">
           {/* Cart items */}
           <div className="flex-1 min-h-0 py-2">
             {items.length === 0 ? (

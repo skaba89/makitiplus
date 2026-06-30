@@ -25,7 +25,7 @@ export const POSProductGrid = memo(({ products, onAddToCart }: POSProductGridPro
 
   return (
     <div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3">
         {visibleProducts.map((product) => (
           <Card
             key={product.id}
@@ -41,7 +41,7 @@ export const POSProductGrid = memo(({ products, onAddToCart }: POSProductGridPro
               }
             }}
           >
-            <div className="aspect-square bg-muted flex items-center justify-center">
+            <div className="aspect-square bg-muted flex items-center justify-center overflow-hidden">
               {product.image_url ? (
                 <img
                   src={product.image_url}
@@ -52,13 +52,13 @@ export const POSProductGrid = memo(({ products, onAddToCart }: POSProductGridPro
                 <Package className="h-10 w-10 text-muted-foreground" />
               )}
             </div>
-            <CardContent className="p-3">
-              <h3 className="font-medium text-sm line-clamp-1 mb-1">{product.name}</h3>
+            <CardContent className="p-2 sm:p-3">
+              <h3 className="font-medium text-xs sm:text-sm line-clamp-1 mb-0.5 sm:mb-1">{product.name}</h3>
               <div className="flex items-center justify-between">
-                <span className="text-primary font-bold text-sm">
+                <span className="text-primary font-bold text-xs sm:text-sm">
                   {formatPrice(product.price)}
                 </span>
-                <span className={`text-xs ${product.stock_quantity === 0 ? 'text-destructive font-bold' : 'text-muted-foreground'}`}>
+                <span className={`text-[10px] sm:text-xs ${product.stock_quantity === 0 ? 'text-destructive font-bold' : 'text-muted-foreground'}`}>
                   {product.stock_quantity === 0 ? 'Rupture' : `x${product.stock_quantity}`}
                 </span>
               </div>

@@ -26,7 +26,7 @@ export const ProductList = memo(({ products, onEdit, onDelete, onStockAdjust, on
   const [labelProduct, setLabelProduct] = useState<Product | null>(null);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
       {products.map((product) => {
         const isLowStock =
           product.min_stock_alert && product.stock_quantity <= product.min_stock_alert;
@@ -58,7 +58,7 @@ export const ProductList = memo(({ products, onEdit, onDelete, onStockAdjust, on
                 ) : null}
               </div>
             </div>
-            <CardContent className="p-4">
+            <CardContent className="p-3 sm:p-4">
               <div className="flex items-start justify-between gap-2 mb-2">
                 <h3 className="font-semibold text-foreground line-clamp-1">
                   {product.name}
@@ -78,8 +78,8 @@ export const ProductList = memo(({ products, onEdit, onDelete, onStockAdjust, on
                 </Badge>
               )}
 
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-lg font-bold text-primary">
+              <div className="flex items-center justify-between mb-2 sm:mb-3">
+                <span className="text-base sm:text-lg font-bold text-primary">
                   {formatPrice(product.price)}
                 </span>
                 <span

@@ -117,7 +117,7 @@ export const ProductAutocomplete = ({
         className="pl-10"
       />
       {open && query.trim() && (
-        <div role="listbox" className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg max-h-dropdown overflow-y-auto">
+        <div role="listbox" className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg max-h-dropdown sm:max-h-dropdown overflow-y-auto">
           {matches.length === 0 ? (
             <div className="p-4 text-sm text-muted-foreground text-center">
               Aucun produit trouvé
@@ -143,8 +143,8 @@ export const ProductAutocomplete = ({
                     idx === highlight ? "bg-accent" : "hover:bg-accent/50"
                   )}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
                       {product.image_url ? (
                         <img src={product.image_url} alt="" className="w-full h-full object-cover" />
                       ) : (
@@ -152,7 +152,7 @@ export const ProductAutocomplete = ({
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm truncate flex items-center gap-2">
+                      <div className="font-medium text-xs sm:text-sm truncate flex items-center gap-1 sm:gap-2">
                         {product.name}
                         {isOOS && (
                           <Badge variant="destructive" className="text-micro h-4">
@@ -160,12 +160,12 @@ export const ProductAutocomplete = ({
                           </Badge>
                         )}
                       </div>
-                      <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
+                      <div className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-1 sm:gap-2 flex-wrap">
                         {product.barcode && <span>#{product.barcode}</span>}
                         <span>Stock: {product.stock_quantity}</span>
                       </div>
                     </div>
-                    <div className="text-right flex-shrink-0">
+                    <div className="text-right flex-shrink-0 hidden sm:block">
                       <div className="text-sm font-bold text-primary">
                         {formatPrice(tax.ttc)}
                       </div>
@@ -180,6 +180,11 @@ export const ProductAutocomplete = ({
                           Sans taxe
                         </div>
                       )}
+                    </div>
+                    <div className="text-right flex-shrink-0 sm:hidden">
+                      <div className="text-xs font-bold text-primary">
+                        {formatPrice(tax.ttc)}
+                      </div>
                     </div>
                   </div>
 
@@ -204,7 +209,7 @@ export const ProductAutocomplete = ({
                         value={qty}
                         disabled={isOOS}
                         onChange={(e) => setQty(product.id, parseInt(e.target.value) || 1)}
-                        className="h-7 w-14 text-center text-sm px-1"
+                        className="h-7 w-12 sm:w-14 text-center text-sm px-1"
                         onClick={(e) => e.stopPropagation()}
                       />
                       <Button
@@ -218,8 +223,8 @@ export const ProductAutocomplete = ({
                       >
                         <Plus className="h-3 w-3" />
                       </Button>
-                      <span className="text-xs text-muted-foreground ml-2">
-                        Total: {formatPrice(tax.ttc * qty)}
+                      <span className="text-[10px] sm:text-xs text-muted-foreground ml-1 sm:ml-2">
+                        {formatPrice(tax.ttc * qty)}
                       </span>
                     </div>
                     <div className="flex gap-1">
@@ -227,7 +232,7 @@ export const ProductAutocomplete = ({
                         type="button"
                         size="sm"
                         variant="outline"
-                        className="h-7 px-2"
+                        className="h-7 w-7 p-0 sm:px-2"
                         disabled={isOOS}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -241,14 +246,16 @@ export const ProductAutocomplete = ({
                       <Button
                         type="button"
                         size="sm"
-                        className="h-7 px-3"
+                        className="h-7 px-2 sm:px-3"
                         disabled={isOOS}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleAdd(product, true);
                         }}
                       >
-                        Ajouter
+                        <Plus className="h-3 w-3 hidden sm:inline" />
+                        <span className="sm:hidden">OK</span>
+                        <span className="hidden sm:inline">Ajouter</span>
                       </Button>
                     </div>
                   </div>

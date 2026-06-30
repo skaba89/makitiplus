@@ -302,11 +302,11 @@ const Expenses = () => {
 
    return (
      <DashboardLayout>
-       <div className="space-y-6">
+       <div className="space-y-4 sm:space-y-6">
          {/* Header */}
          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
            <div>
-             <h1 className="text-2xl lg:text-3xl font-bold">Dépenses</h1>
+             <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold">Dépenses</h1>
              <p className="text-muted-foreground">
                Gérez les charges de votre boutique
              </p>
@@ -415,7 +415,7 @@ const Expenses = () => {
          </div>
  
          {/* Stats Cards */}
-         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+         <div className="grid grid-cols-2 gap-3 sm:gap-4">
            <Card>
              <CardHeader className="flex flex-row items-center justify-between pb-2">
                <CardTitle className="text-sm font-medium">
@@ -424,7 +424,7 @@ const Expenses = () => {
                <Calendar className="h-4 w-4 text-muted-foreground" />
              </CardHeader>
              <CardContent>
-               <div className="text-2xl font-bold text-destructive">
+               <div className="text-lg sm:text-2xl font-bold text-destructive">
                  {formatPrice(thisMonthExpenses)}
                </div>
              </CardContent>
@@ -438,7 +438,7 @@ const Expenses = () => {
                <TrendingDown className="h-4 w-4 text-muted-foreground" />
              </CardHeader>
              <CardContent>
-               <div className="text-2xl font-bold">
+               <div className="text-lg sm:text-2xl font-bold">
                  {formatPrice(totalExpenses)}
                </div>
                <p className="text-xs text-muted-foreground">

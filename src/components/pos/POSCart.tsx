@@ -47,7 +47,7 @@ export const POSCart = memo(({
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
-    <Card className="h-full flex flex-col card-elevated">
+    <Card className="h-full flex flex-col card-elevated w-full">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
@@ -83,7 +83,7 @@ export const POSCart = memo(({
             </p>
           </div>
         ) : (
-          <ScrollArea className="h-full max-h-[40vh] lg:max-h-[50vh]">
+          <ScrollArea className="h-full max-h-[35vh] lg:max-h-[45vh] xl:max-h-[55vh]">
             <div className="space-y-3">
               {items.map((item) => (
                 <div

@@ -194,10 +194,10 @@ const Customers = () => {
       {isLoading ? (
         <CustomersPageSkeleton />
       ) : (
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Clients</h1>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">Clients</h1>
             <p className="text-muted-foreground mt-1">Gérez vos clients et suivez les crédits</p>
           </div>
           <div className="flex gap-2">
@@ -243,14 +243,14 @@ const Customers = () => {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-3 sm:gap-4">
           <Card className="card-elevated">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-primary/10"><Users className="h-5 w-5 text-primary" /></div>
                 <div>
                   <p className="text-sm text-muted-foreground">Total clients</p>
-                  <p className="text-2xl font-bold">{customers?.length || 0}</p>
+                  <p className="text-lg sm:text-2xl font-bold">{customers?.length || 0}</p>
                 </div>
               </div>
             </CardContent>
@@ -261,7 +261,7 @@ const Customers = () => {
                 <div className="p-2 rounded-lg bg-destructive/10"><Wallet className="h-5 w-5 text-destructive" /></div>
                 <div>
                   <p className="text-sm text-muted-foreground">Crédits en cours</p>
-                  <p className="text-2xl font-bold text-destructive">{formatPrice(totalCredit)}</p>
+                  <p className="text-lg sm:text-2xl font-bold text-destructive">{formatPrice(totalCredit)}</p>
                 </div>
               </div>
             </CardContent>
@@ -272,7 +272,7 @@ const Customers = () => {
                 <div className="p-2 rounded-lg bg-success/10"><CreditCard className="h-5 w-5 text-success" /></div>
                 <div>
                   <p className="text-sm text-muted-foreground">Clients avec crédit</p>
-                  <p className="text-2xl font-bold">{customers?.filter((c) => Number(c.total_credit) > 0).length || 0}</p>
+                  <p className="text-lg sm:text-2xl font-bold">{customers?.filter((c) => Number(c.total_credit) > 0).length || 0}</p>
                 </div>
               </div>
             </CardContent>

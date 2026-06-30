@@ -153,7 +153,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       <OfflineBanner />
 
       {/* Mobile Header */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-50 glass h-16 flex items-center justify-between px-4">
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-50 glass h-14 sm:h-16 flex items-center justify-between px-3 sm:px-4 safe-top">
         <button
           ref={menuButtonRef}
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -302,8 +302,8 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       )}
 
       {/* Main content */}
-      <main className="lg:ml-64 min-h-screen pt-16 lg:pt-0">
-        <div className="p-4 lg:p-8 pb-24 lg:pb-8">{children}</div>
+      <main className="lg:ml-64 min-h-screen pt-14 sm:pt-16 lg:pt-0">
+        <div className="p-3 sm:p-4 lg:p-8 pb-28 sm:pb-24 lg:pb-8">{children}</div>
       </main>
 
       {/* Mobile Bottom Navigation */}

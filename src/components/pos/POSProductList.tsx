@@ -47,9 +47,9 @@ export const POSProductList = memo(({ products, onAddToCart }: POSProductListPro
   return (
     <div>
       {/* Table header */}
-      <div className="hidden sm:grid sm:grid-cols-[1fr_100px_100px_60px_130px] gap-2 px-3 py-2 text-xs font-medium text-muted-foreground border-b bg-muted/30 rounded-t-lg">
+      <div className="hidden md:grid md:grid-cols-[1fr_90px_80px_60px_120px] lg:grid-cols-[1fr_100px_100px_60px_130px] gap-2 px-3 py-2 text-xs font-medium text-muted-foreground border-b bg-muted/30 rounded-t-lg">
         <span>Produit</span>
-        <span className="text-right">Prix unitaire</span>
+        <span className="text-right">Prix</span>
         <span className="text-right">Stock</span>
         <span className="text-center">Qté</span>
         <span className="text-center">Action</span>
@@ -64,13 +64,13 @@ export const POSProductList = memo(({ products, onAddToCart }: POSProductListPro
           return (
             <div
               key={product.id}
-              className={`grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_100px_100px_60px_130px] gap-2 items-center px-3 py-2.5 hover:bg-muted/30 transition-colors ${
+              className={`grid grid-cols-[1fr_auto] md:grid-cols-[1fr_90px_80px_60px_120px] lg:grid-cols-[1fr_100px_100px_60px_130px] gap-2 items-center px-2 sm:px-3 py-2 sm:py-2.5 hover:bg-muted/30 transition-colors ${
                 outOfStock ? "opacity-50" : ""
               }`}
             >
               {/* Product info */}
               <div className="flex items-center gap-3 min-w-0">
-                <div className="h-9 w-9 rounded-md bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
+                <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-md bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
                   {product.image_url ? (
                     <img
                       src={product.image_url}
@@ -84,15 +84,15 @@ export const POSProductList = memo(({ products, onAddToCart }: POSProductListPro
                 <div className="min-w-0">
                   <p className="font-medium text-sm truncate">{product.name}</p>
                   {product.categories && (
-                    <p className="text-xs text-muted-foreground truncate">
+                    <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
                       {product.categories.name}
                     </p>
                   )}
                 </div>
               </div>
 
-              {/* Price — visible on sm+ */}
-              <div className="hidden sm:block text-right">
+              {/* Price — visible on md+ */}
+              <div className="hidden md:block text-right">
                 <span className="font-bold text-sm text-primary">
                   {formatPrice(product.price)}
                 </span>
@@ -101,8 +101,8 @@ export const POSProductList = memo(({ products, onAddToCart }: POSProductListPro
                 )}
               </div>
 
-              {/* Stock — visible on sm+ */}
-              <div className="hidden sm:block text-right">
+              {/* Stock — visible on md+ */}
+              <div className="hidden md:block text-right">
                 {outOfStock ? (
                   <Badge variant="destructive" className="text-micro px-1.5 py-0">
                     Rupture
@@ -118,8 +118,8 @@ export const POSProductList = memo(({ products, onAddToCart }: POSProductListPro
                 )}
               </div>
 
-              {/* Quantity selector — visible on sm+ */}
-              <div className="hidden sm:flex sm:justify-center">
+              {/* Quantity selector — visible on md+ */}
+              <div className="hidden md:flex md:justify-center">
                 {!outOfStock && (
                   <div className="flex items-center gap-0.5">
                     <Button
@@ -159,8 +159,8 @@ export const POSProductList = memo(({ products, onAddToCart }: POSProductListPro
                 )}
               </div>
 
-              {/* Add button — visible on sm+ */}
-              <div className="hidden sm:flex sm:justify-center">
+              {/* Add button — visible on md+ */}
+              <div className="hidden md:flex md:justify-center">
                 <Button
                   size="sm"
                   disabled={outOfStock}
@@ -173,7 +173,7 @@ export const POSProductList = memo(({ products, onAddToCart }: POSProductListPro
               </div>
 
               {/* Mobile: price + stock + add button compact */}
-              <div className="flex sm:hidden items-center gap-2">
+              <div className="flex md:hidden items-center gap-2">
                 <div className="text-right">
                   <span className="font-bold text-sm text-primary">
                     {formatPrice(product.price)}

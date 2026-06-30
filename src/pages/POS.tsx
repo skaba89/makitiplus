@@ -529,11 +529,11 @@ const POS = () => {
 
   return (
     <DashboardLayout>
-      <div className="h-[calc(100vh-6rem)] lg:h-[calc(100vh-2rem)] flex flex-col lg:flex-row gap-4">
+      <div className="h-[calc(100dvh-10rem)] sm:h-[calc(100dvh-9rem)] md:h-[calc(100dvh-8rem)] lg:h-[calc(100dvh-2.5rem)] flex flex-col lg:flex-row gap-3 lg:gap-4">
         {/* Products Section */}
         <div className="flex-1 flex flex-col min-h-0">
           {/* Search and Categories */}
-          <div className="space-y-4 mb-4">
+          <div className="space-y-3 mb-3 lg:mb-4">
             <div className="flex gap-2">
               <ProductAutocomplete
                 inputRef={searchInputRef}
@@ -573,10 +573,10 @@ const POS = () => {
 
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div className="text-xs text-muted-foreground">
-                {displayedProducts?.length || 0} produit(s) affiché(s)
-                {products && ` sur ${products.length}`}
+                {displayedProducts?.length || 0} produit(s)
+                {products && ` / ${products.length}`}
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
                 {/* View mode toggle */}
                 <div className="flex items-center border rounded-md">
                   <Button
@@ -598,13 +598,13 @@ const POS = () => {
                     <List className="h-3.5 w-3.5" />
                   </Button>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2">
                   <Switch
                     id="show-out-of-stock"
                     checked={showOutOfStock}
                     onCheckedChange={setShowOutOfStock}
                   />
-                  <Label htmlFor="show-out-of-stock" className="text-xs cursor-pointer">
+                  <Label htmlFor="show-out-of-stock" className="text-xs cursor-pointer hidden sm:inline">
                     Ruptures
                   </Label>
                 </div>
@@ -612,7 +612,7 @@ const POS = () => {
             </div>
             
             {/* Category Filters */}
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-1.5 sm:gap-2 flex-wrap overflow-x-auto no-scrollbar pb-1">
               <Button
                 variant={selectedCategory === null ? "default" : "outline"}
                 size="sm"
@@ -633,7 +633,7 @@ const POS = () => {
                         : undefined,
                   }}
                 >
-                  <CategoryIcon iconName={category.icon} className="h-3.5 w-3.5" /> {category.name}
+                  <CategoryIcon iconName={category.icon} className="h-3.5 w-3.5" /> <span className="hidden sm:inline">{category.name}</span><span className="sm:hidden">{category.name.length > 8 ? category.name.slice(0, 8) + '…' : category.name}</span>
                 </Button>
               ))}
             </div>
@@ -663,7 +663,7 @@ const POS = () => {
         </div>
 
         {/* Cart Section — hidden on mobile, visible on lg+ */}
-        <div className="hidden lg:block w-96 flex-shrink-0">
+        <div className="hidden lg:flex lg:w-80 xl:w-96 flex-shrink-0">
           {isLoading ? (
             <POSCartSkeleton />
           ) : (
@@ -680,7 +680,7 @@ const POS = () => {
 
         {/* Mobile floating cart button */}
         {itemCount > 0 && (
-          <div className="lg:hidden fixed bottom-20 right-4 z-40">
+          <div className="lg:hidden fixed bottom-[5.5rem] right-4 z-40">
             <Button
               size="lg"
               className="rounded-full shadow-lg h-14 w-14 relative"
@@ -692,7 +692,7 @@ const POS = () => {
                 {itemCount}
               </span>
             </Button>
-            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 whitespace-nowrap bg-primary text-primary-foreground text-xs font-bold px-2 py-1 rounded-md shadow">
+            <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap bg-primary text-primary-foreground text-xs font-bold px-2.5 py-1 rounded-md shadow">
               {formatPrice(cartTotal)}
             </div>
           </div>
