@@ -44,7 +44,7 @@ const PRESET_COLORS = [
 ];
 
 const Categories = () => {
-  const { user } = useAuth();
+  const { user, profile, userRole } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -75,6 +75,8 @@ const Categories = () => {
     enabled: !!user,
   });
 
+  const canModify = userRole === 'admin' || userRole === 'manager' || userRole === 'super_admin';
+
   const createMutation = useMutation({
     mutationFn: async (category: Omit<CategoryInsert, "user_id">) => {
       // Get max sort_order for this org
@@ -86,13 +88,20 @@ const Categories = () => {
 
       const nextOrder = (maxOrder?.[0]?.sort_order || 0) + 1;
 
+      const insertData: Record<string, unknown> = {
+        ...category,
+        user_id: user!.id,
+        sort_order: nextOrder,
+      };
+
+      // Explicitly set organization_id from profile to avoid relying solely on trigger
+      if (profile?.organization_id) {
+        insertData.organization_id = profile.organization_id;
+      }
+
       const { data, error } = await supabase
         .from("categories")
-        .insert({
-          ...category,
-          user_id: user!.id,
-          sort_order: nextOrder,
-        })
+        .insert(insertData as CategoryInsert)
         .select()
         .single();
 
@@ -104,11 +113,15 @@ const Categories = () => {
       toast({ title: "Catégorie créée avec succès" });
       handleCloseForm();
     },
-    onError: () => {
+    onError: (error) => {
+      const msg = error instanceof Error ? error.message : String(error);
+      const isRlsError = msg.includes('policy') || msg.includes('row-level') || msg.includes('violates');
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: "Impossible de créer la catégorie",
+        description: isRlsError
+          ? "Permission insuffisante. Seuls les administrateurs et managers peuvent créer des catégories."
+          : "Impossible de créer la catégorie",
       });
     },
   });
@@ -130,11 +143,15 @@ const Categories = () => {
       toast({ title: "Catégorie mise à jour" });
       handleCloseForm();
     },
-    onError: () => {
+    onError: (error) => {
+      const msg = error instanceof Error ? error.message : String(error);
+      const isRlsError = msg.includes('policy') || msg.includes('row-level') || msg.includes('violates');
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: "Impossible de modifier la catégorie",
+        description: isRlsError
+          ? "Permission insuffisante pour modifier cette catégorie."
+          : "Impossible de modifier la catégorie",
       });
     },
   });
@@ -149,11 +166,15 @@ const Categories = () => {
       toast({ title: "Catégorie supprimée" });
       setDeleteId(null);
     },
-    onError: () => {
+    onError: (error) => {
+      const msg = error instanceof Error ? error.message : String(error);
+      const isRlsError = msg.includes('policy') || msg.includes('row-level') || msg.includes('violates');
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: "Impossible de supprimer la catégorie (elle contient peut-être des produits)",
+        description: isRlsError
+          ? "Permission insuffisante pour supprimer cette catégorie."
+          : "Impossible de supprimer la catégorie (elle contient peut-être des produits)",
       });
       setDeleteId(null);
     },
@@ -245,10 +266,12 @@ const Categories = () => {
               )}
             </p>
           </div>
-          <Button onClick={() => handleOpenForm()} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Nouvelle catégorie
-          </Button>
+          {canModify && (
+            <Button onClick={() => handleOpenForm()} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Nouvelle catégorie
+            </Button>
+          )}
         </div>
 
         {/* Search & Sort Bar */}
@@ -323,25 +346,27 @@ const Categories = () => {
                           )}
                         </div>
                       </div>
-                      <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleOpenForm(category)}
-                          aria-label="Modifier la catégorie"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setDeleteId(category.id)}
-                          className="text-destructive hover:text-destructive"
-                          aria-label="Supprimer la catégorie"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      {canModify && (
+                        <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleOpenForm(category)}
+                            aria-label="Modifier la catégorie"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeleteId(category.id)}
+                            className="text-destructive hover:text-destructive"
+                            aria-label="Supprimer la catégorie"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -366,10 +391,12 @@ const Categories = () => {
             <p className="text-muted-foreground mb-4">
               Créez des catégories pour organiser vos produits
             </p>
-            <Button onClick={() => handleOpenForm()} variant="outline">
-              <Plus className="h-4 w-4 mr-2" />
-              Créer une catégorie
-            </Button>
+            {canModify && (
+              <Button onClick={() => handleOpenForm()} variant="outline">
+                <Plus className="h-4 w-4 mr-2" />
+                Créer une catégorie
+              </Button>
+            )}
           </div>
         )}
 

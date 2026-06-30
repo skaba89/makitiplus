@@ -27,7 +27,7 @@ type ProductInsert = Database["public"]["Tables"]["products"]["Insert"];
 type ProductWithCat = ProductWithCategory;
 
 const Products = () => {
-  const { user } = useAuth();
+  const { user, profile, userRole } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
@@ -67,11 +67,23 @@ const Products = () => {
     enabled: !!user,
   });
 
+  const canModify = userRole === 'admin' || userRole === 'manager' || userRole === 'super_admin';
+
   const createProductMutation = useMutation({
     mutationFn: async (product: Omit<ProductInsert, "user_id">) => {
+      const insertData: Record<string, unknown> = {
+        ...product,
+        user_id: user!.id,
+      };
+
+      // Explicitly set organization_id from profile to avoid relying solely on trigger
+      if (profile?.organization_id) {
+        insertData.organization_id = profile.organization_id;
+      }
+
       const { data, error } = await supabase
         .from("products")
-        .insert({ ...product, user_id: user!.id })
+        .insert(insertData as ProductInsert)
         .select()
         .single();
 
@@ -84,10 +96,14 @@ const Products = () => {
       setIsFormOpen(false);
     },
     onError: (error) => {
+      const msg = error instanceof Error ? error.message : String(error);
+      const isRlsError = msg.includes('policy') || msg.includes('row-level') || msg.includes('violates');
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: "Impossible de créer le produit",
+        description: isRlsError
+          ? "Permission insuffisante. Seuls les administrateurs et managers peuvent créer des produits."
+          : "Impossible de créer le produit",
       });
       reportError(error instanceof Error ? error : new Error(String(error)));
     },
@@ -112,10 +128,14 @@ const Products = () => {
       setSelectedProduct(null);
     },
     onError: (error) => {
+      const msg = error instanceof Error ? error.message : String(error);
+      const isRlsError = msg.includes('policy') || msg.includes('row-level') || msg.includes('violates');
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: "Impossible de modifier le produit",
+        description: isRlsError
+          ? "Permission insuffisante pour modifier ce produit."
+          : "Impossible de modifier le produit",
       });
       reportError(error instanceof Error ? error : new Error(String(error)));
     },
@@ -131,10 +151,14 @@ const Products = () => {
       toast({ title: "Produit supprimé" });
     },
     onError: (error) => {
+      const msg = error instanceof Error ? error.message : String(error);
+      const isRlsError = msg.includes('policy') || msg.includes('row-level') || msg.includes('violates');
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: "Impossible de supprimer le produit",
+        description: isRlsError
+          ? "Permission insuffisante pour supprimer ce produit."
+          : "Impossible de supprimer le produit",
       });
       reportError(error instanceof Error ? error : new Error(String(error)));
     },
@@ -314,10 +338,12 @@ const Products = () => {
               <Download className="mr-2 h-4 w-4" />
               Exporter
             </Button>
-            <Button onClick={handleOpenForm} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Ajouter un produit
-            </Button>
+            {canModify && (
+              <Button onClick={handleOpenForm} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Ajouter un produit
+              </Button>
+            )}
           </div>
         </div>
 
@@ -406,10 +432,12 @@ const Products = () => {
             <p className="text-muted-foreground mb-4">
               Commencez par ajouter votre premier produit
             </p>
-            <Button onClick={handleOpenForm} variant="outline">
-              <Plus className="h-4 w-4 mr-2" />
-              Ajouter un produit
-            </Button>
+            {canModify && (
+              <Button onClick={handleOpenForm} variant="outline">
+                <Plus className="h-4 w-4 mr-2" />
+                Ajouter un produit
+              </Button>
+            )}
           </div>
         )}
 
