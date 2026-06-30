@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useCurrency } from "@/hooks/useCurrency";
 import { ProductWithCategoryIcon, POS_ROLES, INVENTORY_ROLES, FINANCIAL_ROLES } from "@/types";
 import {
@@ -14,6 +15,9 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   AlertTriangle,
+  CreditCard,
+  BarChart3,
+  ArrowRight,
 } from "lucide-react";
 import { CategoryIcon } from "@/components/ui/category-icon";
 import { startOfDay, endOfDay, startOfMonth, endOfMonth } from "date-fns";
@@ -41,6 +45,21 @@ const Dashboard = () => {
         .select("total_amount")
         .gte("created_at", dayStart)
         .lte("created_at", dayEnd);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  // Month sales
+  const { data: monthSales } = useQuery({
+    queryKey: ["dashboard-sales-month", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sales")
+        .select("total_amount, payment_method")
+        .gte("created_at", monthStart)
+        .lte("created_at", monthEnd);
       if (error) throw error;
       return data;
     },
@@ -76,6 +95,38 @@ const Dashboard = () => {
     enabled: !!user,
   });
 
+  // Customer credits
+  const { data: credits } = useQuery({
+    queryKey: ["dashboard-credits", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("customers")
+        .select("total_credit")
+        .gt("total_credit", 0);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  // Top selling products (last 30 days)
+  const { data: topProducts } = useQuery({
+    queryKey: ["dashboard-top-products", user?.id],
+    queryFn: async () => {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const { data, error } = await supabase
+        .from("sale_items")
+        .select("product_name, quantity, total_price")
+        .gte("created_at", thirtyDaysAgo.toISOString())
+        .order("quantity", { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
   // Recent sales
   const { data: recentSales } = useQuery({
     queryKey: ["dashboard-recent-sales", user?.id],
@@ -93,11 +144,16 @@ const Dashboard = () => {
 
   const totalSalesToday = todaySales?.reduce((s, sale) => s + sale.total_amount, 0) || 0;
   const transactionsToday = todaySales?.length || 0;
+  const totalSalesMonth = monthSales?.reduce((s, sale) => s + sale.total_amount, 0) || 0;
+  const creditSalesMonth = monthSales?.filter((s) => s.payment_method === "credit").length || 0;
   const totalExpensesMonth = monthExpenses?.reduce((s, e) => s + e.amount, 0) || 0;
   const totalProducts = products?.length || 0;
   const lowStockProducts = products?.filter(
     (p) => p.stock_quantity <= (p.min_stock_alert || 5)
   ) || [];
+  const totalCredits = credits?.reduce((s, c) => s + Number(c.total_credit), 0) || 0;
+  const creditsCount = credits?.length || 0;
+  const netResult = totalSalesMonth - totalExpensesMonth;
 
   const roleLabels: Record<string, string> = {
     admin: "Administrateur",
@@ -124,11 +180,11 @@ const Dashboard = () => {
       icon: ShoppingCart,
     },
     {
-      title: "Transactions",
-      value: String(transactionsToday),
-      change: transactionsToday > 0 ? `Panier moy. ${formatPrice(Math.round(totalSalesToday / transactionsToday))}` : "Aucune vente",
+      title: "Ventes du mois",
+      value: formatPrice(totalSalesMonth),
+      change: creditSalesMonth > 0 ? `${creditSalesMonth} a crédit` : `${monthSales?.length || 0} vente(s)`,
       trend: "up" as const,
-      icon: TrendingUp,
+      icon: BarChart3,
     },
     {
       title: "Produits en stock",
@@ -138,11 +194,11 @@ const Dashboard = () => {
       icon: Package,
     },
     {
-      title: "Dépenses du mois",
-      value: formatPrice(totalExpensesMonth),
-      change: `${monthExpenses?.length || 0} dépense(s)`,
-      trend: "up" as const,
-      icon: Wallet,
+      title: "Credits en cours",
+      value: formatPrice(totalCredits),
+      change: `${creditsCount} client${creditsCount > 1 ? "s" : ""}`,
+      trend: totalCredits > 0 ? "down" as const : "up" as const,
+      icon: CreditCard,
     },
   ];
 
@@ -281,40 +337,99 @@ const Dashboard = () => {
         </div>
 
         {/* Recent Sales */}
-        <Card className="card-elevated">
-          <CardHeader>
-            <CardTitle>Ventes récentes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {recentSales && recentSales.length > 0 ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card className="card-elevated">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Ventes recentes</CardTitle>
+              <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard/reports")}>
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {recentSales && recentSales.length > 0 ? (
+                <div className="space-y-3">
+                  {recentSales.map((sale) => (
+                    <div key={sale.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <div>
+                        <p className="font-medium text-sm">{sale.sale_number}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatDateTime(sale.created_at)}
+                          {sale.customer_name && ` - ${sale.customer_name}`}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-primary">{formatPrice(sale.total_amount)}</p>
+                        <Badge variant="outline" className="text-xs">
+                          {paymentLabels[sale.payment_method] || sale.payment_method}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <ShoppingCart className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                  <p className="text-sm">Aucune vente pour le moment</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Financial Summary */}
+          <Card className="card-elevated">
+            <CardHeader>
+              <CardTitle>Resume financier du mois</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div className="space-y-3">
-                {recentSales.map((sale) => (
-                  <div key={sale.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <div>
-                      <p className="font-medium text-sm">{sale.sale_number}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDateTime(sale.created_at)}
-                        {sale.customer_name && ` • ${sale.customer_name}`}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-primary">{formatPrice(sale.total_amount)}</p>
-                      <Badge variant="outline" className="text-xs">
-                        {paymentLabels[sale.payment_method] || sale.payment_method}
-                      </Badge>
-                    </div>
+                <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-primary" />
+                    <span className="text-sm">Ventes totales</span>
                   </div>
-                ))}
+                  <span className="font-bold text-primary">{formatPrice(totalSalesMonth)}</span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-destructive/5 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Wallet className="h-4 w-4 text-destructive" />
+                    <span className="text-sm">Depenses</span>
+                  </div>
+                  <span className="font-bold text-destructive">{formatPrice(totalExpensesMonth)}</span>
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-lg border-2 border-dashed">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4" />
+                    <span className="text-sm font-medium">Resultat net</span>
+                  </div>
+                  <span className={`font-bold ${netResult >= 0 ? "text-success" : "text-destructive"}`}>
+                    {formatPrice(netResult)}
+                  </span>
+                </div>
               </div>
-            ) : (
-              <div className="text-center py-12 text-muted-foreground">
-                <ShoppingCart className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Aucune vente pour le moment</p>
-                <p className="text-sm">Commencez à vendre pour voir vos transactions ici</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+
+              {/* Top products */}
+              {topProducts && topProducts.length > 0 && (
+                <div className="pt-3 border-t">
+                  <p className="text-sm font-medium mb-2">Top produits (30j)</p>
+                  <div className="space-y-2">
+                    {topProducts.map((item, i) => (
+                      <div key={i} className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-xs text-muted-foreground w-4">{i + 1}.</span>
+                          <span className="truncate">{item.product_name}</span>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <Badge variant="secondary" className="text-[10px]">x{item.quantity}</Badge>
+                          <span className="font-medium">{formatPrice(item.total_price)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </DashboardLayout>
   );
