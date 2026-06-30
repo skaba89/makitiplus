@@ -2,6 +2,7 @@
 -- Date: 2026-07-01
 -- Issue: user_roles_insert_self_or_admin allowed any user to self-assign vendeur/manager/comptable roles
 -- Also: super_admin was excluded from audit_log, reset_tokens, and user_roles DELETE policies
+-- Idempotent: uses DROP POLICY IF EXISTS before every CREATE POLICY
 
 -- ============================================
 -- 1. FIX: Prevent self-role-escalation on user_roles INSERT
@@ -9,6 +10,7 @@
 -- Only admin/super_admin should assign roles
 -- ============================================
 DROP POLICY IF EXISTS "user_roles_insert_self_or_admin" ON user_roles;
+DROP POLICY IF EXISTS "user_roles_insert_admin_only" ON user_roles;
 
 CREATE POLICY "user_roles_insert_admin_only" ON user_roles
   FOR INSERT TO authenticated
