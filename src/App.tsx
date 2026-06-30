@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { installAutoFlush } from "@/lib/receiptDeliveryQueue";
 import { SentryErrorBoundary } from "@/lib/sentry";
+import { ADMIN_ROLES, INVENTORY_ROLES, FINANCIAL_ROLES, POS_ROLES, STORE_ROLES, MANAGEMENT_ROLES } from "@/types";
 import { toast as sonnerToast } from "sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { OfflineProvider } from "@/contexts/OfflineContext";
@@ -115,7 +116,7 @@ const App = () => {
             <Route
               path="/dashboard/products"
               element={
-                <ProtectedRoute allowedRoles={["super_admin", "admin", "manager", "vendeur"]}>
+                <ProtectedRoute allowedRoles={INVENTORY_ROLES}>
                   <Products />
                 </ProtectedRoute>
               }
@@ -123,7 +124,7 @@ const App = () => {
             <Route
               path="/dashboard/pos"
               element={
-                <ProtectedRoute allowedRoles={["super_admin", "admin", "manager", "vendeur"]}>
+                <ProtectedRoute allowedRoles={POS_ROLES}>
                   <Suspense fallback={<PageLoader />}>
                     <POS />
                   </Suspense>
@@ -133,7 +134,7 @@ const App = () => {
             <Route
               path="/dashboard/categories"
               element={
-                <ProtectedRoute allowedRoles={["super_admin", "admin", "manager"]}>
+                <ProtectedRoute allowedRoles={INVENTORY_ROLES}>
                   <Categories />
                 </ProtectedRoute>
               }
@@ -141,7 +142,7 @@ const App = () => {
             <Route
               path="/dashboard/reports"
               element={
-                <ProtectedRoute allowedRoles={["super_admin", "admin", "manager", "comptable"]}>
+                <ProtectedRoute allowedRoles={FINANCIAL_ROLES}>
                   <Suspense fallback={<PageLoader />}>
                     <Reports />
                   </Suspense>
@@ -151,7 +152,7 @@ const App = () => {
             <Route
               path="/dashboard/expenses"
               element={
-                <ProtectedRoute allowedRoles={["super_admin", "admin", "manager", "comptable"]}>
+                <ProtectedRoute allowedRoles={FINANCIAL_ROLES}>
                   <Expenses />
                 </ProtectedRoute>
               }
@@ -159,7 +160,7 @@ const App = () => {
             <Route
               path="/dashboard/customers"
               element={
-                <ProtectedRoute allowedRoles={["super_admin", "admin", "manager", "vendeur"]}>
+                <ProtectedRoute allowedRoles={MANAGEMENT_ROLES}>
                   <Customers />
                 </ProtectedRoute>
               }
@@ -167,7 +168,7 @@ const App = () => {
             <Route
               path="/dashboard/users"
               element={
-                <ProtectedRoute allowedRoles={["super_admin", "admin"]}>
+                <ProtectedRoute allowedRoles={ADMIN_ROLES}>
                   <Users />
                 </ProtectedRoute>
               }
@@ -175,7 +176,7 @@ const App = () => {
             <Route
               path="/dashboard/stores"
               element={
-                <ProtectedRoute allowedRoles={["super_admin"]}>
+                <ProtectedRoute allowedRoles={STORE_ROLES}>
                   <Stores />
                 </ProtectedRoute>
               }
@@ -183,7 +184,7 @@ const App = () => {
             <Route
               path="/dashboard/sync-conflicts"
               element={
-                <ProtectedRoute allowedRoles={["super_admin", "admin"]}>
+                <ProtectedRoute allowedRoles={ADMIN_ROLES}>
                   <SyncConflicts />
                 </ProtectedRoute>
               }
@@ -191,7 +192,7 @@ const App = () => {
             <Route
               path="/dashboard/settings"
               element={
-                <ProtectedRoute allowedRoles={["super_admin", "admin", "manager"]}>
+                <ProtectedRoute allowedRoles={MANAGEMENT_ROLES}>
                   <Settings />
                 </ProtectedRoute>
               }

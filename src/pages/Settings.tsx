@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { COUNTRIES, getCountryByCode } from "@/utils/currencies";
+import { COUNTRIES, getCountryByCode, DEFAULT_CURRENCY } from "@/utils/currencies";
 import { useCurrency } from "@/hooks/useCurrency";
 import { TaxSettingsCard } from "@/components/settings/TaxSettingsCard";
 import { BrandingSettings } from "@/components/settings/BrandingSettings";
@@ -75,7 +75,7 @@ const Settings = () => {
           address: data.address,
           city: data.city,
           country: data.country,
-          currency: selectedCountry?.currency.code || "GNF",
+          currency: selectedCountry?.currency.code || DEFAULT_CURRENCY.code,
         })
         .eq("user_id", user!.id);
 

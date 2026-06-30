@@ -67,7 +67,8 @@ import {
   LucideIcon,
 } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
-import { COUNTRIES } from "@/utils/currencies";
+import { COUNTRIES, DEFAULT_CURRENCY } from "@/utils/currencies";
+import { isAdminRole } from "@/types";
 
 type Organization = Database["public"]["Tables"]["organizations"]["Row"];
 type StoreCategory = Database["public"]["Enums"]["store_category"];
@@ -143,7 +144,7 @@ const Stores = () => {
   const [storeName, setStoreName] = useState("");
   const [storeCategory, setStoreCategory] = useState<StoreCategory>("epicerie");
   const [storeCountry, setStoreCountry] = useState(COUNTRIES[0]?.name || "Guinée");
-  const [storeCurrency, setStoreCurrency] = useState(COUNTRIES[0]?.currency.symbol || "GNF");
+  const [storeCurrency, setStoreCurrency] = useState(COUNTRIES[0]?.currency.symbol || DEFAULT_CURRENCY.symbol);
 
   // Auto-select currency when country changes
   const handleCountryChange = (countryName: string) => {
@@ -326,7 +327,7 @@ const Stores = () => {
     return acc;
   }, {});
 
-  if (userRole !== "super_admin") {
+  if (!isAdminRole(userRole)) {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center min-h-[60vh]">
@@ -554,7 +555,7 @@ const Stores = () => {
                         </div>
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
-                        <Badge variant="outline">{store.currency || "GNF"}</Badge>
+                        <Badge variant="outline">{store.currency || DEFAULT_CURRENCY.symbol}</Badge>
                       </TableCell>
                       <TableCell>
                         {store.admin_name !== "—" ? (

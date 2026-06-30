@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { MobileBottomNav } from "./MobileBottomNav";
+import { ALL_ROLES, ADMIN_ROLES, MANAGEMENT_ROLES, INVENTORY_ROLES, FINANCIAL_ROLES, POS_ROLES, STORE_ROLES } from "@/types";
 import { OfflineIndicator, OfflineBanner } from "@/components/ui/offline-indicator";
 import { PWAInstallPrompt } from "@/components/ui/pwa-install-prompt";
 
@@ -69,67 +70,67 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       name: "Tableau de bord",
       href: "/dashboard",
       icon: LayoutDashboard,
-      roles: ["super_admin", "admin", "manager", "vendeur", "comptable"],
+      roles: ALL_ROLES,
     },
     {
       name: "Point de vente",
       href: "/dashboard/pos",
       icon: ShoppingCart,
-      roles: ["super_admin", "admin", "manager", "vendeur"],
+      roles: POS_ROLES,
     },
     {
       name: "Produits",
       href: "/dashboard/products",
       icon: Package,
-      roles: ["super_admin", "admin", "manager", "vendeur"],
+      roles: INVENTORY_ROLES,
     },
     {
       name: "Catégories",
       href: "/dashboard/categories",
       icon: FolderOpen,
-      roles: ["super_admin", "admin", "manager"],
+      roles: INVENTORY_ROLES,
     },
     {
       name: "Dépenses",
       href: "/dashboard/expenses",
       icon: Wallet,
-      roles: ["super_admin", "admin", "manager", "comptable"],
+      roles: FINANCIAL_ROLES,
     },
     {
       name: "Rapports",
       href: "/dashboard/reports",
       icon: BarChart3,
-      roles: ["super_admin", "admin", "manager", "comptable"],
+      roles: FINANCIAL_ROLES,
     },
     {
       name: "Clients",
       href: "/dashboard/customers",
       icon: Users,
-      roles: ["super_admin", "admin", "manager", "vendeur"],
+      roles: MANAGEMENT_ROLES,
     },
     {
       name: "Utilisateurs",
       href: "/dashboard/users",
       icon: Shield,
-      roles: ["super_admin", "admin"],
+      roles: ADMIN_ROLES,
     },
     {
       name: "Magasins",
       href: "/dashboard/stores",
       icon: Store,
-      roles: ["super_admin"],
+      roles: STORE_ROLES,
     },
     {
       name: "Conflits sync",
       href: "/dashboard/sync-conflicts",
       icon: GitMerge,
-      roles: ["super_admin", "admin"],
+      roles: ADMIN_ROLES,
     },
     {
       name: "Paramètres",
       href: "/dashboard/settings",
       icon: Settings,
-      roles: ["super_admin", "admin", "manager"],
+      roles: MANAGEMENT_ROLES,
     },
   ];
 

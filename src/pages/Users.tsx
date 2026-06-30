@@ -64,7 +64,7 @@ import { SecurityDiagnosticPanel } from "@/components/users/SecurityDiagnosticPa
 import { ResetTokensPanel } from "@/components/users/ResetTokensPanel";
 import { PasswordStrengthMeter } from "@/components/users/PasswordStrengthMeter";
 import { checkPassword } from "@/lib/passwordPolicy";
-import { AdminActionResponse, ResetLinkResponse, Profile as ProfileType } from "@/types";
+import { AdminActionResponse, ResetLinkResponse, Profile as ProfileType, isAdminRole } from "@/types";
 import {
   Loader2,
   UserPlus,
@@ -623,7 +623,7 @@ const Users = () => {
                       <TableBody>
                         {users.map((u) => {
                           const isSelf = u.user_id === user?.id;
-                          const isAdmin = u.role === "admin";
+                          const isAdmin = isAdminRole(u.role);
                           return (
                             <TableRow key={u.user_id} className={!u.is_active ? "opacity-60" : ""}>
                               <TableCell className="font-medium">

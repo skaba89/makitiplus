@@ -6,7 +6,7 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useCurrency } from "@/hooks/useCurrency";
-import { ProductWithCategoryIcon } from "@/types";
+import { ProductWithCategoryIcon, POS_ROLES, INVENTORY_ROLES, FINANCIAL_ROLES } from "@/types";
 import {
   TrendingUp,
   ShoppingCart,
@@ -216,7 +216,7 @@ const Dashboard = () => {
         <div>
           <h2 className="text-lg font-semibold mb-4">Actions rapides</h2>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {userRole && ["admin", "manager", "vendeur"].includes(userRole) && (
+            {userRole && POS_ROLES.includes(userRole) && (
               <Card
                 className="card-elevated hover:shadow-medium transition-shadow cursor-pointer group"
                 role="button"
@@ -232,7 +232,7 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
             )}
-            {userRole && ["admin", "manager", "vendeur"].includes(userRole) && (
+            {userRole && INVENTORY_ROLES.includes(userRole) && (
               <Card
                 className="card-elevated hover:shadow-medium transition-shadow cursor-pointer group"
                 role="button"
@@ -248,7 +248,7 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
             )}
-            {userRole && ["admin", "manager", "comptable"].includes(userRole) && (
+            {userRole && FINANCIAL_ROLES.includes(userRole) && (
               <Card
                 className="card-elevated hover:shadow-medium transition-shadow cursor-pointer group"
                 role="button"

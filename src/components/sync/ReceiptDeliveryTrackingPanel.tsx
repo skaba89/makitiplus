@@ -349,7 +349,7 @@ export const ReceiptDeliveryTrackingPanel = () => {
   };
   // Exposé pour les tests E2E uniquement en développement
   if (import.meta.env.DEV) {
-    (window as any).__malikiplus_mergeRemote = handleMergeRemote;
+    window.__malikiplus_mergeRemote = handleMergeRemote;
   }
 
   const selectedRows = useMemo(

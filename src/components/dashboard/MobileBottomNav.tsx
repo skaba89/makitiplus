@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
+import { ALL_ROLES, INVENTORY_ROLES, FINANCIAL_ROLES, POS_ROLES } from "@/types";
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -22,31 +23,31 @@ const bottomNavItems: BottomNavItem[] = [
     name: "Accueil",
     href: "/dashboard",
     icon: LayoutDashboard,
-    roles: ["super_admin", "admin", "manager", "vendeur", "comptable"],
+    roles: ALL_ROLES,
   },
   {
     name: "Vente",
     href: "/dashboard/pos",
     icon: ShoppingCart,
-    roles: ["super_admin", "admin", "manager", "vendeur"],
+    roles: POS_ROLES,
   },
   {
     name: "Produits",
     href: "/dashboard/products",
     icon: Package,
-    roles: ["super_admin", "admin", "manager", "vendeur"],
+    roles: INVENTORY_ROLES,
   },
   {
     name: "Rapports",
     href: "/dashboard/reports",
     icon: BarChart3,
-    roles: ["super_admin", "admin", "manager", "comptable"],
+    roles: FINANCIAL_ROLES,
   },
   {
     name: "Plus",
     href: "/dashboard/settings",
     icon: Settings,
-    roles: ["super_admin", "admin", "manager", "vendeur", "comptable"],
+    roles: ALL_ROLES,
   },
 ];
 

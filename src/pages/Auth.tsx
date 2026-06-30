@@ -14,7 +14,7 @@ import { Database } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import { PasswordStrengthMeter } from "@/components/users/PasswordStrengthMeter";
 import { checkPassword } from "@/lib/passwordPolicy";
-import { EdgeFunctionResponse } from "@/types";
+import { EdgeFunctionResponse, ADMIN_ROLES } from "@/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 
@@ -206,7 +206,7 @@ const Auth = () => {
         businessName,
         ownerName,
         phone,
-        role: "super_admin",
+        role: ADMIN_ROLES[0],
       });
 
       if (error) {

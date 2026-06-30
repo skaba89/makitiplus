@@ -118,7 +118,7 @@ describe("Multi-appareils — mergeRemoteQueue + zéro ghost ID", () => {
       // mergeRemoteQueue conserve les locaux non présents dans remote (G3),
       // donc pour simuler une vraie purge cross-device, on remplace la file
       // par le résultat strict du remote (G3 retiré).
-      (window as any).__malikiplus_mergeRemote(remote);
+      window.__malikiplus_mergeRemote!(remote);
       // Simule la suppression de G3 sur l'autre appareil :
       const cur = JSON.parse(localStorage.getItem("malikiplus:receipt_delivery_queue") ?? "[]");
       localStorage.setItem(

@@ -3,6 +3,7 @@ import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
 import { setSentryUserContext, clearSentryUserContext } from "@/lib/sentry";
+import { isAdminRole } from "@/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 
@@ -79,7 +80,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         });
       }
     } catch (error) {
-      console.error("[Auth] fetchUserData error:", error);
       reportError(error instanceof Error ? error : new Error(String(error)));
     }
   };
@@ -184,7 +184,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (data.user) {
       // If admin/super_admin: create organization first
       let organizationId: string | null = null;
-      if (profileData.role === "admin" || profileData.role === "super_admin") {
+      if (isAdminRole(profileData.role)) {
         const { data: org, error: orgError } = await supabase
           .from("organizations")
           .insert({
@@ -239,8 +239,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
 
       if (roleError) {
-        console.error("[Auth] Failed to create user role (may need admin assignment):", roleError.message);
-        if (profileData.role === "admin" || profileData.role === "super_admin") {
+        reportError(new Error(`[Auth] Failed to create user role: ${roleError.message}`));
+        if (isAdminRole(profileData.role)) {
           return { error: new Error("Compte créé mais rôle non assigné. Contactez un administrateur existant pour vous attribuer le rôle.") };
         }
       }

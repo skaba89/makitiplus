@@ -209,6 +209,7 @@ export const ProductForm = ({ product, onSubmit, isLoading }: ProductFormProps) 
         finalImageUrl = await uploadProductImage(imageFile, user.id);
       } catch (err) {
         console.error("Image upload failed:", err);
+        reportError(err instanceof Error ? err : new Error(String(err)));
         toast({
           variant: "destructive",
           title: "Erreur d'upload",

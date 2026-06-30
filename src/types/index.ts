@@ -98,3 +98,36 @@ export interface CustomerUpdateParams {
   address?: string | null;
   notes?: string | null;
 }
+
+// ─── Role constants (H4: single source of truth for role strings) ───────────
+
+type AppRole = Database["public"]["Enums"]["app_role"];
+
+/** All application roles in hierarchical order (highest first). */
+export const ALL_ROLES: AppRole[] = ["super_admin", "admin", "manager", "vendeur", "comptable"];
+
+/** Roles that have full admin-level access. */
+export const ADMIN_ROLES: AppRole[] = ["super_admin", "admin"];
+
+/** Roles that can manage other users and view reports. */
+export const MANAGEMENT_ROLES: AppRole[] = ["super_admin", "admin", "manager"];
+
+/** Roles that can adjust stock and manage inventory. */
+export const INVENTORY_ROLES: AppRole[] = ["super_admin", "admin", "manager"];
+
+/** Roles that can view financial data (reports, expenses, credits). */
+export const FINANCIAL_ROLES: AppRole[] = ["super_admin", "admin", "manager", "comptable"];
+
+/** Roles that can access the POS (all roles). */
+export const POS_ROLES: AppRole[] = ["super_admin", "admin", "manager", "vendeur", "comptable"];
+
+/** Roles that can manage stores/organizations. */
+export const STORE_ROLES: AppRole[] = ["super_admin", "admin"];
+
+/** Check if a role has admin-level access. */
+export const isAdminRole = (role: AppRole | null): boolean =>
+  role !== null && ADMIN_ROLES.includes(role);
+
+/** Check if a role has management-level access. */
+export const isManagementRole = (role: AppRole | null): boolean =>
+  role !== null && MANAGEMENT_ROLES.includes(role);

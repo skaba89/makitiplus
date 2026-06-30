@@ -188,7 +188,7 @@ export const clearMergeLogAsync = async (): Promise<void> => {
 
 export const clearMergeLog = (): void => {
   try { localStorage.removeItem(LS_KEY); } catch { /* ignore */ }
-  if (isIndexedDBAvailable()) idbClearStore(STORES.MERGE_LOG).catch(() => {});
+  if (isIndexedDBAvailable()) idbClearStore(STORES.MERGE_LOG).catch((err) => { console.warn("[IDB] Operation failed:", err); });
 };
 
 const rand = () => Math.random().toString(36).slice(2, 10);
@@ -270,7 +270,7 @@ export const recordMergeBatch = (input: RecordMergeBatchInput): MergeLogEntry[] 
   const next = [...lsLoadRaw(), ...added];
   lsPersist(next);
   // Background sync to IndexedDB
-  if (isIndexedDBAvailable()) idbPersist(next).catch(() => {});
+  if (isIndexedDBAvailable()) idbPersist(next).catch((err) => { console.warn("[IDB] Operation failed:", err); });
   return added;
 };
 

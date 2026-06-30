@@ -235,7 +235,7 @@ export const enqueueOrSendReceipt = (
 
   // Also persist to IndexedDB in background (fire-and-forget)
   if (isIndexedDBAvailable()) {
-    idbPutOne(entry).catch(() => {});
+    idbPutOne(entry).catch((err) => { console.warn("[IDB] Operation failed:", err); });
   }
 
   return entry;
@@ -336,7 +336,7 @@ export const retryOne = (
   }
   lsSave(queue);
   // Background sync to IndexedDB
-  if (isIndexedDBAvailable()) idbPutOne(entry).catch(() => {});
+  if (isIndexedDBAvailable()) idbPutOne(entry).catch((err) => { console.warn("[IDB] Operation failed:", err); });
   return entry;
 };
 
@@ -354,7 +354,7 @@ export const removeOneAsync = async (client_uuid: string): Promise<void> => {
 export const removeOne = (client_uuid: string) => {
   const queue = lsLoad().filter((q) => q.client_uuid !== client_uuid);
   lsSave(queue);
-  if (isIndexedDBAvailable()) idbDeleteByKeys(STORES.RECEIPT_QUEUE, [client_uuid]).catch(() => {});
+  if (isIndexedDBAvailable()) idbDeleteByKeys(STORES.RECEIPT_QUEUE, [client_uuid]).catch((err) => { console.warn("[IDB] Operation failed:", err); });
 };
 
 /**
@@ -463,7 +463,7 @@ export const flushQueue = (): { sent: number; skipped: number; failed: number; d
   }
   lsSave(queue);
   // Background sync to IndexedDB
-  if (isIndexedDBAvailable()) idbSave(queue).catch(() => {});
+  if (isIndexedDBAvailable()) idbSave(queue).catch((err) => { console.warn("[IDB] Operation failed:", err); });
   return { sent, skipped, failed, deferred };
 };
 
@@ -476,7 +476,7 @@ export const clearQueueAsync = async (): Promise<void> => {
 /** Clear the entire queue (sync, legacy) */
 export const clearQueue = () => {
   localStorage.removeItem(LS_KEY);
-  if (isIndexedDBAvailable()) idbClearStore(STORES.RECEIPT_QUEUE).catch(() => {});
+  if (isIndexedDBAvailable()) idbClearStore(STORES.RECEIPT_QUEUE).catch((err) => { console.warn("[IDB] Operation failed:", err); });
 };
 
 /** Snapshot complet (pour undo) — async */
@@ -498,7 +498,7 @@ export const restoreQueueAsync = async (snapshot: QueuedDelivery[]): Promise<voi
 export const restoreQueue = (snapshot: QueuedDelivery[]): void => {
   const entries = JSON.parse(JSON.stringify(snapshot));
   lsSave(entries);
-  if (isIndexedDBAvailable()) idbSave(entries).catch(() => {});
+  if (isIndexedDBAvailable()) idbSave(entries).catch((err) => { console.warn("[IDB] Operation failed:", err); });
 };
 
 /** Remplace la file (utilisé après merge multi-appareils) — async */
@@ -512,7 +512,7 @@ export const replaceQueueAsync = async (entries: QueuedDelivery[]): Promise<void
 export const replaceQueue = (entries: QueuedDelivery[]): void => {
   const copy = [...entries];
   lsSave(copy);
-  if (isIndexedDBAvailable()) idbSave(copy).catch(() => {});
+  if (isIndexedDBAvailable()) idbSave(copy).catch((err) => { console.warn("[IDB] Operation failed:", err); });
 };
 
 /**
@@ -641,7 +641,7 @@ export const removeMany = (uuids: string[]): number => {
   const before = lsLoad();
   const after = before.filter((q) => !set.has(q.client_uuid));
   lsSave(after);
-  if (isIndexedDBAvailable()) idbSave(after).catch(() => {});
+  if (isIndexedDBAvailable()) idbSave(after).catch((err) => { console.warn("[IDB] Operation failed:", err); });
   return before.length - after.length;
 };
 
@@ -694,7 +694,7 @@ export const mergeDuplicates = (): { merged: number; kept: number } => {
     merged += arr.length - 1;
   }
   lsSave(kept);
-  if (isIndexedDBAvailable()) idbSave(kept).catch(() => {});
+  if (isIndexedDBAvailable()) idbSave(kept).catch((err) => { console.warn("[IDB] Operation failed:", err); });
   return { merged, kept: kept.length };
 };
 
@@ -739,7 +739,7 @@ export const archiveDuplicates = (): number => {
     seen.set(key, winner);
   }
   lsSave(queue);
-  if (isIndexedDBAvailable()) idbSave(queue).catch(() => {});
+  if (isIndexedDBAvailable()) idbSave(queue).catch((err) => { console.warn("[IDB] Operation failed:", err); });
   return archived;
 };
 

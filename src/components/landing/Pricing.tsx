@@ -1,12 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { Check, CreditCard, Smartphone, Lock } from "lucide-react";
+import { DEFAULT_CURRENCY } from "@/utils/currencies";
 
 const plans = [
   {
     name: "Starter",
     description: "Pour les petits commerces",
     price: "5 000",
-    currency: "GNF",
+    currency: DEFAULT_CURRENCY.symbol,
     period: "/mois",
     features: [
       "1 caisse",
@@ -22,7 +23,7 @@ const plans = [
     name: "Croissance",
     description: "Pour les commerces en expansion",
     price: "15 000",
-    currency: "GNF",
+    currency: DEFAULT_CURRENCY.symbol,
     period: "/mois",
     features: [
       "3 caisses",
@@ -40,7 +41,7 @@ const plans = [
     name: "Enterprise",
     description: "Pour les grandes structures",
     price: "40 000",
-    currency: "GNF",
+    currency: DEFAULT_CURRENCY.symbol,
     period: "/mois",
     features: [
       "Caisses illimitées",

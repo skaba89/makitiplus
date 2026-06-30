@@ -1,4 +1,5 @@
 import jsPDF from "jspdf";
+import { DEFAULT_CURRENCY } from "@/utils/currencies";
 
 interface ReceiptItem {
   product_name: string;
@@ -952,7 +953,7 @@ export const generateReceiptPDF = (data: ReceiptData): jsPDF => {
 
 // ─── Text version for WhatsApp/SMS ─────────────────────────────
 export const generateReceiptText = (data: ReceiptData): string => {
-  const symbol = data.currencySymbol || "GNF";
+  const symbol = data.currencySymbol || DEFAULT_CURRENCY.displaySymbol;
   const position = data.currencyPosition || "after";
   const fPrice = (p: number) => formatPriceWithCurrency(p, symbol, position, true);
   const template = data.template || "default";
