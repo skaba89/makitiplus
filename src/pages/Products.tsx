@@ -95,17 +95,17 @@ const Products = () => {
       toast({ title: "Produit créé avec succès" });
       setIsFormOpen(false);
     },
-    onError: (error) => {
-      const msg = error instanceof Error ? error.message : String(error);
-      const isRlsError = msg.includes('policy') || msg.includes('row-level') || msg.includes('violates');
+    onError: (error: unknown) => {
+      const msg = error instanceof Error ? error.message : (typeof error === 'object' && error !== null && 'message' in error) ? String((error as Record<string, unknown>).message) : String(error);
+      const isRlsError = msg.includes('policy') || msg.includes('row-level') || msg.includes('violates') || msg.includes('409');
       toast({
         variant: "destructive",
         title: "Erreur",
         description: isRlsError
           ? "Permission insuffisante. Seuls les administrateurs et managers peuvent créer des produits."
-          : "Impossible de créer le produit",
+          : `Impossible de créer le produit: ${msg}`,
       });
-      reportError(error instanceof Error ? error : new Error(String(error)));
+      reportError(error instanceof Error ? error : new Error(msg));
     },
   });
 
@@ -127,17 +127,17 @@ const Products = () => {
       setIsFormOpen(false);
       setSelectedProduct(null);
     },
-    onError: (error) => {
-      const msg = error instanceof Error ? error.message : String(error);
-      const isRlsError = msg.includes('policy') || msg.includes('row-level') || msg.includes('violates');
+    onError: (error: unknown) => {
+      const msg = error instanceof Error ? error.message : (typeof error === 'object' && error !== null && 'message' in error) ? String((error as Record<string, unknown>).message) : String(error);
+      const isRlsError = msg.includes('policy') || msg.includes('row-level') || msg.includes('violates') || msg.includes('409');
       toast({
         variant: "destructive",
         title: "Erreur",
         description: isRlsError
           ? "Permission insuffisante pour modifier ce produit."
-          : "Impossible de modifier le produit",
+          : `Impossible de modifier le produit: ${msg}`,
       });
-      reportError(error instanceof Error ? error : new Error(String(error)));
+      reportError(error instanceof Error ? error : new Error(msg));
     },
   });
 
@@ -150,17 +150,17 @@ const Products = () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       toast({ title: "Produit supprimé" });
     },
-    onError: (error) => {
-      const msg = error instanceof Error ? error.message : String(error);
-      const isRlsError = msg.includes('policy') || msg.includes('row-level') || msg.includes('violates');
+    onError: (error: unknown) => {
+      const msg = error instanceof Error ? error.message : (typeof error === 'object' && error !== null && 'message' in error) ? String((error as Record<string, unknown>).message) : String(error);
+      const isRlsError = msg.includes('policy') || msg.includes('row-level') || msg.includes('violates') || msg.includes('409');
       toast({
         variant: "destructive",
         title: "Erreur",
         description: isRlsError
           ? "Permission insuffisante pour supprimer ce produit."
-          : "Impossible de supprimer le produit",
+          : `Impossible de supprimer le produit: ${msg}`,
       });
-      reportError(error instanceof Error ? error : new Error(String(error)));
+      reportError(error instanceof Error ? error : new Error(msg));
     },
   });
 

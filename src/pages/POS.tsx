@@ -246,16 +246,33 @@ const POS = () => {
       clearCart();
       setIsPaymentOpen(false);
     },
-    onError: (error) => {
-      const message = error instanceof Error
-        ? error.message
-        : (typeof error === 'object' && error !== null && 'message' in error)
-          ? String((error as { message: unknown }).message)
-          : String(error);
+    onError: (error: unknown) => {
+      // Supabase errors are plain objects, not Error instances
+      let message = "Impossible d'enregistrer la vente";
+      if (error instanceof Error) {
+        message = error.message;
+      } else if (typeof error === 'object' && error !== null) {
+        const err = error as Record<string, unknown>;
+        if (typeof err.message === 'string') {
+          message = err.message;
+        } else if (typeof err.details === 'string') {
+          message = err.details;
+        } else if (typeof err.code === 'string') {
+          message = `Erreur ${err.code}: veuillez réessayer`;
+        } else {
+          try {
+            message = JSON.stringify(error);
+          } catch {
+            message = String(error);
+          }
+        }
+      } else {
+        message = String(error);
+      }
       toast({
         variant: "destructive",
-        title: "Erreur",
-        description: message || "Impossible d'enregistrer la vente",
+        title: "Erreur de vente",
+        description: message,
       });
       reportError(error instanceof Error ? error : new Error(message));
     },
