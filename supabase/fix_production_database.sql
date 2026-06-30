@@ -717,7 +717,7 @@ CREATE POLICY "user_roles_insert_self_or_admin"
 ON public.user_roles FOR INSERT TO authenticated
 WITH CHECK (
   (NOT public.admin_exists() AND auth.uid() = user_id AND role IN ('admin', 'super_admin'))
-  OR (auth.uid() = user_id AND role IN ('vendor', 'manager', 'comptable'))
+  OR (auth.uid() = user_id AND role IN ('vendeur', 'manager', 'comptable'))
   OR public.has_role(auth.uid(), 'admin')
   OR public.is_super_admin()
 );
