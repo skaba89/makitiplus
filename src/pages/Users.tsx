@@ -509,9 +509,7 @@ const Users = () => {
                   <Label htmlFor="password">Mot de passe</Label>
                   <Input
                     id="password"
-                    type="text"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    type="password"
                     placeholder="Min 8 car. avec maj/min/chiffre/symbole"
                     required
                   />
@@ -821,9 +819,7 @@ const Users = () => {
                 <Label htmlFor="newPwd">Nouveau mot de passe</Label>
                 <Input
                   id="newPwd"
-                  type="text"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
+                  type="password"
                   placeholder="Min 8 car. avec maj/min/chiffre/symbole"
                   autoComplete="off"
                 />

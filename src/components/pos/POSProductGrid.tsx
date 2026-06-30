@@ -29,8 +29,8 @@ export const POSProductGrid = memo(({ products, onAddToCart }: POSProductGridPro
         {visibleProducts.map((product) => (
           <Card
             key={product.id}
-            className="card-elevated cursor-pointer hover:shadow-medium transition-all active:scale-95 overflow-hidden"
-            onClick={() => onAddToCart(product)}
+            className={`card-elevated cursor-pointer hover:shadow-medium transition-all active:scale-95 overflow-hidden ${product.stock_quantity === 0 ? 'opacity-50 pointer-events-none' : ''}`}
+            onClick={() => product.stock_quantity > 0 && onAddToCart(product)}
           >
             <div className="aspect-square bg-muted flex items-center justify-center">
               {product.image_url ? (
@@ -49,8 +49,8 @@ export const POSProductGrid = memo(({ products, onAddToCart }: POSProductGridPro
                 <span className="text-primary font-bold text-sm">
                   {formatPrice(product.price)}
                 </span>
-                <span className="text-xs text-muted-foreground">
-                  x{product.stock_quantity}
+                <span className={`text-xs ${product.stock_quantity === 0 ? 'text-destructive font-bold' : 'text-muted-foreground'}`}>
+                  {product.stock_quantity === 0 ? 'Rupture' : `x${product.stock_quantity}`}
                 </span>
               </div>
             </CardContent>

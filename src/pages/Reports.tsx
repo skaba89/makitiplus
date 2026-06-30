@@ -51,7 +51,7 @@ const COLORS = ["#E57E4D", "#F59E0B", "#10B981", "#3B82F6", "#8B5CF6", "#EC4899"
 const Reports = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { formatPrice } = useCurrency();
+  const { formatPrice, currency } = useCurrency();
   const [period, setPeriod] = useState<"day" | "week" | "month">("day");
 
   const getDateRange = () => {
@@ -162,6 +162,9 @@ const Reports = () => {
     cash: "Espèces",
     wave: "Wave",
     orange_money: "Orange Money",
+    mtn_money: "MTN Money",
+    moov_money: "Moov Money",
+    mpesa: "M-Pesa",
     card: "Carte",
     credit: "Crédit",
   };
@@ -244,7 +247,7 @@ const Reports = () => {
                 <DropdownMenuItem
                   onClick={() => {
                     if (sales && sales.length > 0) {
-                      exportSalesToCSV(sales);
+                      exportSalesToCSV(sales, currency.displaySymbol || currency.symbol);
                       toast({
                         title: "Export réussi",
                         description: `${sales.length} ventes exportées`,
@@ -264,7 +267,7 @@ const Reports = () => {
                 <DropdownMenuItem
                   onClick={() => {
                     if (expenses && expenses.length > 0) {
-                      exportExpensesToCSV(expenses);
+                      exportExpensesToCSV(expenses, currency.displaySymbol || currency.symbol);
                       toast({
                         title: "Export réussi",
                         description: `${expenses.length} dépenses exportées`,

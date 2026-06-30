@@ -61,7 +61,9 @@ export const ProductAutocomplete = ({
     setQuantities((prev) => ({ ...prev, [id]: Math.max(1, q) }));
 
   const handleAdd = (product: Product, closeAfter = true) => {
+    if (product.stock_quantity === 0) return; // Prevent adding out-of-stock
     const qty = getQty(product.id);
+    if (qty > product.stock_quantity) return; // Prevent exceeding stock
     onSelect(product, qty);
     setQuantities((prev) => ({ ...prev, [product.id]: 1 }));
     if (closeAfter) {
@@ -74,7 +76,7 @@ export const ProductAutocomplete = ({
     if (!open || matches.length === 0) {
       if (e.key === "Enter" && query.trim()) {
         const exact = products.find((p) => p.barcode === query.trim());
-        if (exact) handleAdd(exact, true);
+        if (exact && exact.stock_quantity > 0) handleAdd(exact, true);
       }
       return;
     }

@@ -21,6 +21,16 @@
    DialogTitle,
    DialogTrigger,
  } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
  import {
    Select,
    SelectContent,
@@ -74,6 +84,7 @@ const Expenses = () => {
   const { formatPrice } = useCurrency();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Expense | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>("all");
  
    // Form state
@@ -404,7 +415,7 @@ const Expenses = () => {
                                <Button
                                  variant="ghost"
                                  size="icon"
-                                 onClick={() => deleteExpenseMutation.mutate(expense.id)}
+                                 onClick={() => setDeleteTarget(expense)}
                                  disabled={deleteExpenseMutation.isPending}
                                  aria-label="Supprimer la dépense"
                                >
@@ -434,6 +445,32 @@ const Expenses = () => {
              )}
            </CardContent>
          </Card>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Supprimer cette dépense?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Cette action est irréversible.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setDeleteTarget(null)}>Annuler</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => {
+                  if (deleteTarget) {
+                    deleteExpenseMutation.mutate(deleteTarget.id);
+                    setDeleteTarget(null);
+                  }
+                }}
+              >
+                Supprimer
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
        </div>
      </DashboardLayout>
    );

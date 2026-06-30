@@ -117,14 +117,18 @@ const POS = () => {
         const t = computeTax(item.product.price, item.product.tax_rate, orgTaxRate);
         return sum + t.taxAmount * item.quantity;
       }, 0);
+      // Prices are TTC (tax-inclusive): subtotal already includes tax
+      // totalAmount = subtotal (what customer pays)
+      // For DB: store subtotal as TTC total, taxAmount as the tax portion
       const totalAmount = subtotal;
+      const htAmount = subtotal - taxAmount;
       const changeAmount = amountPaid - totalAmount;
 
       // Create sale
       const saleInsert: Record<string, unknown> = {
         user_id: user!.id,
         sale_number: finalSaleNumber,
-        subtotal,
+        subtotal: htAmount,
         tax_amount: taxAmount,
         total_amount: totalAmount,
         payment_method: paymentMethod,
@@ -202,9 +206,40 @@ const POS = () => {
         }
       }
 
+      // If credit sale, create a customer_credits entry for debt tracking
+      if (paymentMethod === "credit" && customerPhone && totalAmount > 0) {
+        // Try to find existing customer by phone
+        const { data: existingCustomer } = await supabase
+          .from("customers")
+          .select("id")
+          .eq("phone", customerPhone)
+          .maybeSingle();
+
+        if (existingCustomer) {
+          const creditInsert: Record<string, unknown> = {
+            customer_id: existingCustomer.id,
+            sale_id: sale.id,
+            amount: totalAmount,
+            remaining_balance: totalAmount,
+            status: "unpaid",
+          };
+          if (profile?.organization_id) {
+            creditInsert.organization_id = profile.organization_id;
+          }
+          await supabase.from("customer_credits").insert(creditInsert);
+        }
+      }
+
       return { sale, changeAmount };
     },
     onSuccess: ({ sale, changeAmount }) => {
+      // Compute tax for receipt display
+      const receiptTaxAmount = cart.reduce((sum, item) => {
+        const t = computeTax(item.product.price, item.product.tax_rate, orgTaxRate);
+        return sum + t.taxAmount * item.quantity;
+      }, 0);
+      const receiptSubtotal = cartTotal - receiptTaxAmount;
+
       // Prepare receipt data for dialog
       const receiptData: ReceiptData = {
         saleNumber: sale.sale_number,
@@ -215,7 +250,7 @@ const POS = () => {
           unit_price: item.product.price,
           total_price: item.product.price * item.quantity,
         })),
-        subtotal: cartTotal,
+        subtotal: receiptSubtotal,
         total: cartTotal,
         paymentMethod: sale.payment_method,
         amountPaid: sale.amount_paid,

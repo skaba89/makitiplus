@@ -18,8 +18,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Database } from "@/integrations/supabase/types";
 import { exportProductsToCSV } from "@/utils/exportUtils";
+import { useCurrency } from "@/hooks/useCurrency";
 import { ProductWithCategory } from "@/types";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
@@ -28,6 +39,7 @@ type ProductWithCat = ProductWithCategory;
 
 const Products = () => {
   const { user, profile, userRole } = useAuth();
+  const { currency } = useCurrency();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
@@ -41,6 +53,7 @@ const Products = () => {
 
   // Stock history state
   const [stockHistoryProduct, setStockHistoryProduct] = useState<Product | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const [isStockHistoryOpen, setIsStockHistoryOpen] = useState(false);
 
   const { data: products, isLoading } = useQuery({
@@ -255,7 +268,8 @@ const Products = () => {
   };
 
   const handleDelete = (id: string) => {
-    deleteProductMutation.mutate(id);
+    const product = products?.find((p) => p.id === id) || null;
+    setDeleteTarget(product);
   };
 
   const handleOpenForm = () => {
@@ -320,7 +334,8 @@ const Products = () => {
                       min_stock_alert: p.min_stock_alert,
                       unit: p.unit,
                       is_active: p.is_active,
-                    }))
+                    })),
+                    currency.displaySymbol || currency.symbol
                   );
                   toast({
                     title: "Export réussi",
@@ -479,6 +494,32 @@ const Products = () => {
             setStockHistoryProduct(null);
           }}
         />
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Supprimer le produit?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Cette action est irréversible. Les ventes associées seront conservées.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setDeleteTarget(null)}>Annuler</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => {
+                  if (deleteTarget) {
+                    deleteProductMutation.mutate(deleteTarget.id);
+                    setDeleteTarget(null);
+                  }
+                }}
+              >
+                Supprimer
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );

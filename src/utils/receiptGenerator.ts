@@ -89,6 +89,7 @@ export const formatPriceWithCurrency = (
   return position === "before" ? `${symbol} ${cleanFormatted}` : `${cleanFormatted} ${symbol}`;
 };
 
+// Legacy function for backward compatibility — uses GNF as default
 export const formatPrice = (price: number): string => {
   return formatPriceWithCurrency(price, "GNF", "after");
 };

@@ -8,6 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Camera, CameraOff } from "lucide-react";
 import { Html5Qrcode } from "html5-qrcode";
+import { reportError } from "@/lib/sentry";
 
 interface BarcodeScannerDialogProps {
   isOpen: boolean;

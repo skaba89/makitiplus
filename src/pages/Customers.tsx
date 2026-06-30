@@ -16,6 +16,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Table,
   TableBody,
   TableCell,
@@ -50,6 +60,7 @@ const Customers = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
   const [isCreditOpen, setIsCreditOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -264,7 +275,7 @@ const Customers = () => {
                               <Button variant="ghost" size="icon" onClick={() => handleEdit(customer)} aria-label="Modifier le client">
                                 <Edit className="h-4 w-4" />
                               </Button>
-                              <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(customer.id)} aria-label="Supprimer le client">
+                              <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(customer)} aria-label="Supprimer le client">
                                 <Trash2 className="h-4 w-4 text-destructive" />
                               </Button>
                             </>
@@ -341,6 +352,32 @@ const Customers = () => {
           isOpen={isCreditOpen}
           onClose={() => setIsCreditOpen(false)}
         />
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Supprimer ce client?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Cette action est irréversible. Les crédits associés seront conservés.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setDeleteTarget(null)}>Annuler</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => {
+                  if (deleteTarget) {
+                    deleteMutation.mutate(deleteTarget.id);
+                    setDeleteTarget(null);
+                  }
+                }}
+              >
+                Supprimer
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );

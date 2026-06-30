@@ -12,64 +12,95 @@ export interface CartItem {
 
 interface POSCartState {
   items: CartItem[];
-  addToCart: (product: Product, addQty?: number) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
+  addToCart: (product: Product, addQty?: number) => boolean; // returns false if stock exceeded
+  updateQuantity: (productId: string, quantity: number) => boolean; // returns false if stock exceeded
   removeItem: (productId: string) => void;
   clearCart: () => void;
   setItems: (items: CartItem[]) => void;
 }
 
+// Load cart from localStorage
+const loadCart = (): CartItem[] => {
+  try {
+    const saved = localStorage.getItem("pos_cart");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {
+    // ignore parse errors
+  }
+  return [];
+};
+
+// Save cart to localStorage
+const saveCart = (items: CartItem[]) => {
+  try {
+    localStorage.setItem("pos_cart", JSON.stringify(items));
+  } catch {
+    // ignore quota errors
+  }
+};
+
 export const usePOSCartStore = create<POSCartState>((set, get) => ({
-  items: [],
+  items: loadCart(),
 
   addToCart: (product, addQty = 1) => {
-    set((state) => {
-      const existing = state.items.find((item) => item.product.id === product.id);
-      const currentQty = existing?.quantity || 0;
-      const targetQty = currentQty + addQty;
+    const state = get();
+    const existing = state.items.find((item) => item.product.id === product.id);
+    const currentQty = existing?.quantity || 0;
+    const targetQty = currentQty + addQty;
 
-      if (targetQty > product.stock_quantity) {
-        // Return unchanged — caller should handle stock warning
-        return state;
-      }
+    if (targetQty > product.stock_quantity) {
+      // Return false — caller should handle stock warning
+      return false;
+    }
 
-      if (existing) {
-        return {
-          items: state.items.map((item) =>
-            item.product.id === product.id
-              ? { ...item, quantity: targetQty }
-              : item
-          ),
-        };
-      }
-      return { items: [...state.items, { product, quantity: addQty }] };
-    });
+    const newItems = existing
+      ? state.items.map((item) =>
+          item.product.id === product.id
+            ? { ...item, quantity: targetQty }
+            : item
+        )
+      : [...state.items, { product, quantity: addQty }];
+
+    set({ items: newItems });
+    saveCart(newItems);
+    return true;
   },
 
   updateQuantity: (productId, quantity) => {
     if (quantity <= 0) {
       get().removeItem(productId);
-      return;
+      return true;
     }
-    set((state) => ({
-      items: state.items.map((item) =>
-        item.product.id === productId ? { ...item, quantity } : item
-      ),
-    }));
+    const state = get();
+    const item = state.items.find((i) => i.product.id === productId);
+    if (item && quantity > item.product.stock_quantity) {
+      return false; // stock exceeded
+    }
+    const newItems = state.items.map((item) =>
+      item.product.id === productId ? { ...item, quantity } : item
+    );
+    set({ items: newItems });
+    saveCart(newItems);
+    return true;
   },
 
   removeItem: (productId) => {
-    set((state) => ({
-      items: state.items.filter((item) => item.product.id !== productId),
-    }));
+    const newItems = get().items.filter((item) => item.product.id !== productId);
+    set({ items: newItems });
+    saveCart(newItems);
   },
 
   clearCart: () => {
     set({ items: [] });
+    saveCart([]);
   },
 
   setItems: (items) => {
     set({ items });
+    saveCart(items);
   },
 }));
 

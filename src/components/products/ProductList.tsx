@@ -6,17 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Edit, Trash2, AlertTriangle, Printer, Warehouse, History, Package } from "lucide-react";
 import { CategoryIcon } from "@/components/ui/category-icon";
 import { BarcodeLabelPrinter } from "./BarcodeLabelPrinter";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+
 import { useCurrency } from "@/hooks/useCurrency";
 
 type Product = Database["public"]["Tables"]["products"]["Row"] & {
@@ -147,31 +137,15 @@ export const ProductList = memo(({ products, onEdit, onDelete, onStockAdjust, on
                   <Edit className="h-4 w-4 mr-1" />
                   Modifier
                 </Button>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="outline" size="sm" className="text-destructive" aria-label="Supprimer le produit">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Supprimer ce produit ?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Cette action est irréversible. Le produit "{product.name}" sera
-                        définitivement supprimé.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Annuler</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={() => onDelete(product.id)}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                      >
-                        Supprimer
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive"
+                  onClick={() => onDelete(product.id)}
+                  aria-label="Supprimer le produit"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               </div>
             </CardContent>
           </Card>
