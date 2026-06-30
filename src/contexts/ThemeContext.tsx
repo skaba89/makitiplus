@@ -112,7 +112,13 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
         .maybeSingle();
 
       if (error) {
-        reportError(new Error('Error fetching store settings: ' + error.message));
+        // Gracefully handle missing table (404) or other errors
+        const isMissingTable = error.code === '42P01' || error.message?.includes('does not exist') || error.status === 404;
+        if (isMissingTable) {
+          console.warn("[Theme] store_settings table not found. Run fix_production_database.sql to create it.");
+        } else {
+          reportError(new Error('Error fetching store settings: ' + error.message));
+        }
         return null;
       }
 
@@ -128,7 +134,11 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
           .single();
 
         if (insertError) {
-          reportError(new Error('Error creating store settings: ' + insertError.message));
+          // Don't crash if table doesn't exist
+          const isMissingTable = insertError.code === '42P01' || insertError.message?.includes('does not exist') || insertError.status === 404;
+          if (!isMissingTable) {
+            reportError(new Error('Error creating store settings: ' + insertError.message));
+          }
           return null;
         }
         return newSettings as StoreSettings;

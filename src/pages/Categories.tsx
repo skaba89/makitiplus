@@ -63,14 +63,31 @@ const Categories = () => {
   const { data: categories, isLoading } = useQuery({
     queryKey: ["categories", user?.id],
     queryFn: async () => {
+      // Try full query with sort_order and products(count) first
+      // Falls back to simpler query if migration hasn't been applied yet
+      try {
+        const { data, error } = await supabase
+          .from("categories")
+          .select("*, products(count)")
+          .order("sort_order", { ascending: true, nullsFirst: false })
+          .order("name");
+
+        if (!error) return data as Category[];
+
+        // If the full query fails (missing columns or relationship), try simpler query
+        console.warn("[Categories] Full query failed, falling back to simpler query:", error.message);
+      } catch {
+        // Fall through to simpler query
+      }
+
+      // Fallback: basic query without sort_order and products(count)
       const { data, error } = await supabase
         .from("categories")
-        .select("*, products(count)")
-        .order("sort_order", { ascending: true, nullsFirst: false })
+        .select("*")
         .order("name");
 
       if (error) throw error;
-      return data as Category[];
+      return (data as Category[]).map(c => ({ ...c, products: [{ count: 0 }] }));
     },
     enabled: !!user,
   });
@@ -79,14 +96,19 @@ const Categories = () => {
 
   const createMutation = useMutation({
     mutationFn: async (category: Omit<CategoryInsert, "user_id">) => {
-      // Get max sort_order for this org
-      const { data: maxOrder } = await supabase
-        .from("categories")
-        .select("sort_order")
-        .order("sort_order", { ascending: false })
-        .limit(1);
-
-      const nextOrder = (maxOrder?.[0]?.sort_order || 0) + 1;
+      // Get max sort_order for this org (gracefully handle if column doesn't exist)
+      let nextOrder = 1;
+      try {
+        const { data: maxOrder } = await supabase
+          .from("categories")
+          .select("sort_order")
+          .order("sort_order", { ascending: false })
+          .limit(1);
+        nextOrder = (maxOrder?.[0]?.sort_order || 0) + 1;
+      } catch {
+        // sort_order column may not exist yet — migration not applied
+        console.warn("[Categories] sort_order column not available, using default order");
+      }
 
       const insertData: Record<string, unknown> = {
         ...category,

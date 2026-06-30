@@ -186,17 +186,20 @@ CREATE TRIGGER trigger_set_store_settings_org_id
 -- RLS for store_settings
 ALTER TABLE public.store_settings ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "org_members_view_store_settings" ON public.store_settings;
 CREATE POLICY "org_members_view_store_settings" ON public.store_settings
   FOR SELECT
   USING (is_member_of_organization(organization_id));
 
+DROP POLICY IF EXISTS "org_admins_insert_store_settings" ON public.store_settings;
 CREATE POLICY "org_admins_insert_store_settings" ON public.store_settings
   FOR INSERT
   WITH CHECK (
     is_member_of_organization(organization_id)
-    AND (has_role(auth.uid(), 'admin'::app_role) OR is_super_admin())
+    AND (has_role(auth.uid(), 'admin'::app_role) OR has_role(auth.uid(), 'manager'::app_role) OR is_super_admin())
   );
 
+DROP POLICY IF EXISTS "org_admins_update_store_settings" ON public.store_settings;
 CREATE POLICY "org_admins_update_store_settings" ON public.store_settings
   FOR UPDATE
   USING (

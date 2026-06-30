@@ -156,7 +156,15 @@ export const BrandingProvider = ({ children }: { children: ReactNode }) => {
           .eq("id", profile.organization_id)
           .single();
 
-        if (error) throw error;
+        if (error) {
+          // Gracefully handle missing columns (migration not applied)
+          const isMissingColumn = error.code === '42703' || error.message?.includes('does not exist');
+          if (isMissingColumn) {
+            console.warn("[Branding] Some org columns missing. Run fix_production_database.sql to add them.");
+          } else {
+            throw error;
+          }
+        }
 
         if (data) {
           setBranding({
