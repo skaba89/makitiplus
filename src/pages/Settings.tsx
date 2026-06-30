@@ -170,7 +170,7 @@ const Settings = () => {
         </div>
 
         {activeTab === "general" ? (
-          <>
+          <div className="space-y-6">
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Business Info */}
               <Card>
@@ -391,7 +391,7 @@ const Settings = () => {
             </form>
 
             <TaxSettingsCard />
-          </>
+          </div>
         ) : (
           <StoreCustomization />
         )}

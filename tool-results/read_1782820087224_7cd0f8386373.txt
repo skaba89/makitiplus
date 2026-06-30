@@ -1,0 +1,693 @@
+   100→  const [accentHex, setAccentHex] = useState(
+   101→    settings?.accent_color ? hslStringToHex(settings.accent_color) : "#F5E6CE"
+   102→  );
+   103→  const [successHex, setSuccessHex] = useState(
+   104→    settings?.success_color ? hslStringToHex(settings.success_color) : "#2BA84A"
+   105→  );
+   106→
+   107→  // Receipt state
+   108→  const [receiptFooter, setReceiptFooter] = useState(settings?.receipt_footer || "");
+   109→  const [receiptShowLogo, setReceiptShowLogo] = useState(settings?.receipt_show_logo ?? true);
+   110→  const [receiptShowTax, setReceiptShowTax] = useState(settings?.receipt_show_tax ?? true);
+   111→  const [receiptPaperSize, setReceiptPaperSize] = useState<"58mm" | "80mm" | "A4">(
+   112→    (settings?.extra_settings as Record<string, string>)?.receiptPaperSize as "58mm" | "80mm" | "A4" || "80mm"
+   113→  );
+   114→
+   115→  // Store name
+   116→  const [storeName, setStoreName] = useState(settings?.store_name || profile?.business_name || "");
+   117→
+   118→  // Template
+   119→  const [selectedTemplate, setSelectedTemplate] = useState<TemplateName>(
+   120→    (settings?.template as TemplateName) || "default"
+   121→  );
+   122→
+   123→  // Update color and apply in real-time
+   124→  const handleColorChange = useCallback(
+   125→    async (colorName: "primary_color" | "secondary_color" | "accent_color" | "success_color", hexValue: string) => {
+   126→      const hslValue = hexToHslString(hexValue);
+   127→
+   128→      // Update local state
+   129→      if (colorName === "primary_color") setPrimaryHex(hexValue);
+   130→      if (colorName === "secondary_color") setSecondaryHex(hexValue);
+   131→      if (colorName === "accent_color") setAccentHex(hexValue);
+   132→      if (colorName === "success_color") setSuccessHex(hexValue);
+   133→
+   134→      // Apply immediately via CSS for instant preview
+   135→      const root = document.documentElement;
+   136→      root.style.setProperty(`--${colorName.replace("_color", "")}`, hslValue);
+   137→      if (colorName === "primary_color") {
+   138→        root.style.setProperty("--ring", hslValue);
+   139→        root.style.setProperty("--sidebar-primary", hslValue);
+   140→      }
+   141→
+   142→      // Save to DB (debounced naturally by React state batching)
+   143→      await updateSettings({ [colorName]: hslValue });
+   144→    },
+   145→    [updateSettings]
+   146→  );
+   147→
+   148→  // Apply template preset
+   149→  const applyTemplate = useCallback(
+   150→    async (templateName: TemplateName) => {
+   151→      const preset = TEMPLATE_PRESETS[templateName];
+   152→      setSelectedTemplate(templateName);
+   153→
+   154→      setPrimaryHex(hslStringToHex(preset.primary));
+   155→      setSecondaryHex(hslStringToHex(preset.secondary));
+   156→      setAccentHex(hslStringToHex(preset.accent));
+   157→
+   158→      await updateSettings({
+   159→        template: templateName,
+   160→        primary_color: preset.primary,
+   161→        secondary_color: preset.secondary,
+   162→        accent_color: preset.accent,
+   163→      });
+   164→
+   165→      toast({
+   166→        title: `Template "${preset.label}" appliqué`,
+   167→        description: preset.description,
+   168→      });
+   169→    },
+   170→    [updateSettings, toast]
+   171→  );
+   172→
+   173→  // Logo upload
+   174→  const handleLogoUpload = useCallback(
+   175→    async (e: React.ChangeEvent<HTMLInputElement>) => {
+   176→      const file = e.target.files?.[0];
+   177→      if (!file) return;
+   178→
+   179→      if (file.size > 2 * 1024 * 1024) {
+   180→        toast({
+   181→          variant: "destructive",
+   182→          title: "Fichier trop volumineux",
+   183→          description: "Le logo doit faire moins de 2 Mo",
+   184→        });
+   185→        return;
+   186→      }
+   187→
+   188→      setIsUploading(true);
+   189→      try {
+   190→        const ext = file.name.split(".").pop();
+   191→        const path = `${profile?.organization_id}/logo.${ext}`;
+   192→
+   193→        // Delete existing logo first
+   194→        await supabase.storage.from("logos").remove([path]);
+   195→
+   196→        const { error: uploadError } = await supabase.storage
+   197→          .from("logos")
+   198→          .upload(path, file, { upsert: true });
+   199→
+   200→        if (uploadError) throw uploadError;
+   201→
+   202→        const { data: urlData } = supabase.storage.from("logos").getPublicUrl(path);
+   203→        const logoUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+   204→
+   205→        await updateSettings({ logo_url: logoUrl });
+   206→
+   207→        toast({
+   208→          title: "Logo mis à jour",
+   209→          description: "Votre logo a été enregistré avec succès",
+   210→        });
+   211→      } catch (error) {
+   212→        toast({
+   213→          variant: "destructive",
+   214→          title: "Erreur d'upload",
+   215→          description: "Impossible de charger le logo",
+   216→        });
+   217→      } finally {
+   218→        setIsUploading(false);
+   219→      }
+   220→    },
+   221→    [profile?.organization_id, updateSettings, toast]
+   222→  );
+   223→
+   224→  // Save store name
+   225→  const handleSaveStoreName = useCallback(async () => {
+   226→    await updateSettings({ store_name: storeName });
+   227→    toast({ title: "Nom du magasin enregistré" });
+   228→  }, [storeName, updateSettings, toast]);
+   229→
+   230→  // Save receipt settings
+   231→  const handleSaveReceiptSettings = useCallback(async () => {
+   232→    const currentExtra = (settings?.extra_settings as Record<string, unknown>) || {};
+   233→    await updateSettings({
+   234→      receipt_footer: receiptFooter,
+   235→      receipt_show_logo: receiptShowLogo,
+   236→      receipt_show_tax: receiptShowTax,
+   237→      extra_settings: {
+   238→        ...currentExtra,
+   239→        receiptPaperSize,
+   240→      },
+   241→    });
+   242→    toast({ title: "Paramètres de ticket enregistrés" });
+   243→  }, [receiptFooter, receiptShowLogo, receiptShowTax, receiptPaperSize, settings?.extra_settings, updateSettings, toast]);
+   244→
+   245→  // Reset to defaults
+   246→  const handleReset = useCallback(async () => {
+   247→    resetTheme();
+   248→    await updateSettings({
+   249→      primary_color: DEFAULT_COLORS.primary,
+   250→      secondary_color: DEFAULT_COLORS.secondary,
+   251→      accent_color: DEFAULT_COLORS.accent,
+   252→      success_color: DEFAULT_COLORS.success,
+   253→      template: "default",
+   254→    });
+   255→    setPrimaryHex(hslStringToHex(DEFAULT_COLORS.primary));
+   256→    setSecondaryHex(hslStringToHex(DEFAULT_COLORS.secondary));
+   257→    setAccentHex(hslStringToHex(DEFAULT_COLORS.accent));
+   258→    setSuccessHex(hslStringToHex(DEFAULT_COLORS.success));
+   259→    setSelectedTemplate("default");
+   260→    toast({ title: "Thème réinitialisé" });
+   261→  }, [updateSettings, resetTheme, toast]);
+   262→
+   263→  const DEFAULT_COLORS = {
+   264→    primary: "16 80% 50%",
+   265→    secondary: "38 60% 92%",
+   266→    accent: "38 70% 88%",
+   267→    success: "152 60% 42%",
+   268→  };
+   269→
+   270→  if (isLoading) {
+   271→    return (
+   272→      <div className="flex items-center justify-center py-12">
+   273→        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+   274→      </div>
+   275→    );
+   276→  }
+   277→
+   278→  return (
+   279→    <div className="space-y-6">
+   280→      <Tabs defaultValue="branding" className="w-full">
+   281→        <TabsList className="grid w-full grid-cols-4">
+   282→          <TabsTrigger value="branding" className="gap-2">
+   283→            <Store className="h-4 w-4 hidden sm:block" />
+   284→            Marque
+   285→          </TabsTrigger>
+   286→          <TabsTrigger value="colors" className="gap-2">
+   287→            <Palette className="h-4 w-4 hidden sm:block" />
+   288→            Couleurs
+   289→          </TabsTrigger>
+   290→          <TabsTrigger value="template" className="gap-2">
+   291→            <LayoutTemplate className="h-4 w-4 hidden sm:block" />
+   292→            Template
+   293→          </TabsTrigger>
+   294→          <TabsTrigger value="receipt" className="gap-2">
+   295→            <Receipt className="h-4 w-4 hidden sm:block" />
+   296→            Ticket
+   297→          </TabsTrigger>
+   298→        </TabsList>
+   299→
+   300→        {/* ═══ BRANDING TAB ═══ */}
+   301→        <TabsContent value="branding" className="space-y-6 mt-6">
+   302→          {/* Logo Upload */}
+   303→          <Card>
+   304→            <CardHeader>
+   305→              <CardTitle className="flex items-center gap-2">
+   306→                <ImageIcon className="h-5 w-5" />
+   307→                Logo du magasin
+   308→              </CardTitle>
+   309→              <CardDescription>
+   310→                Ce logo apparaîtra dans la barre latérale, les tickets et l'application mobile
+   311→              </CardDescription>
+   312→            </CardHeader>
+   313→            <CardContent className="space-y-4">
+   314→              <div className="flex items-center gap-6">
+   315→                {/* Logo Preview */}
+   316→                <div className="w-24 h-24 rounded-2xl border-2 border-dashed border-muted-foreground/25 flex items-center justify-center overflow-hidden bg-muted/50">
+   317→                  {settings?.logo_url ? (
+   318→                    <img
+   319→                      src={settings.logo_url}
+   320→                      alt="Logo"
+   321→                      className="w-full h-full object-contain p-1"
+   322→                    />
+   323→                  ) : (
+   324→                    <Store className="h-10 w-10 text-muted-foreground/40" />
+   325→                  )}
+   326→                </div>
+   327→                <div className="flex-1 space-y-2">
+   328→                  <input
+   329→                    ref={fileInputRef}
+   330→                    type="file"
+   331→                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+   332→                    onChange={handleLogoUpload}
+   333→                    className="hidden"
+   334→                  />
+   335→                  <Button
+   336→                    variant="outline"
+   337→                    onClick={() => fileInputRef.current?.click()}
+   338→                    disabled={isUploading}
+   339→                    className="gap-2"
+   340→                  >
+   341→                    {isUploading ? (
+   342→                      <>
+   343→                        <Loader2 className="h-4 w-4 animate-spin" />
+   344→                        Chargement...
+   345→                      </>
+   346→                    ) : (
+   347→                      <>
+   348→                        <Upload className="h-4 w-4" />
+   349→                        {settings?.logo_url ? "Changer le logo" : "Ajouter un logo"}
+   350→                      </>
+   351→                    )}
+   352→                  </Button>
+   353→                  <p className="text-xs text-muted-foreground">
+   354→                    PNG, JPG, WebP ou SVG — Max 2 Mo
+   355→                  </p>
+   356→                </div>
+   357→              </div>
+   358→            </CardContent>
+   359→          </Card>
+   360→
+   361→          {/* Store Name */}
+   362→          <Card>
+   363→            <CardHeader>
+   364→              <CardTitle className="flex items-center gap-2">
+   365→                <Store className="h-5 w-5" />
+   366→                Nom du magasin
+   367→              </CardTitle>
+   368→              <CardDescription>
+   369→                Ce nom sera affiché dans l'application, sur les tickets et dans les notifications
+   370→              </CardDescription>
+   371→            </CardHeader>
+   372→            <CardContent className="space-y-4">
+   373→              <div className="flex gap-3">
+   374→                <Input
+   375→                  value={storeName}
+   376→                  onChange={(e) => setStoreName(e.target.value)}
+   377→                  placeholder="Nom de votre magasin"
+   378→                  className="flex-1"
+   379→                />
+   380→                <Button onClick={handleSaveStoreName} disabled={!storeName.trim()}>
+   381→                  Enregistrer
+   382→                </Button>
+   383→              </div>
+   384→              {/* Live preview */}
+   385→              <div className="p-4 bg-muted rounded-xl">
+   386→                <p className="text-sm text-muted-foreground mb-3">Aperçu dans la barre latérale</p>
+   387→                <div className="flex items-center gap-3">
+   388→                  <div className="w-10 h-10 rounded-xl bg-hero-gradient flex items-center justify-center">
+   389→                    {settings?.logo_url ? (
+   390→                      <img
+   391→                        src={settings.logo_url}
+   392→                        alt=""
+   393→                        className="w-8 h-8 rounded-lg object-contain"
+   394→                      />
+   395→                    ) : (
+   396→                      <span className="text-lg font-bold text-primary-foreground">
+   397→                        {storeName?.[0]?.toUpperCase() || "S"}
+   398→                      </span>
+   399→                    )}
+   400→                  </div>
+   401→                  <div>
+   402→                    <p className="font-bold text-sm">{storeName || "Mon Magasin"}</p>
+   403→                    <p className="text-xs text-muted-foreground">MalikiPlus</p>
+   404→                  </div>
+   405→                </div>
+   406→              </div>
+   407→            </CardContent>
+   408→          </Card>
+   409→        </TabsContent>
+   410→
+   411→        {/* ═══ COLORS TAB ═══ */}
+   412→        <TabsContent value="colors" className="space-y-6 mt-6">
+   413→          <Card>
+   414→            <CardHeader>
+   415→              <CardTitle className="flex items-center gap-2">
+   416→                <Palette className="h-5 w-5" />
+   417→                Couleurs de l'application
+   418→              </CardTitle>
+   419→              <CardDescription>
+   420→                Personnalisez les couleurs de votre interface. Les changements sont appliqués en temps réel.
+   421→              </CardDescription>
+   422→            </CardHeader>
+   423→            <CardContent className="space-y-6">
+   424→              {/* Color pickers */}
+   425→              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+   426→                {/* Primary */}
+   427→                <div className="space-y-3">
+   428→                  <Label className="text-sm font-medium">Couleur principale</Label>
+   429→                  <p className="text-xs text-muted-foreground">Boutons, liens, éléments actifs</p>
+   430→                  <div className="flex items-center gap-3">
+   431→                    <input
+   432→                      type="color"
+   433→                      value={primaryHex}
+   434→                      onChange={(e) => handleColorChange("primary_color", e.target.value)}
+   435→                      className="w-12 h-12 rounded-xl border-2 border-border cursor-pointer"
+   436→                    />
+   437→                    <Input
+   438→                      value={primaryHex}
+   439→                      onChange={(e) => {
+   440→                        const val = e.target.value;
+   441→                        if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+   442→                          handleColorChange("primary_color", val);
+   443→                        }
+   444→                        setPrimaryHex(val);
+   445→                      }}
+   446→                      className="flex-1 font-mono"
+   447→                      maxLength={7}
+   448→                    />
+   449→                  </div>
+   450→                </div>
+   451→
+   452→                {/* Secondary */}
+   453→                <div className="space-y-3">
+   454→                  <Label className="text-sm font-medium">Couleur secondaire</Label>
+   455→                  <p className="text-xs text-muted-foreground">Fonds, badges, arrière-plans</p>
+   456→                  <div className="flex items-center gap-3">
+   457→                    <input
+   458→                      type="color"
+   459→                      value={secondaryHex}
+   460→                      onChange={(e) => handleColorChange("secondary_color", e.target.value)}
+   461→                      className="w-12 h-12 rounded-xl border-2 border-border cursor-pointer"
+   462→                    />
+   463→                    <Input
+   464→                      value={secondaryHex}
+   465→                      onChange={(e) => {
+   466→                        const val = e.target.value;
+   467→                        if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+   468→                          handleColorChange("secondary_color", val);
+   469→                        }
+   470→                        setSecondaryHex(val);
+   471→                      }}
+   472→                      className="flex-1 font-mono"
+   473→                      maxLength={7}
+   474→                    />
+   475→                  </div>
+   476→                </div>
+   477→
+   478→                {/* Accent */}
+   479→                <div className="space-y-3">
+   480→                  <Label className="text-sm font-medium">Couleur d'accent</Label>
+   481→                  <p className="text-xs text-muted-foreground">Surbrillance, mises en valeur</p>
+   482→                  <div className="flex items-center gap-3">
+   483→                    <input
+   484→                      type="color"
+   485→                      value={accentHex}
+   486→                      onChange={(e) => handleColorChange("accent_color", e.target.value)}
+   487→                      className="w-12 h-12 rounded-xl border-2 border-border cursor-pointer"
+   488→                    />
+   489→                    <Input
+   490→                      value={accentHex}
+   491→                      onChange={(e) => {
+   492→                        const val = e.target.value;
+   493→                        if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+   494→                          handleColorChange("accent_color", val);
+   495→                        }
+   496→                        setAccentHex(val);
+   497→                      }}
+   498→                      className="flex-1 font-mono"
+   499→                      maxLength={7}
+   500→                    />
+   501→                  </div>
+   502→                </div>
+   503→
+   504→                {/* Success */}
+   505→                <div className="space-y-3">
+   506→                  <Label className="text-sm font-medium">Couleur de succès</Label>
+   507→                  <p className="text-xs text-muted-foreground">Confirmations, paiements réussis</p>
+   508→                  <div className="flex items-center gap-3">
+   509→                    <input
+   510→                      type="color"
+   511→                      value={successHex}
+   512→                      onChange={(e) => handleColorChange("success_color", e.target.value)}
+   513→                      className="w-12 h-12 rounded-xl border-2 border-border cursor-pointer"
+   514→                    />
+   515→                    <Input
+   516→                      value={successHex}
+   517→                      onChange={(e) => {
+   518→                        const val = e.target.value;
+   519→                        if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+   520→                          handleColorChange("success_color", val);
+   521→                        }
+   522→                        setSuccessHex(val);
+   523→                      }}
+   524→                      className="flex-1 font-mono"
+   525→                      maxLength={7}
+   526→                    />
+   527→                  </div>
+   528→                </div>
+   529→              </div>
+   530→
+   531→              {/* Live Preview */}
+   532→              <div className="p-6 bg-muted rounded-xl space-y-4">
+   533→                <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+   534→                  <Eye className="h-4 w-4" />
+   535→                  Aperçu en direct
+   536→                </p>
+   537→                <div className="flex flex-wrap gap-3">
+   538→                  <button
+   539→                    className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white"
+   540→                    style={{ backgroundColor: primaryHex }}
+   541→                  >
+   542→                    Bouton principal
+   543→                  </button>
+   544→                  <button
+   545→                    className="px-6 py-2.5 rounded-xl text-sm font-semibold border-2"
+   546→                    style={{ borderColor: primaryHex, color: primaryHex, backgroundColor: secondaryHex }}
+   547→                  >
+   548→                    Bouton secondaire
+   549→                  </button>
+   550→                  <span
+   551→                    className="px-4 py-2 rounded-xl text-sm font-medium"
+   552→                    style={{ backgroundColor: accentHex }}
+   553→                  >
+   554→                    Badge accent
+   555→                  </span>
+   556→                  <span
+   557→                    className="px-4 py-2 rounded-xl text-sm font-medium text-white"
+   558→                    style={{ backgroundColor: successHex }}
+   559→                  >
+   560→                    Paiement réussi
+   561→                  </span>
+   562→                </div>
+   563→                <div
+   564→                  className="h-2 rounded-full"
+   565→                  style={{
+   566→                    background: `linear-gradient(135deg, ${primaryHex} 0%, ${secondaryHex} 100%)`,
+   567→                  }}
+   568→                />
+   569→              </div>
+   570→
+   571→              {/* Reset button */}
+   572→              <div className="flex justify-end">
+   573→                <Button variant="outline" onClick={handleReset} className="gap-2">
+   574→                  <RotateCcw className="h-4 w-4" />
+   575→                  Réinitialiser les couleurs par défaut
+   576→                </Button>
+   577→              </div>
+   578→            </CardContent>
+   579→          </Card>
+   580→        </TabsContent>
+   581→
+   582→        {/* ═══ TEMPLATE TAB ═══ */}
+   583→        <TabsContent value="template" className="space-y-6 mt-6">
+   584→          <Card>
+   585→            <CardHeader>
+   586→              <CardTitle className="flex items-center gap-2">
+   587→                <LayoutTemplate className="h-5 w-5" />
+   588→                Templates prédéfinis
+   589→              </CardTitle>
+   590→              <CardDescription>
+   591→                Choisissez un template pour appliquer un ensemble de couleurs cohérent en un clic
+   592→              </CardDescription>
+   593→            </CardHeader>
+   594→            <CardContent>
+   595→              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+   596→                {(Object.entries(TEMPLATE_PRESETS) as [TemplateName, typeof TEMPLATE_PRESETS[TemplateName]][]).map(
+   597→                  ([key, preset]) => (
+   598→                    <button
+   599→                      key={key}
+   600→                      onClick={() => applyTemplate(key)}
+   601→                      className={`relative p-5 rounded-2xl border-2 text-left transition-all hover:shadow-md ${
+   602→                        selectedTemplate === key
+   603→                          ? "border-primary bg-primary/5 shadow-soft"
+   604→                          : "border-border hover:border-primary/30"
+   605→                      }`}
+   606→                    >
+   607→                      {selectedTemplate === key && (
+   608→                        <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+   609→                          <Check className="h-4 w-4 text-primary-foreground" />
+   610→                        </div>
+   611→                      )}
+   612→                      {/* Color preview */}
+   613→                      <div className="flex gap-1.5 mb-3">
+   614→                        <div
+   615→                          className="w-8 h-8 rounded-lg"
+   616→                          style={{ backgroundColor: hslStringToHex(preset.primary) }}
+   617→                        />
+   618→                        <div
+   619→                          className="w-8 h-8 rounded-lg"
+   620→                          style={{ backgroundColor: hslStringToHex(preset.secondary) }}
+   621→                        />
+   622→                        <div
+   623→                          className="w-8 h-8 rounded-lg"
+   624→                          style={{ backgroundColor: hslStringToHex(preset.accent) }}
+   625→                        />
+   626→                      </div>
+   627→                      <h3 className="font-semibold text-sm">{preset.label}</h3>
+   628→                      <p className="text-xs text-muted-foreground mt-1">{preset.description}</p>
+   629→                    </button>
+   630→                  )
+   631→                )}
+   632→              </div>
+   633→            </CardContent>
+   634→          </Card>
+   635→        </TabsContent>
+   636→
+   637→        {/* ═══ RECEIPT TAB ═══ */}
+   638→        <TabsContent value="receipt" className="space-y-6 mt-6">
+   639→          <Card>
+   640→            <CardHeader>
+   641→              <CardTitle className="flex items-center gap-2">
+   642→                <Receipt className="h-5 w-5" />
+   643→                Personnalisation du ticket de caisse
+   644→              </CardTitle>
+   645→              <CardDescription>
+   646→                Configurez l'apparence de vos tickets de caisse imprimés et envoyés par email
+   647→              </CardDescription>
+   648→            </CardHeader>
+   649→            <CardContent className="space-y-6">
+   650→              {/* Paper size */}
+   651→              <div className="space-y-3">
+   652→                <div className="flex items-center gap-2">
+   653→                  <Printer className="h-4 w-4 text-muted-foreground" />
+   654→                  <Label>Format du papier</Label>
+   655→                </div>
+   656→                <p className="text-xs text-muted-foreground">
+   657→                  Choisissez le format adapté à votre imprimante
+   658→                </p>
+   659→                <div className="grid grid-cols-3 gap-3">
+   660→                  {[
+   661→                    { value: "58mm" as const, label: "58 mm", desc: "Thermique compact", icon: "📜" },
+   662→                    { value: "80mm" as const, label: "80 mm", desc: "Thermique standard", icon: "🧾" },
+   663→                    { value: "A4" as const, label: "A4", desc: "Imprimante bureau", icon: "📄" },
+   664→                  ].map((option) => (
+   665→                    <button
+   666→                      key={option.value}
+   667→                      onClick={() => setReceiptPaperSize(option.value)}
+   668→                      className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all text-center ${
+   669→                        receiptPaperSize === option.value
+   670→                          ? "border-primary bg-primary/5"
+   671→                          : "border-border hover:border-primary/50"
+   672→                      }`}
+   673→                    >
+   674→                      <span className="text-lg">{option.icon}</span>
+   675→                      <span className={`text-sm font-semibold ${
+   676→                        receiptPaperSize === option.value ? "text-primary" : "text-foreground"
+   677→                      }`}>
+   678→                        {option.label}
+   679→                      </span>
+   680→                      <span className="text-[10px] text-muted-foreground">
+   681→                        {option.desc}
+   682→                      </span>
+   683→                    </button>
+   684→                  ))}
+   685→                </div>
+   686→              </div>
+   687→
+   688→              <div className="border-t pt-4" />
+   689→
+   690→              {/* Show logo on receipt */}
+   691→              <div className="flex items-center justify-between">
+   692→                <div className="space-y-0.5">
+   693→                  <Label>Afficher le logo sur le ticket</Label>
+   694→                  <p className="text-xs text-muted-foreground">
+   695→                    Le logo apparaîtra en haut du ticket de caisse
+   696→                  </p>
+   697→                </div>
+   698→                <Switch
+   699→                  checked={receiptShowLogo}
+   700→                  onCheckedChange={setReceiptShowLogo}
+   701→                />
+   702→              </div>
+   703→
+   704→              {/* Show tax on receipt */}
+   705→              <div className="flex items-center justify-between">
+   706→                <div className="space-y-0.5">
+   707→                  <Label>Afficher les taxes</Label>
+   708→                  <p className="text-xs text-muted-foreground">
+   709→                    Détail des taxes sur le ticket de caisse
+   710→                  </p>
+   711→                </div>
+   712→                <Switch
+   713→                  checked={receiptShowTax}
+   714→                  onCheckedChange={setReceiptShowTax}
+   715→                />
+   716→              </div>
+   717→
+   718→              {/* Receipt footer */}
+   719→              <div className="space-y-2">
+   720→                <Label htmlFor="receipt-footer">Pied de ticket</Label>
+   721→                <Textarea
+   722→                  id="receipt-footer"
+   723→                  value={receiptFooter}
+   724→                  onChange={(e) => setReceiptFooter(e.target.value)}
+   725→                  placeholder="Merci de votre achat !À bientôt chez nous."
+   726→                  rows={3}
+   727→                />
+   728→                <p className="text-xs text-muted-foreground">
+   729→                  Texte affiché en bas de chaque ticket de caisse
+   730→                </p>
+   731→              </div>
+   732→
+   733→              {/* Receipt preview */}
+   734→              <div className="p-4 bg-white text-black rounded-lg max-w-[280px] mx-auto border shadow-sm font-mono text-xs">
+   735→                <div className="text-center">
+   736→                  {receiptShowLogo && settings?.logo_url && (
+   737→                    <img
+   738→                      src={settings.logo_url}
+   739→                      alt=""
+   740→                      className="w-12 h-12 mx-auto object-contain mb-2"
+   741→                    />
+   742→                  )}
+   743→                  <p className="font-bold text-sm">{storeName || "Mon Magasin"}</p>
+   744→                  <p className="text-[10px] text-gray-500 mt-1">
+   745→                    {profile?.address || "Dakar, Sénégal"}
+   746→                  </p>
+   747→                  <div className="border-t border-dashed border-gray-300 my-2" />
+   748→                  <p className="text-[10px]">Vente #001</p>
+   749→                  <div className="border-t border-dashed border-gray-300 my-2" />
+   750→                  <div className="flex justify-between">
+   751→                    <span>Produit x2</span>
+   752→                    <span>5 000 FCFA</span>
+   753→                  </div>
+   754→                  <div className="flex justify-between mt-1">
+   755→                    <span>Boisson x1</span>
+   756→                    <span>500 FCFA</span>
+   757→                  </div>
+   758→                  <div className="border-t border-dashed border-gray-300 my-2" />
+   759→                  {receiptShowTax && (
+   760→                    <>
+   761→                      <div className="flex justify-between text-[10px] text-gray-500">
+   762→                        <span>TVA (18%)</span>
+   763→                        <span>990 FCFA</span>
+   764→                      </div>
+   765→                    </>
+   766→                  )}
+   767→                  <div className="flex justify-between font-bold mt-1">
+   768→                    <span>Total</span>
+   769→                    <span>6 490 FCFA</span>
+   770→                  </div>
+   771→                  <div className="border-t border-dashed border-gray-300 my-2" />
+   772→                  {receiptFooter && (
+   773→                    <p className="text-[10px] text-gray-500 italic text-center whitespace-pre-line">
+   774→                      {receiptFooter}
+   775→                    </p>
+   776→                  )}
+   777→                </div>
+   778→              </div>
+   779→
+   780→              <Button onClick={handleSaveReceiptSettings} className="w-full" size="lg">
+   781→                Enregistrer les paramètres du ticket
+   782→              </Button>
+   783→            </CardContent>
+   784→          </Card>
+   785→        </TabsContent>
+   786→      </Tabs>
+   787→    </div>
+   788→  );
+   789→};
+   790→
+   791→export default StoreCustomization;
+   792→

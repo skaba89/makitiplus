@@ -1,0 +1,792 @@
+     1→     1→import { useState, useRef, useCallback } from "react";
+     2→     2→import { useMutation, useQueryClient } from "@tanstack/react-query";
+     3→     3→import { supabase } from "@/integrations/supabase/client";
+     4→     4→import { useAuth } from "@/contexts/AuthContext";
+     5→     5→import { useThemeSettings, TEMPLATE_PRESETS, type TemplateName, type StoreSettings } from "@/contexts/ThemeContext";
+     6→     6→import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+     7→     7→import { Button } from "@/components/ui/button";
+     8→     8→import { Input } from "@/components/ui/input";
+     9→     9→import { Label } from "@/components/ui/label";
+    10→    10→import { Textarea } from "@/components/ui/textarea";
+    11→    11→import { Switch } from "@/components/ui/switch";
+    12→    12→import { useToast } from "@/hooks/use-toast";
+    13→    13→import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+    14→    14→import {
+    15→    15→  Select,
+    16→    16→  SelectContent,
+    17→    17→  SelectItem,
+    18→    18→  SelectTrigger,
+    19→    19→  SelectValue,
+    20→    20→} from "@/components/ui/select";
+    21→    21→import {
+    22→    22→  Palette,
+    23→    23→  Upload,
+    24→    24→  Store,
+    25→    25→  Receipt,
+    26→    26→  LayoutTemplate,
+    27→    27→  Eye,
+    28→    28→  RotateCcw,
+    29→    29→  Loader2,
+    30→    30→  Check,
+    31→    31→  Image as ImageIcon,
+    32→    32→  Printer,
+    33→    33→} from "lucide-react";
+    34→    34→
+    35→    35→// Utility: parse HSL string "16 80% 50%" to hex for color input
+    36→    36→const hslStringToHex = (hsl: string): string => {
+    37→    37→  const parts = hsl.split(/\s+/);
+    38→    38→  if (parts.length !== 3) return "#E8612D";
+    39→    39→  const h = parseFloat(parts[0]);
+    40→    40→  const s = parseFloat(parts[1]);
+    41→    41→  const l = parseFloat(parts[2]);
+    42→    42→
+    43→    43→  const a = (s * Math.min(l, 100 - l)) / 10000;
+    44→    44→  const f = (n: number) => {
+    45→    45→    const k = (n + h / 30) % 12;
+    46→    46→    const color = l / 100 - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    47→    47→    return Math.round(255 * color)
+    48→    48→      .toString(16)
+    49→    49→      .padStart(2, "0");
+    50→    50→  };
+    51→    51→  return `#${f(0)}${f(8)}${f(4)}`;
+    52→    52→};
+    53→    53→
+    54→    54→// Utility: hex to HSL string
+    55→    55→const hexToHslString = (hex: string): string => {
+    56→    56→  const r = parseInt(hex.slice(1, 3), 16) / 255;
+    57→    57→  const g = parseInt(hex.slice(3, 5), 16) / 255;
+    58→    58→  const b = parseInt(hex.slice(5, 7), 16) / 255;
+    59→    59→
+    60→    60→  const max = Math.max(r, g, b);
+    61→    61→  const min = Math.min(r, g, b);
+    62→    62→  let h = 0;
+    63→    63→  const l = (max + min) / 2;
+    64→    64→  let s = 0;
+    65→    65→
+    66→    66→  if (max !== min) {
+    67→    67→    const d = max - min;
+    68→    68→    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    69→    69→    switch (max) {
+    70→    70→      case r:
+    71→    71→        h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+    72→    72→        break;
+    73→    73→      case g:
+    74→    74→        h = ((b - r) / d + 2) / 6;
+    75→    75→        break;
+    76→    76→      case b:
+    77→    77→        h = ((r - g) / d + 4) / 6;
+    78→    78→        break;
+    79→    79→    }
+    80→    80→  }
+    81→    81→
+    82→    82→  return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+    83→    83→};
+    84→    84→
+    85→    85→const StoreCustomization = () => {
+    86→    86→  const { profile } = useAuth();
+    87→    87→  const { settings, isLoading, updateSettings, resetTheme } = useThemeSettings();
+    88→    88→  const { toast } = useToast();
+    89→    89→  const queryClient = useQueryClient();
+    90→    90→  const fileInputRef = useRef<HTMLInputElement>(null);
+    91→    91→  const [isUploading, setIsUploading] = useState(false);
+    92→    92→
+    93→    93→  // Color state
+    94→    94→  const [primaryHex, setPrimaryHex] = useState(
+    95→    95→    settings?.primary_color ? hslStringToHex(settings.primary_color) : "#E8612D"
+    96→    96→  );
+    97→    97→  const [secondaryHex, setSecondaryHex] = useState(
+    98→    98→    settings?.secondary_color ? hslStringToHex(settings.secondary_color) : "#FAF0E2"
+    99→    99→  );
+   100→   100→  const [accentHex, setAccentHex] = useState(
+   101→   101→    settings?.accent_color ? hslStringToHex(settings.accent_color) : "#F5E6CE"
+   102→   102→  );
+   103→   103→  const [successHex, setSuccessHex] = useState(
+   104→   104→    settings?.success_color ? hslStringToHex(settings.success_color) : "#2BA84A"
+   105→   105→  );
+   106→   106→
+   107→   107→  // Receipt state
+   108→   108→  const [receiptFooter, setReceiptFooter] = useState(settings?.receipt_footer || "");
+   109→   109→  const [receiptShowLogo, setReceiptShowLogo] = useState(settings?.receipt_show_logo ?? true);
+   110→   110→  const [receiptShowTax, setReceiptShowTax] = useState(settings?.receipt_show_tax ?? true);
+   111→   111→  const [receiptPaperSize, setReceiptPaperSize] = useState<"58mm" | "80mm" | "A4">(
+   112→   112→    (settings?.extra_settings as Record<string, string>)?.receiptPaperSize as "58mm" | "80mm" | "A4" || "80mm"
+   113→   113→  );
+   114→   114→
+   115→   115→  // Store name
+   116→   116→  const [storeName, setStoreName] = useState(settings?.store_name || profile?.business_name || "");
+   117→   117→
+   118→   118→  // Template
+   119→   119→  const [selectedTemplate, setSelectedTemplate] = useState<TemplateName>(
+   120→   120→    (settings?.template as TemplateName) || "default"
+   121→   121→  );
+   122→   122→
+   123→   123→  // Update color and apply in real-time
+   124→   124→  const handleColorChange = useCallback(
+   125→   125→    async (colorName: "primary_color" | "secondary_color" | "accent_color" | "success_color", hexValue: string) => {
+   126→   126→      const hslValue = hexToHslString(hexValue);
+   127→   127→
+   128→   128→      // Update local state
+   129→   129→      if (colorName === "primary_color") setPrimaryHex(hexValue);
+   130→   130→      if (colorName === "secondary_color") setSecondaryHex(hexValue);
+   131→   131→      if (colorName === "accent_color") setAccentHex(hexValue);
+   132→   132→      if (colorName === "success_color") setSuccessHex(hexValue);
+   133→   133→
+   134→   134→      // Apply immediately via CSS for instant preview
+   135→   135→      const root = document.documentElement;
+   136→   136→      root.style.setProperty(`--${colorName.replace("_color", "")}`, hslValue);
+   137→   137→      if (colorName === "primary_color") {
+   138→   138→        root.style.setProperty("--ring", hslValue);
+   139→   139→        root.style.setProperty("--sidebar-primary", hslValue);
+   140→   140→      }
+   141→   141→
+   142→   142→      // Save to DB (debounced naturally by React state batching)
+   143→   143→      await updateSettings({ [colorName]: hslValue });
+   144→   144→    },
+   145→   145→    [updateSettings]
+   146→   146→  );
+   147→   147→
+   148→   148→  // Apply template preset
+   149→   149→  const applyTemplate = useCallback(
+   150→   150→    async (templateName: TemplateName) => {
+   151→   151→      const preset = TEMPLATE_PRESETS[templateName];
+   152→   152→      setSelectedTemplate(templateName);
+   153→   153→
+   154→   154→      setPrimaryHex(hslStringToHex(preset.primary));
+   155→   155→      setSecondaryHex(hslStringToHex(preset.secondary));
+   156→   156→      setAccentHex(hslStringToHex(preset.accent));
+   157→   157→
+   158→   158→      await updateSettings({
+   159→   159→        template: templateName,
+   160→   160→        primary_color: preset.primary,
+   161→   161→        secondary_color: preset.secondary,
+   162→   162→        accent_color: preset.accent,
+   163→   163→      });
+   164→   164→
+   165→   165→      toast({
+   166→   166→        title: `Template "${preset.label}" appliqué`,
+   167→   167→        description: preset.description,
+   168→   168→      });
+   169→   169→    },
+   170→   170→    [updateSettings, toast]
+   171→   171→  );
+   172→   172→
+   173→   173→  // Logo upload
+   174→   174→  const handleLogoUpload = useCallback(
+   175→   175→    async (e: React.ChangeEvent<HTMLInputElement>) => {
+   176→   176→      const file = e.target.files?.[0];
+   177→   177→      if (!file) return;
+   178→   178→
+   179→   179→      if (file.size > 2 * 1024 * 1024) {
+   180→   180→        toast({
+   181→   181→          variant: "destructive",
+   182→   182→          title: "Fichier trop volumineux",
+   183→   183→          description: "Le logo doit faire moins de 2 Mo",
+   184→   184→        });
+   185→   185→        return;
+   186→   186→      }
+   187→   187→
+   188→   188→      setIsUploading(true);
+   189→   189→      try {
+   190→   190→        const ext = file.name.split(".").pop();
+   191→   191→        const path = `${profile?.organization_id}/logo.${ext}`;
+   192→   192→
+   193→   193→        // Delete existing logo first
+   194→   194→        await supabase.storage.from("logos").remove([path]);
+   195→   195→
+   196→   196→        const { error: uploadError } = await supabase.storage
+   197→   197→          .from("logos")
+   198→   198→          .upload(path, file, { upsert: true });
+   199→   199→
+   200→   200→        if (uploadError) throw uploadError;
+   201→   201→
+   202→   202→        const { data: urlData } = supabase.storage.from("logos").getPublicUrl(path);
+   203→   203→        const logoUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+   204→   204→
+   205→   205→        await updateSettings({ logo_url: logoUrl });
+   206→   206→
+   207→   207→        toast({
+   208→   208→          title: "Logo mis à jour",
+   209→   209→          description: "Votre logo a été enregistré avec succès",
+   210→   210→        });
+   211→   211→      } catch (error) {
+   212→   212→        toast({
+   213→   213→          variant: "destructive",
+   214→   214→          title: "Erreur d'upload",
+   215→   215→          description: "Impossible de charger le logo",
+   216→   216→        });
+   217→   217→      } finally {
+   218→   218→        setIsUploading(false);
+   219→   219→      }
+   220→   220→    },
+   221→   221→    [profile?.organization_id, updateSettings, toast]
+   222→   222→  );
+   223→   223→
+   224→   224→  // Save store name
+   225→   225→  const handleSaveStoreName = useCallback(async () => {
+   226→   226→    await updateSettings({ store_name: storeName });
+   227→   227→    toast({ title: "Nom du magasin enregistré" });
+   228→   228→  }, [storeName, updateSettings, toast]);
+   229→   229→
+   230→   230→  // Save receipt settings
+   231→   231→  const handleSaveReceiptSettings = useCallback(async () => {
+   232→   232→    const currentExtra = (settings?.extra_settings as Record<string, unknown>) || {};
+   233→   233→    await updateSettings({
+   234→   234→      receipt_footer: receiptFooter,
+   235→   235→      receipt_show_logo: receiptShowLogo,
+   236→   236→      receipt_show_tax: receiptShowTax,
+   237→   237→      extra_settings: {
+   238→   238→        ...currentExtra,
+   239→   239→        receiptPaperSize,
+   240→   240→      },
+   241→   241→    });
+   242→   242→    toast({ title: "Paramètres de ticket enregistrés" });
+   243→   243→  }, [receiptFooter, receiptShowLogo, receiptShowTax, receiptPaperSize, settings?.extra_settings, updateSettings, toast]);
+   244→   244→
+   245→   245→  // Reset to defaults
+   246→   246→  const handleReset = useCallback(async () => {
+   247→   247→    resetTheme();
+   248→   248→    await updateSettings({
+   249→   249→      primary_color: DEFAULT_COLORS.primary,
+   250→   250→      secondary_color: DEFAULT_COLORS.secondary,
+   251→   251→      accent_color: DEFAULT_COLORS.accent,
+   252→   252→      success_color: DEFAULT_COLORS.success,
+   253→   253→      template: "default",
+   254→   254→    });
+   255→   255→    setPrimaryHex(hslStringToHex(DEFAULT_COLORS.primary));
+   256→   256→    setSecondaryHex(hslStringToHex(DEFAULT_COLORS.secondary));
+   257→   257→    setAccentHex(hslStringToHex(DEFAULT_COLORS.accent));
+   258→   258→    setSuccessHex(hslStringToHex(DEFAULT_COLORS.success));
+   259→   259→    setSelectedTemplate("default");
+   260→   260→    toast({ title: "Thème réinitialisé" });
+   261→   261→  }, [updateSettings, resetTheme, toast]);
+   262→   262→
+   263→   263→  const DEFAULT_COLORS = {
+   264→   264→    primary: "16 80% 50%",
+   265→   265→    secondary: "38 60% 92%",
+   266→   266→    accent: "38 70% 88%",
+   267→   267→    success: "152 60% 42%",
+   268→   268→  };
+   269→   269→
+   270→   270→  if (isLoading) {
+   271→   271→    return (
+   272→   272→      <div className="flex items-center justify-center py-12">
+   273→   273→        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+   274→   274→      </div>
+   275→   275→    );
+   276→   276→  }
+   277→   277→
+   278→   278→  return (
+   279→   279→    <div className="space-y-6">
+   280→   280→      <Tabs defaultValue="branding" className="w-full">
+   281→   281→        <TabsList className="grid w-full grid-cols-4">
+   282→   282→          <TabsTrigger value="branding" className="gap-2">
+   283→   283→            <Store className="h-4 w-4 hidden sm:block" />
+   284→   284→            Marque
+   285→   285→          </TabsTrigger>
+   286→   286→          <TabsTrigger value="colors" className="gap-2">
+   287→   287→            <Palette className="h-4 w-4 hidden sm:block" />
+   288→   288→            Couleurs
+   289→   289→          </TabsTrigger>
+   290→   290→          <TabsTrigger value="template" className="gap-2">
+   291→   291→            <LayoutTemplate className="h-4 w-4 hidden sm:block" />
+   292→   292→            Template
+   293→   293→          </TabsTrigger>
+   294→   294→          <TabsTrigger value="receipt" className="gap-2">
+   295→   295→            <Receipt className="h-4 w-4 hidden sm:block" />
+   296→   296→            Ticket
+   297→   297→          </TabsTrigger>
+   298→   298→        </TabsList>
+   299→   299→
+   300→   300→        {/* ═══ BRANDING TAB ═══ */}
+   301→   301→        <TabsContent value="branding" className="space-y-6 mt-6">
+   302→   302→          {/* Logo Upload */}
+   303→   303→          <Card>
+   304→   304→            <CardHeader>
+   305→   305→              <CardTitle className="flex items-center gap-2">
+   306→   306→                <ImageIcon className="h-5 w-5" />
+   307→   307→                Logo du magasin
+   308→   308→              </CardTitle>
+   309→   309→              <CardDescription>
+   310→   310→                Ce logo apparaîtra dans la barre latérale, les tickets et l'application mobile
+   311→   311→              </CardDescription>
+   312→   312→            </CardHeader>
+   313→   313→            <CardContent className="space-y-4">
+   314→   314→              <div className="flex items-center gap-6">
+   315→   315→                {/* Logo Preview */}
+   316→   316→                <div className="w-24 h-24 rounded-2xl border-2 border-dashed border-muted-foreground/25 flex items-center justify-center overflow-hidden bg-muted/50">
+   317→   317→                  {settings?.logo_url ? (
+   318→   318→                    <img
+   319→   319→                      src={settings.logo_url}
+   320→   320→                      alt="Logo"
+   321→   321→                      className="w-full h-full object-contain p-1"
+   322→   322→                    />
+   323→   323→                  ) : (
+   324→   324→                    <Store className="h-10 w-10 text-muted-foreground/40" />
+   325→   325→                  )}
+   326→   326→                </div>
+   327→   327→                <div className="flex-1 space-y-2">
+   328→   328→                  <input
+   329→   329→                    ref={fileInputRef}
+   330→   330→                    type="file"
+   331→   331→                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+   332→   332→                    onChange={handleLogoUpload}
+   333→   333→                    className="hidden"
+   334→   334→                  />
+   335→   335→                  <Button
+   336→   336→                    variant="outline"
+   337→   337→                    onClick={() => fileInputRef.current?.click()}
+   338→   338→                    disabled={isUploading}
+   339→   339→                    className="gap-2"
+   340→   340→                  >
+   341→   341→                    {isUploading ? (
+   342→   342→                      <>
+   343→   343→                        <Loader2 className="h-4 w-4 animate-spin" />
+   344→   344→                        Chargement...
+   345→   345→                      </>
+   346→   346→                    ) : (
+   347→   347→                      <>
+   348→   348→                        <Upload className="h-4 w-4" />
+   349→   349→                        {settings?.logo_url ? "Changer le logo" : "Ajouter un logo"}
+   350→   350→                      </>
+   351→   351→                    )}
+   352→   352→                  </Button>
+   353→   353→                  <p className="text-xs text-muted-foreground">
+   354→   354→                    PNG, JPG, WebP ou SVG — Max 2 Mo
+   355→   355→                  </p>
+   356→   356→                </div>
+   357→   357→              </div>
+   358→   358→            </CardContent>
+   359→   359→          </Card>
+   360→   360→
+   361→   361→          {/* Store Name */}
+   362→   362→          <Card>
+   363→   363→            <CardHeader>
+   364→   364→              <CardTitle className="flex items-center gap-2">
+   365→   365→                <Store className="h-5 w-5" />
+   366→   366→                Nom du magasin
+   367→   367→              </CardTitle>
+   368→   368→              <CardDescription>
+   369→   369→                Ce nom sera affiché dans l'application, sur les tickets et dans les notifications
+   370→   370→              </CardDescription>
+   371→   371→            </CardHeader>
+   372→   372→            <CardContent className="space-y-4">
+   373→   373→              <div className="flex gap-3">
+   374→   374→                <Input
+   375→   375→                  value={storeName}
+   376→   376→                  onChange={(e) => setStoreName(e.target.value)}
+   377→   377→                  placeholder="Nom de votre magasin"
+   378→   378→                  className="flex-1"
+   379→   379→                />
+   380→   380→                <Button onClick={handleSaveStoreName} disabled={!storeName.trim()}>
+   381→   381→                  Enregistrer
+   382→   382→                </Button>
+   383→   383→              </div>
+   384→   384→              {/* Live preview */}
+   385→   385→              <div className="p-4 bg-muted rounded-xl">
+   386→   386→                <p className="text-sm text-muted-foreground mb-3">Aperçu dans la barre latérale</p>
+   387→   387→                <div className="flex items-center gap-3">
+   388→   388→                  <div className="w-10 h-10 rounded-xl bg-hero-gradient flex items-center justify-center">
+   389→   389→                    {settings?.logo_url ? (
+   390→   390→                      <img
+   391→   391→                        src={settings.logo_url}
+   392→   392→                        alt=""
+   393→   393→                        className="w-8 h-8 rounded-lg object-contain"
+   394→   394→                      />
+   395→   395→                    ) : (
+   396→   396→                      <span className="text-lg font-bold text-primary-foreground">
+   397→   397→                        {storeName?.[0]?.toUpperCase() || "S"}
+   398→   398→                      </span>
+   399→   399→                    )}
+   400→   400→                  </div>
+   401→   401→                  <div>
+   402→   402→                    <p className="font-bold text-sm">{storeName || "Mon Magasin"}</p>
+   403→   403→                    <p className="text-xs text-muted-foreground">MalikiPlus</p>
+   404→   404→                  </div>
+   405→   405→                </div>
+   406→   406→              </div>
+   407→   407→            </CardContent>
+   408→   408→          </Card>
+   409→   409→        </TabsContent>
+   410→   410→
+   411→   411→        {/* ═══ COLORS TAB ═══ */}
+   412→   412→        <TabsContent value="colors" className="space-y-6 mt-6">
+   413→   413→          <Card>
+   414→   414→            <CardHeader>
+   415→   415→              <CardTitle className="flex items-center gap-2">
+   416→   416→                <Palette className="h-5 w-5" />
+   417→   417→                Couleurs de l'application
+   418→   418→              </CardTitle>
+   419→   419→              <CardDescription>
+   420→   420→                Personnalisez les couleurs de votre interface. Les changements sont appliqués en temps réel.
+   421→   421→              </CardDescription>
+   422→   422→            </CardHeader>
+   423→   423→            <CardContent className="space-y-6">
+   424→   424→              {/* Color pickers */}
+   425→   425→              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+   426→   426→                {/* Primary */}
+   427→   427→                <div className="space-y-3">
+   428→   428→                  <Label className="text-sm font-medium">Couleur principale</Label>
+   429→   429→                  <p className="text-xs text-muted-foreground">Boutons, liens, éléments actifs</p>
+   430→   430→                  <div className="flex items-center gap-3">
+   431→   431→                    <input
+   432→   432→                      type="color"
+   433→   433→                      value={primaryHex}
+   434→   434→                      onChange={(e) => handleColorChange("primary_color", e.target.value)}
+   435→   435→                      className="w-12 h-12 rounded-xl border-2 border-border cursor-pointer"
+   436→   436→                    />
+   437→   437→                    <Input
+   438→   438→                      value={primaryHex}
+   439→   439→                      onChange={(e) => {
+   440→   440→                        const val = e.target.value;
+   441→   441→                        if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+   442→   442→                          handleColorChange("primary_color", val);
+   443→   443→                        }
+   444→   444→                        setPrimaryHex(val);
+   445→   445→                      }}
+   446→   446→                      className="flex-1 font-mono"
+   447→   447→                      maxLength={7}
+   448→   448→                    />
+   449→   449→                  </div>
+   450→   450→                </div>
+   451→   451→
+   452→   452→                {/* Secondary */}
+   453→   453→                <div className="space-y-3">
+   454→   454→                  <Label className="text-sm font-medium">Couleur secondaire</Label>
+   455→   455→                  <p className="text-xs text-muted-foreground">Fonds, badges, arrière-plans</p>
+   456→   456→                  <div className="flex items-center gap-3">
+   457→   457→                    <input
+   458→   458→                      type="color"
+   459→   459→                      value={secondaryHex}
+   460→   460→                      onChange={(e) => handleColorChange("secondary_color", e.target.value)}
+   461→   461→                      className="w-12 h-12 rounded-xl border-2 border-border cursor-pointer"
+   462→   462→                    />
+   463→   463→                    <Input
+   464→   464→                      value={secondaryHex}
+   465→   465→                      onChange={(e) => {
+   466→   466→                        const val = e.target.value;
+   467→   467→                        if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+   468→   468→                          handleColorChange("secondary_color", val);
+   469→   469→                        }
+   470→   470→                        setSecondaryHex(val);
+   471→   471→                      }}
+   472→   472→                      className="flex-1 font-mono"
+   473→   473→                      maxLength={7}
+   474→   474→                    />
+   475→   475→                  </div>
+   476→   476→                </div>
+   477→   477→
+   478→   478→                {/* Accent */}
+   479→   479→                <div className="space-y-3">
+   480→   480→                  <Label className="text-sm font-medium">Couleur d'accent</Label>
+   481→   481→                  <p className="text-xs text-muted-foreground">Surbrillance, mises en valeur</p>
+   482→   482→                  <div className="flex items-center gap-3">
+   483→   483→                    <input
+   484→   484→                      type="color"
+   485→   485→                      value={accentHex}
+   486→   486→                      onChange={(e) => handleColorChange("accent_color", e.target.value)}
+   487→   487→                      className="w-12 h-12 rounded-xl border-2 border-border cursor-pointer"
+   488→   488→                    />
+   489→   489→                    <Input
+   490→   490→                      value={accentHex}
+   491→   491→                      onChange={(e) => {
+   492→   492→                        const val = e.target.value;
+   493→   493→                        if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+   494→   494→                          handleColorChange("accent_color", val);
+   495→   495→                        }
+   496→   496→                        setAccentHex(val);
+   497→   497→                      }}
+   498→   498→                      className="flex-1 font-mono"
+   499→   499→                      maxLength={7}
+   500→   500→                    />
+   501→   501→                  </div>
+   502→   502→                </div>
+   503→   503→
+   504→   504→                {/* Success */}
+   505→   505→                <div className="space-y-3">
+   506→   506→                  <Label className="text-sm font-medium">Couleur de succès</Label>
+   507→   507→                  <p className="text-xs text-muted-foreground">Confirmations, paiements réussis</p>
+   508→   508→                  <div className="flex items-center gap-3">
+   509→   509→                    <input
+   510→   510→                      type="color"
+   511→   511→                      value={successHex}
+   512→   512→                      onChange={(e) => handleColorChange("success_color", e.target.value)}
+   513→   513→                      className="w-12 h-12 rounded-xl border-2 border-border cursor-pointer"
+   514→   514→                    />
+   515→   515→                    <Input
+   516→   516→                      value={successHex}
+   517→   517→                      onChange={(e) => {
+   518→   518→                        const val = e.target.value;
+   519→   519→                        if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+   520→   520→                          handleColorChange("success_color", val);
+   521→   521→                        }
+   522→   522→                        setSuccessHex(val);
+   523→   523→                      }}
+   524→   524→                      className="flex-1 font-mono"
+   525→   525→                      maxLength={7}
+   526→   526→                    />
+   527→   527→                  </div>
+   528→   528→                </div>
+   529→   529→              </div>
+   530→   530→
+   531→   531→              {/* Live Preview */}
+   532→   532→              <div className="p-6 bg-muted rounded-xl space-y-4">
+   533→   533→                <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+   534→   534→                  <Eye className="h-4 w-4" />
+   535→   535→                  Aperçu en direct
+   536→   536→                </p>
+   537→   537→                <div className="flex flex-wrap gap-3">
+   538→   538→                  <button
+   539→   539→                    className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white"
+   540→   540→                    style={{ backgroundColor: primaryHex }}
+   541→   541→                  >
+   542→   542→                    Bouton principal
+   543→   543→                  </button>
+   544→   544→                  <button
+   545→   545→                    className="px-6 py-2.5 rounded-xl text-sm font-semibold border-2"
+   546→   546→                    style={{ borderColor: primaryHex, color: primaryHex, backgroundColor: secondaryHex }}
+   547→   547→                  >
+   548→   548→                    Bouton secondaire
+   549→   549→                  </button>
+   550→   550→                  <span
+   551→   551→                    className="px-4 py-2 rounded-xl text-sm font-medium"
+   552→   552→                    style={{ backgroundColor: accentHex }}
+   553→   553→                  >
+   554→   554→                    Badge accent
+   555→   555→                  </span>
+   556→   556→                  <span
+   557→   557→                    className="px-4 py-2 rounded-xl text-sm font-medium text-white"
+   558→   558→                    style={{ backgroundColor: successHex }}
+   559→   559→                  >
+   560→   560→                    Paiement réussi
+   561→   561→                  </span>
+   562→   562→                </div>
+   563→   563→                <div
+   564→   564→                  className="h-2 rounded-full"
+   565→   565→                  style={{
+   566→   566→                    background: `linear-gradient(135deg, ${primaryHex} 0%, ${secondaryHex} 100%)`,
+   567→   567→                  }}
+   568→   568→                />
+   569→   569→              </div>
+   570→   570→
+   571→   571→              {/* Reset button */}
+   572→   572→              <div className="flex justify-end">
+   573→   573→                <Button variant="outline" onClick={handleReset} className="gap-2">
+   574→   574→                  <RotateCcw className="h-4 w-4" />
+   575→   575→                  Réinitialiser les couleurs par défaut
+   576→   576→                </Button>
+   577→   577→              </div>
+   578→   578→            </CardContent>
+   579→   579→          </Card>
+   580→   580→        </TabsContent>
+   581→   581→
+   582→   582→        {/* ═══ TEMPLATE TAB ═══ */}
+   583→   583→        <TabsContent value="template" className="space-y-6 mt-6">
+   584→   584→          <Card>
+   585→   585→            <CardHeader>
+   586→   586→              <CardTitle className="flex items-center gap-2">
+   587→   587→                <LayoutTemplate className="h-5 w-5" />
+   588→   588→                Templates prédéfinis
+   589→   589→              </CardTitle>
+   590→   590→              <CardDescription>
+   591→   591→                Choisissez un template pour appliquer un ensemble de couleurs cohérent en un clic
+   592→   592→              </CardDescription>
+   593→   593→            </CardHeader>
+   594→   594→            <CardContent>
+   595→   595→              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+   596→   596→                {(Object.entries(TEMPLATE_PRESETS) as [TemplateName, typeof TEMPLATE_PRESETS[TemplateName]][]).map(
+   597→   597→                  ([key, preset]) => (
+   598→   598→                    <button
+   599→   599→                      key={key}
+   600→   600→                      onClick={() => applyTemplate(key)}
+   601→   601→                      className={`relative p-5 rounded-2xl border-2 text-left transition-all hover:shadow-md ${
+   602→   602→                        selectedTemplate === key
+   603→   603→                          ? "border-primary bg-primary/5 shadow-soft"
+   604→   604→                          : "border-border hover:border-primary/30"
+   605→   605→                      }`}
+   606→   606→                    >
+   607→   607→                      {selectedTemplate === key && (
+   608→   608→                        <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+   609→   609→                          <Check className="h-4 w-4 text-primary-foreground" />
+   610→   610→                        </div>
+   611→   611→                      )}
+   612→   612→                      {/* Color preview */}
+   613→   613→                      <div className="flex gap-1.5 mb-3">
+   614→   614→                        <div
+   615→   615→                          className="w-8 h-8 rounded-lg"
+   616→   616→                          style={{ backgroundColor: hslStringToHex(preset.primary) }}
+   617→   617→                        />
+   618→   618→                        <div
+   619→   619→                          className="w-8 h-8 rounded-lg"
+   620→   620→                          style={{ backgroundColor: hslStringToHex(preset.secondary) }}
+   621→   621→                        />
+   622→   622→                        <div
+   623→   623→                          className="w-8 h-8 rounded-lg"
+   624→   624→                          style={{ backgroundColor: hslStringToHex(preset.accent) }}
+   625→   625→                        />
+   626→   626→                      </div>
+   627→   627→                      <h3 className="font-semibold text-sm">{preset.label}</h3>
+   628→   628→                      <p className="text-xs text-muted-foreground mt-1">{preset.description}</p>
+   629→   629→                    </button>
+   630→   630→                  )
+   631→   631→                )}
+   632→   632→              </div>
+   633→   633→            </CardContent>
+   634→   634→          </Card>
+   635→   635→        </TabsContent>
+   636→   636→
+   637→   637→        {/* ═══ RECEIPT TAB ═══ */}
+   638→   638→        <TabsContent value="receipt" className="space-y-6 mt-6">
+   639→   639→          <Card>
+   640→   640→            <CardHeader>
+   641→   641→              <CardTitle className="flex items-center gap-2">
+   642→   642→                <Receipt className="h-5 w-5" />
+   643→   643→                Personnalisation du ticket de caisse
+   644→   644→              </CardTitle>
+   645→   645→              <CardDescription>
+   646→   646→                Configurez l'apparence de vos tickets de caisse imprimés et envoyés par email
+   647→   647→              </CardDescription>
+   648→   648→            </CardHeader>
+   649→   649→            <CardContent className="space-y-6">
+   650→   650→              {/* Paper size */}
+   651→   651→              <div className="space-y-3">
+   652→   652→                <div className="flex items-center gap-2">
+   653→   653→                  <Printer className="h-4 w-4 text-muted-foreground" />
+   654→   654→                  <Label>Format du papier</Label>
+   655→   655→                </div>
+   656→   656→                <p className="text-xs text-muted-foreground">
+   657→   657→                  Choisissez le format adapté à votre imprimante
+   658→   658→                </p>
+   659→   659→                <div className="grid grid-cols-3 gap-3">
+   660→   660→                  {[
+   661→   661→                    { value: "58mm" as const, label: "58 mm", desc: "Thermique compact", icon: "📜" },
+   662→   662→                    { value: "80mm" as const, label: "80 mm", desc: "Thermique standard", icon: "🧾" },
+   663→   663→                    { value: "A4" as const, label: "A4", desc: "Imprimante bureau", icon: "📄" },
+   664→   664→                  ].map((option) => (
+   665→   665→                    <button
+   666→   666→                      key={option.value}
+   667→   667→                      onClick={() => setReceiptPaperSize(option.value)}
+   668→   668→                      className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all text-center ${
+   669→   669→                        receiptPaperSize === option.value
+   670→   670→                          ? "border-primary bg-primary/5"
+   671→   671→                          : "border-border hover:border-primary/50"
+   672→   672→                      }`}
+   673→   673→                    >
+   674→   674→                      <span className="text-lg">{option.icon}</span>
+   675→   675→                      <span className={`text-sm font-semibold ${
+   676→   676→                        receiptPaperSize === option.value ? "text-primary" : "text-foreground"
+   677→   677→                      }`}>
+   678→   678→                        {option.label}
+   679→   679→                      </span>
+   680→   680→                      <span className="text-[10px] text-muted-foreground">
+   681→   681→                        {option.desc}
+   682→   682→                      </span>
+   683→   683→                    </button>
+   684→   684→                  ))}
+   685→   685→                </div>
+   686→   686→              </div>
+   687→   687→
+   688→   688→              <div className="border-t pt-4" />
+   689→   689→
+   690→   690→              {/* Show logo on receipt */}
+   691→   691→              <div className="flex items-center justify-between">
+   692→   692→                <div className="space-y-0.5">
+   693→   693→                  <Label>Afficher le logo sur le ticket</Label>
+   694→   694→                  <p className="text-xs text-muted-foreground">
+   695→   695→                    Le logo apparaîtra en haut du ticket de caisse
+   696→   696→                  </p>
+   697→   697→                </div>
+   698→   698→                <Switch
+   699→   699→                  checked={receiptShowLogo}
+   700→   700→                  onCheckedChange={setReceiptShowLogo}
+   701→   701→                />
+   702→   702→              </div>
+   703→   703→
+   704→   704→              {/* Show tax on receipt */}
+   705→   705→              <div className="flex items-center justify-between">
+   706→   706→                <div className="space-y-0.5">
+   707→   707→                  <Label>Afficher les taxes</Label>
+   708→   708→                  <p className="text-xs text-muted-foreground">
+   709→   709→                    Détail des taxes sur le ticket de caisse
+   710→   710→                  </p>
+   711→   711→                </div>
+   712→   712→                <Switch
+   713→   713→                  checked={receiptShowTax}
+   714→   714→                  onCheckedChange={setReceiptShowTax}
+   715→   715→                />
+   716→   716→              </div>
+   717→   717→
+   718→   718→              {/* Receipt footer */}
+   719→   719→              <div className="space-y-2">
+   720→   720→                <Label htmlFor="receipt-footer">Pied de ticket</Label>
+   721→   721→                <Textarea
+   722→   722→                  id="receipt-footer"
+   723→   723→                  value={receiptFooter}
+   724→   724→                  onChange={(e) => setReceiptFooter(e.target.value)}
+   725→   725→                  placeholder="Merci de votre achat !À bientôt chez nous."
+   726→   726→                  rows={3}
+   727→   727→                />
+   728→   728→                <p className="text-xs text-muted-foreground">
+   729→   729→                  Texte affiché en bas de chaque ticket de caisse
+   730→   730→                </p>
+   731→   731→              </div>
+   732→   732→
+   733→   733→              {/* Receipt preview */}
+   734→   734→              <div className="p-4 bg-white text-black rounded-lg max-w-[280px] mx-auto border shadow-sm font-mono text-xs">
+   735→   735→                <div className="text-center">
+   736→   736→                  {receiptShowLogo && settings?.logo_url && (
+   737→   737→                    <img
+   738→   738→                      src={settings.logo_url}
+   739→   739→                      alt=""
+   740→   740→                      className="w-12 h-12 mx-auto object-contain mb-2"
+   741→   741→                    />
+   742→   742→                  )}
+   743→   743→                  <p className="font-bold text-sm">{storeName || "Mon Magasin"}</p>
+   744→   744→                  <p className="text-[10px] text-gray-500 mt-1">
+   745→   745→                    {profile?.address || "Dakar, Sénégal"}
+   746→   746→                  </p>
+   747→   747→                  <div className="border-t border-dashed border-gray-300 my-2" />
+   748→   748→                  <p className="text-[10px]">Vente #001</p>
+   749→   749→                  <div className="border-t border-dashed border-gray-300 my-2" />
+   750→   750→                  <div className="flex justify-between">
+   751→   751→                    <span>Produit x2</span>
+   752→   752→                    <span>5 000 FCFA</span>
+   753→   753→                  </div>
+   754→   754→                  <div className="flex justify-between mt-1">
+   755→   755→                    <span>Boisson x1</span>
+   756→   756→                    <span>500 FCFA</span>
+   757→   757→                  </div>
+   758→   758→                  <div className="border-t border-dashed border-gray-300 my-2" />
+   759→   759→                  {receiptShowTax && (
+   760→   760→                    <>
+   761→   761→                      <div className="flex justify-between text-[10px] text-gray-500">
+   762→   762→                        <span>TVA (18%)</span>
+   763→   763→                        <span>990 FCFA</span>
+   764→   764→                      </div>
+   765→   765→                    </>
+   766→   766→                  )}
+   767→   767→                  <div className="flex justify-between font-bold mt-1">
+   768→   768→                    <span>Total</span>
+   769→   769→                    <span>6 490 FCFA</span>
+   770→   770→                  </div>
+   771→   771→                  <div className="border-t border-dashed border-gray-300 my-2" />
+   772→   772→                  {receiptFooter && (
+   773→   773→                    <p className="text-[10px] text-gray-500 italic text-center whitespace-pre-line">
+   774→   774→                      {receiptFooter}
+   775→   775→                    </p>
+   776→   776→                  )}
+   777→   777→                </div>
+   778→   778→              </div>
+   779→   779→
+   780→   780→              <Button onClick={handleSaveReceiptSettings} className="w-full" size="lg">
+   781→   781→                Enregistrer les paramètres du ticket
+   782→   782→              </Button>
+   783→   783→            </CardContent>
+   784→   784→          </Card>
+   785→   785→        </TabsContent>
+   786→   786→      </Tabs>
+   787→   787→    </div>
+   788→   788→  );
+   789→   789→};
+   790→   790→
+   791→   791→export default StoreCustomization;
+   792→   792→
