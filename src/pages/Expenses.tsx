@@ -69,7 +69,7 @@ import { useCurrency } from "@/hooks/useCurrency";
  ];
  
 const Expenses = () => {
-  const { user } = useAuth();
+  const { user, profile, userRole } = useAuth();
   const { toast } = useToast();
   const { formatPrice } = useCurrency();
   const queryClient = useQueryClient();
@@ -97,17 +97,23 @@ const Expenses = () => {
      enabled: !!user,
    });
  
+   const canModify = userRole === 'admin' || userRole === 'manager' || userRole === 'super_admin' || userRole === 'comptable';
+
    const createExpenseMutation = useMutation({
      mutationFn: async () => {
-       const { error } = await supabase.from("expenses").insert({
+       const insertData: Record<string, unknown> = {
          user_id: user!.id,
          amount: parseFloat(amount),
          category,
          payment_method: paymentMethod,
          description: description || null,
          expense_date: expenseDate,
-       });
- 
+       };
+       if (profile?.organization_id) {
+         insertData.organization_id = profile.organization_id;
+       }
+       const { error } = await supabase.from("expenses").insert(insertData);
+
        if (error) throw error;
      },
      onSuccess: () => {
@@ -198,12 +204,14 @@ const Expenses = () => {
            </div>
  
            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-             <DialogTrigger asChild>
-               <Button>
-                 <Plus className="mr-2 h-4 w-4" />
-                 Nouvelle dépense
-               </Button>
-             </DialogTrigger>
+             {canModify && (
+               <DialogTrigger asChild>
+                 <Button>
+                   <Plus className="mr-2 h-4 w-4" />
+                   Nouvelle dépense
+                 </Button>
+               </DialogTrigger>
+             )}
              <DialogContent className="max-w-md" aria-describedby={undefined}>
                <DialogHeader>
                  <DialogTitle>Ajouter une dépense</DialogTitle>
@@ -392,15 +400,17 @@ const Expenses = () => {
                              -{formatPrice(expense.amount)}
                            </TableCell>
                            <TableCell>
-                             <Button
-                               variant="ghost"
-                               size="icon"
-                               onClick={() => deleteExpenseMutation.mutate(expense.id)}
-                               disabled={deleteExpenseMutation.isPending}
-                               aria-label="Supprimer la dépense"
-                             >
-                               <Trash2 className="h-4 w-4 text-destructive" />
-                             </Button>
+                             {canModify && (
+                               <Button
+                                 variant="ghost"
+                                 size="icon"
+                                 onClick={() => deleteExpenseMutation.mutate(expense.id)}
+                                 disabled={deleteExpenseMutation.isPending}
+                                 aria-label="Supprimer la dépense"
+                               >
+                                 <Trash2 className="h-4 w-4 text-destructive" />
+                               </Button>
+                             )}
                            </TableCell>
                          </TableRow>
                        );

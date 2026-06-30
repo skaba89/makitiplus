@@ -42,7 +42,7 @@ import { CreditPaymentDialog } from "@/components/customers/CreditPaymentDialog"
 import { Customer, CustomerUpdateParams } from "@/types";
 
 const Customers = () => {
-  const { user } = useAuth();
+  const { user, profile, userRole } = useAuth();
   const { toast } = useToast();
   const { formatPrice } = useCurrency();
   const queryClient = useQueryClient();
@@ -72,12 +72,18 @@ const Customers = () => {
     enabled: !!user,
   });
 
+  const canModify = userRole === 'admin' || userRole === 'manager' || userRole === 'super_admin';
+
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      const { error } = await supabase.from("customers").insert({
+      const insertData: Record<string, unknown> = {
         ...data,
         user_id: user!.id,
-      });
+      };
+      if (profile?.organization_id) {
+        insertData.organization_id = profile.organization_id;
+      }
+      const { error } = await supabase.from("customers").insert(insertData);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -162,10 +168,12 @@ const Customers = () => {
             <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Clients</h1>
             <p className="text-muted-foreground mt-1">Gérez vos clients et suivez les crédits</p>
           </div>
-          <Button onClick={() => { setSelectedCustomer(null); resetForm(); setIsFormOpen(true); }} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Ajouter un client
-          </Button>
+          {canModify && (
+            <Button onClick={() => { setSelectedCustomer(null); resetForm(); setIsFormOpen(true); }} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Ajouter un client
+            </Button>
+          )}
         </div>
 
         {/* Stats */}
@@ -251,12 +259,16 @@ const Customers = () => {
                           <Button variant="ghost" size="icon" className="hidden sm:inline-flex" onClick={() => { setSelectedCustomer(customer); setIsCreditOpen(true); }} aria-label="Crédit client">
                             <Wallet className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleEdit(customer)} aria-label="Modifier le client">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(customer.id)} aria-label="Supprimer le client">
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
+                          {canModify && (
+                            <>
+                              <Button variant="ghost" size="icon" onClick={() => handleEdit(customer)} aria-label="Modifier le client">
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(customer.id)} aria-label="Supprimer le client">
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -271,10 +283,12 @@ const Customers = () => {
             <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
             <h3 className="text-lg font-medium mb-2">Aucun client</h3>
             <p className="text-muted-foreground mb-4">Ajoutez vos premiers clients</p>
-            <Button onClick={() => setIsFormOpen(true)} variant="outline">
-              <Plus className="h-4 w-4 mr-2" />
-              Ajouter un client
-            </Button>
+            {canModify && (
+              <Button onClick={() => setIsFormOpen(true)} variant="outline">
+                <Plus className="h-4 w-4 mr-2" />
+                Ajouter un client
+              </Button>
+            )}
           </div>
         )}
 

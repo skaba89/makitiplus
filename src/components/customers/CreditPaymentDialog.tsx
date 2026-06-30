@@ -22,7 +22,7 @@ interface Props {
 }
 
 export const CreditPaymentDialog = ({ customer, isOpen, onClose }: Props) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { toast } = useToast();
   const { formatPrice } = useCurrency();
   const queryClient = useQueryClient();
@@ -35,13 +35,17 @@ export const CreditPaymentDialog = ({ customer, isOpen, onClose }: Props) => {
       if (!numAmount || numAmount <= 0) throw new Error("Montant invalide");
 
       // Record payment
-      const { error: creditError } = await supabase.from("customer_credits").insert({
+      const creditInsert: Record<string, unknown> = {
         user_id: user!.id,
         customer_id: customer.id,
         amount: numAmount,
         type: "payment",
         description: description || "Paiement de crédit",
-      });
+      };
+      if (profile?.organization_id) {
+        creditInsert.organization_id = profile.organization_id;
+      }
+      const { error: creditError } = await supabase.from("customer_credits").insert(creditInsert);
       if (creditError) throw creditError;
 
       // Update customer credit

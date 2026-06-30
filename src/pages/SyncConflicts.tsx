@@ -115,11 +115,17 @@ const SyncConflicts = () => {
   };
 
   const acknowledgeOne = async (id: string) => {
-    await supabase
-      .from("sync_conflicts")
-      .update({ acknowledged: true, acknowledged_at: new Date().toISOString() })
-      .eq("id", id);
-    load();
+    try {
+      const { error } = await supabase
+        .from("sync_conflicts")
+        .update({ acknowledged: true, acknowledged_at: new Date().toISOString() })
+        .eq("id", id);
+      if (error) throw error;
+      load();
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      toast({ variant: "destructive", title: "Erreur", description: message });
+    }
   };
 
   const unack = rows.filter((r) => !r.acknowledged).length;

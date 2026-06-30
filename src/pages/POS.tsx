@@ -100,35 +100,46 @@ const POS = () => {
       const changeAmount = amountPaid - totalAmount;
 
       // Create sale
+      const saleInsert: Record<string, unknown> = {
+        user_id: user!.id,
+        sale_number: saleNumber,
+        subtotal,
+        tax_amount: taxAmount,
+        total_amount: totalAmount,
+        payment_method: paymentMethod,
+        amount_paid: amountPaid,
+        change_amount: changeAmount > 0 ? changeAmount : 0,
+        customer_name: customerName || null,
+        customer_phone: customerPhone || null,
+        seller_name: profile?.owner_name || null,
+      };
+      if (profile?.organization_id) {
+        saleInsert.organization_id = profile.organization_id;
+      }
+
       const { data: sale, error: saleError } = await supabase
         .from("sales")
-        .insert({
-          user_id: user!.id,
-          sale_number: saleNumber,
-          subtotal,
-          tax_amount: taxAmount,
-          total_amount: totalAmount,
-          payment_method: paymentMethod,
-          amount_paid: amountPaid,
-          change_amount: changeAmount > 0 ? changeAmount : 0,
-          customer_name: customerName || null,
-          customer_phone: customerPhone || null,
-          seller_name: profile?.owner_name || null,
-        })
+        .insert(saleInsert)
         .select()
         .single();
 
       if (saleError) throw saleError;
 
       // Create sale items
-      const saleItems = cart.map((item) => ({
-        sale_id: sale.id,
-        product_id: item.product.id,
-        product_name: item.product.name,
-        quantity: item.quantity,
-        unit_price: item.product.price,
-        total_price: item.product.price * item.quantity,
-      }));
+      const saleItems = cart.map((item) => {
+        const itemData: Record<string, unknown> = {
+          sale_id: sale.id,
+          product_id: item.product.id,
+          product_name: item.product.name,
+          quantity: item.quantity,
+          unit_price: item.product.price,
+          total_price: item.product.price * item.quantity,
+        };
+        if (profile?.organization_id) {
+          itemData.organization_id = profile.organization_id;
+        }
+        return itemData;
+      });
 
       const { error: itemsError } = await supabase
         .from("sale_items")
