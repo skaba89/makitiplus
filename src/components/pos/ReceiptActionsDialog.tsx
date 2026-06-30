@@ -54,6 +54,9 @@ export const ReceiptActionsDialog = ({
   const [selectedPaperSize, setSelectedPaperSize] = useState<ReceiptPaperSize>(
     receiptData?.paperSize || "80mm"
   );
+  const [showQrCode, setShowQrCode] = useState(
+    receiptData?.showQrCode !== false
+  );
 
   // Sync paper size when receiptData changes
   useEffect(() => {
@@ -103,7 +106,7 @@ export const ReceiptActionsDialog = ({
     );
 
   const handleDownloadPDF = async () => {
-    const dataWithFormat = { ...receiptData, paperSize: selectedPaperSize };
+    const dataWithFormat = { ...receiptData, paperSize: selectedPaperSize, showQrCode };
     await downloadReceipt(dataWithFormat);
     const formatLabel = selectedPaperSize === "A4" ? "A4 (facture)" : selectedPaperSize;
     toast({
@@ -122,7 +125,8 @@ export const ReceiptActionsDialog = ({
       });
       return;
     }
-    const result = enqueueOrSendReceipt(channel, phone, receiptData);
+    const dataWithQr = { ...receiptData, showQrCode };
+    const result = enqueueOrSendReceipt(channel, phone, dataWithQr);
     setPending(pendingCount());
     if (result.status === "sent") {
       toast({
@@ -144,7 +148,8 @@ export const ReceiptActionsDialog = ({
   };
 
   const handleCopyText = () => {
-    const text = generateReceiptText(receiptData);
+    const dataWithQr = { ...receiptData, showQrCode };
+    const text = generateReceiptText(dataWithQr);
     try {
       navigator.clipboard.writeText(text);
       setCopied(true);
@@ -296,6 +301,21 @@ export const ReceiptActionsDialog = ({
                 </Button>
               ))}
             </div>
+          </div>
+
+          {/* QR Code toggle */}
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="qr-toggle" className="text-sm cursor-pointer">
+                QR Code sur le ticket
+              </Label>
+              <span className="text-[11px] text-muted-foreground">Vérification</span>
+            </div>
+            <Switch
+              id="qr-toggle"
+              checked={showQrCode}
+              onCheckedChange={setShowQrCode}
+            />
           </div>
 
           {/* Action Buttons */}

@@ -1,11 +1,13 @@
-import { useState, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useMemo, useRef, useDeferredValue } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePOSCartStore, useCartTotal } from "@/contexts/POSCartContext";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { POSProductGrid } from "@/components/pos/POSProductGrid";
+import { POSProductList } from "@/components/pos/POSProductList";
 import { POSCart } from "@/components/pos/POSCart";
+import { MobileCartDrawer } from "@/components/pos/MobileCartDrawer";
 import { POSPaymentDialog } from "@/components/pos/POSPaymentDialog";
 import { ReceiptActionsDialog } from "@/components/pos/ReceiptActionsDialog";
 import { BarcodeScannerDialog } from "@/components/pos/BarcodeScannerDialog";
@@ -17,7 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useOrgTaxRate } from "@/hooks/useOrgTaxRate";
 import { computeTax } from "@/lib/taxUtils";
-import { ShoppingCart, Camera } from "lucide-react";
+import { ShoppingCart, Camera, LayoutGrid, List } from "lucide-react";
 import { CategoryIcon } from "@/components/ui/category-icon";
 import { Database } from "@/integrations/supabase/types";
 import { ReceiptData } from "@/utils/receiptGenerator";
@@ -47,6 +49,8 @@ const POS = () => {
   const [lastReceiptData, setLastReceiptData] = useState<ReceiptData | null>(null);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [showOutOfStock, setShowOutOfStock] = useState(false);
+  const [viewMode, setViewMode] = useState<"grid" | "list">("list");
+  const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
   const lastSubmitRef = useRef(0);
 
   const { data: products, isLoading } = useQuery({
@@ -460,14 +464,15 @@ const POS = () => {
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
+  const deferredSearch = useDeferredValue(searchQuery);
   const filteredProducts = useMemo(() => products?.filter((product) => {
     const matchesSearch =
-      !searchQuery ||
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (product.barcode && product.barcode.includes(searchQuery));
+      !deferredSearch ||
+      product.name.toLowerCase().includes(deferredSearch.toLowerCase()) ||
+      (product.barcode && product.barcode.includes(deferredSearch));
     const matchesStock = showOutOfStock || product.stock_quantity > 0;
     return matchesSearch && matchesStock;
-  }), [products, searchQuery, showOutOfStock]);
+  }), [products, deferredSearch, showOutOfStock]);
 
   const displayedProducts = useMemo(() => selectedCategory
     ? filteredProducts?.filter((p) => p.category_id === selectedCategory)
@@ -514,15 +519,38 @@ const POS = () => {
                 {displayedProducts?.length || 0} produit(s) affiché(s)
                 {products && ` sur ${products.length}`}
               </div>
-              <div className="flex items-center gap-2">
-                <Switch
-                  id="show-out-of-stock"
-                  checked={showOutOfStock}
-                  onCheckedChange={setShowOutOfStock}
-                />
-                <Label htmlFor="show-out-of-stock" className="text-xs cursor-pointer">
-                  Afficher les ruptures
-                </Label>
+              <div className="flex items-center gap-3">
+                {/* View mode toggle */}
+                <div className="flex items-center border rounded-md">
+                  <Button
+                    variant={viewMode === "grid" ? "default" : "ghost"}
+                    size="icon"
+                    className="h-7 w-7 rounded-r-none"
+                    onClick={() => setViewMode("grid")}
+                    aria-label="Vue grille"
+                  >
+                    <LayoutGrid className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant={viewMode === "list" ? "default" : "ghost"}
+                    size="icon"
+                    className="h-7 w-7 rounded-l-none"
+                    onClick={() => setViewMode("list")}
+                    aria-label="Vue liste"
+                  >
+                    <List className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="show-out-of-stock"
+                    checked={showOutOfStock}
+                    onCheckedChange={setShowOutOfStock}
+                  />
+                  <Label htmlFor="show-out-of-stock" className="text-xs cursor-pointer">
+                    Ruptures
+                  </Label>
+                </div>
               </div>
             </div>
             
@@ -561,7 +589,11 @@ const POS = () => {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
               </div>
             ) : displayedProducts && displayedProducts.length > 0 ? (
-              <POSProductGrid products={displayedProducts} onAddToCart={addToCart} />
+              viewMode === "grid" ? (
+                <POSProductGrid products={displayedProducts} onAddToCart={addToCart} />
+              ) : (
+                <POSProductList products={displayedProducts} onAddToCart={addToCart} />
+              )
             ) : (
               <div className="text-center py-12">
                 <ShoppingCart className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
@@ -589,7 +621,7 @@ const POS = () => {
             <Button
               size="lg"
               className="rounded-full shadow-lg h-14 w-14 relative"
-              onClick={() => setIsPaymentOpen(true)}
+              onClick={() => setIsMobileCartOpen(true)}
               aria-label="Voir le panier"
             >
               <ShoppingCart className="h-6 w-6" />
@@ -602,6 +634,18 @@ const POS = () => {
             </div>
           </div>
         )}
+
+        {/* Mobile Cart Drawer */}
+        <MobileCartDrawer
+          isOpen={isMobileCartOpen}
+          onClose={() => setIsMobileCartOpen(false)}
+          items={cart}
+          total={cartTotal}
+          onUpdateQuantity={updateCartQuantity}
+          onRemove={removeFromCart}
+          onClear={clearCart}
+          onCheckout={() => setIsPaymentOpen(true)}
+        />
 
         {/* Payment Dialog */}
         <POSPaymentDialog

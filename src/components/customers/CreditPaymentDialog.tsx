@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -29,6 +29,25 @@ export const CreditPaymentDialog = ({ customer, isOpen, onClose, onViewHistory }
   const queryClient = useQueryClient();
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
+
+  const totalCredit = Number(customer?.total_credit ?? 0);
+
+  const quickAmounts = useMemo(() => {
+    if (totalCredit <= 0) return [];
+    const amounts = [totalCredit];
+    if (totalCredit > 5000) amounts.push(Math.ceil(totalCredit / 5000) * 5000);
+    if (totalCredit > 10000) amounts.push(Math.ceil(totalCredit / 10000) * 10000);
+    if (totalCredit > 500) amounts.push(500);
+    if (totalCredit > 1000) amounts.push(1000);
+    if (totalCredit > 2000) amounts.push(2000);
+    if (totalCredit > 5000) amounts.push(5000);
+    if (totalCredit > 10000) amounts.push(10000);
+    // Unique, sorted, and not exceeding total
+    return [...new Set(amounts)]
+      .filter((a) => a > 0 && a <= totalCredit)
+      .sort((a, b) => a - b)
+      .slice(0, 5);
+  }, [totalCredit]);
 
   const paymentMutation = useMutation({
     mutationFn: async () => {
@@ -116,7 +135,23 @@ export const CreditPaymentDialog = ({ customer, isOpen, onClose, onViewHistory }
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="0"
+              className="text-lg"
             />
+            {quickAmounts.length > 0 && (
+              <div className="flex gap-2 flex-wrap">
+                {quickAmounts.map((qa) => (
+                  <Button
+                    key={qa}
+                    variant={parseFloat(amount) === qa ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setAmount(String(qa))}
+                    className="text-xs"
+                  >
+                    {formatPrice(qa)}
+                  </Button>
+                ))}
+              </div>
+            )}
           </div>
           {amount && parseFloat(amount) > 0 && (
             <div className="p-3 bg-muted rounded-lg text-sm">
