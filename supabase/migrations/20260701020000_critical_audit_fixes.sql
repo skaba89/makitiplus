@@ -3,7 +3,12 @@
 --            register_user RPC (atomic signup), increment_customer_credit RPC
 -- Date: 2026-07-01
 -- FULLY IDEMPOTENT — safe to re-run any number of times
--- Uses DROP FUNCTION IF EXISTS before CREATE to avoid 42P13 errors
+-- Uses dynamic DROP via pg_proc to avoid 42P13 errors regardless of existing signature
+
+-- ============================================
+-- 0. Helper: dynamically drop ALL overloads of a function by name
+--    This avoids 42P13 errors from signature mismatches in DROP FUNCTION IF EXISTS
+-- ============================================
 
 -- ============================================
 -- 1. GRANT EXECUTE on batch_update_stock to authenticated (C2)
@@ -16,12 +21,24 @@ END $$;
 
 -- ============================================
 -- 2. Fix check_account_status (C3)
---    DROP first because return type changed (42P13 prevention)
+--    Dynamically drop ALL existing overloads, then recreate
 -- ============================================
-DROP FUNCTION IF EXISTS public.check_account_status();
-DROP FUNCTION IF EXISTS public.check_account_status(UUID);
+DO $$
+DECLARE
+  f record;
+BEGIN
+  FOR f IN
+    SELECT oid::regprocedure AS func_sig
+    FROM pg_proc
+    WHERE proname = 'check_account_status'
+      AND pronamespace = 'public'::regnamespace
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || f.func_sig;
+    RAISE NOTICE 'Dropped %', f.func_sig;
+  END LOOP;
+END $$;
 
--- Recreate zero-arg function with enriched return type
+-- Zero-arg: enriched return type (is_active, role, organization_id, deactivation_reason)
 CREATE OR REPLACE FUNCTION public.check_account_status()
 RETURNS TABLE(is_active BOOLEAN, role TEXT, organization_id UUID, deactivation_reason TEXT)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
@@ -64,11 +81,22 @@ $$;
 
 -- ============================================
 -- 3. create_full_sale RPC — atomic sale creation (C4 + C5)
---    DROP first to avoid 42P13 if signature changed from a previous attempt
+--    Dynamically drop ALL existing versions first
 -- ============================================
-DROP FUNCTION IF EXISTS public.create_full_sale(
-  UUID, UUID, TEXT, NUMERIC, NUMERIC, NUMERIC, TEXT, NUMERIC, NUMERIC, TEXT, TEXT, TEXT, JSONB
-);
+DO $$
+DECLARE
+  f record;
+BEGIN
+  FOR f IN
+    SELECT oid::regprocedure AS func_sig
+    FROM pg_proc
+    WHERE proname = 'create_full_sale'
+      AND pronamespace = 'public'::regnamespace
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || f.func_sig;
+    RAISE NOTICE 'Dropped %', f.func_sig;
+  END LOOP;
+END $$;
 
 CREATE OR REPLACE FUNCTION public.create_full_sale(
   p_user_id UUID,
@@ -169,9 +197,21 @@ GRANT EXECUTE ON FUNCTION public.create_full_sale TO authenticated;
 
 -- ============================================
 -- 4. process_credit_payment RPC — atomic credit payment (C6)
---    DROP first to avoid 42P13 if signature changed
 -- ============================================
-DROP FUNCTION IF EXISTS public.process_credit_payment(UUID, UUID, UUID, NUMERIC, TEXT);
+DO $$
+DECLARE
+  f record;
+BEGIN
+  FOR f IN
+    SELECT oid::regprocedure AS func_sig
+    FROM pg_proc
+    WHERE proname = 'process_credit_payment'
+      AND pronamespace = 'public'::regnamespace
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || f.func_sig;
+    RAISE NOTICE 'Dropped %', f.func_sig;
+  END LOOP;
+END $$;
 
 CREATE OR REPLACE FUNCTION public.process_credit_payment(
   p_user_id UUID,
@@ -210,6 +250,21 @@ GRANT EXECUTE ON FUNCTION public.process_credit_payment TO authenticated;
 -- ============================================
 -- 5. decrement_stock RPC — atomic relative stock decrement (C5 fallback)
 -- ============================================
+DO $$
+DECLARE
+  f record;
+BEGIN
+  FOR f IN
+    SELECT oid::regprocedure AS func_sig
+    FROM pg_proc
+    WHERE proname = 'decrement_stock'
+      AND pronamespace = 'public'::regnamespace
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || f.func_sig;
+    RAISE NOTICE 'Dropped %', f.func_sig;
+  END LOOP;
+END $$;
+
 CREATE OR REPLACE FUNCTION public.decrement_stock(
   p_product_id UUID,
   p_quantity INTEGER
@@ -236,9 +291,21 @@ GRANT EXECUTE ON FUNCTION public.decrement_stock TO authenticated;
 
 -- ============================================
 -- 6. register_user RPC — atomic user registration (C9)
---    DROP first to avoid 42P13 if signature changed
 -- ============================================
-DROP FUNCTION IF EXISTS public.register_user(UUID, TEXT, TEXT, TEXT, TEXT, UUID);
+DO $$
+DECLARE
+  f record;
+BEGIN
+  FOR f IN
+    SELECT oid::regprocedure AS func_sig
+    FROM pg_proc
+    WHERE proname = 'register_user'
+      AND pronamespace = 'public'::regnamespace
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || f.func_sig;
+    RAISE NOTICE 'Dropped %', f.func_sig;
+  END LOOP;
+END $$;
 
 CREATE OR REPLACE FUNCTION public.register_user(
   p_user_id UUID,
@@ -265,6 +332,21 @@ GRANT EXECUTE ON FUNCTION public.register_user TO authenticated, service_role;
 -- ============================================
 -- 7. increment_customer_credit RPC — atomic credit increment
 -- ============================================
+DO $$
+DECLARE
+  f record;
+BEGIN
+  FOR f IN
+    SELECT oid::regprocedure AS func_sig
+    FROM pg_proc
+    WHERE proname = 'increment_customer_credit'
+      AND pronamespace = 'public'::regnamespace
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || f.func_sig;
+    RAISE NOTICE 'Dropped %', f.func_sig;
+  END LOOP;
+END $$;
+
 CREATE OR REPLACE FUNCTION public.increment_customer_credit(
   p_customer_id UUID,
   p_amount NUMERIC
