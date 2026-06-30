@@ -24,7 +24,14 @@ export function useAccountStatusGuard() {
       checkingRef.current = true;
       try {
         const { data, error } = await supabase.rpc("check_account_status");
-        if (error) return; // réseau down → on ne déconnecte pas
+        // 401 means the function doesn't have EXECUTE grant for authenticated users yet
+        // (migration not applied) — silently skip in that case
+        if (error) {
+          if (error.status === 401 || error.code === '42501') {
+            console.warn("[AccountGuard] check_account_status not authorized. Run fix_production_database.sql to grant EXECUTE.");
+          }
+          return; // réseau down / RPC non disponible → on ne déconnecte pas
+        }
         const row = Array.isArray(data) ? data[0] : data;
         if (row && row.is_active === false) {
           await signOut();

@@ -138,7 +138,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       // Track last login (best-effort, non-blocking)
-      supabase.rpc("touch_last_login").then(() => {});
+      supabase.rpc("touch_last_login").then(({ error }) => {
+        if (error && (error.status === 401 || error.code === '42501')) {
+          console.warn("[Auth] touch_last_login RPC not authorized. Run fix_production_database.sql to grant EXECUTE.");
+        }
+      });
     }
 
     return { error: null };

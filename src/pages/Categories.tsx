@@ -60,6 +60,9 @@ const Categories = () => {
     description: "",
   });
 
+  // Track whether sort_order column exists (set during initial fetch)
+  const [hasSortOrder, setHasSortOrder] = useState(true);
+
   const { data: categories, isLoading } = useQuery({
     queryKey: ["categories", user?.id],
     queryFn: async () => {
@@ -72,7 +75,10 @@ const Categories = () => {
           .order("sort_order", { ascending: true, nullsFirst: false })
           .order("name");
 
-        if (!error) return data as Category[];
+        if (!error) {
+          setHasSortOrder(true);
+          return data as Category[];
+        }
 
         // If the full query fails (missing columns or relationship), try simpler query
         console.warn("[Categories] Full query failed, falling back to simpler query:", error.message);
@@ -87,6 +93,7 @@ const Categories = () => {
         .order("name");
 
       if (error) throw error;
+      setHasSortOrder(false);
       return (data as Category[]).map(c => ({ ...c, products: [{ count: 0 }] }));
     },
     enabled: !!user,
@@ -96,29 +103,36 @@ const Categories = () => {
 
   const createMutation = useMutation({
     mutationFn: async (category: Omit<CategoryInsert, "user_id">) => {
-      // Get max sort_order for this org (gracefully handle if column doesn't exist)
-      let nextOrder = 1;
-      try {
-        const { data: maxOrder } = await supabase
-          .from("categories")
-          .select("sort_order")
-          .order("sort_order", { ascending: false })
-          .limit(1);
-        nextOrder = (maxOrder?.[0]?.sort_order || 0) + 1;
-      } catch {
-        // sort_order column may not exist yet — migration not applied
-        console.warn("[Categories] sort_order column not available, using default order");
-      }
-
       const insertData: Record<string, unknown> = {
         ...category,
         user_id: user!.id,
-        sort_order: nextOrder,
       };
 
       // Explicitly set organization_id from profile to avoid relying solely on trigger
       if (profile?.organization_id) {
         insertData.organization_id = profile.organization_id;
+      }
+
+      // Only include sort_order if the column exists in the database
+      if (hasSortOrder) {
+        // Get max sort_order for this org
+        try {
+          const { data: maxOrder } = await supabase
+            .from("categories")
+            .select("sort_order")
+            .order("sort_order", { ascending: false })
+            .limit(1);
+          insertData.sort_order = (maxOrder?.[0]?.sort_order || 0) + 1;
+        } catch {
+          // sort_order column may not exist — skip it
+          console.warn("[Categories] sort_order column not available, skipping in INSERT");
+          delete insertData.sort_order;
+        }
+      } else {
+        // Column doesn't exist — remove it from insert data
+        delete insertData.sort_order;
+        delete insertData.description;
+        delete insertData.is_default;
       }
 
       const { data, error } = await supabase

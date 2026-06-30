@@ -32,7 +32,9 @@ export function useQueryErrorGuard() {
         code === "PGRST301"
       ) {
         // Re-vérifie avec le serveur avant de déconnecter
-        supabase.rpc("check_account_status").then(({ data }) => {
+        supabase.rpc("check_account_status").then(({ data, error }) => {
+          // If the RPC itself fails (401 = missing GRANT, etc.), don't disconnect
+          if (error) return;
           const row = Array.isArray(data) ? data[0] : data;
           if (row && row.is_active === false) {
             signOut().then(() => {

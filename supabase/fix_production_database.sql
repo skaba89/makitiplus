@@ -121,6 +121,21 @@ CREATE POLICY "admins_view_audit_log" ON public.user_audit_log
 -- 1h. Drop old single-admin index
 DROP INDEX IF EXISTS public.idx_single_admin;
 
+-- 1i. Grant EXECUTE on all RPC functions used by the frontend
+-- These are missing from the initial schema and cause 401 errors
+REVOKE EXECUTE ON FUNCTION public.check_account_status() FROM anon;
+GRANT EXECUTE ON FUNCTION public.check_account_status() TO authenticated, service_role;
+
+GRANT EXECUTE ON FUNCTION public.touch_last_login() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.generate_sale_number() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.batch_update_stock() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_user_organization_id() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_member_of_organization(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.has_role(uuid, app_role) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_user_active(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.resolve_stock_conflict() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.set_organization_id() TO authenticated;
+
 -- ─────────────────────────────────────────────────────────────────────
 -- PART 2: STORE_SETTINGS TABLE (from 20260629010000_store_settings...)
 -- ─────────────────────────────────────────────────────────────────────

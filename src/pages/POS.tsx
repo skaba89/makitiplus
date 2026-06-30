@@ -85,8 +85,12 @@ const POS = () => {
       customerName?: string;
       customerPhone?: string;
     }) => {
-      // Get sale number
-      const { data: saleNumber } = await supabase.rpc("generate_sale_number");
+      // Get sale number (fallback to timestamp-based if RPC not available)
+      const { data: saleNumber, error: rpcError } = await supabase.rpc("generate_sale_number");
+      const finalSaleNumber = saleNumber || `VNT-${Date.now()}`;
+      if (rpcError) {
+        console.warn("[POS] generate_sale_number RPC failed, using fallback:", rpcError.message);
+      }
 
       const subtotal = cart.reduce(
         (sum, item) => sum + item.product.price * item.quantity,
@@ -102,7 +106,7 @@ const POS = () => {
       // Create sale
       const saleInsert: Record<string, unknown> = {
         user_id: user!.id,
-        sale_number: saleNumber,
+        sale_number: finalSaleNumber,
         subtotal,
         tax_amount: taxAmount,
         total_amount: totalAmount,
@@ -159,7 +163,17 @@ const POS = () => {
         p_items: stockItems,
       });
 
-      if (stockError) throw stockError;
+      // If batch_update_stock RPC fails (e.g. not granted yet), fall back to individual updates
+      if (stockError) {
+        console.warn("[POS] batch_update_stock RPC failed, falling back to individual updates:", stockError.message);
+        for (const item of cart) {
+          const newStock = Math.max(0, (item.product.stock_quantity || 0) - item.quantity);
+          await supabase
+            .from("products")
+            .update({ stock_quantity: newStock })
+            .eq("id", item.product.id);
+        }
+      }
 
       return { sale, changeAmount };
     },
