@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { StoresPageSkeleton } from "@/components/skeletons/PageSkeletons";
 import {
   Store,
   Plus,
@@ -519,7 +520,7 @@ const Stores = () => {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="text-center py-8 text-muted-foreground">Chargement...</div>
+              <StoresPageSkeleton />
             ) : filteredStores.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 {stores.length === 0

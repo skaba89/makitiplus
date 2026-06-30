@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { WHATSAPP_GREEN } from "@/constants/colors";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
@@ -626,7 +627,7 @@ export const ReceiptDeliveryTrackingPanel = () => {
                       <TableCell>
                         {q.channel === "whatsapp" ? (
                           <span className="flex items-center gap-1 text-xs">
-                            <MessageCircle className="h-3 w-3 text-[#25D366]" /> WhatsApp
+                            <MessageCircle className="h-3 w-3" style={{ color: WHATSAPP_GREEN }} /> WhatsApp
                           </span>
                         ) : (
                           <span className="flex items-center gap-1 text-xs">
@@ -639,12 +640,12 @@ export const ReceiptDeliveryTrackingPanel = () => {
                         <div className="flex flex-col gap-1">
                           {statusBadge(q.status, dict)}
                           {q.exhausted && (
-                            <span className="text-[10px] text-destructive flex items-center gap-1">
+                            <span className="text-micro text-destructive flex items-center gap-1">
                               <Ban className="h-3 w-3" /> {dict.maxAttemptsReached}
                             </span>
                           )}
                           {!q.exhausted && countdown && (
-                            <span className="text-[10px] text-muted-foreground flex items-center gap-1" data-testid={`rt-countdown-${q.saleNumber}`}>
+                            <span className="text-micro text-muted-foreground flex items-center gap-1" data-testid={`rt-countdown-${q.saleNumber}`}>
                               <Hourglass className="h-3 w-3" /> {dict.nextRetryIn} {countdown}
                             </span>
                           )}
@@ -653,7 +654,7 @@ export const ReceiptDeliveryTrackingPanel = () => {
                       <TableCell className="text-xs text-muted-foreground">
                         {q.attempts} / {MAX_ATTEMPTS}
                         {q.last_error && (
-                          <div className="text-[10px] text-destructive truncate max-w-[160px]">
+                          <div className="text-micro text-destructive truncate max-w-[160px]">
                             {q.last_error}
                           </div>
                         )}
@@ -767,13 +768,13 @@ export const ReceiptDeliveryTrackingPanel = () => {
                   } />
                   <div>
                     <div className="text-xs font-medium text-muted-foreground mb-1">{dict.lastError}</div>
-                    <pre className="text-[11px] bg-destructive/5 border border-destructive/20 rounded p-2 whitespace-pre-wrap break-all min-h-[2rem]">
+                    <pre className="text-fine bg-destructive/5 border border-destructive/20 rounded p-2 whitespace-pre-wrap break-all min-h-[2rem]">
                       {detailEntry.last_error ?? "—"}
                     </pre>
                   </div>
                   <div>
                     <div className="text-xs font-medium text-muted-foreground mb-1">{dict.payload}</div>
-                    <pre className="text-[11px] bg-muted rounded p-2 max-h-[300px] overflow-auto whitespace-pre-wrap break-all">
+                    <pre className="text-fine bg-muted rounded p-2 max-h-[300px] overflow-auto whitespace-pre-wrap break-all">
                       {JSON.stringify(detailEntry.payload, null, 2)}
                     </pre>
                   </div>

@@ -299,7 +299,7 @@ export const MobileMoneySimulationPanel = () => {
               <TableBody>
                 {tx.slice(0, 25).map((t) => (
                   <TableRow key={t.client_uuid} data-testid={`mm-row-${t.client_uuid}`}>
-                    <TableCell className="text-[10px] font-mono max-w-[180px] truncate">
+                    <TableCell className="text-micro font-mono max-w-[180px] truncate">
                       {t.qr_code}
                     </TableCell>
                     <TableCell className="font-medium">{formatPrice(t.amount)}</TableCell>

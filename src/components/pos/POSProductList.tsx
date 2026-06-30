@@ -104,11 +104,11 @@ export const POSProductList = memo(({ products, onAddToCart }: POSProductListPro
               {/* Stock — visible on sm+ */}
               <div className="hidden sm:block text-right">
                 {outOfStock ? (
-                  <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                  <Badge variant="destructive" className="text-micro px-1.5 py-0">
                     Rupture
                   </Badge>
                 ) : product.stock_quantity <= 5 ? (
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-warning text-warning">
+                  <Badge variant="outline" className="text-micro px-1.5 py-0 border-warning text-warning">
                     x{product.stock_quantity}
                   </Badge>
                 ) : (

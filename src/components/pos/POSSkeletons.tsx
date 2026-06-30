@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
-/** Skeleton for the product grid view */
+/** Squelette pour la vue grille de produits */
 export const POSProductGridSkeleton = () => (
   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3">
     {Array.from({ length: 12 }).map((_, i) => (
@@ -19,7 +19,7 @@ export const POSProductGridSkeleton = () => (
   </div>
 );
 
-/** Skeleton for the product list view */
+/** Squelette pour la vue liste de produits */
 export const POSProductListSkeleton = () => (
   <div>
     {/* Table header skeleton */}
@@ -58,7 +58,7 @@ export const POSProductListSkeleton = () => (
   </div>
 );
 
-/** Skeleton for the cart sidebar */
+/** Squelette pour le panneau du panier */
 export const POSCartSkeleton = () => (
   <Card className="h-full flex flex-col card-elevated">
     <div className="p-4 pb-3">

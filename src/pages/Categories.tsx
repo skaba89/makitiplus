@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+import { DEFAULT_CATEGORY_COLOR, PRESET_COLORS } from "@/constants/colors";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,11 +39,6 @@ type Category = Database["public"]["Tables"]["categories"]["Row"] & {
 type CategoryInsert = Database["public"]["Tables"]["categories"]["Insert"];
 
 const PRESET_ICONS = ["Package", "Wheat", "CupSoda", "Sparkles", "Brush", "Wrench", "Smartphone", "Shirt", "Croissant", "Leaf", "Drumstick", "Snowflake"];
-const PRESET_COLORS = [
-  "#E57E4D", "#F59E0B", "#10B981", "#3B82F6", "#8B5CF6",
-  "#EC4899", "#EF4444", "#6366F1", "#14B8A6", "#F97316",
-  "#0EA5E9", "#22C55E", "#A855F7", "#F43F5E", "#78716C",
-];
 
 const Categories = () => {
   const { user, profile, userRole } = useAuth();
@@ -58,7 +54,7 @@ const Categories = () => {
   const [formData, setFormData] = useState({
     name: "",
     icon: "Package",
-    color: "#E57E4D",
+    color: DEFAULT_CATEGORY_COLOR,
     description: "",
   });
 
@@ -224,12 +220,12 @@ const Categories = () => {
       setFormData({
         name: category.name,
         icon: category.icon || "Package",
-        color: category.color || "#E57E4D",
+        color: category.color || DEFAULT_CATEGORY_COLOR,
         description: category.description || "",
       });
     } else {
       setSelectedCategory(null);
-      setFormData({ name: "", icon: "Package", color: "#E57E4D", description: "" });
+      setFormData({ name: "", icon: "Package", color: DEFAULT_CATEGORY_COLOR, description: "" });
     }
     setIsFormOpen(true);
   };
@@ -237,7 +233,7 @@ const Categories = () => {
   const handleCloseForm = () => {
     setIsFormOpen(false);
     setSelectedCategory(null);
-    setFormData({ name: "", icon: "Package", color: "#E57E4D", description: "" });
+    setFormData({ name: "", icon: "Package", color: DEFAULT_CATEGORY_COLOR, description: "" });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -375,7 +371,7 @@ const Categories = () => {
                           <div className="flex items-center gap-2">
                             <h3 className="font-semibold truncate">{category.name}</h3>
                             {isDefault && (
-                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">
+                              <Badge variant="secondary" className="text-micro px-1.5 py-0 shrink-0">
                                 Défaut
                               </Badge>
                             )}
@@ -383,7 +379,7 @@ const Categories = () => {
                           <div className="flex items-center gap-2 mt-1">
                             <div
                               className="w-3 h-3 rounded-full"
-                              style={{ backgroundColor: category.color || "#E57E4D" }}
+                              style={{ backgroundColor: category.color || DEFAULT_CATEGORY_COLOR }}
                             />
                             <span className="text-xs text-muted-foreground">
                               {productCount} produit{productCount !== 1 ? "s" : ""}

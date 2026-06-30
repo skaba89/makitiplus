@@ -25,14 +25,14 @@ export const BarcodeScannerDialog = ({
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const onScanRef = useRef(onScan);
-  onScanRef.current = onScan; // always up-to-date, no stale closure
+  onScanRef.current = onScan; // toujours à jour, pas de closure périmée
 
   useEffect(() => {
     if (!isOpen) return;
 
     const scannerId = "barcode-scanner-region";
 
-    // Small delay to ensure DOM is ready
+    // Petit délai pour s'assurer que le DOM est prêt
     const timeout = setTimeout(() => {
       const scanner = new Html5Qrcode(scannerId);
       scannerRef.current = scanner;
@@ -50,7 +50,7 @@ export const BarcodeScannerDialog = ({
             handleClose();
           },
           () => {
-            // Ignore scan failures (no code detected)
+            // Ignorer les échecs de scan (aucun code détecté)
           }
         )
         .catch((err) => {

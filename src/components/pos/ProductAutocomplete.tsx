@@ -19,12 +19,15 @@ interface ProductAutocompleteProps {
   products: Product[];
   onSelect: (product: Product, quantity: number) => void;
   placeholder?: string;
+  /** External ref to allow parent to focus the input (keyboard shortcut) */
+  inputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
 export const ProductAutocomplete = ({
   products,
   onSelect,
   placeholder = "Rechercher par nom ou code-barres...",
+  inputRef,
 }: ProductAutocompleteProps) => {
   const { formatPrice } = useCurrency();
   const orgTaxRate = useOrgTaxRate();
@@ -34,7 +37,7 @@ export const ProductAutocomplete = ({
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Build search index once per products list — memoized for large catalogs
+  // Construire l'index de recherche une seule fois par liste de produits — mémoïsé pour les grands catalogues
   const index = useMemo(() => buildProductSearchIndex(products), [products]);
 
   const matches = useMemo(
@@ -61,9 +64,9 @@ export const ProductAutocomplete = ({
     setQuantities((prev) => ({ ...prev, [id]: Math.max(1, q) }));
 
   const handleAdd = (product: Product, closeAfter = true) => {
-    if (product.stock_quantity === 0) return; // Prevent adding out-of-stock
+    if (product.stock_quantity === 0) return; // Empêcher l'ajout d'un produit en rupture
     const qty = getQty(product.id);
-    if (qty > product.stock_quantity) return; // Prevent exceeding stock
+    if (qty > product.stock_quantity) return; // Empêcher de dépasser le stock
     onSelect(product, qty);
     setQuantities((prev) => ({ ...prev, [product.id]: 1 }));
     if (closeAfter) {
@@ -98,6 +101,7 @@ export const ProductAutocomplete = ({
     <div ref={containerRef} className="relative flex-1">
       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
       <Input
+        ref={inputRef}
         value={query}
         onChange={(e) => {
           setQuery(e.target.value);
@@ -145,7 +149,7 @@ export const ProductAutocomplete = ({
                       <div className="font-medium text-sm truncate flex items-center gap-2">
                         {product.name}
                         {isOOS && (
-                          <Badge variant="destructive" className="text-[10px] h-4">
+                          <Badge variant="destructive" className="text-micro h-4">
                             Rupture
                           </Badge>
                         )}
@@ -160,13 +164,13 @@ export const ProductAutocomplete = ({
                         {formatPrice(tax.ttc)}
                       </div>
                       {tax.rate > 0 ? (
-                        <div className="text-[10px] text-muted-foreground leading-tight">
+                        <div className="text-micro text-muted-foreground leading-tight">
                           HT: {formatPrice(tax.ht)}
                           <br />
                           TVA {tax.rate}%: {formatPrice(tax.taxAmount)}
                         </div>
                       ) : (
-                        <div className="text-[10px] text-muted-foreground">
+                        <div className="text-micro text-muted-foreground">
                           Sans taxe
                         </div>
                       )}

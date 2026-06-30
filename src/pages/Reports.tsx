@@ -45,8 +45,10 @@ import { fr } from "date-fns/locale";
 import { exportSalesToCSV, exportExpensesToCSV } from "@/utils/exportUtils";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
+import { ReportsPageSkeleton } from "@/components/skeletons/PageSkeletons";
+import { CHART_COLORS } from "@/constants/colors";
 
-const COLORS = ["#E57E4D", "#F59E0B", "#10B981", "#3B82F6", "#8B5CF6", "#EC4899"];
+const COLORS = [...CHART_COLORS];
 
 const Reports = () => {
   const { user } = useAuth();
@@ -68,8 +70,8 @@ const Reports = () => {
 
   const { start, end } = getDateRange();
 
-  // Fetch sales for the period
-  const { data: sales } = useQuery({
+  // Récupérer les ventes pour la période
+  const { data: sales, isLoading: isLoadingSales } = useQuery({
     queryKey: ["reports-sales", user?.id, period],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -85,8 +87,8 @@ const Reports = () => {
     enabled: !!user,
   });
 
-  // Fetch expenses for the period
-  const { data: expenses } = useQuery({
+  // Récupérer les dépenses pour la période
+  const { data: expenses, isLoading: isLoadingExpenses } = useQuery({
     queryKey: ["reports-expenses", user?.id, period],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -101,8 +103,8 @@ const Reports = () => {
     enabled: !!user,
   });
 
-  // Fetch top products
-  const { data: topProducts } = useQuery({
+  // Récupérer les produits les plus vendus
+  const { data: topProducts, isLoading: isLoadingTopProducts } = useQuery({
     queryKey: ["reports-top-products", user?.id, period],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -119,7 +121,7 @@ const Reports = () => {
 
       if (error) throw error;
 
-      // Aggregate by product
+      // Agréger par produit
       const aggregated = data.reduce((acc, item) => {
         const existing = acc.find((p) => p.name === item.product_name);
         if (existing) {
@@ -140,13 +142,23 @@ const Reports = () => {
     enabled: !!user,
   });
 
-  // Calculate stats
+  const isReportsLoading = isLoadingSales || isLoadingExpenses || isLoadingTopProducts;
+
+  if (isReportsLoading) {
+    return (
+      <DashboardLayout>
+        <ReportsPageSkeleton />
+      </DashboardLayout>
+    );
+  }
+
+  // Calculer les statistiques
   const totalSales = sales?.reduce((sum, sale) => sum + sale.total_amount, 0) || 0;
   const totalTransactions = sales?.length || 0;
   const totalExpenses = expenses?.reduce((sum, exp) => sum + exp.amount, 0) || 0;
   const netProfit = totalSales - totalExpenses;
 
-  // Payment method distribution
+  // Répartition par mode de paiement
   const paymentDistribution = sales?.reduce((acc, sale) => {
     const method = sale.payment_method;
     const existing = acc.find((p) => p.method === method);
@@ -169,7 +181,7 @@ const Reports = () => {
     credit: "Crédit",
   };
 
-  // Daily sales for chart
+  // Ventes journalières pour le graphique
   const dailySalesData = () => {
     if (!sales) return [];
     
@@ -196,7 +208,7 @@ const Reports = () => {
     return data;
   };
 
-  // formatPrice is now from useCurrency
+  // formatPrice provient maintenant de useCurrency
 
   const chartConfig = {
     ventes: {

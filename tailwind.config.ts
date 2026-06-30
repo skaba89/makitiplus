@@ -70,6 +70,10 @@ export default {
         "2xl": "calc(var(--radius) + 8px)",
         "3xl": "calc(var(--radius) + 16px)",
       },
+      fontSize: {
+        micro: "10px",
+        fine: "11px",
+      },
       fontFamily: {
         sans: ["'Plus Jakarta Sans'", "system-ui", "sans-serif"],
       },

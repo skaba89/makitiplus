@@ -281,7 +281,7 @@ export const BrandingSettings = () => {
                   className="w-8 h-8 rounded-full shadow-md group-hover:shadow-lg transition-shadow"
                   style={{ backgroundColor: color.hex }}
                 />
-                <span className="text-[10px] text-muted-foreground font-medium truncate w-full text-center">
+                <span className="text-micro text-muted-foreground font-medium truncate w-full text-center">
                   {color.name}
                 </span>
               </button>
@@ -543,7 +543,7 @@ export const BrandingSettings = () => {
                   ))}
                 </div>
                 <div
-                  className="h-7 w-full rounded-lg flex items-center justify-center text-[10px] text-white font-medium"
+                  className="h-7 w-full rounded-lg flex items-center justify-center text-micro text-white font-medium"
                   style={{ backgroundColor: `hsl(${branding.brandColor})` }}
                 >
                   Bouton principal

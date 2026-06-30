@@ -31,6 +31,8 @@ interface POSPaymentDialogProps {
     customerPhone?: string
   ) => void;
   isLoading: boolean;
+  /** Ref to expose the confirm handler for Ctrl+Enter keyboard shortcut */
+  confirmRef?: React.MutableRefObject<(() => void) | null>;
 }
 
 export const POSPaymentDialog = ({
@@ -39,6 +41,7 @@ export const POSPaymentDialog = ({
   total,
   onConfirm,
   isLoading,
+  confirmRef,
 }: POSPaymentDialogProps) => {
   const { formatPrice, availablePaymentMethods, phoneCode } = useCurrency();
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
@@ -46,7 +49,7 @@ export const POSPaymentDialog = ({
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
 
-  // Update amountPaid when total changes
+  // Mettre à jour amountPaid quand le total change
   useEffect(() => {
     setAmountPaid(total);
   }, [total]);
@@ -55,6 +58,7 @@ export const POSPaymentDialog = ({
   const canConfirm = paymentMethod === "credit" || amountPaid >= total;
 
   const handleConfirm = () => {
+    if (isLoading || !canConfirm || (paymentMethod === "credit" && !customerName.trim())) return;
     onConfirm(
       paymentMethod,
       paymentMethod === "credit" ? 0 : amountPaid,
@@ -63,6 +67,13 @@ export const POSPaymentDialog = ({
     );
   };
 
+  // Exposer le gestionnaire de confirmation via ref pour le raccourci Ctrl+Entrée
+  useEffect(() => {
+    if (confirmRef) {
+      confirmRef.current = handleConfirm;
+    }
+  });
+
   const quickAmounts = [
     total,
     Math.ceil(total / 500) * 500,
@@ -70,7 +81,7 @@ export const POSPaymentDialog = ({
     Math.ceil(total / 5000) * 5000,
   ].filter((v, i, a) => a.indexOf(v) === i && v >= total);
 
-  // Filter payment methods based on country
+  // Filtrer les modes de paiement selon le pays
   const allPaymentMethods: { value: PaymentMethod; label: string; icon: React.ReactNode }[] = [
     { value: "cash", label: "Espèces", icon: <Banknote className="h-4 w-4" /> },
     { value: "wave", label: "Wave", icon: <Smartphone className="h-4 w-4" /> },
@@ -82,7 +93,7 @@ export const POSPaymentDialog = ({
     { value: "credit", label: "À crédit", icon: <Clock className="h-4 w-4" /> },
   ];
 
-  // Always show cash, card, credit + country-specific mobile payments
+  // Toujours afficher espèces, carte, crédit + paiements mobiles spécifiques au pays
   const paymentMethods = allPaymentMethods.filter(
     (method) =>
       method.value === "cash" ||
@@ -120,7 +131,7 @@ export const POSPaymentDialog = ({
                     className="flex flex-col gap-1 py-2 px-1"
                   >
                     {method.icon}
-                    <span className="text-[10px]">{method.label}</span>
+                    <span className="text-micro">{method.label}</span>
                   </TabsTrigger>
                 ))}
               </TabsList>

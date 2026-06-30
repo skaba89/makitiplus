@@ -63,6 +63,7 @@ import { AuditLogPanel } from "@/components/users/AuditLogPanel";
 import { SecurityDiagnosticPanel } from "@/components/users/SecurityDiagnosticPanel";
 import { ResetTokensPanel } from "@/components/users/ResetTokensPanel";
 import { PasswordStrengthMeter } from "@/components/users/PasswordStrengthMeter";
+import { UsersPageSkeleton } from "@/components/skeletons/PageSkeletons";
 import { checkPassword } from "@/lib/passwordPolicy";
 import { AdminActionResponse, ResetLinkResponse, Profile as ProfileType, isAdminRole } from "@/types";
 import {
@@ -604,9 +605,7 @@ const Users = () => {
               </CardHeader>
               <CardContent>
                 {loading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                  </div>
+                  <UsersPageSkeleton />
                 ) : (
                   <div className="overflow-x-auto">
                     <Table>
@@ -633,7 +632,7 @@ const Users = () => {
                                     <span className="text-xs text-muted-foreground">(vous)</span>
                                   )}
                                   {u.is_test_account && (
-                                    <Badge variant="outline" className="border-yellow-500 text-yellow-700 text-[10px]">
+                                    <Badge variant="outline" className="border-yellow-500 text-yellow-700 text-micro">
                                       <Hourglass className="h-2.5 w-2.5 mr-1" />
                                       Test
                                       {u.test_expires_at && daysUntilExpiry(u.test_expires_at) !== null && (

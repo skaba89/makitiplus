@@ -44,7 +44,7 @@ export const OfflineIndicator = () => {
               {isOnline ? "En ligne" : "Hors-ligne"}
             </span>
             {pendingCount > 0 && (
-              <span className="ml-1 bg-yellow-500 text-white rounded-full px-1.5 py-0.5 text-[10px] font-bold">
+              <span className="ml-1 bg-yellow-500 text-white rounded-full px-1.5 py-0.5 text-micro font-bold">
                 {pendingCount}
               </span>
             )}

@@ -339,7 +339,7 @@ export const OfflinePOSSimulationPanel = () => {
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell className="text-[10px] font-mono text-muted-foreground">
+                    <TableCell className="text-micro font-mono text-muted-foreground">
                       {s.client_uuid}
                     </TableCell>
                   </TableRow>

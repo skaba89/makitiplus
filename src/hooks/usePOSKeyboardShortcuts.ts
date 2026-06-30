@@ -1,38 +1,50 @@
 import { useEffect } from "react";
 
 interface KeyboardShortcutsConfig {
-  /** Focus search bar */
+  /** Focus sur la barre de recherche */
   onFocusSearch: () => void;
-  /** Open payment dialog */
+  /** Ouvrir le dialogue de paiement */
   onOpenPayment: () => void;
-  /** Clear cart (with confirmation handled externally) */
+  /** Vider le panier (confirmation gérée en externe) */
   onClearCart: () => void;
-  /** Toggle between grid and list view */
+  /** Basculer entre la vue grille et liste */
   onToggleView: () => void;
-  /** Toggle out-of-stock visibility */
+  /** Basculer la visibilité des ruptures de stock */
   onToggleOutOfStock: () => void;
-  /** Open barcode scanner */
+  /** Ouvrir le scanner de code-barres */
   onOpenScanner: () => void;
-  /** Whether cart has items (to gate some shortcuts) */
+  /** Afficher le dialogue d'aide des raccourcis clavier */
+  onShowHelp: () => void;
+  /** Confirmer le paiement (Ctrl+Entrée quand le dialogue de paiement est ouvert) */
+  onConfirmPayment: () => void;
+  /** Augmenter la quantité du dernier article du panier */
+  onIncrementLastItem: () => void;
+  /** Diminuer la quantité du dernier article du panier */
+  onDecrementLastItem: () => void;
+  /** Si le panier contient des articles (pour conditionner certains raccourcis) */
   hasCartItems: boolean;
-  /** Whether payment dialog is already open (to avoid re-opening) */
+  /** Si le dialogue de paiement est déjà ouvert (pour éviter la réouverture) */
   isPaymentOpen: boolean;
 }
 
 /**
- * POS keyboard shortcuts hook.
+ * Hook des raccourcis clavier du POS.
  *
- * Shortcuts:
- * - `/` or `Ctrl+K` → Focus search bar
- * - `F2`            → Open payment dialog
- * - `F4`            → Clear cart
- * - `F5`            → Toggle grid/list view
- * - `F6`            → Toggle out-of-stock visibility
- * - `F7`            → Open barcode scanner
- * - `Escape`        → Close dialogs / clear search
+ * Raccourcis :
+ * - `F1`             → Afficher l'aide des raccourcis clavier
+ * - `/` ou `Ctrl+K`  → Focus sur la barre de recherche
+ * - `F2`             → Ouvrir le dialogue de paiement
+ * - `Ctrl+Entrée`    → Confirmer le paiement (quand le dialogue est ouvert)
+ * - `F4`             → Vider le panier
+ * - `F5`             → Basculer grille / liste
+ * - `F6`             → Basculer visibilité ruptures de stock
+ * - `F7`             → Ouvrir le scanner de code-barres
+ * - `+` ou `=`       → Augmenter la quantité du dernier article du panier
+ * - `-`              → Diminuer la quantité du dernier article du panier
+ * - `Escape`         → Fermer les dialogues / effacer la recherche
  *
- * All shortcuts are disabled when a text input/textarea is focused
- * (except Escape and function keys).
+ * Tous les raccourcis sont désactivés quand un champ texte/textarea est focus
+ * (sauf Escape, les touches de fonction et Ctrl+Entrée).
  */
 export function usePOSKeyboardShortcuts(config: KeyboardShortcutsConfig) {
   const {
@@ -42,6 +54,10 @@ export function usePOSKeyboardShortcuts(config: KeyboardShortcutsConfig) {
     onToggleView,
     onToggleOutOfStock,
     onOpenScanner,
+    onShowHelp,
+    onConfirmPayment,
+    onIncrementLastItem,
+    onDecrementLastItem,
     hasCartItems,
     isPaymentOpen,
   } = config;
@@ -55,7 +71,7 @@ export function usePOSKeyboardShortcuts(config: KeyboardShortcutsConfig) {
         target.tagName === "SELECT" ||
         target.isContentEditable;
 
-      // Escape always works
+      // Escape fonctionne toujours
       if (e.key === "Escape") {
         if (isTyping) {
           (target as HTMLInputElement).blur();
@@ -63,7 +79,14 @@ export function usePOSKeyboardShortcuts(config: KeyboardShortcutsConfig) {
         return;
       }
 
-      // Function keys always work (even when typing)
+      // F1 — Afficher l'aide des raccourcis (fonctionne toujours)
+      if (e.key === "F1") {
+        e.preventDefault();
+        onShowHelp();
+        return;
+      }
+
+      // F2 — Ouvrir le dialogue de paiement (fonctionne toujours)
       if (e.key === "F2") {
         e.preventDefault();
         if (hasCartItems && !isPaymentOpen) {
@@ -72,6 +95,16 @@ export function usePOSKeyboardShortcuts(config: KeyboardShortcutsConfig) {
         return;
       }
 
+      // Ctrl+Entrée — Confirmer le paiement quand le dialogue est ouvert (fonctionne même en saisie)
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        if (isPaymentOpen) {
+          onConfirmPayment();
+        }
+        return;
+      }
+
+      // F4 — Vider le panier (fonctionne toujours)
       if (e.key === "F4") {
         e.preventDefault();
         if (hasCartItems) {
@@ -80,31 +113,52 @@ export function usePOSKeyboardShortcuts(config: KeyboardShortcutsConfig) {
         return;
       }
 
+      // F5 — Basculer grille/liste (fonctionne toujours)
       if (e.key === "F5") {
         e.preventDefault();
         onToggleView();
         return;
       }
 
+      // F6 — Basculer la visibilité des ruptures (fonctionne toujours)
       if (e.key === "F6") {
         e.preventDefault();
         onToggleOutOfStock();
         return;
       }
 
+      // F7 — Ouvrir le scanner de code-barres (fonctionne toujours)
       if (e.key === "F7") {
         e.preventDefault();
         onOpenScanner();
         return;
       }
 
-      // Shortcuts below are disabled when the user is typing in an input
+      // Les raccourcis ci-dessous sont désactivés quand l'utilisateur saisit dans un champ
       if (isTyping) return;
 
-      // `/` or `Ctrl+K` → focus search
+      // `/` ou `Ctrl+K` → focus recherche
       if (e.key === "/" || (e.key === "k" && (e.ctrlKey || e.metaKey))) {
         e.preventDefault();
         onFocusSearch();
+        return;
+      }
+
+      // `+` ou `=` → Augmenter la quantité du dernier article
+      if (e.key === "+" || e.key === "=") {
+        e.preventDefault();
+        if (hasCartItems) {
+          onIncrementLastItem();
+        }
+        return;
+      }
+
+      // `-` → Diminuer la quantité du dernier article
+      if (e.key === "-") {
+        e.preventDefault();
+        if (hasCartItems) {
+          onDecrementLastItem();
+        }
         return;
       }
     };
@@ -118,6 +172,10 @@ export function usePOSKeyboardShortcuts(config: KeyboardShortcutsConfig) {
     onToggleView,
     onToggleOutOfStock,
     onOpenScanner,
+    onShowHelp,
+    onConfirmPayment,
+    onIncrementLastItem,
+    onDecrementLastItem,
     hasCartItems,
     isPaymentOpen,
   ]);

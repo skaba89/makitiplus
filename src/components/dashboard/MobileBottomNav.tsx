@@ -90,7 +90,7 @@ export const MobileBottomNav = () => {
               )}
             >
               <Icon className={cn("h-5 w-5", active && "stroke-[2.5px]")} />
-              <span className={cn("text-[10px] font-medium", active && "font-semibold")}>
+              <span className={cn("text-micro font-medium", active && "font-semibold")}>
                 {item.name}
               </span>
             </Link>

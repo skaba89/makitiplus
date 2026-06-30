@@ -694,11 +694,11 @@ const StoreCustomization = () => {
                     />
                   )}
                   <p className="font-bold text-sm">{storeName || "Mon Magasin"}</p>
-                  <p className="text-[10px] text-gray-500 mt-1">
+                  <p className="text-micro text-gray-500 mt-1">
                     {profile?.address || "Dakar, Sénégal"}
                   </p>
                   <div className="border-t border-dashed border-gray-300 my-2" />
-                  <p className="text-[10px]">Vente #001</p>
+                  <p className="text-micro">Vente #001</p>
                   <div className="border-t border-dashed border-gray-300 my-2" />
                   <div className="flex justify-between">
                     <span>Produit x2</span>
@@ -711,7 +711,7 @@ const StoreCustomization = () => {
                   <div className="border-t border-dashed border-gray-300 my-2" />
                   {receiptShowTax && (
                     <>
-                      <div className="flex justify-between text-[10px] text-gray-500">
+                      <div className="flex justify-between text-micro text-gray-500">
                         <span>TVA (18%)</span>
                         <span>990 {currency.displaySymbol || currency.symbol}</span>
                       </div>
@@ -723,7 +723,7 @@ const StoreCustomization = () => {
                   </div>
                   <div className="border-t border-dashed border-gray-300 my-2" />
                   {receiptFooter && (
-                    <p className="text-[10px] text-gray-500 italic text-center whitespace-pre-line">
+                    <p className="text-micro text-gray-500 italic text-center whitespace-pre-line">
                       {receiptFooter}
                     </p>
                   )}

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useCurrency } from "@/hooks/useCurrency";
 import { ProductWithCategoryIcon, POS_ROLES, INVENTORY_ROLES, FINANCIAL_ROLES } from "@/types";
+import { DashboardPageSkeleton } from "@/components/skeletons/PageSkeletons";
 import {
   TrendingUp,
   ShoppingCart,
@@ -36,8 +37,8 @@ const Dashboard = () => {
   const monthStart = startOfMonth(today).toISOString();
   const monthEnd = endOfMonth(today).toISOString();
 
-  // Today's sales
-  const { data: todaySales } = useQuery({
+  // Ventes du jour
+  const { data: todaySales, isLoading: isLoadingTodaySales } = useQuery({
     queryKey: ["dashboard-sales-today", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -51,8 +52,8 @@ const Dashboard = () => {
     enabled: !!user,
   });
 
-  // Month sales
-  const { data: monthSales } = useQuery({
+  // Ventes du mois
+  const { data: monthSales, isLoading: isLoadingMonthSales } = useQuery({
     queryKey: ["dashboard-sales-month", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -66,8 +67,8 @@ const Dashboard = () => {
     enabled: !!user,
   });
 
-  // Month expenses
-  const { data: monthExpenses } = useQuery({
+  // Dépenses du mois
+  const { data: monthExpenses, isLoading: isLoadingExpenses } = useQuery({
     queryKey: ["dashboard-expenses-month", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -81,8 +82,8 @@ const Dashboard = () => {
     enabled: !!user,
   });
 
-  // Products count & stock alerts
-  const { data: products } = useQuery({
+  // Nombre de produits et alertes de stock
+  const { data: products, isLoading: isLoadingProducts } = useQuery({
     queryKey: ["dashboard-products", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -95,7 +96,7 @@ const Dashboard = () => {
     enabled: !!user,
   });
 
-  // Customer credits
+  // Crédits clients
   const { data: credits } = useQuery({
     queryKey: ["dashboard-credits", user?.id],
     queryFn: async () => {
@@ -109,7 +110,7 @@ const Dashboard = () => {
     enabled: !!user,
   });
 
-  // Top selling products (last 30 days)
+  // Produits les plus vendus (30 derniers jours)
   const { data: topProducts } = useQuery({
     queryKey: ["dashboard-top-products", user?.id],
     queryFn: async () => {
@@ -127,7 +128,7 @@ const Dashboard = () => {
     enabled: !!user,
   });
 
-  // Recent sales
+  // Ventes récentes
   const { data: recentSales } = useQuery({
     queryKey: ["dashboard-recent-sales", user?.id],
     queryFn: async () => {
@@ -154,6 +155,16 @@ const Dashboard = () => {
   const totalCredits = credits?.reduce((s, c) => s + Number(c.total_credit), 0) || 0;
   const creditsCount = credits?.length || 0;
   const netResult = totalSalesMonth - totalExpensesMonth;
+
+  const isDashboardLoading = isLoadingTodaySales || isLoadingMonthSales || isLoadingExpenses || isLoadingProducts;
+
+  if (isDashboardLoading) {
+    return (
+      <DashboardLayout>
+        <DashboardPageSkeleton />
+      </DashboardLayout>
+    );
+  }
 
   const roleLabels: Record<string, string> = {
     admin: "Administrateur",
@@ -419,7 +430,7 @@ const Dashboard = () => {
                           <span className="truncate">{item.product_name}</span>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
-                          <Badge variant="secondary" className="text-[10px]">x{item.quantity}</Badge>
+                          <Badge variant="secondary" className="text-micro">x{item.quantity}</Badge>
                           <span className="font-medium">{formatPrice(item.total_price)}</span>
                         </div>
                       </div>

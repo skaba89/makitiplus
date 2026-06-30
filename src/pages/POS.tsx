@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef, useDeferredValue } from "react";
+import { useState, useCallback, useMemo, useRef, useDeferredValue, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -61,6 +61,8 @@ const POS = () => {
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const lastSubmitRef = useRef(0);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const confirmPaymentRef = useRef<(() => void) | null>(null);
 
   const { data: products, isLoading } = useQuery({
     queryKey: ["products", "pos"],
@@ -106,7 +108,7 @@ const POS = () => {
         throw new Error("Vente déjà en cours de traitement");
       }
       lastSubmitRef.current = Date.now();
-      // Get sale number (fallback to timestamp+uuid if RPC not available)
+      // Obtenir le numéro de vente (fallback vers timestamp+uuid si RPC non disponible)
       let finalSaleNumber = '';
       try {
         const { data: saleNumber, error: rpcError } = await supabase.rpc("generate_sale_number");
@@ -117,7 +119,7 @@ const POS = () => {
       } catch {
         console.warn("[POS] generate_sale_number RPC exception, using fallback");
       }
-      // Fallback: use crypto.randomUUID fragment — no collision risk across terminals
+      // Fallback : utiliser un fragment crypto.randomUUID — pas de risque de collision entre terminaux
       if (!finalSaleNumber) {
         const uid = crypto.randomUUID().replace(/-/g, '').substring(0, 12).toUpperCase();
         finalSaleNumber = `VTE-${uid}`;
@@ -131,14 +133,14 @@ const POS = () => {
         const t = computeTax(item.product.price, item.product.tax_rate, orgTaxRate);
         return sum + t.taxAmount * item.quantity;
       }, 0);
-      // Prices are TTC (tax-inclusive): subtotal already includes tax
-      // totalAmount = subtotal (what customer pays)
-      // For DB: store subtotal as TTC total, taxAmount as the tax portion
+      // Les prix sont TTC (taxe incluse) : le sous-total inclut déjà la taxe
+      // totalMontant = sous-total (ce que le client paie)
+      // Pour la DB : stocker le sous-total comme total TTC, montantTaxe comme la part de taxe
       const totalAmount = subtotal;
       const htAmount = subtotal - taxAmount;
       const changeAmount = amountPaid - totalAmount;
 
-      // Try atomic sale creation via RPC first (C4: single transaction)
+      // Essayer d'abord la création atomique de vente via RPC (C4 : transaction unique)
       const saleItems = cart.map((item) => ({
         product_id: item.product.id,
         product_name: item.product.name,
@@ -169,7 +171,7 @@ const POS = () => {
         });
 
         if (!rpcError && rpcSaleId) {
-          // Atomic RPC succeeded — fetch the sale record for receipt
+          // RPC atomique réussie — récupérer l'enregistrement de vente pour le ticket
           const { data: saleRow } = await supabase
             .from("sales")
             .select("id, sale_number, payment_method, amount_paid, customer_name, customer_phone")
@@ -184,7 +186,7 @@ const POS = () => {
         console.warn("[POS] create_full_sale RPC exception, falling back");
       }
 
-      // Fallback: non-atomic path (for older DB without the RPC)
+      // Fallback : chemin non atomique (pour les anciennes DB sans la RPC)
       if (!usedAtomicRPC || !sale) {
         const saleInsert: Record<string, unknown> = {
           user_id: user!.id,
@@ -210,7 +212,7 @@ const POS = () => {
         if (saleError) throw saleError;
         sale = fallbackSale;
 
-        // Insert sale items
+        // Insérer les articles de la vente
         const insertItems = saleItems.map((item) => ({
           ...item,
           sale_id: sale!.id,
@@ -221,7 +223,7 @@ const POS = () => {
           .insert(insertItems);
         if (itemsError) throw itemsError;
 
-        // Update stock — use batch_update_stock RPC, then relative fallback
+        // Mettre à jour le stock — utiliser la RPC batch_update_stock, puis fallback relatif
         const stockItems = cart.map((item) => ({
           product_id: item.product.id,
           quantity: item.quantity,
@@ -236,14 +238,14 @@ const POS = () => {
         if (stockError) {
           console.warn("[POS] batch_update_stock RPC failed, using relative updates:", stockError.message);
           // Relative atomic update: stock_quantity = GREATEST(stock_quantity - X, 0)
-          // This avoids the SELECT-then-UPDATE race condition (C5)
+          // Cela évite la condition de course SELECT-then-UPDATE (C5)
           for (const item of cart) {
             await supabase.rpc('decrement_stock', {
               p_product_id: item.product.id,
               p_quantity: item.quantity,
             }).catch(async () => {
-              // Final fallback: just do the relative update via raw SQL-like approach
-              // Since we can't use raw SQL client-side, use the old approach as last resort
+              // Dernier recours : mise à jour relative via une approche pseudo-SQL brute
+              // Puisqu'on ne peut pas utiliser du SQL brut côté client, utiliser l'ancienne approche en dernier recours
               const { data: currentProduct } = await supabase
                 .from("products")
                 .select("stock_quantity")
@@ -259,11 +261,11 @@ const POS = () => {
         }
       }
 
-      // If credit sale, create a customer_credits entry for debt tracking
+      // Si vente à crédit, créer une entrée customer_credits pour le suivi de la dette
       if (paymentMethod === "credit" && totalAmount > 0) {
         let customerId: string | null = null;
 
-        // Try to find existing customer by phone (if provided)
+        // Essayer de trouver un client existant par téléphone (si fourni)
         if (customerPhone) {
           const { data: existingCustomer } = await supabase
             .from("customers")
@@ -274,7 +276,7 @@ const POS = () => {
           if (existingCustomer) {
             customerId = existingCustomer.id;
           } else {
-            // Auto-create customer if phone is provided but no record exists
+            // Créer automatiquement un client si le téléphone est fourni mais aucun enregistrement n'existe
             const newCustomer: Record<string, unknown> = {
               name: customerName || customerPhone,
               phone: customerPhone,
@@ -292,7 +294,7 @@ const POS = () => {
             }
           }
         } else if (customerName) {
-          // No phone but name provided — try to find by name
+          // Pas de téléphone mais nom fourni — essayer de trouver par nom
           const { data: existingCustomer } = await supabase
             .from("customers")
             .select("id")
@@ -317,12 +319,12 @@ const POS = () => {
           }
           await supabase.from("customer_credits").insert(creditInsert);
 
-          // Update customer total_credit atomically
+          // Mettre à jour total_credit du client atomiquement
           await supabase.rpc("increment_customer_credit", {
             p_customer_id: customerId,
             p_amount: totalAmount,
           }).catch(async () => {
-            // Fallback: relative update
+            // Fallback : mise à jour relative
             const { data: cust } = await supabase
               .from("customers")
               .select("total_credit")
@@ -339,14 +341,14 @@ const POS = () => {
       return { sale, changeAmount };
     },
     onSuccess: ({ sale, changeAmount }) => {
-      // Compute tax for receipt display
+      // Calculer la taxe pour l'affichage du ticket
       const receiptTaxAmount = cart.reduce((sum, item) => {
         const t = computeTax(item.product.price, item.product.tax_rate, orgTaxRate);
         return sum + t.taxAmount * item.quantity;
       }, 0);
       const receiptSubtotal = cartTotal - receiptTaxAmount;
 
-      // Prepare receipt data for dialog
+      // Préparer les données du ticket pour le dialogue
       const receiptData: ReceiptData = {
         saleNumber: sale.sale_number,
         date: new Date(),
@@ -388,7 +390,7 @@ const POS = () => {
       setIsPaymentOpen(false);
     },
     onError: (error: unknown) => {
-      // Supabase errors are plain objects, not Error instances
+      // Les erreurs Supabase sont des objets simples, pas des instances Error
       let message = "Impossible d'enregistrer la vente";
       if (error instanceof Error) {
         message = error.message;
@@ -457,7 +459,7 @@ const POS = () => {
   }, [removeItem]);
 
   const handleBarcodeScan = (barcode: string) => {
-    // Find product by barcode and add to cart
+    // Trouver le produit par code-barres et l'ajouter au panier
     const found = products?.find((p) => p.barcode === barcode);
     if (found) {
       addToCart(found);
@@ -489,17 +491,38 @@ const POS = () => {
 
   const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  // Keyboard shortcuts
+  // Raccourcis clavier
   usePOSKeyboardShortcuts({
     onFocusSearch: useCallback(() => {
-      const input = document.querySelector<HTMLInputElement>('input[placeholder*="Rechercher"]');
-      input?.focus();
+      searchInputRef.current?.focus();
     }, []),
     onOpenPayment: useCallback(() => setIsPaymentOpen(true), []),
     onClearCart: useCallback(() => clearCart(), [clearCart]),
     onToggleView: useCallback(() => setViewMode((v) => v === "grid" ? "list" : "grid"), []),
     onToggleOutOfStock: useCallback(() => setShowOutOfStock((v) => !v), []),
     onOpenScanner: useCallback(() => setIsScannerOpen(true), []),
+    onShowHelp: useCallback(() => setShowShortcuts(true), []),
+    onConfirmPayment: useCallback(() => {
+      confirmPaymentRef.current?.();
+    }, []),
+    onIncrementLastItem: useCallback(() => {
+      if (cart.length === 0) return;
+      const lastItem = cart[cart.length - 1];
+      const newQty = lastItem.quantity + 1;
+      if (newQty <= lastItem.product.stock_quantity) {
+        updateQuantity(lastItem.product.id, newQty);
+      }
+    }, [cart, updateQuantity]),
+    onDecrementLastItem: useCallback(() => {
+      if (cart.length === 0) return;
+      const lastItem = cart[cart.length - 1];
+      const newQty = lastItem.quantity - 1;
+      if (newQty <= 0) {
+        removeItem(lastItem.product.id);
+      } else {
+        updateQuantity(lastItem.product.id, newQty);
+      }
+    }, [cart, updateQuantity, removeItem]),
     hasCartItems: cart.length > 0,
     isPaymentOpen,
   });
@@ -513,6 +536,7 @@ const POS = () => {
           <div className="space-y-4 mb-4">
             <div className="flex gap-2">
               <ProductAutocomplete
+                inputRef={searchInputRef}
                 products={products || []}
                 onSelect={(p, qty) => {
                   if (p.stock_quantity === 0) {
@@ -700,6 +724,7 @@ const POS = () => {
             })
           }
           isLoading={createSaleMutation.isPending}
+          confirmRef={confirmPaymentRef}
         />
 
         {/* Receipt Actions Dialog */}
@@ -727,9 +752,12 @@ const POS = () => {
             </DialogHeader>
             <div className="space-y-2 text-sm">
               {[
+                { keys: "F1", action: "Aide raccourcis clavier" },
                 { keys: "/ ou Ctrl+K", action: "Rechercher un produit" },
                 { keys: "F2", action: "Ouvrir le paiement" },
+                { keys: "Ctrl+Entrée", action: "Confirmer le paiement" },
                 { keys: "F4", action: "Vider le panier" },
+                { keys: "+ / -", action: "Modifier qté dernier article" },
                 { keys: "F5", action: "Basculer grille / liste" },
                 { keys: "F6", action: "Afficher / masquer ruptures" },
                 { keys: "F7", action: "Scanner un code-barres" },

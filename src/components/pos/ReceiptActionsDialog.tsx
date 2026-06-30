@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { WHATSAPP_GREEN, WHATSAPP_GREEN_DARK } from "@/constants/colors";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -236,7 +237,7 @@ export const ReceiptActionsDialog = ({
                 </Button>
               </div>
             )}
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-fine text-muted-foreground">
               {autoSend
                 ? online
                   ? "Le ticket sera envoyé immédiatement au client."
@@ -263,7 +264,10 @@ export const ReceiptActionsDialog = ({
             <div className="grid grid-cols-2 gap-2">
               <Button
                 onClick={() => handleSendManual("whatsapp")}
-                className="bg-[#25D366] hover:bg-[#128C7E] text-white"
+                className="text-white"
+                style={{ backgroundColor: WHATSAPP_GREEN }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = WHATSAPP_GREEN_DARK)}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = WHATSAPP_GREEN)}
                 data-testid="receipt-send-whatsapp"
               >
                 <MessageCircle className="h-4 w-4 mr-1" /> WhatsApp
@@ -309,7 +313,7 @@ export const ReceiptActionsDialog = ({
               <Label htmlFor="qr-toggle" className="text-sm cursor-pointer">
                 QR Code sur le ticket
               </Label>
-              <span className="text-[11px] text-muted-foreground">Vérification</span>
+              <span className="text-fine text-muted-foreground">Vérification</span>
             </div>
             <Switch
               id="qr-toggle"

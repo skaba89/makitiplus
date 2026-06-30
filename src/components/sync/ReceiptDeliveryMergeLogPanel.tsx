@@ -329,7 +329,7 @@ export const ReceiptDeliveryMergeLogPanel = () => {
                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                       {new Date(e.ts).toLocaleString()}
                     </TableCell>
-                    <TableCell className="font-mono text-[11px] break-all max-w-[260px]">
+                    <TableCell className="font-mono text-fine break-all max-w-[260px]">
                       {e.client_uuid}
                     </TableCell>
                     <TableCell>
@@ -343,7 +343,7 @@ export const ReceiptDeliveryMergeLogPanel = () => {
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell className="font-mono text-[11px]">{e.reason}</TableCell>
+                    <TableCell className="font-mono text-fine">{e.reason}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {e.local_status ?? "—"} → {e.remote_status ?? "—"}
                     </TableCell>
