@@ -288,16 +288,34 @@ const POS = () => {
 
         if (customerId) {
           const creditInsert: Record<string, unknown> = {
+            user_id: user!.id,
             customer_id: customerId,
             sale_id: sale.id,
             amount: totalAmount,
-            remaining_balance: totalAmount,
-            status: "unpaid",
+            type: "credit",
+            description: `Vente crédit ${finalSaleNumber}`,
           };
           if (profile?.organization_id) {
             creditInsert.organization_id = profile.organization_id;
           }
           await supabase.from("customer_credits").insert(creditInsert);
+
+          // Update customer total_credit atomically
+          await supabase.rpc("increment_customer_credit", {
+            p_customer_id: customerId,
+            p_amount: totalAmount,
+          }).catch(async () => {
+            // Fallback: relative update
+            const { data: cust } = await supabase
+              .from("customers")
+              .select("total_credit")
+              .eq("id", customerId)
+              .single();
+            await supabase
+              .from("customers")
+              .update({ total_credit: (Number(cust?.total_credit || 0) + totalAmount) })
+              .eq("id", customerId);
+          });
         }
       }
 

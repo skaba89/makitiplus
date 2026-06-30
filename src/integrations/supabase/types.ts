@@ -781,8 +781,18 @@ export type Database = {
       check_account_status: {
         Args: never
         Returns: {
-          deactivation_reason: string
           is_active: boolean
+          role: string | null
+          organization_id: string | null
+          deactivation_reason: string | null
+        }[]
+      }
+      check_account_status_with_id: {
+        Args: { check_user_id: string }
+        Returns: {
+          is_active: boolean
+          role: string | null
+          organization_id: string | null
         }[]
       }
       generate_sale_number: { Args: never; Returns: string }

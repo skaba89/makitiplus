@@ -1,26 +1,52 @@
--- Migration: Critical audit fixes — batch_update_stock grant, check_account_status overload,
---            create_full_sale RPC, process_credit_payment RPC, security definer fixes
+-- Migration: Critical audit fixes — batch_update_stock grant, check_account_status DROP+recreate,
+--            create_full_sale RPC, process_credit_payment RPC, decrement_stock RPC,
+--            register_user RPC (atomic signup)
 -- Date: 2026-07-01
 -- FULLY IDEMPOTENT — safe to re-run any number of times
 
 -- ============================================
 -- 1. GRANT EXECUTE on batch_update_stock to authenticated (C2)
 -- ============================================
-GRANT EXECUTE ON FUNCTION public.batch_update_stock(UUID, JSONB) TO authenticated;
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.batch_update_stock(UUID, JSONB) TO authenticated;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'batch_update_stock grant: %', SQLERRM;
+END $$;
 
 -- ============================================
--- 2. Add zero-arg overload for check_account_status (C3)
---    The 1-arg version exists; we add a 0-arg wrapper that uses auth.uid()
---    This way both client calls (with and without arg) work.
+-- 2. Fix check_account_status (C3)
+--    The original zero-arg returns TABLE(is_active boolean, deactivation_reason text)
+--    We need to DROP it first because we're changing the return type.
+--    New return type includes role + organization_id + deactivation_reason.
 -- ============================================
-CREATE OR REPLACE FUNCTION check_account_status()
-RETURNS TABLE(is_active BOOLEAN, role TEXT, organization_id UUID)
-LANGUAGE sql SECURITY DEFINER SET search_path = public
+
+-- Step A: Drop old zero-arg function (return type changed — cannot use CREATE OR REPLACE)
+DROP FUNCTION IF EXISTS public.check_account_status();
+
+-- Step B: Recreate zero-arg function with enriched return type
+CREATE OR REPLACE FUNCTION public.check_account_status()
+RETURNS TABLE(is_active BOOLEAN, role TEXT, organization_id UUID, deactivation_reason TEXT)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
 AS $$
-  SELECT * FROM check_account_status(auth.uid());
+  SELECT
+    COALESCE(p.is_active, FALSE),
+    r.role::TEXT,
+    p.organization_id,
+    p.deactivation_reason
+  FROM profiles p
+  LEFT JOIN user_roles r ON r.user_id = p.user_id
+  WHERE p.user_id = auth.uid()
+  UNION ALL
+  SELECT FALSE, NULL, NULL, NULL
+  WHERE NOT EXISTS (
+    SELECT 1 FROM profiles WHERE user_id = auth.uid()
+  );
 $$;
 
--- Also fix the 1-arg version to include SET search_path (M5)
+-- Re-grant after DROP+CREATE
+GRANT EXECUTE ON FUNCTION public.check_account_status() TO authenticated, service_role;
+
+-- Step C: Fix 1-arg overload — add SET search_path (same return type, CREATE OR REPLACE works)
 CREATE OR REPLACE FUNCTION check_account_status(check_user_id UUID)
 RETURNS TABLE(is_active BOOLEAN, role TEXT, organization_id UUID)
 LANGUAGE sql SECURITY DEFINER SET search_path = public
@@ -40,8 +66,9 @@ AS $$
 $$;
 
 -- ============================================
--- 3. create_full_sale RPC — atomic sale creation (C4)
---    Inserts sale + sale_items + updates stock in a single transaction
+-- 3. create_full_sale RPC — atomic sale creation (C4 + C5)
+--    Inserts sale + sale_items + updates stock + records stock movements
+--    in a single transaction. Uses relative stock decrement (GREATEST) to prevent oversell.
 -- ============================================
 CREATE OR REPLACE FUNCTION public.create_full_sale(
   p_user_id UUID,
@@ -65,7 +92,21 @@ DECLARE
   v_sale_id UUID;
   v_item JSONB;
   v_current_stock INTEGER;
+  v_requested_qty INTEGER;
 BEGIN
+  -- 0. Pre-check: verify sufficient stock for all items (C5: prevent oversell)
+  FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
+  LOOP
+    v_requested_qty := (v_item->>'quantity')::INTEGER;
+    SELECT stock_quantity INTO v_current_stock
+    FROM products WHERE id = (v_item->>'product_id')::UUID;
+
+    IF v_current_stock < v_requested_qty THEN
+      RAISE EXCEPTION 'Stock insuffisant pour %: demande=%, disponible=%',
+        v_item->>'product_name', v_requested_qty, v_current_stock;
+    END IF;
+  END LOOP;
+
   -- 1. Insert sale
   INSERT INTO sales (
     user_id, organization_id, sale_number, subtotal, tax_amount, total_amount,
@@ -146,6 +187,11 @@ BEGIN
     RAISE EXCEPTION 'Le montant doit être supérieur à 0';
   END IF;
 
+  -- Validate customer exists and has enough credit
+  IF NOT EXISTS (SELECT 1 FROM customers WHERE id = p_customer_id AND total_credit >= p_amount) THEN
+    RAISE EXCEPTION 'Crédit insuffisant ou client introuvable';
+  END IF;
+
   -- 1. Insert credit payment record
   INSERT INTO customer_credits (
     user_id, organization_id, customer_id, amount, type, description
@@ -164,7 +210,91 @@ $$;
 GRANT EXECUTE ON FUNCTION public.process_credit_payment TO authenticated;
 
 -- ============================================
--- 5. GRANT EXECUTE on touch_last_login (was missing)
+-- 5. decrement_stock RPC — atomic relative stock decrement (C5 fallback)
+--    Referenced in POS.tsx fallback when batch_update_stock is unavailable.
+-- ============================================
+CREATE OR REPLACE FUNCTION public.decrement_stock(
+  p_product_id UUID,
+  p_quantity INTEGER
+)
+RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_current_stock INTEGER;
+BEGIN
+  IF p_quantity <= 0 THEN
+    RAISE EXCEPTION 'La quantité doit être supérieure à 0';
+  END IF;
+
+  UPDATE products
+  SET stock_quantity = GREATEST(stock_quantity - p_quantity, 0),
+      updated_at = NOW()
+  WHERE id = p_product_id
+  RETURNING stock_quantity INTO v_current_stock;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.decrement_stock TO authenticated;
+
+-- ============================================
+-- 6. register_user RPC — atomic user registration (C9)
+--    Creates profile + user_role in a single transaction.
+--    If either fails, neither is created (no orphaned user without role).
+-- ============================================
+CREATE OR REPLACE FUNCTION public.register_user(
+  p_user_id UUID,
+  p_business_name TEXT,
+  p_owner_name TEXT,
+  p_phone TEXT DEFAULT NULL,
+  p_role TEXT DEFAULT 'vendeur',
+  p_organization_id UUID DEFAULT NULL
+)
+RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+BEGIN
+  -- 1. Insert profile
+  INSERT INTO profiles (user_id, business_name, owner_name, phone, organization_id)
+  VALUES (p_user_id, p_business_name, p_owner_name, p_phone, p_organization_id);
+
+  -- 2. Insert user role
+  INSERT INTO user_roles (user_id, role)
+  VALUES (p_user_id, p_role::app_role);
+END;
+$$;
+
+-- register_user needs to be callable during signup (before full auth)
+-- Grant to authenticated and also allow via service_role for admin-created accounts
+GRANT EXECUTE ON FUNCTION public.register_user TO authenticated, service_role;
+
+-- ============================================
+-- 7. increment_customer_credit RPC — atomic credit increment for credit sales
+--    Increments customer total_credit by a relative amount (no race condition).
+-- ============================================
+CREATE OR REPLACE FUNCTION public.increment_customer_credit(
+  p_customer_id UUID,
+  p_amount NUMERIC
+)
+RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+BEGIN
+  IF p_amount <= 0 THEN
+    RAISE EXCEPTION 'Le montant doit être supérieur à 0';
+  END IF;
+
+  UPDATE customers
+  SET total_credit = total_credit + p_amount,
+      updated_at = NOW()
+  WHERE id = p_customer_id;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.increment_customer_credit TO authenticated;
+
+-- ============================================
+-- 8. GRANT EXECUTE on touch_last_login (was missing)
 -- ============================================
 DO $$ BEGIN
   GRANT EXECUTE ON FUNCTION public.touch_last_login() TO authenticated;

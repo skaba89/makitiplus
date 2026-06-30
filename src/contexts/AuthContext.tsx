@@ -200,6 +200,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         organizationId = org.id;
       }
 
+      // C9: Atomic profile + role creation via RPC
+      // Try register_user RPC first (single transaction — no orphaned user without role)
+      const { error: rpcError } = await supabase.rpc("register_user", {
+        p_user_id: data.user.id,
+        p_business_name: profileData.businessName,
+        p_owner_name: profileData.ownerName,
+        p_phone: profileData.phone || null,
+        p_role: profileData.role,
+        p_organization_id: organizationId,
+      });
+
+      if (!rpcError) {
+        // Atomic RPC succeeded
+        return { error: null };
+      }
+
+      // Fallback: non-atomic path (for older DB without the RPC)
+      console.warn("[Auth] register_user RPC failed, falling back to sequential inserts:", rpcError.message);
+
       // Create profile (linked to org if admin)
       const { error: profileError } = await supabase.from("profiles").insert({
         user_id: data.user.id,
@@ -213,23 +232,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return { error: profileError };
       }
 
-      // Create user role — C9: if role insert fails, log and attempt recovery
+      // Create user role
       const { error: roleError } = await supabase.from("user_roles").insert({
         user_id: data.user.id,
         role: profileData.role,
       });
 
       if (roleError) {
-        // Role creation failed — the user exists but has no role.
-        // This is a known edge case with the admin-only INSERT policy.
-        // Log the error but don't block signup — the first admin can assign roles later.
         console.error("[Auth] Failed to create user role (may need admin assignment):", roleError.message);
-        // If the user is signing up as admin/super_admin, the role MUST exist
-        // for them to access the dashboard. Show a warning.
         if (profileData.role === "admin" || profileData.role === "super_admin") {
-          return { error: new Error("Compte cree mais role non assigne. Contactez un administrateur existant pour vous attribuer le role.") };
+          return { error: new Error("Compte créé mais rôle non assigné. Contactez un administrateur existant pour vous attribuer le rôle.") };
         }
-        // For vendeur/comptable, they can be assigned later — signup still succeeds
       }
     }
 
