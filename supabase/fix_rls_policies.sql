@@ -64,7 +64,7 @@ WITH CHECK (
   -- First admin self-signup: no admin exists yet, user assigns themselves admin role
   (NOT public.admin_exists() AND auth.uid() = user_id AND role IN ('admin', 'super_admin'))
   -- Self-assignment of non-admin roles (vendeur, manager, comptable)
-  OR (auth.uid() = user_id AND role IN ('vendor', 'manager', 'comptable'))
+  OR (auth.uid() = user_id AND role IN ('vendeur', 'manager', 'comptable'))
   -- Admin creating roles for others
   OR public.has_role(auth.uid(), 'admin')
   -- Super admin creating roles

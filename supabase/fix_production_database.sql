@@ -713,6 +713,8 @@ WITH CHECK (
 
 -- user_roles INSERT: allow first admin self-signup
 DROP POLICY IF EXISTS "Users can create their own role" ON public.user_roles;
+DROP POLICY IF EXISTS "user_roles_insert_self_or_admin" ON public.user_roles;
+DROP POLICY IF EXISTS "Allow first admin or admin-created roles" ON public.user_roles;
 CREATE POLICY "user_roles_insert_self_or_admin"
 ON public.user_roles FOR INSERT TO authenticated
 WITH CHECK (
