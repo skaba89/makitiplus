@@ -53,9 +53,34 @@ const paymentMethodLabels: Record<string, string> = {
 export const formatPriceWithCurrency = (
   price: number,
   symbol: string = "GNF",
-  position: "before" | "after" = "after"
+  position: "before" | "after" = "after",
+  forPdf: boolean = false
 ): string => {
   const hasDecimals = Math.abs(price - Math.round(price)) > 0.001;
+
+  if (forPdf) {
+    // jsPDF built-in fonts (Helvetica, Courier) cannot render Unicode spaces
+    // (U+202F narrow no-break space, U+00A0 non-breaking space).
+    // They appear as individual spaced characters or garbage.
+    // Solution: use dot as thousand separator — widely used in Africa and 100% ASCII.
+    const parts = Math.round(price).toString().split("");
+    const neg = price < 0;
+    if (neg) parts.shift(); // remove minus
+    const digits = parts.reverse();
+    const groups: string[] = [];
+    for (let i = 0; i < digits.length; i++) {
+      if (i > 0 && i % 3 === 0) groups.push(".");
+      groups.push(digits[i]);
+    }
+    let intPart = groups.reverse().join("");
+    if (neg) intPart = "-" + intPart;
+    const formatted = hasDecimals
+      ? intPart + "," + Math.abs(price - Math.round(price)).toFixed(2).substring(2)
+      : intPart;
+    return position === "before" ? `${symbol} ${formatted}` : `${formatted} ${symbol}`;
+  }
+
+  // For screen display (HTML) — full Unicode is fine
   const formatted = new Intl.NumberFormat("fr-FR", {
     minimumFractionDigits: hasDecimals ? 2 : 0,
     maximumFractionDigits: hasDecimals ? 2 : 0,
@@ -130,7 +155,7 @@ function drawAfricanBorder(doc: jsPDF, x: number, y: number, w: number, h: numbe
 function generateClassicReceipt(data: ReceiptData, doc: jsPDF, config: typeof PAPER_CONFIGS[ReceiptPaperSize]): jsPDF {
   const symbol = data.currencySymbol || "GNF";
   const position = data.currencyPosition || "after";
-  const fPrice = (p: number) => formatPriceWithCurrency(p, symbol, position);
+  const fPrice = (p: number) => formatPriceWithCurrency(p, symbol, position, true);
   const { width: pw, margin: m } = config;
   const cw = pw - m * 2;
 
@@ -346,7 +371,7 @@ function generateClassicReceipt(data: ReceiptData, doc: jsPDF, config: typeof PA
 function generateMinimalReceipt(data: ReceiptData, doc: jsPDF, config: typeof PAPER_CONFIGS[ReceiptPaperSize]): jsPDF {
   const symbol = data.currencySymbol || "GNF";
   const position = data.currencyPosition || "after";
-  const fPrice = (p: number) => formatPriceWithCurrency(p, symbol, position);
+  const fPrice = (p: number) => formatPriceWithCurrency(p, symbol, position, true);
   const { width: pw, margin: m } = config;
   const isSmall = pw < 70;
 
@@ -433,7 +458,7 @@ function generateMinimalReceipt(data: ReceiptData, doc: jsPDF, config: typeof PA
 function generateDetailedReceipt(data: ReceiptData, doc: jsPDF, config: typeof PAPER_CONFIGS[ReceiptPaperSize]): jsPDF {
   const symbol = data.currencySymbol || "GNF";
   const position = data.currencyPosition || "after";
-  const fPrice = (p: number) => formatPriceWithCurrency(p, symbol, position);
+  const fPrice = (p: number) => formatPriceWithCurrency(p, symbol, position, true);
   const { width: pw, margin: m } = config;
   const cw = pw - m * 2;
   const isSmall = pw < 70;
@@ -661,7 +686,7 @@ function generateDetailedReceipt(data: ReceiptData, doc: jsPDF, config: typeof P
 function generateAfricanReceipt(data: ReceiptData, doc: jsPDF, config: typeof PAPER_CONFIGS[ReceiptPaperSize]): jsPDF {
   const symbol = data.currencySymbol || "GNF";
   const position = data.currencyPosition || "after";
-  const fPrice = (p: number) => formatPriceWithCurrency(p, symbol, position);
+  const fPrice = (p: number) => formatPriceWithCurrency(p, symbol, position, true);
   const { width: pw, margin: m } = config;
   const cw = pw - m * 2;
   const isSmall = pw < 70;
@@ -928,7 +953,7 @@ export const generateReceiptPDF = (data: ReceiptData): jsPDF => {
 export const generateReceiptText = (data: ReceiptData): string => {
   const symbol = data.currencySymbol || "GNF";
   const position = data.currencyPosition || "after";
-  const fPrice = (p: number) => formatPriceWithCurrency(p, symbol, position);
+  const fPrice = (p: number) => formatPriceWithCurrency(p, symbol, position, true);
   const template = data.template || "default";
 
   const lines: string[] = [];
