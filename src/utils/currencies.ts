@@ -135,7 +135,7 @@ export const COUNTRIES: CountryConfig[] = [
     code: "GN",
     name: "Guinée",
     flag: "",
-    currency: { code: "GNF", symbol: "GNF", displaySymbol: "GNF", name: "Franc Guinéen", position: "after", decimals: 0 },
+    currency: { code: "GNF", symbol: "GNF", displaySymbol: "F", name: "Franc Guinéen", position: "after", decimals: 0 },
     mobilePayments: ["orange_money", "mtn_money"],
     phoneCode: "+224",
   },

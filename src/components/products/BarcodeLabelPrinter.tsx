@@ -82,77 +82,26 @@ const LABEL_SIZES: Record<LabelSize, LabelSizeConfig> = {
 };
 
 /* ------------------------------------------------------------------ */
-/*  Render barcode to a canvas → return PNG data URL                   */
-/*  This is the reliable way to get crisp barcode bars into jsPDF.     */
+/*  Render barcode directly to canvas using JsBarcode                  */
+/*  JsBarcode natively supports canvas rendering — much more reliable  */
+/*  than the SVG → querySelector → manual draw approach which fails    */
+/*  when JsBarcode omits the 'fill' attribute (SVG default = black).  */
 /* ------------------------------------------------------------------ */
 
-function renderBarcodeToCanvas(
-  barcodeValue: string,
-  canvasWidth: number,
-  canvasHeight: number,
-): string | null {
+function renderBarcodeToCanvas(barcodeValue: string): string | null {
   try {
-    // Create an off-screen canvas at 3x resolution for crisp rendering
-    const scale = 3;
     const canvas = document.createElement("canvas");
-    canvas.width = canvasWidth * scale;
-    canvas.height = canvasHeight * scale;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return null;
-
-    // White background
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Create a temporary SVG to render the barcode
-    const svgEl = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    JsBarcode(svgEl, barcodeValue, {
+    JsBarcode(canvas, barcodeValue, {
       format: "CODE128",
-      width: 2,
-      height: 100,
+      width: 5,            // bar width in px — high resolution for crisp print
+      height: 250,         // tall barcode for better quality when scaled down
       displayValue: false,
-      margin: 0,
+      margin: 5,           // small quiet zone in image
       background: "#ffffff",
+      lineColor: "#000000", // explicit black bars for visibility
     });
-
-    // Get the SVG markup
-    const svgData = new XMLSerializer().serializeToString(svgEl);
-    const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
-    const url = URL.createObjectURL(svgBlob);
-
-    // We'll use the canvas 2D approach: draw bars manually from SVG rects
-    // This avoids async image loading issues
-    const bars = svgEl.querySelectorAll("rect");
-
-    // Compute SVG bounds
-    let svgWidth = 0;
-    bars.forEach((bar) => {
-      const x = parseFloat(bar.getAttribute("x") || "0");
-      const w = parseFloat(bar.getAttribute("width") || "0");
-      svgWidth = Math.max(svgWidth, x + w);
-    });
-
-    if (svgWidth === 0 || bars.length === 0) return null;
-
-    // Draw bars on canvas
-    const scaleX = (canvas.width * 0.92) / svgWidth; // 4% quiet zone each side
-    const offsetX = canvas.width * 0.04;
-
-    ctx.fillStyle = "#000000";
-    bars.forEach((bar) => {
-      const x = parseFloat(bar.getAttribute("x") || "0");
-      const w = parseFloat(bar.getAttribute("width") || "0");
-      const fill = bar.getAttribute("fill");
-      // Only draw dark bars (skip any background rects)
-      if (fill && fill !== "#ffffff" && fill !== "white" && fill !== "rgba(0,0,0,0)") {
-        const sx = offsetX + x * scaleX;
-        const sw = Math.max(w * scaleX, 1); // at least 1 pixel
-        ctx.fillRect(sx, 0, sw, canvas.height);
-      }
-    });
-
-    URL.revokeObjectURL(url);
+    // Safety check: verify the canvas was actually rendered
+    if (canvas.width === 0 || canvas.height === 0) return null;
     return canvas.toDataURL("image/png");
   } catch {
     return null;
@@ -163,6 +112,16 @@ function renderBarcodeToCanvas(
 /*  Shared PDF generation                                              */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Intl.NumberFormat("fr-FR") uses U+00A0 (non-breaking space) and/or U+202F
+ * (narrow no-break space) as thousands separator, but jsPDF's built-in fonts
+ * (Helvetica, Courier, Times) lack glyphs for these — they render as invisible
+ * or missing-character boxes.  Replace with a regular ASCII space.
+ */
+function sanitizeForPdf(text: string): string {
+  return text.replace(/[\u00A0\u202F]/g, " ");
+}
+
 function buildLabelPDF(
   product: Product,
   size: LabelSizeConfig,
@@ -170,21 +129,20 @@ function buildLabelPDF(
   formatPrice: (n: number) => string,
 ): jsPDF {
   const doc = new jsPDF({
-    orientation: "landscape",
     unit: "mm",
-    format: [size.h, size.w],
+    format: [size.w, size.h], // [width, height] — intuitive, no orientation flip needed
   });
 
   const margin = 2;
   const contentW = size.w - margin * 2;
 
-  // Pre-render barcode image (high-res canvas → PNG)
+  // Pre-render barcode image (canvas → PNG via JsBarcode native rendering)
   const barcodeImageData = product.barcode
-    ? renderBarcodeToCanvas(product.barcode, 600, 200)
+    ? renderBarcodeToCanvas(product.barcode)
     : null;
 
   for (let i = 0; i < copies; i++) {
-    if (i > 0) doc.addPage([size.h, size.w], "landscape");
+    if (i > 0) doc.addPage([size.w, size.h]);
 
     let y = margin;
 
@@ -196,10 +154,11 @@ function buildLabelPDF(
     /* ── Product name ── */
     doc.setFontSize(size.nameSize);
     doc.setFont("helvetica", "bold");
-    const name =
+    const rawName =
       product.name.length > size.maxNameChars
         ? product.name.substring(0, size.maxNameChars - 1) + "…"
         : product.name;
+    const name = sanitizeForPdf(rawName);
     doc.text(name, size.w / 2, y + size.nameSize * 0.38, { align: "center" });
     y += size.nameSize * 0.55 + 1;
 
@@ -209,14 +168,23 @@ function buildLabelPDF(
     const barcodeY = y;
 
     if (barcodeImageData) {
-      // Add the pre-rendered barcode image
+      // Add the pre-rendered barcode image (high-res canvas → PNG)
       // This guarantees crisp, scannable bars at any label size
-      doc.addImage(barcodeImageData, "PNG", barcodeX, barcodeY, barcodeW, size.barcodeH);
+      doc.addImage(
+        barcodeImageData,
+        "PNG",
+        barcodeX,
+        barcodeY,
+        barcodeW,
+        size.barcodeH,
+        undefined,
+        "NONE", // no additional compression — keeps barcode bars sharp
+      );
     } else if (product.barcode) {
-      // Fallback: display barcode number as text
+      // Fallback: display barcode number as text when image rendering fails
       doc.setFontSize(size.numSize + 1);
       doc.setFont("courier", "bold");
-      doc.text(product.barcode, size.w / 2, barcodeY + size.barcodeH / 2, {
+      doc.text(sanitizeForPdf(product.barcode), size.w / 2, barcodeY + size.barcodeH / 2, {
         align: "center",
       });
     }
@@ -227,7 +195,7 @@ function buildLabelPDF(
     doc.setFontSize(size.numSize);
     doc.setFont("courier", "normal");
     if (product.barcode) {
-      const spaced = product.barcode.replace(/(.{4})/g, "$1 ").trim();
+      const spaced = sanitizeForPdf(product.barcode.replace(/(.{4})/g, "$1 ").trim());
       doc.text(spaced, size.w / 2, y + size.numSize * 0.38, { align: "center" });
     }
     y += size.numSize * 0.55 + 0.5;
@@ -235,7 +203,7 @@ function buildLabelPDF(
     /* ── Price ── */
     doc.setFontSize(size.priceSize);
     doc.setFont("helvetica", "bold");
-    const priceText = formatPrice(product.price);
+    const priceText = sanitizeForPdf(formatPrice(product.price));
     doc.text(priceText, size.w / 2, y + size.priceSize * 0.38, { align: "center" });
   }
 
@@ -311,9 +279,9 @@ export const BarcodeLabelPrinter = ({
                 {product.name || "Produit"}
               </p>
 
-              {/* Barcode SVG preview */}
+              {/* Barcode preview via canvas — matches the PDF output exactly */}
               {product.barcode && (
-                <svg
+                <canvas
                   ref={(el) => {
                     if (el && product.barcode) {
                       try {
@@ -327,10 +295,11 @@ export const BarcodeLabelPrinter = ({
                           textMargin: 1,
                         });
                       } catch {
-                        // Invalid barcode
+                        // Invalid barcode — ignore
                       }
                     }
                   }}
+                  style={{ maxWidth: "100%", height: "auto" }}
                 />
               )}
 
