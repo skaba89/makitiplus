@@ -3,7 +3,8 @@ import { Database } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash2, AlertTriangle, Printer, Warehouse, History, Package} from "lucide-react";
+import { Edit, Trash2, AlertTriangle, Printer, Warehouse, History, Package } from "lucide-react";
+import { CategoryIcon } from "@/components/ui/category-icon";
 import { BarcodeLabelPrinter } from "./BarcodeLabelPrinter";
 import {
   AlertDialog,
@@ -83,7 +84,7 @@ export const ProductList = memo(({ products, onEdit, onDelete, onStockAdjust, on
                     color: product.categories.color ? "#fff" : undefined,
                   }}
                 >
-                  {product.categories.icon} {product.categories.name}
+                  <CategoryIcon iconName={product.categories.icon} className="h-3 w-3 mr-1" /> {product.categories.name}
                 </Badge>
               )}
 

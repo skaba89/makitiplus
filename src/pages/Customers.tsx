@@ -219,6 +219,7 @@ const Customers = () => {
         ) : filtered && filtered.length > 0 ? (
           <Card className="card-elevated">
             <CardContent className="p-0">
+              <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -262,6 +263,7 @@ const Customers = () => {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             </CardContent>
           </Card>
         ) : (

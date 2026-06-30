@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, Package, Download, AlertTriangle } from "lucide-react";
+import { CategoryIcon } from "@/components/ui/category-icon";
 import {
   Dialog,
   DialogContent,
@@ -378,7 +379,7 @@ const Products = () => {
                         : undefined,
                   }}
                 >
-                  {category.icon} {category.name} ({count})
+                  <CategoryIcon iconName={category.icon} className="h-3.5 w-3.5" /> {category.name} ({count})
                 </Button>
               );
             })}

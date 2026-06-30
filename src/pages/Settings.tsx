@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Store, MapPin, Phone, Globe, Smartphone, Nfc, Palette } from "lucide-react";
+import { CountryFlag } from "@/components/ui/country-flag";
 import StoreCustomization from "@/components/settings/StoreCustomization";
 import {
   Select,
@@ -144,25 +145,27 @@ const Settings = () => {
         <div className="flex gap-1 p-1 bg-muted rounded-xl">
           <button
             onClick={() => setActiveTab("general")}
-            className={`flex items-center gap-2 flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+            className={`flex items-center justify-center gap-2 flex-1 px-3 sm:px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
               activeTab === "general"
                 ? "bg-card text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
             <Store className="h-4 w-4" />
-            Général
+            <span className="hidden sm:inline">Général</span>
+            <span className="sm:hidden">Général</span>
           </button>
           <button
             onClick={() => setActiveTab("branding")}
-            className={`flex items-center gap-2 flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+            className={`flex items-center justify-center gap-2 flex-1 px-3 sm:px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
               activeTab === "branding"
                 ? "bg-card text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
             <Palette className="h-4 w-4" />
-            Personnalisation
+            <span className="hidden sm:inline">Personnalisation</span>
+            <span className="sm:hidden">Style</span>
           </button>
         </div>
 
@@ -253,7 +256,7 @@ const Settings = () => {
                           {COUNTRIES.map((country) => (
                             <SelectItem key={country.code} value={country.code}>
                               <span className="flex items-center gap-2">
-                                <span>{country.flag}</span>
+                                <CountryFlag countryCode={country.code} size="sm" />
                                 <span>{country.name}</span>
                               </span>
                             </SelectItem>

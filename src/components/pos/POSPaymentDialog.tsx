@@ -112,7 +112,7 @@ export const POSPaymentDialog = ({
               value={paymentMethod}
               onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}
             >
-              <TabsList className="grid grid-cols-5 h-auto">
+              <TabsList className="flex flex-wrap h-auto gap-1">
                 {paymentMethods.map((method) => (
                   <TabsTrigger
                     key={method.value}

@@ -222,13 +222,14 @@ const Reports = () => {
 
           <div className="flex flex-wrap items-center gap-2">
             <Tabs value={period} onValueChange={(v) => setPeriod(v as typeof period)}>
-              <TabsList>
-                <TabsTrigger value="day" className="gap-2">
-                  <Calendar className="h-4 w-4" />
-                  Aujourd'hui
+              <TabsList className="flex flex-wrap">
+                <TabsTrigger value="day" className="gap-1.5">
+                  <Calendar className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Aujourd'hui</span>
+                  <span className="sm:hidden">Jour</span>
                 </TabsTrigger>
-                <TabsTrigger value="week">Cette semaine</TabsTrigger>
-                <TabsTrigger value="month">Ce mois</TabsTrigger>
+                <TabsTrigger value="week" className="text-xs sm:text-sm">Semaine</TabsTrigger>
+                <TabsTrigger value="month" className="text-xs sm:text-sm">Mois</TabsTrigger>
               </TabsList>
             </Tabs>
 
@@ -372,7 +373,7 @@ const Reports = () => {
               <CardTitle>Évolution des ventes</CardTitle>
             </CardHeader>
             <CardContent>
-              <ChartContainer config={chartConfig} className="h-[300px]">
+              <ChartContainer config={chartConfig} className="h-[220px] sm:h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={dailySalesData()}>
                     <XAxis dataKey="date" />
@@ -396,7 +397,7 @@ const Reports = () => {
             </CardHeader>
             <CardContent>
               {paymentDistribution.length > 0 ? (
-                <div className="h-[300px] flex items-center justify-center">
+                <div className="h-[220px] sm:h-[300px] flex items-center justify-center">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
@@ -420,7 +421,7 @@ const Reports = () => {
                   </ResponsiveContainer>
                 </div>
               ) : (
-                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                <div className="h-[220px] sm:h-[300px] flex items-center justify-center text-muted-foreground">
                   Aucune donnée disponible
                 </div>
               )}

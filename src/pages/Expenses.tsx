@@ -295,7 +295,7 @@ const Expenses = () => {
          </div>
  
          {/* Stats Cards */}
-         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
            <Card>
              <CardHeader className="flex flex-row items-center justify-between pb-2">
                <CardTitle className="text-sm font-medium">
@@ -339,7 +339,7 @@ const Expenses = () => {
                  </CardDescription>
                </div>
                <Select value={filterCategory} onValueChange={setFilterCategory}>
-                 <SelectTrigger className="w-48">
+                 <SelectTrigger className="w-full sm:w-48">
                    <SelectValue placeholder="Filtrer par catégorie" />
                  </SelectTrigger>
                  <SelectContent>

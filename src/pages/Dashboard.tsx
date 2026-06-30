@@ -15,12 +15,8 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   AlertTriangle,
-  Wheat, CupSoda, Sparkles, Brush, Wrench, Smartphone, Shirt, Croissant, Leaf, Drumstick, Snowflake,
 } from "lucide-react";
-
-const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  Package, Wheat, CupSoda, Sparkles, Brush, Wrench, Smartphone, Shirt, Croissant, Leaf, Drumstick, Snowflake,
-};
+import { CategoryIcon } from "@/components/ui/category-icon";
 import { startOfDay, endOfDay, startOfMonth, endOfMonth } from "date-fns";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -201,7 +197,7 @@ const Dashboard = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {lowStockProducts.slice(0, 6).map((p: ProductWithCategoryIcon) => (
                   <div key={p.id} className="flex items-center gap-3 p-3 bg-destructive/5 rounded-lg">
-                    {p.categories?.icon && ICON_MAP[p.categories.icon] ? React.createElement(ICON_MAP[p.categories.icon], { className: "h-5 w-5" }) : <Package className="h-5 w-5" />}
+                    <CategoryIcon iconName={p.categories?.icon} className="h-5 w-5" />
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">{p.name}</p>
                       <p className="text-xs text-destructive">

@@ -9,11 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, FolderOpen, Pencil, Trash2, Loader2, Search, ArrowUpDown, Tag, Package, Wheat, CupSoda, Sparkles, Brush, Wrench, Smartphone, Shirt, Croissant, Leaf, Drumstick, Snowflake } from "lucide-react";
-
-const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  Package, Wheat, CupSoda, Sparkles, Brush, Wrench, Smartphone, Shirt, Croissant, Leaf, Drumstick, Snowflake,
-};
+import { Plus, FolderOpen, Pencil, Trash2, Loader2, Search, ArrowUpDown, Tag, Package } from "lucide-react";
+import { CategoryIcon, ICON_MAP } from "@/components/ui/category-icon";
 
 import {
   Dialog,
@@ -299,7 +296,7 @@ const Categories = () => {
                           className="w-12 h-12 rounded-xl flex items-center justify-center"
                           style={{ backgroundColor: `${category.color}20` }}
                         >
-                          {category.icon && ICON_MAP[category.icon] ? React.createElement(ICON_MAP[category.icon], { className: "h-6 w-6" }) : <Package className="h-6 w-6" />}
+                          <CategoryIcon iconName={category.icon} className="h-6 w-6" />
                         </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
@@ -411,9 +408,7 @@ const Categories = () => {
               <div className="space-y-2">
                 <Label>Icône</Label>
                 <div className="flex flex-wrap gap-2">
-                  {PRESET_ICONS.map((iconName) => {
-                    const IconComp = ICON_MAP[iconName];
-                    return (
+                  {PRESET_ICONS.map((iconName) => (
                     <button
                       key={iconName}
                       type="button"
@@ -424,10 +419,9 @@ const Categories = () => {
                           : "bg-muted hover:bg-muted/80"
                       }`}
                     >
-                      {IconComp ? <IconComp className="h-5 w-5" /> : <Package className="h-5 w-5" />}
+                      <CategoryIcon iconName={iconName} className="h-5 w-5" />
                     </button>
-                    );
-                  })}
+                  ))}
                 </div>
               </div>
 
@@ -465,7 +459,7 @@ const Categories = () => {
                     className="w-12 h-12 rounded-xl flex items-center justify-center"
                     style={{ backgroundColor: `${formData.color}20` }}
                   >
-                    {formData.icon && ICON_MAP[formData.icon] ? React.createElement(ICON_MAP[formData.icon], { className: "h-6 w-6" }) : <Package className="h-6 w-6" />}
+                    <CategoryIcon iconName={formData.icon} className="h-6 w-6" />
                   </div>
                   <div>
                     <span className="font-medium block">

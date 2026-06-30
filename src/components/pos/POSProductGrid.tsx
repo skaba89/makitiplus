@@ -2,6 +2,7 @@ import { memo, useState } from "react";
 import { Database } from "@/integrations/supabase/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Package } from "lucide-react";
 import { useCurrency } from "@/hooks/useCurrency";
 
 type Product = Database["public"]["Tables"]["products"]["Row"] & {

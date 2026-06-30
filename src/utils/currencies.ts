@@ -21,7 +21,7 @@ export const COUNTRIES: CountryConfig[] = [
   {
     code: "SN",
     name: "Sénégal",
-    flag: "🇸🇳",
+    flag: "",
     currency: { code: "XOF", symbol: "FCFA", name: "Franc CFA BCEAO", position: "after", decimals: 0 },
     mobilePayments: ["wave", "orange_money"],
     phoneCode: "+221",
@@ -29,7 +29,7 @@ export const COUNTRIES: CountryConfig[] = [
   {
     code: "CI",
     name: "Côte d'Ivoire",
-    flag: "🇨🇮",
+    flag: "",
     currency: { code: "XOF", symbol: "FCFA", name: "Franc CFA BCEAO", position: "after", decimals: 0 },
     mobilePayments: ["wave", "orange_money", "mtn_money", "moov_money"],
     phoneCode: "+225",
@@ -37,7 +37,7 @@ export const COUNTRIES: CountryConfig[] = [
   {
     code: "ML",
     name: "Mali",
-    flag: "🇲🇱",
+    flag: "",
     currency: { code: "XOF", symbol: "FCFA", name: "Franc CFA BCEAO", position: "after", decimals: 0 },
     mobilePayments: ["orange_money"],
     phoneCode: "+223",
@@ -45,7 +45,7 @@ export const COUNTRIES: CountryConfig[] = [
   {
     code: "BF",
     name: "Burkina Faso",
-    flag: "🇧🇫",
+    flag: "",
     currency: { code: "XOF", symbol: "FCFA", name: "Franc CFA BCEAO", position: "after", decimals: 0 },
     mobilePayments: ["orange_money", "moov_money"],
     phoneCode: "+226",
@@ -53,7 +53,7 @@ export const COUNTRIES: CountryConfig[] = [
   {
     code: "NE",
     name: "Niger",
-    flag: "🇳🇪",
+    flag: "",
     currency: { code: "XOF", symbol: "FCFA", name: "Franc CFA BCEAO", position: "after", decimals: 0 },
     mobilePayments: ["orange_money", "moov_money"],
     phoneCode: "+227",
@@ -61,7 +61,7 @@ export const COUNTRIES: CountryConfig[] = [
   {
     code: "TG",
     name: "Togo",
-    flag: "🇹🇬",
+    flag: "",
     currency: { code: "XOF", symbol: "FCFA", name: "Franc CFA BCEAO", position: "after", decimals: 0 },
     mobilePayments: ["wave", "moov_money"],
     phoneCode: "+228",
@@ -69,7 +69,7 @@ export const COUNTRIES: CountryConfig[] = [
   {
     code: "BJ",
     name: "Bénin",
-    flag: "🇧🇯",
+    flag: "",
     currency: { code: "XOF", symbol: "FCFA", name: "Franc CFA BCEAO", position: "after", decimals: 0 },
     mobilePayments: ["wave", "mtn_money", "moov_money"],
     phoneCode: "+229",
@@ -77,7 +77,7 @@ export const COUNTRIES: CountryConfig[] = [
   {
     code: "GW",
     name: "Guinée-Bissau",
-    flag: "🇬🇼",
+    flag: "",
     currency: { code: "XOF", symbol: "FCFA", name: "Franc CFA BCEAO", position: "after", decimals: 0 },
     mobilePayments: ["orange_money"],
     phoneCode: "+245",
@@ -85,7 +85,7 @@ export const COUNTRIES: CountryConfig[] = [
   {
     code: "CM",
     name: "Cameroun",
-    flag: "🇨🇲",
+    flag: "",
     currency: { code: "XAF", symbol: "FCFA", name: "Franc CFA BEAC", position: "after", decimals: 0 },
     mobilePayments: ["orange_money", "mtn_money"],
     phoneCode: "+237",
@@ -93,7 +93,7 @@ export const COUNTRIES: CountryConfig[] = [
   {
     code: "GA",
     name: "Gabon",
-    flag: "🇬🇦",
+    flag: "",
     currency: { code: "XAF", symbol: "FCFA", name: "Franc CFA BEAC", position: "after", decimals: 0 },
     mobilePayments: ["moov_money"],
     phoneCode: "+241",
@@ -101,7 +101,7 @@ export const COUNTRIES: CountryConfig[] = [
   {
     code: "CG",
     name: "Congo-Brazzaville",
-    flag: "🇨🇬",
+    flag: "",
     currency: { code: "XAF", symbol: "FCFA", name: "Franc CFA BEAC", position: "after", decimals: 0 },
     mobilePayments: ["mtn_money"],
     phoneCode: "+242",
@@ -109,7 +109,7 @@ export const COUNTRIES: CountryConfig[] = [
   {
     code: "TD",
     name: "Tchad",
-    flag: "🇹🇩",
+    flag: "",
     currency: { code: "XAF", symbol: "FCFA", name: "Franc CFA BEAC", position: "after", decimals: 0 },
     mobilePayments: ["moov_money"],
     phoneCode: "+235",
@@ -117,7 +117,7 @@ export const COUNTRIES: CountryConfig[] = [
   {
     code: "CF",
     name: "Centrafrique",
-    flag: "🇨🇫",
+    flag: "",
     currency: { code: "XAF", symbol: "FCFA", name: "Franc CFA BEAC", position: "after", decimals: 0 },
     mobilePayments: [],
     phoneCode: "+236",
@@ -125,7 +125,7 @@ export const COUNTRIES: CountryConfig[] = [
   {
     code: "GQ",
     name: "Guinée équatoriale",
-    flag: "🇬🇶",
+    flag: "",
     currency: { code: "XAF", symbol: "FCFA", name: "Franc CFA BEAC", position: "after", decimals: 0 },
     mobilePayments: [],
     phoneCode: "+240",
@@ -133,7 +133,7 @@ export const COUNTRIES: CountryConfig[] = [
   {
     code: "GN",
     name: "Guinée",
-    flag: "🇬🇳",
+    flag: "",
     currency: { code: "GNF", symbol: "GNF", name: "Franc Guinéen", position: "after", decimals: 0 },
     mobilePayments: ["orange_money", "mtn_money"],
     phoneCode: "+224",
@@ -141,7 +141,7 @@ export const COUNTRIES: CountryConfig[] = [
   {
     code: "MR",
     name: "Mauritanie",
-    flag: "🇲🇷",
+    flag: "",
     currency: { code: "MRU", symbol: "MRU", name: "Ouguiya", position: "after", decimals: 2 },
     mobilePayments: [],
     phoneCode: "+222",
@@ -149,7 +149,7 @@ export const COUNTRIES: CountryConfig[] = [
   {
     code: "MA",
     name: "Maroc",
-    flag: "🇲🇦",
+    flag: "",
     currency: { code: "MAD", symbol: "DH", name: "Dirham Marocain", position: "after", decimals: 2 },
     mobilePayments: [],
     phoneCode: "+212",
@@ -157,7 +157,7 @@ export const COUNTRIES: CountryConfig[] = [
   {
     code: "DZ",
     name: "Algérie",
-    flag: "🇩🇿",
+    flag: "",
     currency: { code: "DZD", symbol: "DA", name: "Dinar Algérien", position: "after", decimals: 2 },
     mobilePayments: [],
     phoneCode: "+213",
@@ -165,7 +165,7 @@ export const COUNTRIES: CountryConfig[] = [
   {
     code: "TN",
     name: "Tunisie",
-    flag: "🇹🇳",
+    flag: "",
     currency: { code: "TND", symbol: "DT", name: "Dinar Tunisien", position: "after", decimals: 3 },
     mobilePayments: [],
     phoneCode: "+216",
@@ -173,7 +173,7 @@ export const COUNTRIES: CountryConfig[] = [
   {
     code: "EG",
     name: "Égypte",
-    flag: "🇪🇬",
+    flag: "",
     currency: { code: "EGP", symbol: "£E", name: "Livre Égyptienne", position: "before", decimals: 2 },
     mobilePayments: [],
     phoneCode: "+20",
@@ -181,7 +181,7 @@ export const COUNTRIES: CountryConfig[] = [
   {
     code: "NG",
     name: "Nigeria",
-    flag: "🇳🇬",
+    flag: "",
     currency: { code: "NGN", symbol: "₦", name: "Naira", position: "before", decimals: 2 },
     mobilePayments: [],
     phoneCode: "+234",
@@ -189,7 +189,7 @@ export const COUNTRIES: CountryConfig[] = [
   {
     code: "GH",
     name: "Ghana",
-    flag: "🇬🇭",
+    flag: "",
     currency: { code: "GHS", symbol: "₵", name: "Cedi", position: "before", decimals: 2 },
     mobilePayments: ["mtn_money"],
     phoneCode: "+233",
@@ -197,7 +197,7 @@ export const COUNTRIES: CountryConfig[] = [
   {
     code: "KE",
     name: "Kenya",
-    flag: "🇰🇪",
+    flag: "",
     currency: { code: "KES", symbol: "KSh", name: "Shilling Kényan", position: "before", decimals: 2 },
     mobilePayments: ["mpesa"],
     phoneCode: "+254",
@@ -205,7 +205,7 @@ export const COUNTRIES: CountryConfig[] = [
   {
     code: "TZ",
     name: "Tanzanie",
-    flag: "🇹🇿",
+    flag: "",
     currency: { code: "TZS", symbol: "TSh", name: "Shilling Tanzanien", position: "before", decimals: 0 },
     mobilePayments: ["mpesa"],
     phoneCode: "+255",
@@ -213,7 +213,7 @@ export const COUNTRIES: CountryConfig[] = [
   {
     code: "UG",
     name: "Ouganda",
-    flag: "🇺🇬",
+    flag: "",
     currency: { code: "UGX", symbol: "USh", name: "Shilling Ougandais", position: "before", decimals: 0 },
     mobilePayments: ["mtn_money"],
     phoneCode: "+256",
@@ -221,7 +221,7 @@ export const COUNTRIES: CountryConfig[] = [
   {
     code: "RW",
     name: "Rwanda",
-    flag: "🇷🇼",
+    flag: "",
     currency: { code: "RWF", symbol: "FRw", name: "Franc Rwandais", position: "before", decimals: 0 },
     mobilePayments: ["mtn_money"],
     phoneCode: "+250",
@@ -229,7 +229,7 @@ export const COUNTRIES: CountryConfig[] = [
   {
     code: "CD",
     name: "RD Congo",
-    flag: "🇨🇩",
+    flag: "",
     currency: { code: "CDF", symbol: "FC", name: "Franc Congolais", position: "after", decimals: 2 },
     mobilePayments: ["mpesa", "orange_money"],
     phoneCode: "+243",
@@ -237,7 +237,7 @@ export const COUNTRIES: CountryConfig[] = [
   {
     code: "ZA",
     name: "Afrique du Sud",
-    flag: "🇿🇦",
+    flag: "",
     currency: { code: "ZAR", symbol: "R", name: "Rand", position: "before", decimals: 2 },
     mobilePayments: [],
     phoneCode: "+27",

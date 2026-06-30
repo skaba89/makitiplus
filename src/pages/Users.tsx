@@ -581,18 +581,18 @@ const Users = () => {
         </div>
 
         <Tabs defaultValue="users">
-          <TabsList>
-            <TabsTrigger value="users">
-              <Shield className="h-4 w-4 mr-2" /> Utilisateurs
+          <TabsList className="flex flex-wrap h-auto gap-1">
+            <TabsTrigger value="users" className="gap-1.5 text-xs sm:text-sm">
+              <Shield className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Utilisateurs</span><span className="sm:hidden">Users</span>
             </TabsTrigger>
-            <TabsTrigger value="reset">
-              <KeyRound className="h-4 w-4 mr-2" /> Liens reset
+            <TabsTrigger value="reset" className="gap-1.5 text-xs sm:text-sm">
+              <KeyRound className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Liens reset</span><span className="sm:hidden">Reset</span>
             </TabsTrigger>
-            <TabsTrigger value="audit">
-              <History className="h-4 w-4 mr-2" /> Historique
+            <TabsTrigger value="audit" className="gap-1.5 text-xs sm:text-sm">
+              <History className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Historique</span><span className="sm:hidden">Audit</span>
             </TabsTrigger>
-            <TabsTrigger value="security">
-              <ShieldCheck className="h-4 w-4 mr-2" /> Sécurité
+            <TabsTrigger value="security" className="gap-1.5 text-xs sm:text-sm">
+              <ShieldCheck className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Sécurité</span><span className="sm:hidden">Sec.</span>
             </TabsTrigger>
           </TabsList>
 

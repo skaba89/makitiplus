@@ -321,10 +321,10 @@ const Stores = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-              <Store className="h-8 w-8" />
+            <h1 className="text-2xl lg:text-3xl font-bold tracking-tight flex items-center gap-2">
+              <Store className="h-6 w-6 lg:h-8 lg:w-8" />
               Magasins
             </h1>
             <p className="text-muted-foreground mt-1">
@@ -430,7 +430,7 @@ const Stores = () => {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Total magasins</CardDescription>
@@ -509,6 +509,7 @@ const Stores = () => {
                   : "Aucun magasin dans cette catégorie."}
               </div>
             ) : (
+              <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -584,6 +585,7 @@ const Stores = () => {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             )}
           </CardContent>
         </Card>

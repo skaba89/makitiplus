@@ -19,6 +19,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { useOrgTaxRate } from "@/hooks/useOrgTaxRate";
 import { computeTax } from "@/lib/taxUtils";
 import { Search, ShoppingCart, Camera } from "lucide-react";
+import { CategoryIcon } from "@/components/ui/category-icon";
 import { Database } from "@/integrations/supabase/types";
 import { ReceiptData } from "@/utils/receiptGenerator";
 
@@ -340,7 +341,7 @@ const POS = () => {
                         : undefined,
                   }}
                 >
-                  {category.icon} {category.name}
+                  <CategoryIcon iconName={category.icon} className="h-3.5 w-3.5" /> {category.name}
                 </Button>
               ))}
             </div>
