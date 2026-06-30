@@ -98,7 +98,7 @@ export const ReceiptActionsDialog = ({
   const formatPrice = (amount: number) =>
     formatPriceWithCurrency(
       amount,
-      receiptData.currencySymbol || currency.symbol,
+      receiptData.currencySymbol || currency.displaySymbol || currency.symbol,
       receiptData.currencyPosition || currency.position
     );
 

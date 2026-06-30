@@ -226,7 +226,7 @@ const POS = () => {
         businessAddress: profile?.address || undefined,
         businessPhone: profile?.phone || undefined,
         sellerName: profile?.owner_name || undefined,
-        currencySymbol: currency.symbol,
+        currencySymbol: currency.displaySymbol || currency.symbol,
         currencyPosition: currency.position,
         logoUrl: settings?.logo_url || branding.logoUrl,
         template: branding.receiptTemplate,
