@@ -1,0 +1,723 @@
+     1→     1→import { useState, useCallback, useRef, useEffect, useDeferredValue } from "react";
+     2→     2→import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+     3→     3→import { supabase } from "@/integrations/supabase/client";
+     4→     4→import { useAuth } from "@/contexts/AuthContext";
+     5→     5→import { usePOSCartStore, useCartTotal } from "@/contexts/POSCartContext";
+     6→     6→import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+     7→     7→import { POSProductGrid } from "@/components/pos/POSProductGrid";
+     8→     8→import { POSProductList } from "@/components/pos/POSProductList";
+     9→     9→import { POSCart } from "@/components/pos/POSCart";
+    10→    10→import { MobileCartDrawer } from "@/components/pos/MobileCartDrawer";
+    11→    11→import { POSPaymentDialog } from "@/components/pos/POSPaymentDialog";
+    12→    12→import { ReceiptActionsDialog } from "@/components/pos/ReceiptActionsDialog";
+    13→    13→import { BarcodeScannerDialog } from "@/components/pos/BarcodeScannerDialog";
+    14→    14→import { ProductAutocomplete } from "@/components/pos/ProductAutocomplete";
+    15→    15→import { Button } from "@/components/ui/button";
+    16→    16→import { Switch } from "@/components/ui/switch";
+    17→    17→import { Label } from "@/components/ui/label";
+    18→    18→import {
+    19→    19→  Dialog,
+    20→    20→  DialogContent,
+    21→    21→  DialogHeader,
+    22→    22→  DialogTitle,
+    23→    23→} from "@/components/ui/dialog";
+    24→    24→import { useToast } from "@/hooks/use-toast";
+    25→    25→import { useCurrency } from "@/hooks/useCurrency";
+    26→    26→import { useOrgTaxRate } from "@/hooks/useOrgTaxRate";
+    27→    27→import { computeTax } from "@/lib/taxUtils";
+    28→    28→import { ShoppingCart, Camera, LayoutGrid, List, Keyboard } from "lucide-react";
+    29→    29→import { CurrencySelector } from "@/components/ui/currency-selector";
+    30→    30→import { CategoryIcon } from "@/components/ui/category-icon";
+    31→    31→import { Database } from "@/integrations/supabase/types";
+    32→    32→import { ReceiptData } from "@/utils/receiptGenerator";
+    33→    33→import { useBranding } from "@/contexts/BrandingContext";
+    34→    34→import { useThemeSettings } from "@/contexts/ThemeContext";
+    35→    35→import { usePOSKeyboardShortcuts } from "@/hooks/usePOSKeyboardShortcuts";
+    36→    36→import { usePOSProducts, ProductWithCategory as POSProduct } from "@/hooks/usePOSProducts";
+    37→    37→import { lookupBarcode } from "@/hooks/useProductSearch";
+    38→    38→import { useCategories } from "@/hooks/useCategories";
+    39→    39→import { POSProductGridSkeleton, POSProductListSkeleton, POSCartSkeleton } from "@/components/pos/POSSkeletons";
+    40→    40→
+    41→    41→type Product = Database["public"]["Tables"]["products"]["Row"] & {
+    42→    42→  categories?: { name: string; color: string | null; icon: string | null } | null;
+    43→    43→};
+    44→    44→
+    45→    45→type PaymentMethod = Database["public"]["Enums"]["payment_method"];
+    46→    46→
+    47→    47→const POS = () => {
+    48→    48→  const { user, profile } = useAuth();
+    49→    49→  const { toast } = useToast();
+    50→    50→  const { currency, formatPrice } = useCurrency();
+    51→    51→  const orgTaxRate = useOrgTaxRate();
+    52→    52→  const { branding } = useBranding();
+    53→    53→  const { settings } = useThemeSettings();
+    54→    54→  const queryClient = useQueryClient();
+    55→    55→  const cart = usePOSCartStore((s) => s.items);
+    56→    56→  const { addToCart: addToCartStore, updateQuantity, removeItem, clearCart } = usePOSCartStore();
+    57→    57→  const cartTotal = useCartTotal();
+    58→    58→  const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+    59→    59→  const [isReceiptOpen, setIsReceiptOpen] = useState(false);
+    60→    60→  const [lastReceiptData, setLastReceiptData] = useState<ReceiptData | null>(null);
+    61→    61→  const [isScannerOpen, setIsScannerOpen] = useState(false);
+    62→    62→  const [showOutOfStock, setShowOutOfStock] = useState(false);
+    63→    63→  const [viewMode, setViewMode] = useState<"grid" | "list">("list");
+    64→    64→  const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
+    65→    65→  const [showShortcuts, setShowShortcuts] = useState(false);
+    66→    66→  const lastSubmitRef = useRef(0);
+    67→    67→  const searchInputRef = useRef<HTMLInputElement>(null);
+    68→    68→  const confirmPaymentRef = useRef<(() => void) | null>(null);
+    69→    69→
+    70→    70→  // Produits du POS — pagination serveur avec filtres (catégorie, stock, recherche)
+    71→    71→  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+    72→    72→  const [gridSearchInput, setGridSearchInput] = useState("");
+    73→    73→  const gridSearchQuery = useDeferredValue(gridSearchInput);
+    74→    74→
+    75→    75→  const {
+    76→    76→    data: infiniteData,
+    77→    77→    isLoading,
+    78→    78→    fetchNextPage,
+    79→    79→    hasNextPage,
+    80→    80→    isFetchingNextPage,
+    81→    81→  } = usePOSProducts({
+    82→    82→    categoryId: selectedCategory,
+    83→    83→    showOutOfStock,
+    84→    84→    searchQuery: gridSearchQuery || undefined,
+    85→    85→    pageSize: viewMode === "grid" ? 24 : 30,
+    86→    86→  });
+    87→    87→
+    88→    88→  // Accumuler toutes les pages chargées
+    89→    89→  const products = infiniteData?.pages.flatMap((page) => page.data) ?? [];
+    90→    90→  const totalProductCount = infiniteData?.pages[0]?.totalCount ?? 0;
+    91→    91→
+    92→    92→  const { data: categories } = useCategories();
+    93→    93→
+    94→    94→  const createSaleMutation = useMutation({
+    95→    95→    mutationFn: async ({
+    96→    96→      paymentMethod,
+    97→    97→      amountPaid,
+    98→    98→      customerName,
+    99→    99→      customerPhone,
+   100→   100→    }: {
+   101→   101→      paymentMethod: PaymentMethod;
+   102→   102→      amountPaid: number;
+   103→   103→      customerName?: string;
+   104→   104→      customerPhone?: string;
+   105→   105→    }) => {
+   106→   106→      if (Date.now() - lastSubmitRef.current < 2000) {
+   107→   107→        throw new Error("Vente déjà en cours de traitement");
+   108→   108→      }
+   109→   109→      lastSubmitRef.current = Date.now();
+   110→   110→      // Obtenir le numéro de vente (fallback vers timestamp+uuid si RPC non disponible)
+   111→   111→      let finalSaleNumber = '';
+   112→   112→      try {
+   113→   113→        const { data: saleNumber, error: rpcError } = await supabase.rpc("generate_sale_number");
+   114→   114→        if (rpcError) {
+   115→   115→          // generate_sale_number RPC indisponible, utilisation du fallback
+   116→   116→        }
+   117→   117→        finalSaleNumber = saleNumber || '';
+   118→   118→      } catch {
+   119→   119→        // generate_sale_number RPC indisponible, utilisation du fallback
+   120→   120→      }
+   121→   121→      // Fallback : utiliser un fragment crypto.randomUUID — pas de risque de collision entre terminaux
+   122→   122→      if (!finalSaleNumber) {
+   123→   123→        const uid = crypto.randomUUID().replace(/-/g, '').substring(0, 12).toUpperCase();
+   124→   124→        finalSaleNumber = `VTE-${uid}`;
+   125→   125→      }
+   126→   126→
+   127→   127→      const subtotal = cart.reduce(
+   128→   128→        (sum, item) => sum + item.product.price * item.quantity,
+   129→   129→        0
+   130→   130→      );
+   131→   131→      const taxAmount = cart.reduce((sum, item) => {
+   132→   132→        const t = computeTax(item.product.price, item.product.tax_rate, orgTaxRate);
+   133→   133→        return sum + t.taxAmount * item.quantity;
+   134→   134→      }, 0);
+   135→   135→      // Les prix sont TTC (taxe incluse) : le sous-total inclut déjà la taxe
+   136→   136→      // totalMontant = sous-total (ce que le client paie)
+   137→   137→      // Pour la DB : stocker le sous-total comme total TTC, montantTaxe comme la part de taxe
+   138→   138→      const totalAmount = subtotal;
+   139→   139→      const htAmount = subtotal - taxAmount;
+   140→   140→      const changeAmount = amountPaid - totalAmount;
+   141→   141→
+   142→   142→      // Essayer d'abord la création atomique de vente via RPC (C4 : transaction unique)
+   143→   143→      const saleItems = cart.map((item) => ({
+   144→   144→        product_id: item.product.id,
+   145→   145→        product_name: item.product.name,
+   146→   146→        quantity: item.quantity,
+   147→   147→        unit_price: item.product.price,
+   148→   148→        total_price: item.product.price * item.quantity,
+   149→   149→      }));
+   150→   150→
+   151→   151→      const orgId = profile?.organization_id || null;
+   152→   152→      let creditUpdateFailed = false;
+   153→   153→
+   154→   154→      // ⚠️ create_full_sale RPC est OBLIGATOIRE — plus de fallback non-atomique.
+   155→   155→      // L'ancien chemin (INSERT sale + INSERT items + batch_update_stock) était
+   156→   156→      // non-atomique : une panne entre les étapes laissait des données incohérentes.
+   157→   157→      const { data: rpcSaleId, error: rpcError } = await supabase.rpc("create_full_sale", {
+   158→   158→        p_user_id: user!.id,
+   159→   159→        p_organization_id: orgId,
+   160→   160→        p_sale_number: finalSaleNumber,
+   161→   161→        p_subtotal: htAmount,
+   162→   162→        p_tax_amount: taxAmount,
+   163→   163→        p_total_amount: totalAmount,
+   164→   164→        p_payment_method: paymentMethod,
+   165→   165→        p_amount_paid: amountPaid,
+   166→   166→        p_change_amount: changeAmount > 0 ? changeAmount : 0,
+   167→   167→        p_customer_name: customerName || null,
+   168→   168→        p_customer_phone: customerPhone || null,
+   169→   169→        p_seller_name: profile?.owner_name || null,
+   170→   170→        p_items: saleItems,
+   171→   171→      });
+   172→   172→
+   173→   173→      if (rpcError || !rpcSaleId) {
+   174→   174→        throw new Error(
+   175→   175→          `Impossible de créer la vente (RPC create_full_sale) : ${rpcError?.message || 'Réponse vide'}. Veuillez réessayer.`
+   176→   176→        );
+   177→   177→      }
+   178→   178→
+   179→   179→      // Récupérer l'enregistrement de vente pour le ticket
+   180→   180→      const { data: sale } = await supabase
+   181→   181→        .from("sales")
+   182→   182→        .select("id, sale_number, payment_method, amount_paid, customer_name, customer_phone")
+   183→   183→        .eq("id", rpcSaleId)
+   184→   184→        .single();
+   185→   185→
+   186→   186→      if (!sale) {
+   187→   187→        throw new Error('Vente créée mais introuvable. Veuillez réessayer.');
+   188→   188→      }
+   189→   189→
+   190→   190→      // Si vente à crédit, créer une entrée customer_credits pour le suivi de la dette
+   191→   191→      if (paymentMethod === "credit" && totalAmount > 0) {
+   192→   192→        let customerId: string | null = null;
+   193→   193→
+   194→   194→        // Upsert atomique du client — évite la race condition SELECT→INSERT
+   195→   195→        // où deux vendeurs concurrents créeraient des doublons pour le même téléphone.
+   196→   196→        // La contrainte unique sur customers(phone, organization_id) garantit l'atomicité.
+   197→   197→        if (customerPhone) {
+   198→   198→          const upsertData: Record<string, unknown> = {
+   199→   199→            name: customerName || customerPhone,
+   200→   200→            phone: customerPhone,
+   201→   201→          };
+   202→   202→          if (profile?.organization_id) {
+   203→   203→            upsertData.organization_id = profile.organization_id;
+   204→   204→          }
+   205→   205→          const { data: upsertedCustomer, error: custErr } = await supabase
+   206→   206→            .from("customers")
+   207→   207→            .upsert(upsertData as never, {
+   208→   208→              onConflict: 'phone,organization_id',
+   209→   209→              ignoreDuplicates: false,
+   210→   210→            })
+   211→   211→            .select("id")
+   212→   212→            .maybeSingle();
+   213→   213→
+   214→   214→          if (!custErr && upsertedCustomer) {
+   215→   215→            customerId = upsertedCustomer.id;
+   216→   216→          }
+   217→   217→        } else if (customerName) {
+   218→   218→          // Pas de téléphone mais nom fourni — essayer de trouver par nom dans l'organisation
+   219→   219→          const { data: existingCustomer } = await supabase
+   220→   220→            .from("customers")
+   221→   221→            .select("id")
+   222→   222→            .eq("name", customerName)
+   223→   223→            .eq("organization_id", orgId)
+   224→   224→            .maybeSingle();
+   225→   225→          if (existingCustomer) {
+   226→   226→            customerId = existingCustomer.id;
+   227→   227→          }
+   228→   228→        }
+   229→   229→
+   230→   230→        if (customerId) {
+   231→   231→          const creditInsert: Record<string, unknown> = {
+   232→   232→            user_id: user!.id,
+   233→   233→            customer_id: customerId,
+   234→   234→            sale_id: sale.id,
+   235→   235→            amount: totalAmount,
+   236→   236→            type: "credit",
+   237→   237→            description: `Vente crédit ${finalSaleNumber}`,
+   238→   238→          };
+   239→   239→          if (profile?.organization_id) {
+   240→   240→            creditInsert.organization_id = profile.organization_id;
+   241→   241→          }
+   242→   242→          await supabase.from("customer_credits").insert(creditInsert as never);
+   243→   243→
+   244→   244→          // Mettre à jour total_credit du client atomiquement via RPC
+   245→   245→          const { error: creditUpdateError } = await supabase.rpc("increment_customer_credit", {
+   246→   246→            p_customer_id: customerId,
+   247→   247→            p_amount: totalAmount,
+   248→   248→          });
+   249→   249→
+   250→   250→          if (creditUpdateError) {
+   251→   251→            // La vente est déjà enregistrée mais la mise à jour du crédit a échoué.
+   252→   252→            // On ne fait PAS de fallback non-atomique pour éviter les incohérences.
+   253→   253→            // L'utilisateur est notifié pour pouvoir relancer la synchronisation.
+   254→   254→            reportError(new Error(`increment_customer_credit RPC failed: ${creditUpdateError.message}`));
+   255→   255→            // Stocker l'erreur pour notification dans onError
+   256→   256→            creditUpdateFailed = true;
+   257→   257→          }
+   258→   258→        }
+   259→   259→      }
+   260→   260→
+   261→   261→      return { sale, changeAmount, creditUpdateFailed };
+   262→   262→    },
+   263→   263→    onSuccess: ({ sale, changeAmount, creditUpdateFailed }) => {
+   264→   264→      // Calculer la taxe pour l'affichage du ticket AVANT clearCart()
+   265→   265→      const receiptTaxAmount = cart.reduce((sum, item) => {
+   266→   266→        const t = computeTax(item.product.price, item.product.tax_rate, orgTaxRate);
+   267→   267→        return sum + t.taxAmount * item.quantity;
+   268→   268→      }, 0);
+   269→   269→      const receiptSubtotal = cartTotal - receiptTaxAmount;
+   270→   270→
+   271→   271→      // Préparer les données du ticket pour le dialogue (avant clearCart)
+   272→   272→      const receiptData: ReceiptData = {
+   273→   273→        saleNumber: sale.sale_number,
+   274→   274→        date: new Date(),
+   275→   275→        items: cart.map((item) => ({
+   276→   276→          product_name: item.product.name,
+   277→   277→          quantity: item.quantity,
+   278→   278→          unit_price: item.product.price,
+   279→   279→          total_price: item.product.price * item.quantity,
+   280→   280→        })),
+   281→   281→        subtotal: receiptSubtotal,
+   282→   282→        total: cartTotal,
+   283→   283→        paymentMethod: sale.payment_method,
+   284→   284→        amountPaid: sale.amount_paid,
+   285→   285→        change: changeAmount > 0 ? changeAmount : 0,
+   286→   286→        customerName: sale.customer_name || undefined,
+   287→   287→        customerPhone: sale.customer_phone || undefined,
+   288→   288→        businessName: profile?.business_name || "Ma Boutique",
+   289→   289→        businessAddress: profile?.address || undefined,
+   290→   290→        businessPhone: profile?.phone || undefined,
+   291→   291→        sellerName: profile?.owner_name || undefined,
+   292→   292→        currencySymbol: currency.displaySymbol || currency.symbol,
+   293→   293→        currencyPosition: currency.position,
+   294→   294→        logoUrl: settings?.logo_url || branding.logoUrl,
+   295→   295→        template: branding.receiptTemplate,
+   296→   296→        paperSize: (settings?.extra_settings as Record<string, string>)?.receiptPaperSize as ReceiptData["paperSize"] || "80mm",
+   297→   297→        showLogo: settings?.receipt_show_logo ?? true,
+   298→   298→        showTax: settings?.receipt_show_tax ?? true,
+   299→   299→        footerText: settings?.receipt_footer || undefined,
+   300→   300→        organizationId: profile?.organization_id ?? undefined,
+   301→   301→        taxRate: orgTaxRate,
+   302→   302→      };
+   303→   303→
+   304→   304→      // Clear cart AFTER receipt data is computed
+   305→   305→      clearCart();
+   306→   306→      setLastReceiptData(receiptData);
+   307→   307→      setIsReceiptOpen(true);
+   308→   308→
+   309→   309→      queryClient.invalidateQueries({ queryKey: ["products"] });
+   310→   310→      queryClient.invalidateQueries({ queryKey: ["sales"] });
+   311→   311→      setIsPaymentOpen(false);
+   312→   312→
+   313→   313→      // Avertir l'utilisateur si la mise à jour du crédit a échoué
+   314→   314→      if (creditUpdateFailed) {
+   315→   315→        toast({
+   316→   316→          variant: "destructive",
+   317→   317→          title: "Vente enregistrée, crédit en attente",
+   318→   318→          description: "La vente est validée mais la mise à jour du crédit client a échoué. Vérifiez les crédits du client.",
+   319→   319→          duration: 8000,
+   320→   320→        });
+   321→   321→      }
+   322→   322→    },
+   323→   323→    onError: (error: unknown) => {
+   324→   324→      // Les erreurs Supabase sont des objets simples, pas des instances Error
+   325→   325→      let message = "Impossible d'enregistrer la vente";
+   326→   326→      if (error instanceof Error) {
+   327→   327→        message = error.message;
+   328→   328→      } else if (typeof error === 'object' && error !== null) {
+   329→   329→        const err = error as Record<string, unknown>;
+   330→   330→        if (typeof err.message === 'string') {
+   331→   331→          message = err.message;
+   332→   332→        } else if (typeof err.details === 'string') {
+   333→   333→          message = err.details;
+   334→   334→        } else if (typeof err.code === 'string') {
+   335→   335→          message = `Erreur ${err.code}: veuillez réessayer`;
+   336→   336→        } else {
+   337→   337→          try {
+   338→   338→            message = JSON.stringify(error);
+   339→   339→          } catch {
+   340→   340→            message = String(error);
+   341→   341→          }
+   342→   342→        }
+   343→   343→      } else {
+   344→   344→        message = String(error);
+   345→   345→      }
+   346→   346→      toast({
+   347→   347→        variant: "destructive",
+   348→   348→        title: "Erreur de vente",
+   349→   349→        description: message,
+   350→   350→      });
+   351→   351→      reportError(error instanceof Error ? error : new Error(message));
+   352→   352→    },
+   353→   353→  });
+   354→   354→
+   355→   355→  const addToCart = useCallback((product: Product, addQty: number = 1) => {
+   356→   356→    const existing = cart.find((item) => item.product.id === product.id);
+   357→   357→    const currentQty = existing?.quantity || 0;
+   358→   358→    const targetQty = currentQty + addQty;
+   359→   359→
+   360→   360→    if (targetQty > product.stock_quantity) {
+   361→   361→      toast({
+   362→   362→        variant: "destructive",
+   363→   363→        title: "Stock insuffisant",
+   364→   364→        description: `Seulement ${product.stock_quantity} ${product.unit || "unité(s)"} disponible(s)`,
+   365→   365→      });
+   366→   366→      return;
+   367→   367→    }
+   368→   368→    addToCartStore(product, addQty);
+   369→   369→  }, [cart, toast, addToCartStore]);
+   370→   370→
+   371→   371→  const updateCartQuantity = useCallback((productId: string, quantity: number) => {
+   372→   372→    if (quantity <= 0) {
+   373→   373→      removeItem(productId);
+   374→   374→      return;
+   375→   375→    }
+   376→   376→    const item = cart.find((i) => i.product.id === productId);
+   377→   377→    if (item && quantity > item.product.stock_quantity) {
+   378→   378→      toast({
+   379→   379→        variant: "destructive",
+   380→   380→        title: "Stock insuffisant",
+   381→   381→        description: `Seulement ${item.product.stock_quantity} disponible(s)`,
+   382→   382→      });
+   383→   383→      return;
+   384→   384→    }
+   385→   385→    updateQuantity(productId, quantity);
+   386→   386→  }, [cart, toast, updateQuantity, removeItem]);
+   387→   387→
+   388→   388→  const removeFromCart = useCallback((productId: string) => {
+   389→   389→    removeItem(productId);
+   390→   390→  }, [removeItem]);
+   391→   391→
+   392→   392→  const handleBarcodeScan = async (barcode: string) => {
+   393→   393→    // Recherche serveur du produit par code-barres
+   394→   394→    try {
+   395→   395→      const found = await lookupBarcode(barcode, profile?.organization_id);
+   396→   396→      if (found) {
+   397→   397→        addToCart(found as Product);
+   398→   398→      } else {
+   399→   399→        setGridSearchInput(barcode);
+   400→   400→        toast({
+   401→   401→          variant: "destructive",
+   402→   402→          title: "Produit non trouvé",
+   403→   403→          description: `Aucun produit avec le code-barres: ${barcode}`,
+   404→   404→        });
+   405→   405→      }
+   406→   406→    } catch {
+   407→   407→      setGridSearchInput(barcode);
+   408→   408→      toast({
+   409→   409→        variant: "destructive",
+   410→   410→        title: "Produit non trouvé",
+   411→   411→        description: `Aucun produit avec le code-barres: ${barcode}`,
+   412→   412→      });
+   413→   413→    }
+   414→   414→  };
+   415→   415→
+   416→   416→  // Les filtres (catégorie, stock, recherche) sont gérés côté serveur par usePOSProducts
+   417→   417→
+   418→   418→  const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+   419→   419→
+   420→   420→  // Raccourcis clavier
+   421→   421→  usePOSKeyboardShortcuts({
+   422→   422→    onFocusSearch: useCallback(() => {
+   423→   423→      searchInputRef.current?.focus();
+   424→   424→    }, []),
+   425→   425→    onOpenPayment: useCallback(() => setIsPaymentOpen(true), []),
+   426→   426→    onClearCart: useCallback(() => clearCart(), [clearCart]),
+   427→   427→    onToggleView: useCallback(() => setViewMode((v) => v === "grid" ? "list" : "grid"), []),
+   428→   428→    onToggleOutOfStock: useCallback(() => setShowOutOfStock((v) => !v), []),
+   429→   429→    onOpenScanner: useCallback(() => setIsScannerOpen(true), []),
+   430→   430→    onShowHelp: useCallback(() => setShowShortcuts(true), []),
+   431→   431→    onConfirmPayment: useCallback(() => {
+   432→   432→      confirmPaymentRef.current?.();
+   433→   433→    }, []),
+   434→   434→    onIncrementLastItem: useCallback(() => {
+   435→   435→      if (cart.length === 0) return;
+   436→   436→      const lastItem = cart[cart.length - 1];
+   437→   437→      const newQty = lastItem.quantity + 1;
+   438→   438→      if (newQty <= lastItem.product.stock_quantity) {
+   439→   439→        updateQuantity(lastItem.product.id, newQty);
+   440→   440→      }
+   441→   441→    }, [cart, updateQuantity]),
+   442→   442→    onDecrementLastItem: useCallback(() => {
+   443→   443→      if (cart.length === 0) return;
+   444→   444→      const lastItem = cart[cart.length - 1];
+   445→   445→      const newQty = lastItem.quantity - 1;
+   446→   446→      if (newQty <= 0) {
+   447→   447→        removeItem(lastItem.product.id);
+   448→   448→      } else {
+   449→   449→        updateQuantity(lastItem.product.id, newQty);
+   450→   450→      }
+   451→   451→    }, [cart, updateQuantity, removeItem]),
+   452→   452→    hasCartItems: cart.length > 0,
+   453→   453→    isPaymentOpen,
+   454→   454→  });
+   455→   455→
+   456→   456→  return (
+   457→   457→    <DashboardLayout>
+   458→   458→      <div className="h-[calc(100dvh-10rem)] sm:h-[calc(100dvh-9rem)] md:h-[calc(100dvh-8rem)] lg:h-[calc(100dvh-2.5rem)] flex flex-col lg:flex-row gap-3 lg:gap-4">
+   459→   459→        {/* Products Section */}
+   460→   460→        <div className="flex-1 flex flex-col min-h-0">
+   461→   461→          {/* Search and Categories */}
+   462→   462→          <div className="space-y-3 mb-3 lg:mb-4">
+   463→   463→            <div className="flex gap-2">
+   464→   464→              <ProductAutocomplete
+   465→   465→                inputRef={searchInputRef}
+   466→   466→                organizationId={profile?.organization_id}
+   467→   467→                onSelect={(p, qty) => {
+   468→   468→                  if (p.stock_quantity === 0) {
+   469→   469→                    toast({
+   470→   470→                      variant: "destructive",
+   471→   471→                      title: "Rupture de stock",
+   472→   472→                      description: `${p.name} n'est pas disponible`,
+   473→   473→                    });
+   474→   474→                    return;
+   475→   475→                  }
+   476→   476→                  addToCart(p, qty);
+   477→   477→                }}
+   478→   478→                placeholder="Rechercher un produit (nom ou code-barres)..."
+   479→   479→              />
+   480→   480→              <Button
+   481→   481→                variant="outline"
+   482→   482→                size="icon"
+   483→   483→                onClick={() => setIsScannerOpen(true)}
+   484→   484→                title="F7 : Scanner un code-barres"
+   485→   485→                aria-label="Scanner un code-barres"
+   486→   486→              >
+   487→   487→                <Camera className="h-4 w-4" />
+   488→   488→              </Button>
+   489→   489→              <Button
+   490→   490→                variant="outline"
+   491→   491→                size="icon"
+   492→   492→                onClick={() => setShowShortcuts(true)}
+   493→   493→                title="Raccourcis clavier"
+   494→   494→                aria-label="Raccourcis clavier"
+   495→   495→              >
+   496→   496→                <Keyboard className="h-4 w-4" />
+   497→   497→              </Button>
+   498→   498→            </div>
+   499→   499→
+   500→   500→            <div className="flex items-center justify-between gap-2 flex-wrap">
+   501→   501→              <div className="text-xs text-muted-foreground">
+   502→   502→                {products.length} produit(s) affiché(s)
+   503→   503→                {totalProductCount > 0 && ` / ${totalProductCount} au total`}
+   504→   504→              </div>
+   505→   505→              <div className="flex items-center gap-2 sm:gap-3">
+   506→   506→                <CurrencySelector variant="compact" />
+   507→   507→                {/* View mode toggle */}
+   508→   508→                <div className="flex items-center border rounded-md">
+   509→   509→                  <Button
+   510→   510→                    variant={viewMode === "grid" ? "default" : "ghost"}
+   511→   511→                    size="icon"
+   512→   512→                    className="h-7 w-7 rounded-r-none"
+   513→   513→                    onClick={() => setViewMode("grid")}
+   514→   514→                    aria-label="Vue grille"
+   515→   515→                  >
+   516→   516→                    <LayoutGrid className="h-3.5 w-3.5" />
+   517→   517→                  </Button>
+   518→   518→                  <Button
+   519→   519→                    variant={viewMode === "list" ? "default" : "ghost"}
+   520→   520→                    size="icon"
+   521→   521→                    className="h-7 w-7 rounded-l-none"
+   522→   522→                    onClick={() => setViewMode("list")}
+   523→   523→                    aria-label="Vue liste"
+   524→   524→                  >
+   525→   525→                    <List className="h-3.5 w-3.5" />
+   526→   526→                  </Button>
+   527→   527→                </div>
+   528→   528→                <div className="flex items-center gap-1.5 sm:gap-2">
+   529→   529→                  <Switch
+   530→   530→                    id="show-out-of-stock"
+   531→   531→                    checked={showOutOfStock}
+   532→   532→                    onCheckedChange={setShowOutOfStock}
+   533→   533→                  />
+   534→   534→                  <Label htmlFor="show-out-of-stock" className="text-xs cursor-pointer hidden sm:inline">
+   535→   535→                    Ruptures
+   536→   536→                  </Label>
+   537→   537→                </div>
+   538→   538→              </div>
+   539→   539→            </div>
+   540→   540→            
+   541→   541→            {/* Category Filters */}
+   542→   542→            <div className="flex gap-1.5 sm:gap-2 flex-wrap overflow-x-auto no-scrollbar pb-1">
+   543→   543→              <Button
+   544→   544→                variant={selectedCategory === null ? "default" : "outline"}
+   545→   545→                size="sm"
+   546→   546→                onClick={() => setSelectedCategory(null)}
+   547→   547→              >
+   548→   548→                Tous
+   549→   549→              </Button>
+   550→   550→              {categories?.map((category) => (
+   551→   551→                <Button
+   552→   552→                  key={category.id}
+   553→   553→                  variant={selectedCategory === category.id ? "default" : "outline"}
+   554→   554→                  size="sm"
+   555→   555→                  onClick={() => setSelectedCategory(category.id)}
+   556→   556→                  style={{
+   557→   557→                    backgroundColor:
+   558→   558→                      selectedCategory === category.id
+   559→   559→                        ? category.color || undefined
+   560→   560→                        : undefined,
+   561→   561→                  }}
+   562→   562→                >
+   563→   563→                  <CategoryIcon iconName={category.icon} className="h-3.5 w-3.5" /> <span className="hidden sm:inline">{category.name}</span><span className="sm:hidden">{category.name.length > 8 ? category.name.slice(0, 8) + '…' : category.name}</span>
+   564→   564→                </Button>
+   565→   565→              ))}
+   566→   566→            </div>
+   567→   567→          </div>
+   568→   568→
+   569→   569→          {/* Products Grid */}
+   570→   570→          <div className="flex-1 overflow-y-auto">
+   571→   571→            {isLoading ? (
+   572→   572→              viewMode === "grid" ? (
+   573→   573→                <POSProductGridSkeleton />
+   574→   574→              ) : (
+   575→   575→                <POSProductListSkeleton />
+   576→   576→              )
+   577→   577→            ) : products.length > 0 ? (
+   578→   578→              viewMode === "grid" ? (
+   579→   579→                <POSProductGrid
+   580→   580→                  products={products}
+   581→   581→                  onAddToCart={addToCart}
+   582→   582→                  hasMore={hasNextPage ?? false}
+   583→   583→                  isLoadingMore={isFetchingNextPage}
+   584→   584→                  onLoadMore={fetchNextPage}
+   585→   585→                  totalCount={totalProductCount}
+   586→   586→                />
+   587→   587→              ) : (
+   588→   588→                <POSProductList
+   589→   589→                  products={products}
+   590→   590→                  onAddToCart={addToCart}
+   591→   591→                  hasMore={hasNextPage ?? false}
+   592→   592→                  isLoadingMore={isFetchingNextPage}
+   593→   593→                  onLoadMore={fetchNextPage}
+   594→   594→                  totalCount={totalProductCount}
+   595→   595→                />
+   596→   596→              )
+   597→   597→            ) : (
+   598→   598→              <div className="text-center py-12">
+   599→   599→                <ShoppingCart className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+   600→   600→                <p className="text-muted-foreground">Aucun produit trouvé</p>
+   601→   601→              </div>
+   602→   602→            )}
+   603→   603→          </div>
+   604→   604→        </div>
+   605→   605→
+   606→   606→        {/* Cart Section — hidden on mobile, visible on lg+ */}
+   607→   607→        <div className="hidden lg:flex lg:w-80 xl:w-96 flex-shrink-0">
+   608→   608→          {isLoading ? (
+   609→   609→            <POSCartSkeleton />
+   610→   610→          ) : (
+   611→   611→            <POSCart
+   612→   612→              items={cart}
+   613→   613→              total={cartTotal}
+   614→   614→              onUpdateQuantity={updateCartQuantity}
+   615→   615→              onRemove={removeFromCart}
+   616→   616→              onClear={clearCart}
+   617→   617→              onCheckout={() => setIsPaymentOpen(true)}
+   618→   618→            />
+   619→   619→          )}
+   620→   620→        </div>
+   621→   621→
+   622→   622→        {/* Mobile floating cart button */}
+   623→   623→        {itemCount > 0 && (
+   624→   624→          <div className="lg:hidden fixed bottom-[5.5rem] right-4 z-40">
+   625→   625→            <Button
+   626→   626→              size="lg"
+   627→   627→              className="rounded-full shadow-lg h-14 w-14 relative"
+   628→   628→              onClick={() => setIsMobileCartOpen(true)}
+   629→   629→              aria-label="Voir le panier"
+   630→   630→            >
+   631→   631→              <ShoppingCart className="h-6 w-6" />
+   632→   632→              <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+   633→   633→                {itemCount}
+   634→   634→              </span>
+   635→   635→            </Button>
+   636→   636→            <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap bg-primary text-primary-foreground text-xs font-bold px-2.5 py-1 rounded-md shadow">
+   637→   637→              {formatPrice(cartTotal)}
+   638→   638→            </div>
+   639→   639→          </div>
+   640→   640→        )}
+   641→   641→
+   642→   642→        {/* Mobile Cart Drawer */}
+   643→   643→        <MobileCartDrawer
+   644→   644→          isOpen={isMobileCartOpen}
+   645→   645→          onClose={() => setIsMobileCartOpen(false)}
+   646→   646→          items={cart}
+   647→   647→          total={cartTotal}
+   648→   648→          onUpdateQuantity={updateCartQuantity}
+   649→   649→          onRemove={removeFromCart}
+   650→   650→          onClear={clearCart}
+   651→   651→          onCheckout={() => setIsPaymentOpen(true)}
+   652→   652→        />
+   653→   653→
+   654→   654→        {/* Payment Dialog */}
+   655→   655→        <POSPaymentDialog
+   656→   656→          isOpen={isPaymentOpen}
+   657→   657→          onClose={() => setIsPaymentOpen(false)}
+   658→   658→          total={cartTotal}
+   659→   659→          onConfirm={(paymentMethod, amountPaid, customerName, customerPhone) =>
+   660→   660→            createSaleMutation.mutate({
+   661→   661→              paymentMethod,
+   662→   662→              amountPaid,
+   663→   663→              customerName,
+   664→   664→              customerPhone,
+   665→   665→            })
+   666→   666→          }
+   667→   667→          isLoading={createSaleMutation.isPending}
+   668→   668→          confirmRef={confirmPaymentRef}
+   669→   669→        />
+   670→   670→
+   671→   671→        {/* Receipt Actions Dialog */}
+   672→   672→        <ReceiptActionsDialog
+   673→   673→          isOpen={isReceiptOpen}
+   674→   674→          onClose={() => setIsReceiptOpen(false)}
+   675→   675→          receiptData={lastReceiptData}
+   676→   676→        />
+   677→   677→
+   678→   678→        {/* Barcode Scanner Dialog */}
+   679→   679→        <BarcodeScannerDialog
+   680→   680→          isOpen={isScannerOpen}
+   681→   681→          onClose={() => setIsScannerOpen(false)}
+   682→   682→          onScan={handleBarcodeScan}
+   683→   683→        />
+   684→   684→
+   685→   685→        {/* Keyboard Shortcuts Dialog */}
+   686→   686→        <Dialog open={showShortcuts} onOpenChange={setShowShortcuts}>
+   687→   687→          <DialogContent className="max-w-sm" aria-describedby={undefined}>
+   688→   688→            <DialogHeader>
+   689→   689→              <DialogTitle className="flex items-center gap-2">
+   690→   690→                <Keyboard className="h-5 w-5" />
+   691→   691→                Raccourcis clavier
+   692→   692→              </DialogTitle>
+   693→   693→            </DialogHeader>
+   694→   694→            <div className="space-y-2 text-sm">
+   695→   695→              {[
+   696→   696→                { keys: "F1", action: "Aide raccourcis clavier" },
+   697→   697→                { keys: "/ ou Ctrl+K", action: "Rechercher un produit" },
+   698→   698→                { keys: "F2", action: "Ouvrir le paiement" },
+   699→   699→                { keys: "Ctrl+Entrée", action: "Confirmer le paiement" },
+   700→   700→                { keys: "F4", action: "Vider le panier" },
+   701→   701→                { keys: "+ / -", action: "Modifier qté dernier article" },
+   702→   702→                { keys: "F5", action: "Basculer grille / liste" },
+   703→   703→                { keys: "F6", action: "Afficher / masquer ruptures" },
+   704→   704→                { keys: "F7", action: "Scanner un code-barres" },
+   705→   705→                { keys: "Escape", action: "Fermer / annuler" },
+   706→   706→              ].map((shortcut) => (
+   707→   707→                <div key={shortcut.keys} className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0">
+   708→   708→                  <span className="text-muted-foreground">{shortcut.action}</span>
+   709→   709→                  <kbd className="px-2 py-0.5 bg-muted rounded text-xs font-mono">
+   710→   710→                    {shortcut.keys}
+   711→   711→                  </kbd>
+   712→   712→                </div>
+   713→   713→              ))}
+   714→   714→            </div>
+   715→   715→          </DialogContent>
+   716→   716→        </Dialog>
+   717→   717→      </div>
+   718→   718→    </DashboardLayout>
+   719→   719→  );
+   720→   720→};
+   721→   721→
+   722→   722→export default POS;
+   723→   723→
