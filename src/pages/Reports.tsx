@@ -108,15 +108,7 @@ const Reports = () => {
     enabled: !!user && !!profile?.organization_id,
   });
 
-  if (isReportsLoading) {
-    return (
-      <DashboardLayout>
-        <ReportsPageSkeleton />
-      </DashboardLayout>
-    );
-  }
-
-  // Fetch top products
+  // Fetch top products — declared before any early returns to respect Rules of Hooks
   const { data: topProducts } = useQuery({
     queryKey: ["reports-top-products", user?.id, period],
     queryFn: async () => {
@@ -230,6 +222,15 @@ const Reports = () => {
     },
     enabled: !!user,
   });
+
+  // Early return for loading state — MUST be after all hooks (Rules of Hooks)
+  if (isReportsLoading) {
+    return (
+      <DashboardLayout>
+        <ReportsPageSkeleton />
+      </DashboardLayout>
+    );
+  }
 
   // Calculate stats
   const totalSales = sales?.reduce((sum, sale) => sum + sale.total_amount, 0) || 0;

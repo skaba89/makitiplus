@@ -112,7 +112,8 @@ export const OfflinePOSSimulationPanel = () => {
     );
 
     const next = [...sales];
-    let inserted = 0, duplicates = 0, failed = 0;
+    let inserted = 0, duplicates = 0;
+    const failed = 0;
 
     for (const s of next) {
       if (s.status === "synced") continue;
