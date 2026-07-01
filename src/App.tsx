@@ -126,6 +126,9 @@ const App = () => {
         }
       });
     });
+
+    // Initialize Web Vitals monitoring (LCP, INP, CLS, TTFB) → Sentry
+    import("@/lib/webVitals").then(({ initWebVitals }) => initWebVitals());
   }, []);
   return (
   <QueryClientProvider client={queryClient}>

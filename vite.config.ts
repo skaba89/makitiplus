@@ -15,7 +15,11 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     rollupOptions: {
-      external: (id) => id === "html2canvas",
+      // Externalize jspdf optional deps that bloat the bundle unnecessarily.
+      // canvg (~150 kB) and dompurify (~28 kB) are only needed for SVG/HTML
+      // rendering inside PDFs — our receipt generator uses pure canvas, not SVG.
+      external: (id) =>
+        id === "html2canvas" || id === "canvg" || id === "dompurify",
       output: {
         manualChunks: {
           vendor: ["react", "react-dom", "react-router-dom"],
@@ -24,6 +28,8 @@ export default defineConfig(({ mode }) => ({
           charts: ["recharts"],
           pdf: ["jspdf"],
           qrcode: ["qrcode"],
+          scanner: ["html5-qrcode"],
+          barcode: ["jsbarcode"],
           ui: [
             "@radix-ui/react-dialog",
             "@radix-ui/react-dropdown-menu",
@@ -38,9 +44,27 @@ export default defineConfig(({ mode }) => ({
             "@radix-ui/react-label",
             "@radix-ui/react-separator",
             "@radix-ui/react-slot",
+            "@radix-ui/react-scroll-area",
+            "@radix-ui/react-collapsible",
+            "@radix-ui/react-accordion",
+            "@radix-ui/react-progress",
+            "@radix-ui/react-radio-group",
+            "@radix-ui/react-toggle",
+            "@radix-ui/react-toggle-group",
+            "@radix-ui/react-toast",
+            "@radix-ui/react-aspect-ratio",
+            "@radix-ui/react-hover-card",
+            "@radix-ui/react-context-menu",
+            "@radix-ui/react-menubar",
+            "@radix-ui/react-navigation-menu",
+            "@radix-ui/react-slider",
           ],
+          cmdk: ["cmdk"],
+          forms: ["react-hook-form", "@hookform/resolvers", "zod"],
+          state: ["zustand"],
           icons: ["lucide-react"],
-          date: ["date-fns"],
+          date: ["date-fns", "react-day-picker"],
+          motion: ["embla-carousel-react", "vaul"],
         },
       },
     },

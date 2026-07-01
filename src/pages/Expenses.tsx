@@ -53,7 +53,7 @@ import { Plus, Trash2, Pencil, Wallet, Receipt, Calendar, Loader2, Home, Zap, Dr
 import { format } from "date-fns";
 import { formatDate } from "@/lib/utils";
 import { Database } from "@/integrations/supabase/types";
-import { ExpenseStatsRpc } from "@/types";
+import { useExpenseStats } from "@/hooks/useExpenseStats";
 import { useCurrency } from "@/hooks/useCurrency";
 import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
  
@@ -113,25 +113,8 @@ const Expenses = () => {
     enabled: !!user,
   });
 
-  // Stats via RPC — agrégation côté serveur (remplace pageSize:1000 + reduce client)
-  const { data: expenseStats } = useQuery<ExpenseStatsRpc>({
-    queryKey: ["expenses-stats", user?.id, profile?.organization_id],
-    queryFn: async () => {
-      if (!profile?.organization_id) {
-        return { monthTotal: 0, monthCount: 0 };
-      }
-      const { data, error } = await supabase.rpc("get_expense_stats", {
-        p_organization_id: profile.organization_id,
-      });
-      if (error) throw error;
-      const typed = data as unknown as ExpenseStatsRpc;
-      return {
-        monthTotal: typed.monthTotal ?? 0,
-        monthCount: typed.monthCount ?? 0,
-      };
-    },
-    enabled: !!user && !!profile?.organization_id,
-  });
+  // Stats via RPC hook
+  const { data: expenseStats } = useExpenseStats();
  
    const canModify = userRole === 'admin' || userRole === 'manager' || userRole === 'super_admin' || userRole === 'comptable';
 

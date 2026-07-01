@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect, useDeferredValue } from "react";
+import { useState, useCallback, useRef, useEffect, useDeferredValue, lazy, Suspense } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,8 +9,14 @@ import { POSProductList } from "@/components/pos/POSProductList";
 import { POSCart } from "@/components/pos/POSCart";
 import { MobileCartDrawer } from "@/components/pos/MobileCartDrawer";
 import { POSPaymentDialog } from "@/components/pos/POSPaymentDialog";
-import { ReceiptActionsDialog } from "@/components/pos/ReceiptActionsDialog";
-import { BarcodeScannerDialog } from "@/components/pos/BarcodeScannerDialog";
+// Lazy-load: receipt generator functions + qrcode only needed after sale
+const ReceiptActionsDialog = lazy(() =>
+  import("@/components/pos/ReceiptActionsDialog").then((m) => ({ default: m.ReceiptActionsDialog }))
+);
+// Lazy-load: html5-qrcode (~100 kB) only needed when scanner opens
+const BarcodeScannerDialog = lazy(() =>
+  import("@/components/pos/BarcodeScannerDialog").then((m) => ({ default: m.BarcodeScannerDialog }))
+);
 import { ProductAutocomplete } from "@/components/pos/ProductAutocomplete";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -668,19 +674,23 @@ const POS = () => {
           confirmRef={confirmPaymentRef}
         />
 
-        {/* Receipt Actions Dialog */}
-        <ReceiptActionsDialog
-          isOpen={isReceiptOpen}
-          onClose={() => setIsReceiptOpen(false)}
-          receiptData={lastReceiptData}
-        />
+        {/* Receipt Actions Dialog — lazy-loaded (receipt logic) */}
+        <Suspense fallback={null}>
+          <ReceiptActionsDialog
+            isOpen={isReceiptOpen}
+            onClose={() => setIsReceiptOpen(false)}
+            receiptData={lastReceiptData}
+          />
+        </Suspense>
 
-        {/* Barcode Scanner Dialog */}
-        <BarcodeScannerDialog
-          isOpen={isScannerOpen}
-          onClose={() => setIsScannerOpen(false)}
-          onScan={handleBarcodeScan}
-        />
+        {/* Barcode Scanner Dialog — lazy-loaded (html5-qrcode ~100 kB) */}
+        <Suspense fallback={null}>
+          <BarcodeScannerDialog
+            isOpen={isScannerOpen}
+            onClose={() => setIsScannerOpen(false)}
+            onScan={handleBarcodeScan}
+          />
+        </Suspense>
 
         {/* Keyboard Shortcuts Dialog */}
         <Dialog open={showShortcuts} onOpenChange={setShowShortcuts}>

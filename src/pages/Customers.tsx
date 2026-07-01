@@ -51,7 +51,8 @@ import { CreditPaymentDialog } from "@/components/customers/CreditPaymentDialog"
 import { exportCustomersToCSV } from "@/utils/exportUtils";
 import { fetchAllRows } from "@/lib/batchedFetch";
 import { CustomersPageSkeleton } from "@/components/skeletons/PageSkeletons";
-import { Customer, CustomerUpdateParams, CustomerStatsRpc } from "@/types";
+import { useCustomerStats } from "@/hooks/useCustomerStats";
+import { Customer, CustomerUpdateParams } from "@/types";
 
 const PAGE_SIZE = 20;
 
@@ -89,26 +90,8 @@ const Customers = () => {
     enabled: !!user,
   });
 
-  // Stats via RPC — agrégation côté serveur (remplace pageSize:1000 + reduce client)
-  const { data: customerStats } = useQuery<CustomerStatsRpc>({
-    queryKey: ["customers-stats", user?.id, profile?.organization_id],
-    queryFn: async () => {
-      if (!profile?.organization_id) {
-        return { totalCustomers: 0, totalCredit: 0, customersWithCredit: 0 };
-      }
-      const { data, error } = await supabase.rpc("get_customer_stats", {
-        p_organization_id: profile.organization_id,
-      });
-      if (error) throw error;
-      const typed = data as unknown as CustomerStatsRpc;
-      return {
-        totalCustomers: typed.totalCustomers ?? 0,
-        totalCredit: typed.totalCredit ?? 0,
-        customersWithCredit: typed.customersWithCredit ?? 0,
-      };
-    },
-    enabled: !!user && !!profile?.organization_id,
-  });
+  // Stats via RPC hook
+  const { data: customerStats } = useCustomerStats();
 
   const totalCredit = customerStats?.totalCredit ?? 0;
   const customersWithCredit = customerStats?.customersWithCredit ?? 0;
