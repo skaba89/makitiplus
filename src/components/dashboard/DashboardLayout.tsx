@@ -24,6 +24,7 @@ import {
   Truck,
   BarChart3 as AnalyticsIcon,
   CreditCard,
+  Sparkles,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -148,6 +149,12 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       href: "/dashboard/billing",
       icon: CreditCard,
       roles: ADMIN_ROLES,
+    },
+    {
+      name: "Assistant IA",
+      href: "/dashboard/ai-assistant",
+      icon: Sparkles,
+      roles: MANAGEMENT_ROLES,
     },
     {
       name: "Conflits sync",
