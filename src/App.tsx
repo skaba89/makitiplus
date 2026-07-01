@@ -37,6 +37,7 @@ const AdminAnalytics = lazy(() => import("./pages/AdminAnalytics"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Billing = lazy(() => import("./pages/Billing"));
 const Pricing = lazy(() => import("./pages/Pricing"));
+const Onboarding = lazy(() => import("./pages/Onboarding"));
 
 /** Minimal loading spinner for lazy-loaded routes */
 const PageLoader = () => (
@@ -334,6 +335,16 @@ const App = () => {
                 <ProtectedRoute allowedRoles={["super_admin", "admin"]}>
                   <Suspense fallback={<PageLoader />}>
                     <Billing />
+                  </Suspense>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/onboarding"
+              element={
+                <ProtectedRoute>
+                  <Suspense fallback={<PageLoader />}>
+                    <Onboarding />
                   </Suspense>
                 </ProtectedRoute>
               }
