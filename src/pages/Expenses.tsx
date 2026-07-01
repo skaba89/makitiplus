@@ -49,7 +49,7 @@ import {
  } from "@/components/ui/table";
  import { Badge } from "@/components/ui/badge";
  import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, Pencil, Wallet, TrendingDown, Calendar, Loader2, Home, Zap, Droplets, Globe, Phone, ShoppingCart as CartIcon, Car, Users, Wrench, ClipboardList, Package } from "lucide-react";
+import { Plus, Trash2, Pencil, Wallet, Receipt, Calendar, Loader2, Home, Zap, Droplets, Globe, Phone, ShoppingCart as CartIcon, Car, Users, Wrench, ClipboardList, Package } from "lucide-react";
 import { format } from "date-fns";
 import { formatDate } from "@/lib/utils";
 import { Database } from "@/integrations/supabase/types";
@@ -290,10 +290,9 @@ const Expenses = () => {
      };
    };
  
-  // Les dépenses sont déjà paginées côté serveur
-  const totalExpenses = expenses?.reduce((sum, e) => sum + e.amount, 0) || 0;
-
+  // Stats mensuelles via RPC (agrégation côté serveur — pas de reduce client sur données paginées)
   const thisMonthExpenses = expenseStats?.monthTotal ?? 0;
+  const thisMonthCount = expenseStats?.monthCount ?? 0;
 
   // Reset page quand le filtre change
   const handleFilterChange = (value: string) => {
@@ -436,16 +435,16 @@ const Expenses = () => {
            <Card>
              <CardHeader className="flex flex-row items-center justify-between pb-2">
                <CardTitle className="text-sm font-medium">
-                 Total affiché
+                 Nombre ce mois
                </CardTitle>
-               <TrendingDown className="h-4 w-4 text-muted-foreground" />
+               <Receipt className="h-4 w-4 text-muted-foreground" />
              </CardHeader>
              <CardContent>
                <div className="text-lg sm:text-2xl font-bold">
-                 {formatPrice(totalExpenses)}
+                 {thisMonthCount}
                </div>
                <p className="text-xs text-muted-foreground">
-                 {expenses?.length || 0} dépense(s)
+                 entrée(s) ce mois
                </p>
              </CardContent>
            </Card>

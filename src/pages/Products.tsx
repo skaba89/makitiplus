@@ -166,7 +166,10 @@ const Products = () => {
   });
 
   const updateProductMutation = useMutation({
-    mutationFn: async ({ id, ...product }: Partial<Product> & { id: string }) => {
+    mutationFn: async ({ id, stock_quantity, ...product }: Partial<Product> & { id: string }) => {
+      // ⚠️ stock_quantity retiré du payload — les mises à jour de stock
+      // doivent passer UNIQUEMENT par adjust_product_stock RPC (atomicité)
+      // sinon un edit produit peut écraser un ajustement concurrent (lost update)
       const { data, error } = await supabase
         .from("products")
         .update(product)

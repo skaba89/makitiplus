@@ -326,20 +326,36 @@ export const ProductForm = ({ product, onSubmit, isLoading }: ProductFormProps) 
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="stock_quantity">Quantité en stock *</Label>
-          <Input
-            id="stock_quantity"
-            type="number"
-            min="0"
-            value={formData.stock_quantity}
-            onChange={(e) =>
-              setFormData({
-                ...formData,
-                stock_quantity: parseInt(e.target.value) || 0,
-              })
-            }
-            required
-          />
+          <Label htmlFor="stock_quantity">Quantité en stock {product ? "" : "*"}</Label>
+          {product ? (
+            <>
+              <Input
+                id="stock_quantity"
+                type="number"
+                min="0"
+                value={formData.stock_quantity}
+                disabled
+                className="bg-muted"
+              />
+              <p className="text-xs text-muted-foreground">
+                Utilisez le dialogue d'ajustement de stock pour modifier le stock
+              </p>
+            </>
+          ) : (
+            <Input
+              id="stock_quantity"
+              type="number"
+              min="0"
+              value={formData.stock_quantity}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  stock_quantity: parseInt(e.target.value) || 0,
+                })
+              }
+              required
+            />
+          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="min_stock_alert">Seuil d'alerte</Label>
