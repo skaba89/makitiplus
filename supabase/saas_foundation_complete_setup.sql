@@ -1,16 +1,7 @@
--- ============================================================
--- SaaS Foundation — COMPLETE SETUP (idempotent)
--- Date: 2026-07-02
---
--- This script creates the ENTIRE SaaS billing and quota system
--- from scratch. It is safe to run even if no tables exist yet.
---
--- Run this in the Supabase SQL Editor.
--- ============================================================
+-- SaaS Foundation: Complete idempotent setup
+-- Run this in the Supabase SQL Editor
 
--- ════════════════════════════════════════════════════════════════
--- 1. plans — Plan definitions with limits (NULL = unlimited)
--- ════════════════════════════════════════════════════════════════
+-- 1. plans
 CREATE TABLE IF NOT EXISTS public.plans (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -86,9 +77,9 @@ UPDATE public.plans SET
 WHERE id = 'croissance';
 
 
--- ════════════════════════════════════════════════════════════════
+--
 -- 2. subscriptions — Organization plan subscriptions
--- ════════════════════════════════════════════════════════════════
+--
 CREATE TABLE IF NOT EXISTS public.subscriptions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
@@ -109,9 +100,9 @@ CREATE INDEX IF NOT EXISTS idx_subscriptions_org ON public.subscriptions(organiz
 CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON public.subscriptions(status);
 
 
--- ════════════════════════════════════════════════════════════════
+--
 -- 3. subscription_events — Audit trail for plan changes
--- ════════════════════════════════════════════════════════════════
+--
 CREATE TABLE IF NOT EXISTS public.subscription_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
@@ -131,9 +122,9 @@ CREATE INDEX IF NOT EXISTS idx_subscription_events_org ON public.subscription_ev
 CREATE INDEX IF NOT EXISTS idx_subscription_events_type ON public.subscription_events(event_type);
 
 
--- ════════════════════════════════════════════════════════════════
+--
 -- 4. usage_counters — Current usage per organization
--- ════════════════════════════════════════════════════════════════
+--
 CREATE TABLE IF NOT EXISTS public.usage_counters (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
@@ -150,9 +141,9 @@ CREATE TABLE IF NOT EXISTS public.usage_counters (
 CREATE INDEX IF NOT EXISTS idx_usage_counters_org ON public.usage_counters(organization_id);
 
 
--- ════════════════════════════════════════════════════════════════
+--
 -- 5. feature_flags — Per-plan feature access control
--- ════════════════════════════════════════════════════════════════
+--
 CREATE TABLE IF NOT EXISTS public.feature_flags (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   feature_key TEXT NOT NULL UNIQUE,
@@ -184,9 +175,9 @@ ON CONFLICT (feature_key) DO UPDATE SET
   allowed_plans = EXCLUDED.allowed_plans;
 
 
--- ════════════════════════════════════════════════════════════════
+--
 -- 6. RPC: get_organization_subscription
--- ════════════════════════════════════════════════════════════════
+--
 CREATE OR REPLACE FUNCTION public.get_organization_subscription()
 RETURNS TABLE (
   subscription_id UUID,
@@ -255,9 +246,9 @@ $$;
 GRANT EXECUTE ON FUNCTION public.get_organization_subscription() TO authenticated;
 
 
--- ════════════════════════════════════════════════════════════════
+--
 -- 7. RPC: check_plan_limit
--- ════════════════════════════════════════════════════════════════
+--
 CREATE OR REPLACE FUNCTION public.check_plan_limit(
   p_limit_type TEXT
 )
@@ -324,9 +315,9 @@ $$;
 GRANT EXECUTE ON FUNCTION public.check_plan_limit(TEXT) TO authenticated;
 
 
--- ════════════════════════════════════════════════════════════════
+--
 -- 8. RPC: check_feature_access
--- ════════════════════════════════════════════════════════════════
+--
 CREATE OR REPLACE FUNCTION public.check_feature_access(
   p_feature_key TEXT
 )
@@ -373,9 +364,9 @@ $$;
 GRANT EXECUTE ON FUNCTION public.check_feature_access(TEXT) TO authenticated;
 
 
--- ════════════════════════════════════════════════════════════════
+--
 -- 9. RPC: get_plans — Public pricing page
--- ════════════════════════════════════════════════════════════════
+--
 CREATE OR REPLACE FUNCTION public.get_plans()
 RETURNS SETOF public.plans
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
@@ -388,9 +379,9 @@ $$;
 GRANT EXECUTE ON FUNCTION public.get_plans() TO authenticated, anon;
 
 
--- ════════════════════════════════════════════════════════════════
+--
 -- 10. Auto-create starter subscription for new organizations
--- ════════════════════════════════════════════════════════════════
+--
 CREATE OR REPLACE FUNCTION public.auto_create_starter_subscription()
 RETURNS TRIGGER
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
@@ -417,9 +408,9 @@ CREATE TRIGGER trigger_auto_create_subscription
   EXECUTE FUNCTION public.auto_create_starter_subscription();
 
 
--- ════════════════════════════════════════════════════════════════
+--
 -- 11. RLS Policies (idempotent)
--- ════════════════════════════════════════════════════════════════
+--
 
 -- plans: publicly readable
 ALTER TABLE public.plans ENABLE ROW LEVEL SECURITY;
@@ -463,9 +454,9 @@ CREATE POLICY "Feature flags are readable by authenticated users" ON public.feat
   FOR SELECT USING (auth.uid() IS NOT NULL AND is_active = TRUE);
 
 
--- ════════════════════════════════════════════════════════════════
+--
 -- 12. Backfill existing organizations with starter subscriptions
--- ════════════════════════════════════════════════════════════════
+--
 INSERT INTO public.subscriptions (organization_id, plan_id, status, current_period_start, current_period_end)
 SELECT id, 'starter', 'active', NOW(), NOW() + INTERVAL '30 days'
 FROM public.organizations
