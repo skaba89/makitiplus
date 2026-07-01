@@ -23,9 +23,9 @@ CREATE TABLE IF NOT EXISTS public.plans (
   price_monthly NUMERIC(10, 2) NOT NULL DEFAULT 0,
   price_yearly NUMERIC(10, 2) DEFAULT NULL,
   currency TEXT NOT NULL DEFAULT 'USD',
-  max_stores INTEGER NOT NULL DEFAULT 1,
-  max_users INTEGER NOT NULL DEFAULT 2,
-  max_products INTEGER NOT NULL DEFAULT 500,
+  max_stores INTEGER DEFAULT NULL, -- NULL = unlimited
+  max_users INTEGER DEFAULT NULL, -- NULL = unlimited
+  max_products INTEGER DEFAULT NULL, -- NULL = unlimited
   max_sales_per_month INTEGER DEFAULT NULL, -- NULL = unlimited
   has_advanced_reports BOOLEAN NOT NULL DEFAULT FALSE,
   has_exports BOOLEAN NOT NULL DEFAULT FALSE,
@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS public.plans (
 -- Seed default plans
 INSERT INTO public.plans (id, name, description, price_monthly, price_yearly, max_stores, max_users, max_products, has_advanced_reports, has_exports, has_supplier_management, has_offline_advanced, sort_order) VALUES
   ('starter', 'Starter', 'Idéal pour démarrer — caisse et stock de base', 0.00, NULL, 1, 2, 500, FALSE, FALSE, FALSE, FALSE, 1),
-  ('croissance', 'Croissance', 'Pour les boutiques qui grandissent — fournisseurs, rapports, exports', 29.00, 290.00, 3, 10, NULL, TRUE, TRUE, TRUE, TRUE, 2),
+  ('croissance', 'Croissance', 'Pour les boutiques qui grandissent — fournisseurs, rapports, exports', 29.00, 290.00, 3, 10, 5000, TRUE, TRUE, TRUE, TRUE, 2),
   ('enterprise', 'Enterprise', 'Pour les chaînes et grossistes — analytics, API, support prioritaire', 79.00, 790.00, NULL, NULL, NULL, TRUE, TRUE, TRUE, TRUE, 3)
 ON CONFLICT (id) DO UPDATE SET
   name = EXCLUDED.name,

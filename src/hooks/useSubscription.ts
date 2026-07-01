@@ -21,9 +21,9 @@ export interface Plan {
   price_monthly: number;
   price_yearly: number | null;
   currency: string;
-  max_stores: number;
-  max_users: number;
-  max_products: number | null;
+  max_stores: number | null; // NULL = unlimited
+  max_users: number | null; // NULL = unlimited
+  max_products: number | null; // NULL = unlimited
   max_sales_per_month: number | null;
   has_advanced_reports: boolean;
   has_exports: boolean;
@@ -47,9 +47,9 @@ export interface Subscription {
   current_period_end: string;
   trial_ends_at: string | null;
   grace_period_ends_at: string | null;
-  max_stores: number;
-  max_users: number;
-  max_products: number | null;
+  max_stores: number | null; // NULL = unlimited
+  max_users: number | null; // NULL = unlimited
+  max_products: number | null; // NULL = unlimited
   max_sales_per_month: number | null;
   has_advanced_reports: boolean;
   has_exports: boolean;

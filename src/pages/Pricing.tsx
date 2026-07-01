@@ -107,8 +107,8 @@ interface PlanCardProps {
     description: string | null;
     price_monthly: number;
     price_yearly: number | null;
-    max_stores: number;
-    max_users: number;
+    max_stores: number | null;
+    max_users: number | null;
     max_products: number | null;
     has_advanced_reports: boolean;
     has_exports: boolean;

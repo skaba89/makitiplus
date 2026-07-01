@@ -239,7 +239,7 @@ function PlanFeatureRow({
   getValue,
 }: {
   label: string;
-  plans: { id: string; name: string; price_monthly: number; max_stores: number; max_users: number; max_products: number | null; has_advanced_reports: boolean; has_exports: boolean; has_supplier_management: boolean; has_offline_advanced: boolean; has_custom_branding: boolean; has_multi_currency: boolean; has_api_access: boolean; has_priority_support: boolean; has_ai_assistant: boolean; has_loyalty_program: boolean }[] | undefined;
+  plans: { id: string; name: string; price_monthly: number; max_stores: number | null; max_users: number | null; max_products: number | null; has_advanced_reports: boolean; has_exports: boolean; has_supplier_management: boolean; has_offline_advanced: boolean; has_custom_branding: boolean; has_multi_currency: boolean; has_api_access: boolean; has_priority_support: boolean; has_ai_assistant: boolean; has_loyalty_program: boolean }[] | undefined;
   getValue: (plan: NonNullable<typeof plans>[0]) => boolean | string;
 }) {
   if (!plans) return null;
