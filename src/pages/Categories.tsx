@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useDeferredValue } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCategories } from "@/hooks/useCategories";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { DEFAULT_CATEGORY_COLOR, PRESET_COLORS } from "@/constants/colors";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -58,46 +59,18 @@ const Categories = () => {
     description: "",
   });
 
-  // Track whether sort_order column exists (set during initial fetch)
+  // Track whether sort_order column exists (derived from data)
   const [hasSortOrder, setHasSortOrder] = useState(true);
 
-  const { data: categories, isLoading } = useQuery({
-    queryKey: ["categories", user?.id],
-    queryFn: async () => {
-      // Try full query with sort_order and products(count) first
-      // Falls back to simpler query if migration hasn't been applied yet
-      try {
-        const { data, error } = await supabase
-          .from("categories")
-          .select("*, products(count)")
-          .order("sort_order", { ascending: true, nullsFirst: false })
-          .order("name")
-          .limit(500);
+  const { data: categories, isLoading } = useCategories();
 
-        if (!error) {
-          setHasSortOrder(true);
-          return data as Category[];
-        }
-
-        // If the full query fails (missing columns or relationship), try simpler query
-        // Full query échouée, utilisation du fallback simplifié
-      } catch {
-        // Fall through to simpler query
-      }
-
-      // Fallback: basic query without sort_order and products(count)
-      const { data, error } = await supabase
-        .from("categories")
-        .select("*")
-        .order("name")
-        .limit(500);
-
-      if (error) throw error;
-      setHasSortOrder(false);
-      return (data as Category[]).map(c => ({ ...c, products: [{ count: 0 }] }));
-    },
-    enabled: !!user,
-  });
+  // Derive hasSortOrder from the data returned by useCategories (which uses get_categories RPC)
+  // The RPC returns sort_order, so if data exists we know the column is present
+  React.useEffect(() => {
+    if (categories && categories.length > 0) {
+      setHasSortOrder(categories.some(c => c.sort_order !== undefined));
+    }
+  }, [categories]);
 
   const canModify = userRole === 'admin' || userRole === 'manager' || userRole === 'super_admin';
 

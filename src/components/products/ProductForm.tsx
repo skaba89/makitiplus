@@ -1,6 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +14,7 @@ import { Loader2, Barcode, ImagePlus, X } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
 import { BarcodeGenerator, generateBarcode } from "./BarcodeGenerator";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useCategories } from "@/hooks/useCategories";
 import { CategoryIcon } from "@/components/ui/category-icon";
 import { useToast } from "@/hooks/use-toast";
 
@@ -95,20 +94,7 @@ export const ProductForm = ({ product, onSubmit, isLoading }: ProductFormProps) 
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
-  const { data: categories } = useQuery({
-    queryKey: ["categories", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("categories")
-        .select("*")
-        .order("name")
-        .limit(500);
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user,
-  });
+  const { data: categories } = useCategories();
 
   // Populate form when editing
   useEffect(() => {
