@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Database } from "@/integrations/supabase/types";
+import { buildSafeOrFilter } from "@/lib/postgrestSanitize";
 
 /**
  * Result product from server-side search.
@@ -24,8 +25,9 @@ export function useProductSearch(query: string, limit = 8) {
     queryFn: async () => {
       if (!trimmed) return [];
 
-      // Multi-column OR search: name OR barcode
-      const orFilter = `name.ilike.%${trimmed}%,barcode.ilike.%${trimmed}%`;
+      // Multi-column OR search: name OR barcode (sanitized against injection)
+      const orFilter = buildSafeOrFilter(["name", "barcode"], trimmed);
+      if (!orFilter) return [];
 
       let queryBuilder = supabase
         .from("products")

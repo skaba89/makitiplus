@@ -90,7 +90,7 @@ const Dashboard = () => {
       if (error) throw error;
       return data;
     },
-    enabled: !!user,
+    enabled: !!user && !!profile?.organization_id,
   });
 
   // Produits en alerte stock — RPC pour comparaison croisée (stock_quantity <= min_stock_alert)

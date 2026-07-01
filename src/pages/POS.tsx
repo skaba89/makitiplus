@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useDeferredValue } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -69,7 +69,8 @@ const POS = () => {
 
   // Produits du POS — pagination serveur avec filtres (catégorie, stock, recherche)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [gridSearchQuery, setGridSearchQuery] = useState("");
+  const [gridSearchInput, setGridSearchInput] = useState("");
+  const gridSearchQuery = useDeferredValue(gridSearchInput);
 
   const {
     data: infiniteData,
@@ -260,14 +261,14 @@ const POS = () => {
       return { sale, changeAmount, creditUpdateFailed };
     },
     onSuccess: ({ sale, changeAmount, creditUpdateFailed }) => {
-      // Calculer la taxe pour l'affichage du ticket
+      // Calculer la taxe pour l'affichage du ticket AVANT clearCart()
       const receiptTaxAmount = cart.reduce((sum, item) => {
         const t = computeTax(item.product.price, item.product.tax_rate, orgTaxRate);
         return sum + t.taxAmount * item.quantity;
       }, 0);
       const receiptSubtotal = cartTotal - receiptTaxAmount;
 
-      // Préparer les données du ticket pour le dialogue
+      // Préparer les données du ticket pour le dialogue (avant clearCart)
       const receiptData: ReceiptData = {
         saleNumber: sale.sale_number,
         date: new Date(),
@@ -300,12 +301,13 @@ const POS = () => {
         taxRate: orgTaxRate,
       };
 
+      // Clear cart AFTER receipt data is computed
+      clearCart();
       setLastReceiptData(receiptData);
       setIsReceiptOpen(true);
 
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["sales"] });
-      clearCart();
       setIsPaymentOpen(false);
 
       // Avertir l'utilisateur si la mise à jour du crédit a échoué
@@ -394,7 +396,7 @@ const POS = () => {
       if (found) {
         addToCart(found as Product);
       } else {
-        setGridSearchQuery(barcode);
+        setGridSearchInput(barcode);
         toast({
           variant: "destructive",
           title: "Produit non trouvé",
@@ -402,7 +404,7 @@ const POS = () => {
         });
       }
     } catch {
-      setGridSearchQuery(barcode);
+      setGridSearchInput(barcode);
       toast({
         variant: "destructive",
         title: "Produit non trouvé",

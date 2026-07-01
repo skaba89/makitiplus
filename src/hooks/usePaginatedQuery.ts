@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { sanitizeSearchInput } from "@/lib/postgrestSanitize";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyQuery = any;
 
@@ -55,6 +57,7 @@ export function usePaginatedQuery<T = unknown>(
     queryKey,
     enabled = true,
   } = options;
+  const { profile } = useAuth();
 
   // Stable serialisation of filters for the query key
   const filtersKey = filters.map((f) => `${f.column}${f.operator}${String(f.value)}`).join("|");
@@ -75,6 +78,11 @@ export function usePaginatedQuery<T = unknown>(
         .from(table as never)
         .select(select, { count: "exact" })
         .range(from, to);
+
+      // Defense-in-depth: always filter by organization_id
+      if (profile?.organization_id) {
+        query = query.eq("organization_id", profile.organization_id);
+      }
 
       // Apply filters
       for (const f of filters) {
@@ -103,17 +111,20 @@ export function usePaginatedQuery<T = unknown>(
         }
       }
 
-      // Apply search
+      // Apply search (sanitized against PostgREST injection)
       if (search?.query) {
-        if ("columns" in search) {
-          // Multi-column OR search: name.ilike.%query%,barcode.ilike.%query%
-          const orParts = search.columns
-            .map((col) => `${col}.ilike.%${search.query}%`)
-            .join(",");
-          query = query.or(orParts);
-        } else {
-          // Single-column search
-          query = query.ilike(search.column, `%${search.query}%`);
+        const safeQuery = sanitizeSearchInput(search.query);
+        if (safeQuery) {
+          if ("columns" in search) {
+            // Multi-column OR search
+            const orParts = search.columns
+              .map((col) => `${col}.ilike.%${safeQuery}%`)
+              .join(",");
+            query = query.or(orParts);
+          } else {
+            // Single-column search
+            query = query.ilike(search.column, `%${safeQuery}%`);
+          }
         }
       }
 

@@ -90,8 +90,8 @@ const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error: unknown) => {
       const message = error instanceof Error ? error.message : String(error);
-      // Suppress noise from offline/background requests
-      if (message.includes('Failed to fetch') || message.includes('NetworkError')) return;
+      // Suppress noise from offline/background requests — only when actually offline
+      if (!navigator.onLine && (message.includes('Failed to fetch') || message.includes('NetworkError'))) return;
       sonnerToast.error('Erreur de chargement', {
         description: message.length > 120 ? message.slice(0, 120) + '…' : message,
         duration: 4000,

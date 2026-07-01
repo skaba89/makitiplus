@@ -117,18 +117,30 @@ export function useOfflineMutation<TData = unknown>(
             .select()
             .single();
           break;
-        case "UPDATE":
+        case "UPDATE": {
+          // Safety: require at least one filter condition to prevent updating all rows
+          const updateFilter = mutationData.filter || {};
+          if (Object.keys(updateFilter).length === 0) {
+            throw new Error("UPDATE requires at least one filter condition (e.g., { id: ... })");
+          }
           result = await supabase
             .from(table as never)
             .update(mutationData.data as never)
-            .match(mutationData.filter || {} as never);
+            .match(updateFilter as never);
           break;
-        case "DELETE":
+        }
+        case "DELETE": {
+          // Safety: require at least one filter condition to prevent deleting all rows
+          const deleteFilter = mutationData.filter || {};
+          if (Object.keys(deleteFilter).length === 0) {
+            throw new Error("DELETE requires at least one filter condition (e.g., { id: ... })");
+          }
           result = await supabase
             .from(table as never)
             .delete()
-            .match(mutationData.filter || {} as never);
+            .match(deleteFilter as never);
           break;
+        }
       }
 
       if (result?.error) throw result.error;

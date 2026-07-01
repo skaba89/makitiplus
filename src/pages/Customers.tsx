@@ -49,6 +49,7 @@ import {
 import { CustomerDetailDialog } from "@/components/customers/CustomerDetailDialog";
 import { CreditPaymentDialog } from "@/components/customers/CreditPaymentDialog";
 import { exportCustomersToCSV } from "@/utils/exportUtils";
+import { fetchAllRows } from "@/lib/batchedFetch";
 import { CustomersPageSkeleton } from "@/components/skeletons/PageSkeletons";
 import { Customer, CustomerUpdateParams } from "@/types";
 
@@ -213,29 +214,43 @@ const Customers = () => {
           <div className="flex gap-2">
             <Button
               variant="outline"
-              onClick={() => {
-                if (customers && customers.length > 0) {
-                  exportCustomersToCSV(
-                    customers.map((c) => ({
-                      name: c.name,
-                      phone: c.phone,
-                      email: c.email,
-                      address: c.address,
-                      total_credit: Number(c.total_credit || 0),
-                      notes: c.notes,
-                      created_at: c.created_at,
-                    })),
-                    currency.displaySymbol || currency.symbol
-                  );
-                  toast({
-                    title: "Export réussi",
-                    description: `${customers.length} clients exportés`,
+              onClick={async () => {
+                try {
+                  // Fetch ALL customers for full export (not just current page)
+                  const allCustomers = await fetchAllRows<Customer>("customers", "*", {
+                    filters: profile?.organization_id
+                      ? [{ column: "organization_id", operator: "eq" as const, value: profile.organization_id }]
+                      : [],
                   });
-                } else {
+                  if (allCustomers && allCustomers.length > 0) {
+                    exportCustomersToCSV(
+                      allCustomers.map((c) => ({
+                        name: c.name,
+                        phone: c.phone,
+                        email: c.email,
+                        address: c.address,
+                        total_credit: Number(c.total_credit || 0),
+                        notes: c.notes,
+                        created_at: c.created_at,
+                      })),
+                      currency.displaySymbol || currency.symbol
+                    );
+                    toast({
+                      title: "Export réussi",
+                      description: `${allCustomers.length} clients exportés`,
+                    });
+                  } else {
+                    toast({
+                      variant: "destructive",
+                      title: "Aucun client",
+                      description: "Pas de clients à exporter",
+                    });
+                  }
+                } catch (err) {
                   toast({
                     variant: "destructive",
-                    title: "Aucun client",
-                    description: "Pas de clients à exporter",
+                    title: "Erreur d'export",
+                    description: "Impossible d'exporter les clients",
                   });
                 }
               }}

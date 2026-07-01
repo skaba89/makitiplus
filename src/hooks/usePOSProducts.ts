@@ -2,6 +2,7 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Database } from "@/integrations/supabase/types";
+import { buildSafeOrFilter } from "@/lib/postgrestSanitize";
 
 type ProductWithCategory = Database["public"]["Tables"]["products"]["Row"] & {
   categories?: { name: string; color: string | null; icon: string | null } | null;
@@ -63,10 +64,10 @@ export function usePOSProducts({
         query = query.gt("stock_quantity", 0);
       }
 
-      // Search filter — name or barcode
+      // Search filter — name or barcode (sanitized against injection)
       if (searchQuery && searchQuery.trim()) {
-        const q = searchQuery.trim();
-        query = query.or(`name.ilike.%${q}%,barcode.ilike.%${q}%`);
+        const orFilter = buildSafeOrFilter(["name", "barcode"], searchQuery);
+        if (orFilter) query = query.or(orFilter);
       }
 
       query = query.order("name", { ascending: true }).range(from, to);
