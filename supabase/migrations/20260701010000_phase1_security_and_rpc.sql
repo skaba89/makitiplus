@@ -271,6 +271,7 @@ $$;
 -- ═══════════════════════════════════════════════════════════════════════
 -- 6. Fix check_account_status — Add SET search_path = public
 -- ═══════════════════════════════════════════════════════════════════════
+DROP FUNCTION IF EXISTS public.check_account_status();
 CREATE OR REPLACE FUNCTION public.check_account_status()
 RETURNS TABLE(is_active boolean, deactivation_reason text)
 LANGUAGE plpgsql
