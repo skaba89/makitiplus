@@ -162,3 +162,34 @@ Stage Summary:
 - Onboarding wizard created at /onboarding route
 - Pricing page highlights current plan
 - 174/174 tests pass, tsc clean, build OK, pushed to main
+
+---
+Task ID: 6
+Agent: main
+Task: Multi-Store Support + Purchase Orders + AI Assistant (PR2/3/4)
+
+Work Log:
+- Created multi-store migration SQL: stores table + store_id on 8 data tables + current_store_id on profiles
+- Auto-creates 'principal' store for each existing organization
+- RLS policies for stores table (select/insert/update/delete by role)
+- 3 RPCs: get_organization_stores(), set_current_store(), get_store_stats()
+- Updated check_plan_limit() to count from stores table instead of organizations
+- Created StoreContext: provides currentStore, stores list, setCurrentStore, refreshStores
+- Created StoreSwitcher: dropdown in sidebar for switching between stores (single-store = label, multi-store = dropdown)
+- StoreProvider added to App.tsx provider tree
+- TypeScript types updated: stores table + store_id + current_store_id + purchase_orders + purchase_order_items
+- Created purchase_orders migration SQL: po_status enum, purchase_orders + purchase_order_items tables
+- RLS policies for both PO tables
+- 2 RPCs: generate_order_number(), receive_purchase_order() (auto-updates stock)
+- Created PurchaseOrders page: list, create, status management, receive workflow
+- Created AIAssistant page: conversational chatbot with business advice
+- Contextual responses: sales analysis, stock management, financial optimization, trend analysis
+- All new pages gated by FeatureGate (supplier_management, ai_assistant)
+- Routes: /dashboard/purchase-orders, /dashboard/ai-assistant
+- Nav items: 'Commandes' (Package icon), 'Assistant IA' (Sparkles icon)
+
+Stage Summary:
+- Multi-store infrastructure complete (DB + frontend context + switcher)
+- Purchase order system with full CRUD and stock auto-update
+- AI assistant with contextual business advice (placeholder for LLM integration)
+- All 174/174 tests pass, tsc clean, build OK, pushed to main
