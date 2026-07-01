@@ -256,6 +256,131 @@ export type Database = {
           }
         ]
       }
+      purchase_order_items: {
+        Row: {
+          id: string
+          purchase_order_id: string
+          product_id: string | null
+          product_name: string
+          quantity_ordered: number
+          quantity_received: number
+          unit_cost: number
+          tax_rate: number
+          line_total: number
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          purchase_order_id: string
+          product_id?: string | null
+          product_name: string
+          quantity_ordered?: number
+          quantity_received?: number
+          unit_cost?: number
+          tax_rate?: number
+          line_total?: number
+          notes?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          purchase_order_id?: string
+          product_id?: string | null
+          product_name?: string
+          quantity_ordered?: number
+          quantity_received?: number
+          unit_cost?: number
+          tax_rate?: number
+          line_total?: number
+          notes?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "poi_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      purchase_orders: {
+        Row: {
+          id: string
+          organization_id: string
+          store_id: string | null
+          supplier_id: string
+          order_number: string
+          status: string
+          order_date: string
+          expected_delivery: string | null
+          received_date: string | null
+          notes: string | null
+          subtotal: number
+          tax_amount: number
+          total_amount: number
+          currency: string
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          store_id?: string | null
+          supplier_id: string
+          order_number: string
+          status?: string
+          order_date?: string
+          expected_delivery?: string | null
+          received_date?: string | null
+          notes?: string | null
+          subtotal?: number
+          tax_amount?: number
+          total_amount?: number
+          currency?: string
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          store_id?: string | null
+          supplier_id?: string
+          order_number?: string
+          status?: string
+          order_date?: string
+          expected_delivery?: string | null
+          received_date?: string | null
+          notes?: string | null
+          subtotal?: number
+          tax_amount?: number
+          total_amount?: number
+          currency?: string
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "po_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "po_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       organizations: {
         Row: {
           accent_color: string | null

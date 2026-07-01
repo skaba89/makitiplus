@@ -39,6 +39,7 @@ const Settings = lazy(() => import("./pages/Settings"));
 const Billing = lazy(() => import("./pages/Billing"));
 const Pricing = lazy(() => import("./pages/Pricing"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
+const PurchaseOrders = lazy(() => import("./pages/PurchaseOrders"));
 
 /** Minimal loading spinner for lazy-loaded routes */
 const PageLoader = () => (
@@ -337,6 +338,16 @@ const App = () => {
                 <ProtectedRoute allowedRoles={["super_admin", "admin"]}>
                   <Suspense fallback={<PageLoader />}>
                     <Billing />
+                  </Suspense>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/purchase-orders"
+              element={
+                <ProtectedRoute allowedRoles={["super_admin", "admin", "manager"]}>
+                  <Suspense fallback={<PageLoader />}>
+                    <PurchaseOrders />
                   </Suspense>
                 </ProtectedRoute>
               }

@@ -120,6 +120,12 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       roles: MANAGEMENT_ROLES,
     },
     {
+      name: "Commandes",
+      href: "/dashboard/purchase-orders",
+      icon: Package,
+      roles: MANAGEMENT_ROLES,
+    },
+    {
       name: "Utilisateurs",
       href: "/dashboard/users",
       icon: Shield,
