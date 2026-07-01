@@ -311,6 +311,7 @@ export type Database = {
           organization_id: string | null
           price: number
           stock_quantity: number
+          supplier_id: string | null
           sync_status: Database["public"]["Enums"]["sync_status"] | null
           tax_rate: number | null
           unit: string | null
@@ -331,6 +332,7 @@ export type Database = {
           organization_id?: string | null
           price?: number
           stock_quantity?: number
+          supplier_id?: string | null
           sync_status?: Database["public"]["Enums"]["sync_status"] | null
           tax_rate?: number | null
           unit?: string | null
@@ -351,6 +353,7 @@ export type Database = {
           organization_id?: string | null
           price?: number
           stock_quantity?: number
+          supplier_id?: string | null
           sync_status?: Database["public"]["Enums"]["sync_status"] | null
           tax_rate?: number | null
           unit?: string | null
@@ -363,6 +366,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
@@ -569,6 +579,69 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      suppliers: {
+        Row: {
+          address: string | null
+          city: string | null
+          country: string | null
+          created_at: string
+          email: string | null
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          organization_id: string | null
+          phone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          organization_id?: string | null
+          phone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          organization_id?: string | null
+          phone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suppliers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suppliers_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]

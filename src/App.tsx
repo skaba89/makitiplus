@@ -1,4 +1,4 @@
-import { useEffect, lazy, Suspense, Component, type ReactNode } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -14,23 +14,26 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
+
+// Eagerly loaded — critical first-load pages
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
-import Categories from "./pages/Categories";
+import Products from "./pages/Products";
 import NotFound from "./pages/NotFound";
-import Settings from "./pages/Settings";
 
-// Lazy-loaded routes — heavy or admin-only pages
-const Reports = lazy(() => import("./pages/Reports"));
+// Lazy-loaded routes — reduces initial bundle size significantly
+// Each page is loaded on demand when the user navigates to it
 const POS = lazy(() => import("./pages/POS"));
-const Users = lazy(() => import("./pages/Users"));
-const Stores = lazy(() => import("./pages/Stores"));
-const SyncConflicts = lazy(() => import("./pages/SyncConflicts"));
-const Products = lazy(() => import("./pages/Products"));
+const Reports = lazy(() => import("./pages/Reports"));
+const Categories = lazy(() => import("./pages/Categories"));
 const Expenses = lazy(() => import("./pages/Expenses"));
 const Customers = lazy(() => import("./pages/Customers"));
 const Suppliers = lazy(() => import("./pages/Suppliers"));
+const Users = lazy(() => import("./pages/Users"));
+const SyncConflicts = lazy(() => import("./pages/SyncConflicts"));
+const Stores = lazy(() => import("./pages/Stores"));
+const Settings = lazy(() => import("./pages/Settings"));
 
 /** Minimal loading spinner for lazy-loaded routes */
 const PageLoader = () => (
@@ -180,8 +183,10 @@ const App = () => {
             <Route
               path="/dashboard/categories"
               element={
-                <ProtectedRoute allowedRoles={INVENTORY_ROLES}>
-                  <Categories />
+                <ProtectedRoute allowedRoles={["super_admin", "admin", "manager"]}>
+                  <Suspense fallback={<PageLoader />}>
+                    <Categories />
+                  </Suspense>
                 </ProtectedRoute>
               }
             />
@@ -200,43 +205,37 @@ const App = () => {
             <Route
               path="/dashboard/expenses"
               element={
-                <ProtectedRoute allowedRoles={FINANCIAL_ROLES}>
-                  <PageErrorBoundary>
-                    <Suspense fallback={<PageLoader />}>
-                      <Expenses />
-                    </Suspense>
-                  </PageErrorBoundary>
+                <ProtectedRoute allowedRoles={["super_admin", "admin", "manager", "comptable"]}>
+                  <Suspense fallback={<PageLoader />}>
+                    <Expenses />
+                  </Suspense>
                 </ProtectedRoute>
               }
             />
             <Route
               path="/dashboard/customers"
               element={
-                <ProtectedRoute allowedRoles={MANAGEMENT_ROLES}>
-                  <PageErrorBoundary>
-                    <Suspense fallback={<PageLoader />}>
-                      <Customers />
-                    </Suspense>
-                  </PageErrorBoundary>
+                <ProtectedRoute allowedRoles={["super_admin", "admin", "manager", "vendeur"]}>
+                  <Suspense fallback={<PageLoader />}>
+                    <Customers />
+                  </Suspense>
                 </ProtectedRoute>
               }
             />
             <Route
               path="/dashboard/suppliers"
               element={
-                <ProtectedRoute allowedRoles={MANAGEMENT_ROLES}>
-                  <PageErrorBoundary>
-                    <Suspense fallback={<PageLoader />}>
-                      <Suppliers />
-                    </Suspense>
-                  </PageErrorBoundary>
+                <ProtectedRoute allowedRoles={["super_admin", "admin", "manager"]}>
+                  <Suspense fallback={<PageLoader />}>
+                    <Suppliers />
+                  </Suspense>
                 </ProtectedRoute>
               }
             />
             <Route
               path="/dashboard/users"
               element={
-                <ProtectedRoute allowedRoles={ADMIN_ROLES}>
+                <ProtectedRoute allowedRoles={["super_admin", "admin"]}>
                   <Suspense fallback={<PageLoader />}>
                     <Users />
                   </Suspense>
@@ -246,7 +245,7 @@ const App = () => {
             <Route
               path="/dashboard/stores"
               element={
-                <ProtectedRoute allowedRoles={STORE_ROLES}>
+                <ProtectedRoute allowedRoles={["super_admin"]}>
                   <Suspense fallback={<PageLoader />}>
                     <Stores />
                   </Suspense>
@@ -256,7 +255,7 @@ const App = () => {
             <Route
               path="/dashboard/sync-conflicts"
               element={
-                <ProtectedRoute allowedRoles={ADMIN_ROLES}>
+                <ProtectedRoute allowedRoles={["super_admin", "admin"]}>
                   <Suspense fallback={<PageLoader />}>
                     <SyncConflicts />
                   </Suspense>
@@ -266,8 +265,10 @@ const App = () => {
             <Route
               path="/dashboard/settings"
               element={
-                <ProtectedRoute allowedRoles={MANAGEMENT_ROLES}>
-                  <Settings />
+                <ProtectedRoute allowedRoles={["super_admin", "admin", "manager"]}>
+                  <Suspense fallback={<PageLoader />}>
+                    <Settings />
+                  </Suspense>
                 </ProtectedRoute>
               }
             />

@@ -117,6 +117,12 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       roles: MANAGEMENT_ROLES,
     },
     {
+      name: "Fournisseurs",
+      href: "/dashboard/suppliers",
+      icon: Truck,
+      roles: ["super_admin", "admin", "manager"],
+    },
+    {
       name: "Utilisateurs",
       href: "/dashboard/users",
       icon: Shield,

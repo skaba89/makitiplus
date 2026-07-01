@@ -21,9 +21,6 @@ export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 /** Full supplier row from the `suppliers` table. */
 export type Supplier = Database["public"]["Tables"]["suppliers"]["Row"];
 
-/** Full supplier_products row from the `supplier_products` table. */
-export type SupplierProduct = Database["public"]["Tables"]["supplier_products"]["Row"];
-
 // ─── Product with joined category ────────────────────────────────────────────
 
 /** Product row with the `categories` relation joined (select: "*, categories(name, color, icon)"). */
@@ -167,35 +164,25 @@ export interface CustomerUpdateParams {
   notes?: string | null;
 }
 
-// ─── Role constants (H4: single source of truth for role strings) ───────────
+// ─── Supplier update mutation params ─────────────────────────────────────────
 
-type AppRole = Database["public"]["Enums"]["app_role"];
+/** Params for the supplier update mutation (id + partial fields). */
+export interface SupplierUpdateParams {
+  id: string;
+  name?: string;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+  city?: string | null;
+  country?: string | null;
+  notes?: string | null;
+  is_active?: boolean;
+}
 
-/** All application roles in hierarchical order (highest first). */
-export const ALL_ROLES: AppRole[] = ["super_admin", "admin", "manager", "vendeur", "comptable"];
+// ─── Supplier with product stats ─────────────────────────────────────────────
 
-/** Roles that have full admin-level access. */
-export const ADMIN_ROLES: AppRole[] = ["super_admin", "admin"];
-
-/** Roles that can manage other users and view reports. */
-export const MANAGEMENT_ROLES: AppRole[] = ["super_admin", "admin", "manager"];
-
-/** Roles that can adjust stock and manage inventory. */
-export const INVENTORY_ROLES: AppRole[] = ["super_admin", "admin", "manager"];
-
-/** Roles that can view financial data (reports, expenses, credits). */
-export const FINANCIAL_ROLES: AppRole[] = ["super_admin", "admin", "manager", "comptable"];
-
-/** Roles that can access the POS (all roles). */
-export const POS_ROLES: AppRole[] = ["super_admin", "admin", "manager", "vendeur", "comptable"];
-
-/** Roles that can manage stores/organizations. */
-export const STORE_ROLES: AppRole[] = ["super_admin", "admin"];
-
-/** Check if a role has admin-level access. */
-export const isAdminRole = (role: AppRole | null): boolean =>
-  role !== null && ADMIN_ROLES.includes(role);
-
-/** Check if a role has management-level access. */
-export const isManagementRole = (role: AppRole | null): boolean =>
-  role !== null && MANAGEMENT_ROLES.includes(role);
+/** Supplier row with aggregated product statistics. */
+export interface SupplierWithStats extends Supplier {
+  product_count?: number;
+  total_stock_value?: number;
+}

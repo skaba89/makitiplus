@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Barcode, ImagePlus, X } from "lucide-react";
+import { Loader2, Barcode, ImagePlus, X, Truck } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
 import { BarcodeGenerator, generateBarcode } from "./BarcodeGenerator";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -84,6 +84,7 @@ export const ProductForm = ({ product, onSubmit, isLoading }: ProductFormProps) 
     stock_quantity: 0,
     min_stock_alert: 5,
     category_id: "",
+    supplier_id: "",
     barcode: "",
     unit: "unité",
     tax_rate: 0 as number | null,
@@ -96,6 +97,21 @@ export const ProductForm = ({ product, onSubmit, isLoading }: ProductFormProps) 
 
   const { data: categories } = useCategories();
 
+  const { data: suppliers } = useQuery({
+    queryKey: ["suppliers", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("suppliers")
+        .select("id, name, is_active")
+        .eq("is_active", true)
+        .order("name");
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
   // Populate form when editing
   useEffect(() => {
     if (product) {
@@ -106,6 +122,7 @@ export const ProductForm = ({ product, onSubmit, isLoading }: ProductFormProps) 
         stock_quantity: product.stock_quantity,
         min_stock_alert: product.min_stock_alert || 5,
         category_id: product.category_id || "",
+        supplier_id: product.supplier_id || "",
         barcode: product.barcode || "",
         unit: product.unit || "unité",
         tax_rate: product.tax_rate ?? null,
@@ -121,6 +138,7 @@ export const ProductForm = ({ product, onSubmit, isLoading }: ProductFormProps) 
         stock_quantity: 0,
         min_stock_alert: 5,
         category_id: "",
+        supplier_id: "",
         barcode: "",
         unit: "unité",
         tax_rate: null,
@@ -219,6 +237,7 @@ export const ProductForm = ({ product, onSubmit, isLoading }: ProductFormProps) 
       stock_quantity: formData.stock_quantity,
       min_stock_alert: formData.min_stock_alert,
       category_id: formData.category_id || null,
+      supplier_id: formData.supplier_id || null,
       barcode: formData.barcode || null,
       unit: formData.unit,
       image_url: finalImageUrl || null,
@@ -423,25 +442,28 @@ export const ProductForm = ({ product, onSubmit, isLoading }: ProductFormProps) 
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="tax_rate">Taux de taxe (%)</Label>
-        <Input
-          id="tax_rate"
-          type="number"
-          min="0"
-          max="100"
-          step="0.1"
-          placeholder="Laisser vide pour utiliser le taux par défaut"
-          value={formData.tax_rate ?? ""}
-          onChange={(e) =>
-            setFormData({
-              ...formData,
-              tax_rate: e.target.value === "" ? null : parseFloat(e.target.value) || 0,
-            })
+        <Label htmlFor="supplier">Fournisseur</Label>
+        <Select
+          value={formData.supplier_id}
+          onValueChange={(value) =>
+            setFormData({ ...formData, supplier_id: value === "_none" ? "" : value })
           }
-        />
-        <p className="text-xs text-muted-foreground">
-          Si vide, le taux par défaut de l'organisation sera utilisé.
-        </p>
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Sélectionner un fournisseur" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="_none">— Aucun —</SelectItem>
+            {suppliers?.map((supplier) => (
+              <SelectItem key={supplier.id} value={supplier.id}>
+                <span className="flex items-center gap-2">
+                  <Truck className="h-3.5 w-3.5" />
+                  {supplier.name}
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="space-y-2">
