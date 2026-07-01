@@ -138,3 +138,27 @@ Stage Summary:
 - All P0 security vulnerabilities fixed: no SECURITY DEFINER RPC accepts client-provided identity params
 - ProtectedRoute now blocks access when session is incomplete
 - Build passes, pushed to git
+
+---
+Task ID: 5
+Agent: main
+Task: SaaS Foundation — Module Plans/Abonnements/Quotas/Facturation (PR1)
+
+Work Log:
+- Créé la migration SQL complète `saas_foundation_complete_setup.sql` (5 tables: plans, subscriptions, subscription_events, usage_counters, feature_flags + 4 RPCs + trigger auto-starter subscription + RLS policies)
+- Créé les hooks `useSubscription.ts` (useSubscription, usePlanLimit, useFeatureAccess, usePlans)
+- Créé les composants `PlanLimitGuard` (bloque actions au-delà limite) et `FeatureGate` (masque fonctionnalités non autorisées)
+- Intégré PlanLimitGuard + FeatureGate dans 8 pages: Products, Users, Stores, Suppliers, Reports, Customers, AdminAnalytics, Settings
+- Créé la page `Billing.tsx` (gestion abonnement, usage bars, plan comparison)
+- Créé la page `Onboarding.tsx` (wizard 3 étapes: bienvenue → sélection plan → confirmation)
+- Corrigé 3 erreurs SQL successives: NOT NULL max_products, relation plans inexistante, commentaires single-dash
+- Ajouté l'entrée "Abonnement" dans la navigation sidebar
+- Fix: imports dupliqués dans Suppliers.tsx
+- Fix: Pricing.tsx affiche maintenant le plan actuel de l'utilisateur via useSubscription()
+
+Stage Summary:
+- SaaS billing/quota system fully deployed in Supabase (migration SQL exécutée avec succès)
+- Frontend SaaS integration complete across 8 pages with FeatureGate/PlanLimitGuard
+- Onboarding wizard created at /onboarding route
+- Pricing page highlights current plan
+- 174/174 tests pass, tsc clean, build OK, pushed to main
