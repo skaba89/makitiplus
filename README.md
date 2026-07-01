@@ -204,8 +204,8 @@ npm run e2e:ui
 - [x] Sécurité RPC P0/P1
 - [x] CI/CD GitHub Actions
 - [x] Tests E2E Playwright
-- [ ] Module abonnements et quotas (SaaS Foundation)
-- [ ] Page Billing/Pricing
+- [x] Module abonnements et quotas (SaaS Foundation)
+- [x] Page Billing/Pricing
 - [ ] Onboarding premium
 - [ ] Mode démo commercial
 - [ ] Multi-boutiques avancé (transfert stock)

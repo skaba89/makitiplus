@@ -37,6 +37,7 @@ import { useCategories } from "@/hooks/useCategories";
 import { useProductStats } from "@/hooks/useProductStats";
 import { fetchAllRows } from "@/lib/batchedFetch";
 import { ProductWithCategory, AdjustStockRpcRow } from "@/types";
+import { PlanLimitGuard, FeatureGate } from "@/components/saas/PlanLimitGuard";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
 type ProductInsert = Database["public"]["Tables"]["products"]["Insert"];
@@ -368,18 +369,22 @@ const Products = () => {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={handleExport}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Exporter
-            </Button>
-            {canModify && (
-              <Button onClick={handleOpenForm} className="gap-2">
-                <Plus className="h-4 w-4" />
-                Ajouter un produit
+            <FeatureGate feature="exports" fallback={null}>
+              <Button
+                variant="outline"
+                onClick={handleExport}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Exporter
               </Button>
+            </FeatureGate>
+            {canModify && (
+              <PlanLimitGuard limitType="products" showUpgrade={true}>
+                <Button onClick={handleOpenForm} className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Ajouter un produit
+                </Button>
+              </PlanLimitGuard>
             )}
           </div>
         </div>

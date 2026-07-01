@@ -80,6 +80,7 @@ import {
 import { Database } from "@/integrations/supabase/types";
 import { COUNTRIES, DEFAULT_CURRENCY } from "@/utils/currencies";
 import { isAdminRole } from "@/types";
+import { PlanLimitGuard } from "@/components/saas/PlanLimitGuard";
 
 type Organization = Database["public"]["Tables"]["organizations"]["Row"];
 type StoreCategory = Database["public"]["Enums"]["store_category"];
@@ -372,13 +373,14 @@ const Stores = () => {
             </p>
           </div>
 
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Plus className="h-4 w-4" />
-                Nouveau magasin
-              </Button>
-            </DialogTrigger>
+          <PlanLimitGuard limitType="stores" showUpgrade={true}>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Nouveau magasin
+                </Button>
+              </DialogTrigger>
             <DialogContent className="sm:max-w-lg">
               <DialogHeader>
                 <DialogTitle>Créer un magasin</DialogTitle>
@@ -466,6 +468,7 @@ const Stores = () => {
               </form>
             </DialogContent>
           </Dialog>
+          </PlanLimitGuard>
         </div>
 
         {/* Stats */}

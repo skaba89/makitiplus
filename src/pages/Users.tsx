@@ -90,6 +90,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
+import { PlanLimitGuard, FeatureGate } from "@/components/saas/PlanLimitGuard";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 
@@ -481,15 +482,18 @@ const Users = () => {
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <Button size="lg" variant="outline" onClick={exportTestCredentialsCSV}>
-              <Download className="h-4 w-4 mr-2" /> Export CSV utilisateurs
-            </Button>
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger asChild>
-                <Button size="lg">
-                  <UserPlus className="h-4 w-4 mr-2" /> Nouvel utilisateur
-                </Button>
-              </DialogTrigger>
+            <FeatureGate feature="exports" fallback={null}>
+              <Button size="lg" variant="outline" onClick={exportTestCredentialsCSV}>
+                <Download className="h-4 w-4 mr-2" /> Export CSV utilisateurs
+              </Button>
+            </FeatureGate>
+            <PlanLimitGuard limitType="users" showUpgrade={true}>
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="lg">
+                    <UserPlus className="h-4 w-4 mr-2" /> Nouvel utilisateur
+                  </Button>
+                </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Créer un utilisateur</DialogTitle>
@@ -578,6 +582,7 @@ const Users = () => {
               </form>
             </DialogContent>
             </Dialog>
+            </PlanLimitGuard>
           </div>
         </div>
 

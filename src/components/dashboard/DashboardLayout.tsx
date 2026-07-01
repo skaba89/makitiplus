@@ -23,6 +23,7 @@ import {
   GitMerge,
   Truck,
   BarChart3 as AnalyticsIcon,
+  CreditCard,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -118,12 +119,6 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       roles: MANAGEMENT_ROLES,
     },
     {
-      name: "Fournisseurs",
-      href: "/dashboard/suppliers",
-      icon: Truck,
-      roles: ["super_admin", "admin", "manager"],
-    },
-    {
       name: "Utilisateurs",
       href: "/dashboard/users",
       icon: Shield,
@@ -140,6 +135,12 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       href: "/dashboard/admin-analytics",
       icon: AnalyticsIcon,
       roles: ["super_admin"],
+    },
+    {
+      name: "Abonnement",
+      href: "/dashboard/billing",
+      icon: CreditCard,
+      roles: ADMIN_ROLES,
     },
     {
       name: "Conflits sync",
