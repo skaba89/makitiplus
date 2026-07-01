@@ -270,9 +270,20 @@ $$;
 
 -- ═══════════════════════════════════════════════════════════════════════
 -- 6. Fix check_account_status — Add SET search_path = public
---    Column order MUST match the original function for CREATE OR REPLACE
---    to work (PostgreSQL treats different column order = different type).
+--    Dynamically drop ALL existing overloads first to avoid 42P13 errors.
 -- ═══════════════════════════════════════════════════════════════════════
+DO $$
+DECLARE f record;
+BEGIN
+  FOR f IN
+    SELECT oid::regprocedure AS func_sig FROM pg_proc
+    WHERE proname = 'check_account_status' AND pronamespace = 'public'::regnamespace
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || f.func_sig;
+    RAISE NOTICE 'Dropped %', f.func_sig;
+  END LOOP;
+END $$;
+
 CREATE OR REPLACE FUNCTION public.check_account_status()
 RETURNS TABLE(deactivation_reason text, is_active boolean)
 LANGUAGE plpgsql
@@ -298,7 +309,20 @@ $$;
 
 -- ═══════════════════════════════════════════════════════════════════════
 -- 7. Atomic decrement_stock — Race condition safe stock decrement
+--    Dynamically drop existing version first (may return VOID instead of JSONB).
 -- ═══════════════════════════════════════════════════════════════════════
+DO $$
+DECLARE f record;
+BEGIN
+  FOR f IN
+    SELECT oid::regprocedure AS func_sig FROM pg_proc
+    WHERE proname = 'decrement_stock' AND pronamespace = 'public'::regnamespace
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || f.func_sig;
+    RAISE NOTICE 'Dropped %', f.func_sig;
+  END LOOP;
+END $$;
+
 CREATE OR REPLACE FUNCTION public.decrement_stock(
   p_product_id UUID,
   p_quantity INT
@@ -346,6 +370,18 @@ $$;
 -- ═══════════════════════════════════════════════════════════════════════
 -- 8. Atomic decrement_credits — Race condition safe credit decrement
 -- ═══════════════════════════════════════════════════════════════════════
+DO $$
+DECLARE f record;
+BEGIN
+  FOR f IN
+    SELECT oid::regprocedure AS func_sig FROM pg_proc
+    WHERE proname = 'decrement_credits' AND pronamespace = 'public'::regnamespace
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || f.func_sig;
+    RAISE NOTICE 'Dropped %', f.func_sig;
+  END LOOP;
+END $$;
+
 CREATE OR REPLACE FUNCTION public.decrement_credits(
   p_customer_id UUID,
   p_amount NUMERIC
@@ -393,6 +429,18 @@ $$;
 -- ═══════════════════════════════════════════════════════════════════════
 -- 9. process_pos_sale — Atomic POS sale: validate + create + decrement
 -- ═══════════════════════════════════════════════════════════════════════
+DO $$
+DECLARE f record;
+BEGIN
+  FOR f IN
+    SELECT oid::regprocedure AS func_sig FROM pg_proc
+    WHERE proname = 'process_pos_sale' AND pronamespace = 'public'::regnamespace
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || f.func_sig;
+    RAISE NOTICE 'Dropped %', f.func_sig;
+  END LOOP;
+END $$;
+
 CREATE OR REPLACE FUNCTION public.process_pos_sale(
   p_account_id UUID,
   p_product_id UUID,
