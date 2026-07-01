@@ -59,10 +59,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: npm audit (moderate+)
+      - name: npm audit (high+)
+        run: npm audit --audit-level=high
+        # High and critical vulnerabilities will block the pipeline
+        # Moderate are reported but don't fail the job
+
+      - name: npm audit (moderate info)
         run: npm audit --audit-level=moderate || true
-        # Uses || true so moderate vulnerabilities don't block the pipeline
-        # Critical/high will still return non-zero and fail the job
+        # Informational only — moderate warnings don't block
 
       - name: Check for known vulnerable packages
-        run: npx better-npm-audit audit --level moderate || true
+        run: npx better-npm-audit audit --level high || true

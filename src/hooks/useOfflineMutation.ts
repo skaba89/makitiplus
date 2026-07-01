@@ -87,7 +87,7 @@ export function useOfflineMutation<TData = unknown>(
 ) {
   const { isOnline } = useOnlineStatus();
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   return useMutation({
     mutationFn: async (mutationData: {
@@ -95,12 +95,14 @@ export function useOfflineMutation<TData = unknown>(
       filter?: Record<string, unknown>;
     }) => {
       if (!isOnline) {
-        // Offline: enqueue the mutation
+        // Offline: enqueue the mutation with user/org context for security validation on flush
         await enqueueMutation({
           table,
           operation,
           data: mutationData.data || {},
           filter: mutationData.filter,
+          userId: user?.id,
+          organizationId: profile?.organization_id,
         });
 
         return { offline: true, queued: true } as unknown as TData;

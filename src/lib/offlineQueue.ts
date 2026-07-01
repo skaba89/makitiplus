@@ -288,10 +288,10 @@ export async function flushQueue(): Promise<{ synced: number; failed: number }> 
 
       switch (mutation.operation) {
         case "INSERT":
-          result = await (supabase.from(mutation.table as never) as unknown as DynamicSupabaseQuery).insert(mutation.data as never);
+          result = await (supabase.from(mutation.table as never) as unknown as DynamicSupabaseQuery).insert(dataWithOrg as never);
           break;
         case "UPDATE": {
-          let query: DynamicSupabaseQuery = (supabase.from(mutation.table as never) as unknown as DynamicSupabaseQuery).update(mutation.data as never);
+          let query: DynamicSupabaseQuery = (supabase.from(mutation.table as never) as unknown as DynamicSupabaseQuery).update(dataWithOrg as never);
           // Apply filters
           if (mutation.filter) {
             for (const [key, value] of Object.entries(mutation.filter)) {

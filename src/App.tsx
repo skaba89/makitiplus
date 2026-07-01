@@ -1,10 +1,10 @@
-import { useEffect, lazy, Suspense } from "react";
+import { useEffect, lazy, Suspense, Component, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { SentryErrorBoundary } from "@/lib/sentry";
+import { SentryErrorBoundary, reportError } from "@/lib/sentry";
 import { ADMIN_ROLES, INVENTORY_ROLES, FINANCIAL_ROLES, POS_ROLES, STORE_ROLES, MANAGEMENT_ROLES } from "@/types";
 import { toast as sonnerToast } from "sonner";
 import { AuthProvider } from "@/contexts/AuthContext";

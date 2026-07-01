@@ -36,6 +36,7 @@ dist-ssr
 # Stray artifacts
 *.pdf
 upload/
+download/
 
 # Capacitor
 android/app/build
