@@ -36,6 +36,7 @@ import {
   ArrowDownRight,
   Download,
   FileSpreadsheet,
+  TrendingUp,
 } from "lucide-react";
 import { format, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
 import { fr } from "date-fns/locale";

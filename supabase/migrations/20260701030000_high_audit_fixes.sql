@@ -9,11 +9,16 @@
 --     add org_id metadata check for uploads.
 -- ============================================
 
--- Drop old permissive policies
+-- Drop old permissive policies (from original setup)
 DROP POLICY IF EXISTS anyone_view_logos ON storage.objects;
 DROP POLICY IF EXISTS org_members_upload_logos ON storage.objects;
 DROP POLICY IF EXISTS org_members_update_logos ON storage.objects;
 DROP POLICY IF EXISTS org_members_delete_logos ON storage.objects;
+
+-- Drop new restrictive policies too (idempotency — in case this migration ran before)
+DROP POLICY IF EXISTS org_admins_upload_logos ON storage.objects;
+DROP POLICY IF EXISTS org_admins_update_logos ON storage.objects;
+DROP POLICY IF EXISTS org_admins_delete_logos ON storage.objects;
 
 -- Anyone can VIEW logos (public read for landing page / receipts)
 CREATE POLICY anyone_view_logos ON storage.objects
