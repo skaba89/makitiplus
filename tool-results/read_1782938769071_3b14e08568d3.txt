@@ -1,0 +1,712 @@
+     1→import { useState } from "react";
+     2→import { useQuery } from "@tanstack/react-query";
+     3→import { supabase } from "@/integrations/supabase/client";
+     4→import { useAuth } from "@/contexts/AuthContext";
+     5→import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+     6→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+     7→import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+     8→import { Button } from "@/components/ui/button";
+     9→import {
+    10→  DropdownMenu,
+    11→  DropdownMenuContent,
+    12→  DropdownMenuItem,
+    13→  DropdownMenuTrigger,
+    14→} from "@/components/ui/dropdown-menu";
+    15→import {
+    16→  Table,
+    17→  TableBody,
+    18→  TableCell,
+    19→  TableHead,
+    20→  TableHeader,
+    21→  TableRow,
+    22→} from "@/components/ui/table";
+    23→import {
+    24→  ChartContainer,
+    25→  ChartTooltip,
+    26→  ChartTooltipContent,
+    27→} from "@/components/ui/chart";
+    28→import {
+    29→  BarChart,
+    30→  Bar,
+    31→  XAxis,
+    32→  YAxis,
+    33→  ResponsiveContainer,
+    34→  LineChart,
+    35→  Line,
+    36→  PieChart,
+    37→  Pie,
+    38→  Cell,
+    39→} from "recharts";
+    40→import {
+    41→  TrendingUp,
+    42→  ShoppingCart,
+    43→  Package,
+    44→  Wallet,
+    45→  Calendar,
+    46→  ArrowUpRight,
+    47→  ArrowDownRight,
+    48→  Download,
+    49→  FileSpreadsheet,
+    50→  Truck,
+    51→  DollarSign,
+    52→} from "lucide-react";
+    53→import { format, subDays, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
+    54→import { fr } from "date-fns/locale";
+    55→import { exportSalesToCSV, exportExpensesToCSV } from "@/utils/exportUtils";
+    56→import { useToast } from "@/hooks/use-toast";
+    57→import { useCurrency } from "@/hooks/useCurrency";
+    58→
+    59→const COLORS = ["#E57E4D", "#F59E0B", "#10B981", "#3B82F6", "#8B5CF6", "#EC4899"];
+    60→
+    61→/** Supplier with aggregated product stats */
+    62→interface SupplierReport {
+    63→  id: string;
+    64→  name: string;
+    65→  product_count: number;
+    66→  total_stock: number;
+    67→  stock_value_at_cost: number;
+    68→  stock_value_at_price: number;
+    69→}
+    70→
+    71→const Reports = () => {
+    72→  const { user } = useAuth();
+    73→  const { toast } = useToast();
+    74→  const { formatPrice } = useCurrency();
+    75→  const [period, setPeriod] = useState<"day" | "week" | "month">("day");
+    76→
+    77→  const getDateRange = () => {
+    78→    const now = new Date();
+    79→    switch (period) {
+    80→      case "day":
+    81→        return { start: startOfDay(now), end: endOfDay(now) };
+    82→      case "week":
+    83→        return { start: startOfWeek(now, { locale: fr }), end: endOfWeek(now, { locale: fr }) };
+    84→      case "month":
+    85→        return { start: startOfMonth(now), end: endOfMonth(now) };
+    86→    }
+    87→  };
+    88→
+    89→  const { start, end } = getDateRange();
+    90→
+    91→  // Fetch sales for the period
+    92→  const { data: sales } = useQuery({
+    93→    queryKey: ["reports-sales", user?.id, period],
+    94→    queryFn: async () => {
+    95→      const { data, error } = await supabase
+    96→        .from("sales")
+    97→        .select("*, sale_items(*)")
+    98→        .gte("created_at", start.toISOString())
+    99→        .lte("created_at", end.toISOString())
+   100→        .order("created_at", { ascending: true });
+   101→
+   102→      if (error) throw error;
+   103→      return data;
+   104→    },
+   105→    enabled: !!user,
+   106→  });
+   107→
+   108→  // Fetch expenses for the period
+   109→  const { data: expenses } = useQuery({
+   110→    queryKey: ["reports-expenses", user?.id, period],
+   111→    queryFn: async () => {
+   112→      const { data, error } = await supabase
+   113→        .from("expenses")
+   114→        .select("*")
+   115→        .gte("expense_date", format(start, "yyyy-MM-dd"))
+   116→        .lte("expense_date", format(end, "yyyy-MM-dd"));
+   117→
+   118→      if (error) throw error;
+   119→      return data;
+   120→    },
+   121→    enabled: !!user,
+   122→  });
+   123→
+   124→  // Fetch top products
+   125→  const { data: topProducts } = useQuery({
+   126→    queryKey: ["reports-top-products", user?.id, period],
+   127→    queryFn: async () => {
+   128→      const { data, error } = await supabase
+   129→        .from("sale_items")
+   130→        .select(`
+   131→          product_name,
+   132→          quantity,
+   133→          total_price,
+   134→          sales!inner(user_id, created_at)
+   135→        `)
+   136→        .eq("sales.user_id", user!.id)
+   137→        .gte("sales.created_at", start.toISOString())
+   138→        .lte("sales.created_at", end.toISOString());
+   139→
+   140→      if (error) throw error;
+   141→
+   142→      // Aggregate by product
+   143→      const aggregated = data.reduce((acc, item) => {
+   144→        const existing = acc.find((p) => p.name === item.product_name);
+   145→        if (existing) {
+   146→          existing.quantity += item.quantity;
+   147→          existing.revenue += item.total_price;
+   148→        } else {
+   149→          acc.push({
+   150→            name: item.product_name,
+   151→            quantity: item.quantity,
+   152→            revenue: item.total_price,
+   153→          });
+   154→        }
+   155→        return acc;
+   156→      }, [] as { name: string; quantity: number; revenue: number }[]);
+   157→
+   158→      return aggregated.sort((a, b) => b.quantity - a.quantity).slice(0, 5);
+   159→    },
+   160→    enabled: !!user,
+   161→  });
+   162→
+   163→  // Fetch supplier analytics (products with supplier info)
+   164→  const { data: supplierReport } = useQuery({
+   165→    queryKey: ["reports-suppliers", user?.id],
+   166→    queryFn: async () => {
+   167→      // Get all active products with their supplier info
+   168→      const { data: products, error: productsError } = await supabase
+   169→        .from("products")
+   170→        .select("id, name, cost_price, price, stock_quantity, supplier_id, suppliers(id, name)")
+   171→        .eq("is_active", true);
+   172→
+   173→      if (productsError) throw productsError;
+   174→
+   175→      // Aggregate by supplier
+   176→      const supplierMap = new Map<string, SupplierReport>();
+   177→
+   178→      // First, add suppliers with no products (they exist but have 0 linked products)
+   179→      const { data: allSuppliers } = await supabase
+   180→        .from("suppliers")
+   181→        .select("id, name")
+   182→        .eq("is_active", true);
+   183→
+   184→      allSuppliers?.forEach((s) => {
+   185→        supplierMap.set(s.id, {
+   186→          id: s.id,
+   187→          name: s.name,
+   188→          product_count: 0,
+   189→          total_stock: 0,
+   190→          stock_value_at_cost: 0,
+   191→          stock_value_at_price: 0,
+   192→        });
+   193→      });
+   194→
+   195→      // Then aggregate products
+   196→      products?.forEach((p) => {
+   197→        const sid = p.supplier_id;
+   198→        if (!sid) return; // products without supplier → skip
+   199→
+   200→        const existing = supplierMap.get(sid);
+   201→        if (existing) {
+   202→          existing.product_count += 1;
+   203→          existing.total_stock += p.stock_quantity;
+   204→          existing.stock_value_at_cost += Number(p.cost_price || 0) * p.stock_quantity;
+   205→          existing.stock_value_at_price += Number(p.price) * p.stock_quantity;
+   206→        }
+   207→      });
+   208→
+   209→      // Convert to array, filter out suppliers with 0 products, sort by value
+   210→      return Array.from(supplierMap.values())
+   211→        .filter((s) => s.product_count > 0)
+   212→        .sort((a, b) => b.stock_value_at_cost - a.stock_value_at_cost);
+   213→    },
+   214→    enabled: !!user,
+   215→  });
+   216→
+   217→  // Products without supplier
+   218→  const { data: orphanProducts } = useQuery({
+   219→    queryKey: ["reports-orphan-products", user?.id],
+   220→    queryFn: async () => {
+   221→      const { data, error } = await supabase
+   222→        .from("products")
+   223→        .select("id, name, cost_price, price, stock_quantity")
+   224→        .eq("is_active", true)
+   225→        .is("supplier_id", null);
+   226→
+   227→      if (error) throw error;
+   228→
+   229→      const totalValue = data.reduce(
+   230→        (sum, p) => sum + Number(p.cost_price || p.price) * p.stock_quantity,
+   231→        0
+   232→      );
+   233→
+   234→      return { count: data.length, totalValue };
+   235→    },
+   236→    enabled: !!user,
+   237→  });
+   238→
+   239→  // Calculate stats
+   240→  const totalSales = sales?.reduce((sum, sale) => sum + sale.total_amount, 0) || 0;
+   241→  const totalTransactions = sales?.length || 0;
+   242→  const totalExpenses = expenses?.reduce((sum, exp) => sum + exp.amount, 0) || 0;
+   243→  const netProfit = totalSales - totalExpenses;
+   244→
+   245→  // Payment method distribution
+   246→  const paymentDistribution = sales?.reduce((acc, sale) => {
+   247→    const method = sale.payment_method;
+   248→    const existing = acc.find((p) => p.method === method);
+   249→    if (existing) {
+   250→      existing.value += sale.total_amount;
+   251→    } else {
+   252→      acc.push({ method, value: sale.total_amount });
+   253→    }
+   254→    return acc;
+   255→  }, [] as { method: string; value: number }[]) || [];
+   256→
+   257→  const paymentLabels: Record<string, string> = {
+   258→    cash: "Espèces",
+   259→    wave: "Wave",
+   260→    orange_money: "Orange Money",
+   261→    card: "Carte",
+   262→    credit: "Crédit",
+   263→  };
+   264→
+   265→  // Daily sales for chart
+   266→  const dailySalesData = () => {
+   267→    if (!sales) return [];
+   268→    
+   269→    const days = period === "day" ? 1 : period === "week" ? 7 : 30;
+   270→    const data = [];
+   271→    
+   272→    for (let i = days - 1; i >= 0; i--) {
+   273→      const date = subDays(new Date(), i);
+   274→      const dayStart = startOfDay(date);
+   275→      const dayEnd = endOfDay(date);
+   276→      
+   277→      const daySales = sales.filter((sale) => {
+   278→        const saleDate = new Date(sale.created_at);
+   279→        return saleDate >= dayStart && saleDate <= dayEnd;
+   280→      });
+   281→      
+   282→      data.push({
+   283→        date: format(date, period === "month" ? "dd" : "EEE", { locale: fr }),
+   284→        ventes: daySales.reduce((sum, s) => sum + s.total_amount, 0),
+   285→        transactions: daySales.length,
+   286→      });
+   287→    }
+   288→    
+   289→    return data;
+   290→  };
+   291→
+   292→  // Supplier chart data
+   293→  const supplierChartData = (supplierReport || []).slice(0, 6).map((s) => ({
+   294→    name: s.name.length > 12 ? s.name.slice(0, 12) + "…" : s.name,
+   295→    "Valeur stock (achat)": s.stock_value_at_cost,
+   296→    "Valeur stock (vente)": s.stock_value_at_price,
+   297→  }));
+   298→
+   299→  const supplierChartConfig = {
+   300→    "Valeur stock (achat)": {
+   301→      label: "Valeur stock (achat)",
+   302→      color: "hsl(var(--primary))",
+   303→    },
+   304→    "Valeur stock (vente)": {
+   305→      label: "Valeur stock (vente)",
+   306→      color: "hsl(var(--success))",
+   307→    },
+   308→  };
+   309→
+   310→  const chartConfig = {
+   311→    ventes: {
+   312→      label: "Ventes",
+   313→      color: "hsl(var(--primary))",
+   314→    },
+   315→    transactions: {
+   316→      label: "Transactions",
+   317→      color: "hsl(var(--success))",
+   318→    },
+   319→  };
+   320→
+   321→  return (
+   322→    <DashboardLayout>
+   323→      <div className="space-y-6">
+   324→        {/* Header */}
+   325→        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+   326→          <div>
+   327→            <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
+   328→              Rapports
+   329→            </h1>
+   330→            <p className="text-muted-foreground mt-1">
+   331→              Analysez les performances de votre boutique
+   332→            </p>
+   333→          </div>
+   334→
+   335→          <div className="flex flex-wrap items-center gap-2">
+   336→            <Tabs value={period} onValueChange={(v) => setPeriod(v as typeof period)}>
+   337→              <TabsList className="flex flex-wrap">
+   338→                <TabsTrigger value="day" className="gap-1.5">
+   339→                  <Calendar className="h-3.5 w-3.5" />
+   340→                  <span className="hidden sm:inline">Aujourd'hui</span>
+   341→                  <span className="sm:hidden">Jour</span>
+   342→                </TabsTrigger>
+   343→                <TabsTrigger value="week" className="text-xs sm:text-sm">Semaine</TabsTrigger>
+   344→                <TabsTrigger value="month" className="text-xs sm:text-sm">Mois</TabsTrigger>
+   345→              </TabsList>
+   346→            </Tabs>
+   347→
+   348→            <DropdownMenu>
+   349→              <DropdownMenuTrigger asChild>
+   350→                <Button variant="outline" size="sm">
+   351→                  <Download className="mr-2 h-4 w-4" />
+   352→                  Exporter
+   353→                </Button>
+   354→              </DropdownMenuTrigger>
+   355→              <DropdownMenuContent align="end">
+   356→                <DropdownMenuItem
+   357→                  onClick={() => {
+   358→                    if (sales && sales.length > 0) {
+   359→                      exportSalesToCSV(sales);
+   360→                      toast({
+   361→                        title: "Export réussi",
+   362→                        description: `${sales.length} ventes exportées`,
+   363→                      });
+   364→                    } else {
+   365→                      toast({
+   366→                        variant: "destructive",
+   367→                        title: "Aucune donnée",
+   368→                        description: "Pas de ventes à exporter",
+   369→                      });
+   370→                    }
+   371→                  }}
+   372→                >
+   373→                  <FileSpreadsheet className="mr-2 h-4 w-4" />
+   374→                  Ventes (CSV)
+   375→                </DropdownMenuItem>
+   376→                <DropdownMenuItem
+   377→                  onClick={() => {
+   378→                    if (expenses && expenses.length > 0) {
+   379→                      exportExpensesToCSV(expenses);
+   380→                      toast({
+   381→                        title: "Export réussi",
+   382→                        description: `${expenses.length} dépenses exportées`,
+   383→                      });
+   384→                    } else {
+   385→                      toast({
+   386→                        variant: "destructive",
+   387→                        title: "Aucune donnée",
+   388→                        description: "Pas de dépenses à exporter",
+   389→                      });
+   390→                    }
+   391→                  }}
+   392→                >
+   393→                  <FileSpreadsheet className="mr-2 h-4 w-4" />
+   394→                  Dépenses (CSV)
+   395→                </DropdownMenuItem>
+   396→              </DropdownMenuContent>
+   397→            </DropdownMenu>
+   398→          </div>
+   399→        </div>
+   400→
+   401→        {/* Stats Cards */}
+   402→        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   403→          <Card className="card-elevated">
+   404→            <CardHeader className="flex flex-row items-center justify-between pb-2">
+   405→              <CardTitle className="text-sm font-medium text-muted-foreground">
+   406→                Chiffre d'affaires
+   407→              </CardTitle>
+   408→              <div className="p-2 rounded-lg bg-primary/10">
+   409→                <ShoppingCart className="h-4 w-4 text-primary" />
+   410→              </div>
+   411→            </CardHeader>
+   412→            <CardContent>
+   413→              <div className="text-2xl font-bold">{formatPrice(totalSales)}</div>
+   414→              <div className="flex items-center gap-1 mt-1">
+   415→                <ArrowUpRight className="h-4 w-4 text-success" />
+   416→                <span className="text-success text-sm">{totalTransactions} ventes</span>
+   417→              </div>
+   418→            </CardContent>
+   419→          </Card>
+   420→
+   421→          <Card className="card-elevated">
+   422→            <CardHeader className="flex flex-row items-center justify-between pb-2">
+   423→              <CardTitle className="text-sm font-medium text-muted-foreground">
+   424→                Transactions
+   425→              </CardTitle>
+   426→              <div className="p-2 rounded-lg bg-success/10">
+   427→                <TrendingUp className="h-4 w-4 text-success" />
+   428→              </div>
+   429→            </CardHeader>
+   430→            <CardContent>
+   431→              <div className="text-2xl font-bold">{totalTransactions}</div>
+   432→              <div className="text-muted-foreground text-sm mt-1">
+   433→                {totalTransactions > 0
+   434→                  ? `Panier moyen: ${formatPrice(Math.round(totalSales / totalTransactions))}`
+   435→                  : "Aucune vente"}
+   436→              </div>
+   437→            </CardContent>
+   438→          </Card>
+   439→
+   440→          <Card className="card-elevated">
+   441→            <CardHeader className="flex flex-row items-center justify-between pb-2">
+   442→              <CardTitle className="text-sm font-medium text-muted-foreground">
+   443→                Dépenses
+   444→              </CardTitle>
+   445→              <div className="p-2 rounded-lg bg-destructive/10">
+   446→                <Wallet className="h-4 w-4 text-destructive" />
+   447→              </div>
+   448→            </CardHeader>
+   449→            <CardContent>
+   450→              <div className="text-2xl font-bold">{formatPrice(totalExpenses)}</div>
+   451→              <div className="flex items-center gap-1 mt-1">
+   452→                <ArrowDownRight className="h-4 w-4 text-destructive" />
+   453→                <span className="text-destructive text-sm">
+   454→                  {expenses?.length || 0} dépenses
+   455→                </span>
+   456→              </div>
+   457→            </CardContent>
+   458→          </Card>
+   459→
+   460→          <Card className="card-elevated">
+   461→            <CardHeader className="flex flex-row items-center justify-between pb-2">
+   462→              <CardTitle className="text-sm font-medium text-muted-foreground">
+   463→                Bénéfice net
+   464→              </CardTitle>
+   465→              <div className={`p-2 rounded-lg ${netProfit >= 0 ? "bg-success/10" : "bg-destructive/10"}`}>
+   466→                <Package className={`h-4 w-4 ${netProfit >= 0 ? "text-success" : "text-destructive"}`} />
+   467→              </div>
+   468→            </CardHeader>
+   469→            <CardContent>
+   470→              <div className={`text-2xl font-bold ${netProfit >= 0 ? "text-success" : "text-destructive"}`}>
+   471→                {formatPrice(netProfit)}
+   472→              </div>
+   473→              <div className="text-muted-foreground text-sm mt-1">
+   474→                Ventes - Dépenses
+   475→              </div>
+   476→            </CardContent>
+   477→          </Card>
+   478→        </div>
+   479→
+   480→        {/* Charts Row */}
+   481→        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   482→          {/* Sales Chart */}
+   483→          <Card className="card-elevated">
+   484→            <CardHeader>
+   485→              <CardTitle>Évolution des ventes</CardTitle>
+   486→            </CardHeader>
+   487→            <CardContent>
+   488→              <ChartContainer config={chartConfig} className="h-[220px] sm:h-[300px]">
+   489→                <ResponsiveContainer width="100%" height="100%">
+   490→                  <BarChart data={dailySalesData()}>
+   491→                    <XAxis dataKey="date" />
+   492→                    <YAxis tickFormatter={(value) => `${value / 1000}k`} />
+   493→                    <ChartTooltip content={<ChartTooltipContent />} />
+   494→                    <Bar
+   495→                      dataKey="ventes"
+   496→                      fill="var(--color-ventes)"
+   497→                      radius={[4, 4, 0, 0]}
+   498→                    />
+   499→                  </BarChart>
+   500→                </ResponsiveContainer>
+   501→              </ChartContainer>
+   502→            </CardContent>
+   503→          </Card>
+   504→
+   505→          {/* Payment Distribution */}
+   506→          <Card className="card-elevated">
+   507→            <CardHeader>
+   508→              <CardTitle>Répartition par mode de paiement</CardTitle>
+   509→            </CardHeader>
+   510→            <CardContent>
+   511→              {paymentDistribution.length > 0 ? (
+   512→                <div className="h-[220px] sm:h-[300px] flex items-center justify-center">
+   513→                  <ResponsiveContainer width="100%" height="100%">
+   514→                    <PieChart>
+   515→                      <Pie
+   516→                        data={paymentDistribution}
+   517→                        cx="50%"
+   518→                        cy="50%"
+   519→                        innerRadius={60}
+   520→                        outerRadius={100}
+   521→                        paddingAngle={2}
+   522→                        dataKey="value"
+   523→                        nameKey="method"
+   524→                        label={({ method, percent }) =>
+   525→                          `${paymentLabels[method] || method} ${(percent * 100).toFixed(0)}%`
+   526→                        }
+   527→                      >
+   528→                        {paymentDistribution.map((_, index) => (
+   529→                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+   530→                        ))}
+   531→                      </Pie>
+   532→                    </PieChart>
+   533→                  </ResponsiveContainer>
+   534→                </div>
+   535→              ) : (
+   536→                <div className="h-[220px] sm:h-[300px] flex items-center justify-center text-muted-foreground">
+   537→                  Aucune donnée disponible
+   538→                </div>
+   539→              )}
+   540→            </CardContent>
+   541→          </Card>
+   542→        </div>
+   543→
+   544→        {/* Top Products */}
+   545→        <Card className="card-elevated">
+   546→          <CardHeader>
+   547→            <CardTitle>Produits les plus vendus</CardTitle>
+   548→          </CardHeader>
+   549→          <CardContent>
+   550→            {topProducts && topProducts.length > 0 ? (
+   551→              <div className="space-y-4">
+   552→                {topProducts.map((product, index) => (
+   553→                  <div key={product.name} className="flex items-center gap-4">
+   554→                    <div
+   555→                      className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold text-primary-foreground"
+   556→                      style={{ backgroundColor: COLORS[index % COLORS.length] }}
+   557→                    >
+   558→                      {index + 1}
+   559→                    </div>
+   560→                    <div className="flex-1">
+   561→                      <p className="font-medium">{product.name}</p>
+   562→                      <p className="text-sm text-muted-foreground">
+   563→                        {product.quantity} vendus
+   564→                      </p>
+   565→                    </div>
+   566→                    <div className="text-right">
+   567→                      <p className="font-bold text-primary">
+   568→                        {formatPrice(product.revenue)}
+   569→                      </p>
+   570→                    </div>
+   571→                  </div>
+   572→                ))}
+   573→              </div>
+   574→            ) : (
+   575→              <div className="text-center py-8 text-muted-foreground">
+   576→                <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+   577→                <p>Aucune vente pour cette période</p>
+   578→              </div>
+   579→            )}
+   580→          </CardContent>
+   581→        </Card>
+   582→
+   583→        {/* ═══════ Supplier Analytics ═══════ */}
+   584→        <div className="space-y-6">
+   585→          <div className="flex items-center gap-3">
+   586→            <div className="p-2 rounded-lg bg-blue-500/10">
+   587→              <Truck className="h-5 w-5 text-blue-600" />
+   588→            </div>
+   589→            <div>
+   590→              <h2 className="text-lg font-semibold">Analyse Fournisseurs</h2>
+   591→              <p className="text-sm text-muted-foreground">
+   592→                Valeur du stock par fournisseur et répartition de l'inventaire
+   593→              </p>
+   594→            </div>
+   595→          </div>
+   596→
+   597→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   598→            {/* Supplier Stock Value Chart */}
+   599→            <Card className="card-elevated">
+   600→              <CardHeader>
+   601→                <CardTitle className="flex items-center gap-2">
+   602→                  <DollarSign className="h-4 w-4" />
+   603→                  Valeur du stock par fournisseur
+   604→                </CardTitle>
+   605→                <CardDescription>Comparaison prix d'achat vs prix de vente</CardDescription>
+   606→              </CardHeader>
+   607→              <CardContent>
+   608→                {supplierChartData.length > 0 ? (
+   609→                  <ChartContainer config={supplierChartConfig} className="h-[280px]">
+   610→                    <ResponsiveContainer width="100%" height="100%">
+   611→                      <BarChart data={supplierChartData} layout="vertical">
+   612→                        <XAxis type="number" tickFormatter={(value) => `${value / 1000}k`} />
+   613→                        <YAxis type="category" dataKey="name" width={100} />
+   614→                        <ChartTooltip content={<ChartTooltipContent />} />
+   615→                        <Bar dataKey="Valeur stock (achat)" fill="var(--color-Valeur stock (achat))" radius={[0, 4, 4, 0]} />
+   616→                        <Bar dataKey="Valeur stock (vente)" fill="var(--color-Valeur stock (vente))" radius={[0, 4, 4, 0]} />
+   617→                      </BarChart>
+   618→                    </ResponsiveContainer>
+   619→                  </ChartContainer>
+   620→                ) : (
+   621→                  <div className="h-[280px] flex flex-col items-center justify-center text-muted-foreground">
+   622→                    <Truck className="h-10 w-10 mb-3 opacity-50" />
+   623→                    <p>Aucun fournisseur avec produits</p>
+   624→                    <p className="text-sm">Associez des produits à vos fournisseurs</p>
+   625→                  </div>
+   626→                )}
+   627→              </CardContent>
+   628→            </Card>
+   629→
+   630→            {/* Supplier Detail Table */}
+   631→            <Card className="card-elevated">
+   632→              <CardHeader>
+   633→                <CardTitle>Détail par fournisseur</CardTitle>
+   634→                <CardDescription>
+   635→                  Produits, stock et valeur par fournisseur
+   636→                </CardDescription>
+   637→              </CardHeader>
+   638→              <CardContent>
+   639→                {supplierReport && supplierReport.length > 0 ? (
+   640→                  <div className="overflow-x-auto">
+   641→                    <Table>
+   642→                      <TableHeader>
+   643→                        <TableRow>
+   644→                          <TableHead>Fournisseur</TableHead>
+   645→                          <TableHead className="text-center">Produits</TableHead>
+   646→                          <TableHead className="text-center">Stock</TableHead>
+   647→                          <TableHead className="text-right">Valeur (achat)</TableHead>
+   648→                        </TableRow>
+   649→                      </TableHeader>
+   650→                      <TableBody>
+   651→                        {supplierReport.map((s) => (
+   652→                          <TableRow key={s.id}>
+   653→                            <TableCell className="font-medium">{s.name}</TableCell>
+   654→                            <TableCell className="text-center">{s.product_count}</TableCell>
+   655→                            <TableCell className="text-center">{s.total_stock}</TableCell>
+   656→                            <TableCell className="text-right font-medium">
+   657→                              {formatPrice(s.stock_value_at_cost)}
+   658→                            </TableCell>
+   659→                          </TableRow>
+   660→                        ))}
+   661→                        {/* Total row */}
+   662→                        <TableRow className="font-bold border-t-2">
+   663→                          <TableCell>Total</TableCell>
+   664→                          <TableCell className="text-center">
+   665→                            {supplierReport.reduce((s, r) => s + r.product_count, 0)}
+   666→                          </TableCell>
+   667→                          <TableCell className="text-center">
+   668→                            {supplierReport.reduce((s, r) => s + r.total_stock, 0)}
+   669→                          </TableCell>
+   670→                          <TableCell className="text-right">
+   671→                            {formatPrice(supplierReport.reduce((s, r) => s + r.stock_value_at_cost, 0))}
+   672→                          </TableCell>
+   673→                        </TableRow>
+   674→                      </TableBody>
+   675→                    </Table>
+   676→                  </div>
+   677→                ) : (
+   678→                  <div className="py-8 text-center text-muted-foreground">
+   679→                    <Truck className="h-10 w-10 mx-auto mb-3 opacity-50" />
+   680→                    <p>Aucune donnée fournisseur</p>
+   681→                  </div>
+   682→                )}
+   683→              </CardContent>
+   684→            </Card>
+   685→          </div>
+   686→
+   687→          {/* Orphan Products Alert */}
+   688→          {orphanProducts && orphanProducts.count > 0 && (
+   689→            <Card className="border-amber-300/50 bg-amber-50/50 dark:bg-amber-950/20">
+   690→              <CardHeader className="pb-3">
+   691→                <CardTitle className="text-sm font-medium text-amber-700 dark:text-amber-400 flex items-center gap-2">
+   692→                  <Package className="h-4 w-4" />
+   693→                  Produits sans fournisseur
+   694→                </CardTitle>
+   695→              </CardHeader>
+   696→              <CardContent>
+   697→                <p className="text-sm text-muted-foreground">
+   698→                  <strong>{orphanProducts.count}</strong> produit(s) ne sont associés à aucun fournisseur,
+   699→                  représentant une valeur de stock de <strong>{formatPrice(orphanProducts.totalValue)}</strong>.
+   700→                  Associez-les à un fournisseur pour un meilleur suivi de vos approvisionnements.
+   701→                </p>
+   702→              </CardContent>
+   703→            </Card>
+   704→          )}
+   705→        </div>
+   706→      </div>
+   707→    </DashboardLayout>
+   708→  );
+   709→};
+   710→
+   711→export default Reports;
+   712→

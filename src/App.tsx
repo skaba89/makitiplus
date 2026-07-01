@@ -33,6 +33,7 @@ const Suppliers = lazy(() => import("./pages/Suppliers"));
 const Users = lazy(() => import("./pages/Users"));
 const SyncConflicts = lazy(() => import("./pages/SyncConflicts"));
 const Stores = lazy(() => import("./pages/Stores"));
+const AdminAnalytics = lazy(() => import("./pages/AdminAnalytics"));
 const Settings = lazy(() => import("./pages/Settings"));
 
 /** Minimal loading spinner for lazy-loaded routes */
@@ -261,6 +262,16 @@ const App = () => {
                 <ProtectedRoute allowedRoles={["super_admin"]}>
                   <Suspense fallback={<PageLoader />}>
                     <Stores />
+                  </Suspense>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/admin-analytics"
+              element={
+                <ProtectedRoute allowedRoles={["super_admin"]}>
+                  <Suspense fallback={<PageLoader />}>
+                    <AdminAnalytics />
                   </Suspense>
                 </ProtectedRoute>
               }

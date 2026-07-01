@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   Truck,
   DollarSign,
+  BarChart3,
 } from "lucide-react";
 import { CategoryIcon } from "@/components/ui/category-icon";
 import { startOfDay, endOfDay, startOfMonth, endOfMonth } from "date-fns";
@@ -344,6 +345,22 @@ const Dashboard = () => {
         <div>
           <h2 className="text-lg font-semibold mb-4">Actions rapides</h2>
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+            {userRole === "super_admin" && (
+              <Card
+                className="card-elevated hover:shadow-medium transition-shadow cursor-pointer group"
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate("/dashboard/admin-analytics")}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/dashboard/admin-analytics"); } }}
+              >
+                <CardContent className="flex flex-col items-center justify-center py-8">
+                  <div className="p-4 rounded-2xl bg-purple-500/10 mb-4 group-hover:scale-110 transition-transform">
+                    <BarChart3 className="h-8 w-8 text-purple-600" />
+                  </div>
+                  <span className="font-medium">Analyse Multi-Magasins</span>
+                </CardContent>
+              </Card>
+            )}
             {userRole && ["admin", "manager", "vendeur"].includes(userRole) && (
               <Card
                 className="card-elevated hover:shadow-medium transition-shadow cursor-pointer group"

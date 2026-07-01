@@ -22,6 +22,7 @@ import {
   Shield,
   GitMerge,
   Truck,
+  BarChart3 as AnalyticsIcon,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -133,6 +134,12 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       href: "/dashboard/stores",
       icon: Store,
       roles: STORE_ROLES,
+    },
+    {
+      name: "Analyse Multi-Magasins",
+      href: "/dashboard/admin-analytics",
+      icon: AnalyticsIcon,
+      roles: ["super_admin"],
     },
     {
       name: "Conflits sync",

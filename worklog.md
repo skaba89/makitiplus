@@ -55,3 +55,30 @@ Work Log:
 Stage Summary:
 - Reports.tsx enrichi avec analytics fournisseurs
 - Toutes les améliorations du cycle sont complètes
+
+---
+Task ID: 2
+Agent: main
+Task: Analyse Multi-Magasins — Admin Analytics Feature
+
+Work Log:
+- Created SQL migration with 5 SECURITY DEFINER RPCs for cross-org analytics (get_admin_stores_summary, get_admin_article_ranking, get_admin_stock_movements, get_admin_sales_trend, get_admin_payment_distribution)
+- Each RPC supports period filters (day/week/month/quarter/year) and optional organization_id for per-store drill-down
+- All RPCs check is_super_admin() before execution to enforce access control
+- Created AdminAnalytics page with 4 tabs: Classement Magasins, Top/Bad Articles, Mouvements Stock, Tendances
+- Added period selector (day/week/month/quarter/year) and store filter (all stores or specific store)
+- Built store ranking table with medals for top 3, KPIs (sales, transactions, avg basket, expenses, net revenue, product count, low stock alerts)
+- Built Top Articles table (green) with ranking by revenue and Bad Articles table (red) with zero-sales and surstock detection
+- Built stock movements log with type summary cards (sale/restock/adjustment/return)
+- Built trend charts: daily sales line, per-store stacked bar, payment distribution pie, stores comparison (sales vs expenses), net revenue per store
+- Added global KPI cards (total stores, total sales, transactions, expenses, active products, low stock alerts)
+- Added route /dashboard/admin-analytics in App.tsx (super_admin only)
+- Added "Analyse Multi-Magasins" navigation item in DashboardLayout sidebar (BarChart3 icon, super_admin only)
+- Added quick action card on Dashboard page for super_admin users
+- TypeScript compilation passes with zero errors
+- Vite build succeeds
+
+Stage Summary:
+- Files created: src/pages/AdminAnalytics.tsx, supabase/migrations/20260702070000_admin_multi_store_analytics.sql
+- Files modified: src/App.tsx (route), src/components/dashboard/DashboardLayout.tsx (nav), src/pages/Dashboard.tsx (quick action)
+- Feature: Super admin can now view analytics across all stores, classify stores by sales, identify top/bad articles per period, and track stock movements globally or per store
