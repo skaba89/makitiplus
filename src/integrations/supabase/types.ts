@@ -24,6 +24,7 @@ export type Database = {
           is_default: boolean | null
           name: string
           organization_id: string | null
+          store_id: string | null
           sort_order: number | null
           user_id: string
         }
@@ -36,6 +37,7 @@ export type Database = {
           is_default?: boolean | null
           name: string
           organization_id?: string | null
+          store_id?: string | null
           sort_order?: number | null
           user_id: string
         }
@@ -48,6 +50,7 @@ export type Database = {
           is_default?: boolean | null
           name?: string
           organization_id?: string | null
+          store_id?: string | null
           sort_order?: number | null
           user_id?: string
         }
@@ -113,6 +116,7 @@ export type Database = {
           name: string
           notes: string | null
           organization_id: string | null
+          store_id: string | null
           phone: string | null
           total_credit: number
           total_purchases: number
@@ -127,6 +131,7 @@ export type Database = {
           name: string
           notes?: string | null
           organization_id?: string | null
+          store_id?: string | null
           phone?: string | null
           total_credit?: number
           total_purchases?: number
@@ -141,6 +146,7 @@ export type Database = {
           name?: string
           notes?: string | null
           organization_id?: string | null
+          store_id?: string | null
           phone?: string | null
           total_credit?: number
           total_purchases?: number
@@ -158,6 +164,7 @@ export type Database = {
           expense_date: string
           id: string
           organization_id: string | null
+          store_id: string | null
           payment_method: Database["public"]["Enums"]["payment_method"] | null
           user_id: string
         }
@@ -169,6 +176,7 @@ export type Database = {
           expense_date?: string
           id?: string
           organization_id?: string | null
+          store_id?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"] | null
           user_id: string
         }
@@ -180,10 +188,73 @@ export type Database = {
           expense_date?: string
           id?: string
           organization_id?: string | null
+          store_id?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"] | null
           user_id?: string
         }
         Relationships: []
+      }
+      stores: {
+        Row: {
+          id: string
+          organization_id: string
+          name: string
+          slug: string
+          address: string | null
+          city: string | null
+          country: string | null
+          currency: string | null
+          phone: string | null
+          is_active: boolean
+          is_headquarters: boolean
+          category: Database["public"]["Enums"]["store_category"] | null
+          metadata: Json | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          name: string
+          slug: string
+          address?: string | null
+          city?: string | null
+          country?: string | null
+          currency?: string | null
+          phone?: string | null
+          is_active?: boolean
+          is_headquarters?: boolean
+          category?: Database["public"]["Enums"]["store_category"] | null
+          metadata?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          name?: string
+          slug?: string
+          address?: string | null
+          city?: string | null
+          country?: string | null
+          currency?: string | null
+          phone?: string | null
+          is_active?: boolean
+          is_headquarters?: boolean
+          category?: Database["public"]["Enums"]["store_category"] | null
+          metadata?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stores_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       organizations: {
         Row: {
@@ -309,6 +380,7 @@ export type Database = {
           min_stock_alert: number | null
           name: string
           organization_id: string | null
+          store_id: string | null
           price: number
           stock_quantity: number
           supplier_id: string | null
@@ -330,6 +402,7 @@ export type Database = {
           min_stock_alert?: number | null
           name: string
           organization_id?: string | null
+          store_id?: string | null
           price?: number
           stock_quantity?: number
           supplier_id?: string | null
@@ -351,6 +424,7 @@ export type Database = {
           min_stock_alert?: number | null
           name?: string
           organization_id?: string | null
+          store_id?: string | null
           price?: number
           stock_quantity?: number
           supplier_id?: string | null
@@ -394,6 +468,7 @@ export type Database = {
           last_login_at: string | null
           nfc_enabled: boolean | null
           organization_id: string | null
+          current_store_id: string | null
           owner_name: string
           phone: string | null
           subscription_expires_at: string | null
@@ -421,6 +496,7 @@ export type Database = {
           last_login_at?: string | null
           nfc_enabled?: boolean | null
           organization_id?: string | null
+          current_store_id?: string | null
           owner_name: string
           phone?: string | null
           subscription_expires_at?: string | null
@@ -448,6 +524,7 @@ export type Database = {
           last_login_at?: string | null
           nfc_enabled?: boolean | null
           organization_id?: string | null
+          current_store_id?: string | null
           owner_name?: string
           phone?: string | null
           subscription_expires_at?: string | null
@@ -466,6 +543,7 @@ export type Database = {
           created_at: string
           id: string
           organization_id: string | null
+          store_id: string | null
           product_id: string | null
           product_name: string
           quantity: number
@@ -477,6 +555,7 @@ export type Database = {
           created_at?: string
           id?: string
           organization_id?: string | null
+          store_id?: string | null
           product_id?: string | null
           product_name: string
           quantity?: number
@@ -488,6 +567,7 @@ export type Database = {
           created_at?: string
           id?: string
           organization_id?: string | null
+          store_id?: string | null
           product_id?: string | null
           product_name?: string
           quantity?: number
@@ -524,6 +604,7 @@ export type Database = {
           id: string
           notes: string | null
           organization_id: string | null
+          store_id: string | null
           payment_method: Database["public"]["Enums"]["payment_method"]
           sale_number: string
           seller_name: string | null
@@ -544,6 +625,7 @@ export type Database = {
           id?: string
           notes?: string | null
           organization_id?: string | null
+          store_id?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
           sale_number: string
           seller_name?: string | null
@@ -564,6 +646,7 @@ export type Database = {
           id?: string
           notes?: string | null
           organization_id?: string | null
+          store_id?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
           sale_number?: string
           seller_name?: string | null
@@ -595,6 +678,7 @@ export type Database = {
           name: string
           notes: string | null
           organization_id: string | null
+          store_id: string | null
           phone: string | null
           updated_at: string
           user_id: string
@@ -610,6 +694,7 @@ export type Database = {
           name: string
           notes?: string | null
           organization_id?: string | null
+          store_id?: string | null
           phone?: string | null
           updated_at?: string
           user_id: string
@@ -625,6 +710,7 @@ export type Database = {
           name?: string
           notes?: string | null
           organization_id?: string | null
+          store_id?: string | null
           phone?: string | null
           updated_at?: string
           user_id?: string
@@ -652,6 +738,7 @@ export type Database = {
           id: string
           new_quantity: number
           organization_id: string | null
+          store_id: string | null
           previous_quantity: number
           product_id: string
           quantity: number
@@ -665,6 +752,7 @@ export type Database = {
           id?: string
           new_quantity: number
           organization_id?: string | null
+          store_id?: string | null
           previous_quantity: number
           product_id: string
           quantity: number
@@ -678,6 +766,7 @@ export type Database = {
           id?: string
           new_quantity?: number
           organization_id?: string | null
+          store_id?: string | null
           previous_quantity?: number
           product_id?: string
           quantity?: number

@@ -38,6 +38,7 @@ import { MobileBottomNav } from "./MobileBottomNav";
 import { ALL_ROLES, ADMIN_ROLES, MANAGEMENT_ROLES, INVENTORY_ROLES, FINANCIAL_ROLES, POS_ROLES, STORE_ROLES } from "@/types";
 import { OfflineIndicator, OfflineBanner } from "@/components/ui/offline-indicator";
 import { PWAInstallPrompt } from "@/components/ui/pwa-install-prompt";
+import { StoreSwitcher } from "@/components/shared/StoreSwitcher";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -250,6 +251,11 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           </div>
           {/* Online indicator in sidebar header */}
           <OfflineIndicator />
+        </div>
+
+        {/* Store Switcher */}
+        <div className="px-4 py-2 border-b border-sidebar-border">
+          <StoreSwitcher />
         </div>
 
         {/* Navigation */}
