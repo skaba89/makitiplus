@@ -13,6 +13,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
@@ -36,7 +44,8 @@ import {
   ArrowDownRight,
   Download,
   FileSpreadsheet,
-  TrendingUp,
+  Truck,
+  DollarSign,
 } from "lucide-react";
 import { format, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -52,6 +61,16 @@ type Sale = Database["public"]["Tables"]["sales"]["Row"];
 type Expense = Database["public"]["Tables"]["expenses"]["Row"];
 
 const COLORS = [...CHART_COLORS];
+
+/** Supplier with aggregated product stats */
+interface SupplierReport {
+  id: string;
+  name: string;
+  product_count: number;
+  total_stock: number;
+  stock_value_at_cost: number;
+  stock_value_at_price: number;
+}
 
 const Reports = () => {
   const { user, profile } = useAuth();
@@ -98,10 +117,131 @@ const Reports = () => {
     );
   }
 
-  // Stats from RPC
-  const totalSales = reportsStats?.totalSales ?? 0;
-  const totalTransactions = reportsStats?.totalTransactions ?? 0;
-  const totalExpenses = reportsStats?.totalExpenses ?? 0;
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  // Fetch top products
+  const { data: topProducts } = useQuery({
+    queryKey: ["reports-top-products", user?.id, period],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sale_items")
+        .select(`
+          product_name,
+          quantity,
+          total_price,
+          sales!inner(user_id, created_at)
+        `)
+        .eq("sales.user_id", user!.id)
+        .gte("sales.created_at", start.toISOString())
+        .lte("sales.created_at", end.toISOString());
+
+      if (error) throw error;
+
+      // Aggregate by product
+      const aggregated = data.reduce((acc, item) => {
+        const existing = acc.find((p) => p.name === item.product_name);
+        if (existing) {
+          existing.quantity += item.quantity;
+          existing.revenue += item.total_price;
+        } else {
+          acc.push({
+            name: item.product_name,
+            quantity: item.quantity,
+            revenue: item.total_price,
+          });
+        }
+        return acc;
+      }, [] as { name: string; quantity: number; revenue: number }[]);
+
+      return aggregated.sort((a, b) => b.quantity - a.quantity).slice(0, 5);
+    },
+    enabled: !!user,
+  });
+
+  // Fetch supplier analytics (products with supplier info)
+  const { data: supplierReport } = useQuery({
+    queryKey: ["reports-suppliers", user?.id],
+    queryFn: async () => {
+      // Get all active products with their supplier info
+      const { data: products, error: productsError } = await supabase
+        .from("products")
+        .select("id, name, cost_price, price, stock_quantity, supplier_id, suppliers(id, name)")
+        .eq("is_active", true);
+
+      if (productsError) throw productsError;
+
+      // Aggregate by supplier
+      const supplierMap = new Map<string, SupplierReport>();
+
+      // First, add suppliers with no products (they exist but have 0 linked products)
+      const { data: allSuppliers } = await supabase
+        .from("suppliers")
+        .select("id, name")
+        .eq("is_active", true);
+
+      allSuppliers?.forEach((s) => {
+        supplierMap.set(s.id, {
+          id: s.id,
+          name: s.name,
+          product_count: 0,
+          total_stock: 0,
+          stock_value_at_cost: 0,
+          stock_value_at_price: 0,
+        });
+      });
+
+      // Then aggregate products
+      products?.forEach((p) => {
+        const sid = p.supplier_id;
+        if (!sid) return; // products without supplier → skip
+
+        const existing = supplierMap.get(sid);
+        if (existing) {
+          existing.product_count += 1;
+          existing.total_stock += p.stock_quantity;
+          existing.stock_value_at_cost += Number(p.cost_price || 0) * p.stock_quantity;
+          existing.stock_value_at_price += Number(p.price) * p.stock_quantity;
+        }
+      });
+
+      // Convert to array, filter out suppliers with 0 products, sort by value
+      return Array.from(supplierMap.values())
+        .filter((s) => s.product_count > 0)
+        .sort((a, b) => b.stock_value_at_cost - a.stock_value_at_cost);
+    },
+    enabled: !!user,
+  });
+
+  // Products without supplier
+  const { data: orphanProducts } = useQuery({
+    queryKey: ["reports-orphan-products", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("id, name, cost_price, price, stock_quantity")
+        .eq("is_active", true)
+        .is("supplier_id", null);
+
+      if (error) throw error;
+
+      const totalValue = data.reduce(
+        (sum, p) => sum + Number(p.cost_price || p.price) * p.stock_quantity,
+        0
+      );
+
+      return { count: data.length, totalValue };
+    },
+    enabled: !!user,
+  });
+
+  // Calculate stats
+  const totalSales = sales?.reduce((sum, sale) => sum + sale.total_amount, 0) || 0;
+  const totalTransactions = sales?.length || 0;
+  const totalExpenses = expenses?.reduce((sum, exp) => sum + exp.amount, 0) || 0;
   const netProfit = totalSales - totalExpenses;
 
   // Payment distribution from RPC
@@ -135,7 +275,23 @@ const Reports = () => {
     });
   })();
 
-  // formatPrice provient maintenant de useCurrency
+  // Supplier chart data
+  const supplierChartData = (supplierReport || []).slice(0, 6).map((s) => ({
+    name: s.name.length > 12 ? s.name.slice(0, 12) + "…" : s.name,
+    "Valeur stock (achat)": s.stock_value_at_cost,
+    "Valeur stock (vente)": s.stock_value_at_price,
+  }));
+
+  const supplierChartConfig = {
+    "Valeur stock (achat)": {
+      label: "Valeur stock (achat)",
+      color: "hsl(var(--primary))",
+    },
+    "Valeur stock (vente)": {
+      label: "Valeur stock (vente)",
+      color: "hsl(var(--success))",
+    },
+  };
 
   const chartConfig = {
     ventes: {
@@ -421,6 +577,130 @@ const Reports = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* ═══════ Supplier Analytics ═══════ */}
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-blue-500/10">
+              <Truck className="h-5 w-5 text-blue-600" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold">Analyse Fournisseurs</h2>
+              <p className="text-sm text-muted-foreground">
+                Valeur du stock par fournisseur et répartition de l'inventaire
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Supplier Stock Value Chart */}
+            <Card className="card-elevated">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4" />
+                  Valeur du stock par fournisseur
+                </CardTitle>
+                <CardDescription>Comparaison prix d'achat vs prix de vente</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {supplierChartData.length > 0 ? (
+                  <ChartContainer config={supplierChartConfig} className="h-[280px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={supplierChartData} layout="vertical">
+                        <XAxis type="number" tickFormatter={(value) => `${value / 1000}k`} />
+                        <YAxis type="category" dataKey="name" width={100} />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Bar dataKey="Valeur stock (achat)" fill="var(--color-Valeur stock (achat))" radius={[0, 4, 4, 0]} />
+                        <Bar dataKey="Valeur stock (vente)" fill="var(--color-Valeur stock (vente))" radius={[0, 4, 4, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </ChartContainer>
+                ) : (
+                  <div className="h-[280px] flex flex-col items-center justify-center text-muted-foreground">
+                    <Truck className="h-10 w-10 mb-3 opacity-50" />
+                    <p>Aucun fournisseur avec produits</p>
+                    <p className="text-sm">Associez des produits à vos fournisseurs</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Supplier Detail Table */}
+            <Card className="card-elevated">
+              <CardHeader>
+                <CardTitle>Détail par fournisseur</CardTitle>
+                <CardDescription>
+                  Produits, stock et valeur par fournisseur
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {supplierReport && supplierReport.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Fournisseur</TableHead>
+                          <TableHead className="text-center">Produits</TableHead>
+                          <TableHead className="text-center">Stock</TableHead>
+                          <TableHead className="text-right">Valeur (achat)</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {supplierReport.map((s) => (
+                          <TableRow key={s.id}>
+                            <TableCell className="font-medium">{s.name}</TableCell>
+                            <TableCell className="text-center">{s.product_count}</TableCell>
+                            <TableCell className="text-center">{s.total_stock}</TableCell>
+                            <TableCell className="text-right font-medium">
+                              {formatPrice(s.stock_value_at_cost)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {/* Total row */}
+                        <TableRow className="font-bold border-t-2">
+                          <TableCell>Total</TableCell>
+                          <TableCell className="text-center">
+                            {supplierReport.reduce((s, r) => s + r.product_count, 0)}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {supplierReport.reduce((s, r) => s + r.total_stock, 0)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {formatPrice(supplierReport.reduce((s, r) => s + r.stock_value_at_cost, 0))}
+                          </TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="py-8 text-center text-muted-foreground">
+                    <Truck className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                    <p>Aucune donnée fournisseur</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Orphan Products Alert */}
+          {orphanProducts && orphanProducts.count > 0 && (
+            <Card className="border-amber-300/50 bg-amber-50/50 dark:bg-amber-950/20">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-amber-700 dark:text-amber-400 flex items-center gap-2">
+                  <Package className="h-4 w-4" />
+                  Produits sans fournisseur
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  <strong>{orphanProducts.count}</strong> produit(s) ne sont associés à aucun fournisseur,
+                  représentant une valeur de stock de <strong>{formatPrice(orphanProducts.totalValue)}</strong>.
+                  Associez-les à un fournisseur pour un meilleur suivi de vos approvisionnements.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
     </DashboardLayout>
   );
