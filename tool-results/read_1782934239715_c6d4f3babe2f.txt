@@ -1,0 +1,1160 @@
+     1→export type Json =
+     2→  | string
+     3→  | number
+     4→  | boolean
+     5→  | null
+     6→  | { [key: string]: Json | undefined }
+     7→  | Json[]
+     8→
+     9→export type Database = {
+    10→  // Allows to automatically instantiate createClient with right options
+    11→  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+    12→  __InternalSupabase: {
+    13→    PostgrestVersion: "14.1"
+    14→  }
+    15→  public: {
+    16→    Tables: {
+    17→      categories: {
+    18→        Row: {
+    19→          color: string | null
+    20→          created_at: string
+    21→          description: string | null
+    22→          icon: string | null
+    23→          id: string
+    24→          is_default: boolean | null
+    25→          name: string
+    26→          organization_id: string | null
+    27→          sort_order: number | null
+    28→          user_id: string
+    29→        }
+    30→        Insert: {
+    31→          color?: string | null
+    32→          created_at?: string
+    33→          description?: string | null
+    34→          icon?: string | null
+    35→          id?: string
+    36→          is_default?: boolean | null
+    37→          name: string
+    38→          organization_id?: string | null
+    39→          sort_order?: number | null
+    40→          user_id: string
+    41→        }
+    42→        Update: {
+    43→          color?: string | null
+    44→          created_at?: string
+    45→          description?: string | null
+    46→          icon?: string | null
+    47→          id?: string
+    48→          is_default?: boolean | null
+    49→          name?: string
+    50→          organization_id?: string | null
+    51→          sort_order?: number | null
+    52→          user_id?: string
+    53→        }
+    54→        Relationships: []
+    55→      }
+    56→      customer_credits: {
+    57→        Row: {
+    58→          amount: number
+    59→          created_at: string
+    60→          customer_id: string
+    61→          description: string | null
+    62→          id: string
+    63→          organization_id: string | null
+    64→          sale_id: string | null
+    65→          type: string
+    66→          user_id: string
+    67→        }
+    68→        Insert: {
+    69→          amount: number
+    70→          created_at?: string
+    71→          customer_id: string
+    72→          description?: string | null
+    73→          id?: string
+    74→          organization_id?: string | null
+    75→          sale_id?: string | null
+    76→          type: string
+    77→          user_id: string
+    78→        }
+    79→        Update: {
+    80→          amount?: number
+    81→          created_at?: string
+    82→          customer_id?: string
+    83→          description?: string | null
+    84→          id?: string
+    85→          organization_id?: string | null
+    86→          sale_id?: string | null
+    87→          type?: string
+    88→          user_id?: string
+    89→        }
+    90→        Relationships: [
+    91→          {
+    92→            foreignKeyName: "customer_credits_customer_id_fkey"
+    93→            columns: ["customer_id"]
+    94→            isOneToOne: false
+    95→            referencedRelation: "customers"
+    96→            referencedColumns: ["id"]
+    97→          },
+    98→          {
+    99→            foreignKeyName: "customer_credits_sale_id_fkey"
+   100→            columns: ["sale_id"]
+   101→            isOneToOne: false
+   102→            referencedRelation: "sales"
+   103→            referencedColumns: ["id"]
+   104→          },
+   105→        ]
+   106→      }
+   107→      customers: {
+   108→        Row: {
+   109→          address: string | null
+   110→          created_at: string
+   111→          email: string | null
+   112→          id: string
+   113→          name: string
+   114→          notes: string | null
+   115→          organization_id: string | null
+   116→          phone: string | null
+   117→          total_credit: number
+   118→          total_purchases: number
+   119→          updated_at: string
+   120→          user_id: string
+   121→        }
+   122→        Insert: {
+   123→          address?: string | null
+   124→          created_at?: string
+   125→          email?: string | null
+   126→          id?: string
+   127→          name: string
+   128→          notes?: string | null
+   129→          organization_id?: string | null
+   130→          phone?: string | null
+   131→          total_credit?: number
+   132→          total_purchases?: number
+   133→          updated_at?: string
+   134→          user_id: string
+   135→        }
+   136→        Update: {
+   137→          address?: string | null
+   138→          created_at?: string
+   139→          email?: string | null
+   140→          id?: string
+   141→          name?: string
+   142→          notes?: string | null
+   143→          organization_id?: string | null
+   144→          phone?: string | null
+   145→          total_credit?: number
+   146→          total_purchases?: number
+   147→          updated_at?: string
+   148→          user_id?: string
+   149→        }
+   150→        Relationships: []
+   151→      }
+   152→      expenses: {
+   153→        Row: {
+   154→          amount: number
+   155→          category: string
+   156→          created_at: string
+   157→          description: string | null
+   158→          expense_date: string
+   159→          id: string
+   160→          organization_id: string | null
+   161→          payment_method: Database["public"]["Enums"]["payment_method"] | null
+   162→          user_id: string
+   163→        }
+   164→        Insert: {
+   165→          amount: number
+   166→          category: string
+   167→          created_at?: string
+   168→          description?: string | null
+   169→          expense_date?: string
+   170→          id?: string
+   171→          organization_id?: string | null
+   172→          payment_method?: Database["public"]["Enums"]["payment_method"] | null
+   173→          user_id: string
+   174→        }
+   175→        Update: {
+   176→          amount?: number
+   177→          category?: string
+   178→          created_at?: string
+   179→          description?: string | null
+   180→          expense_date?: string
+   181→          id?: string
+   182→          organization_id?: string | null
+   183→          payment_method?: Database["public"]["Enums"]["payment_method"] | null
+   184→          user_id?: string
+   185→        }
+   186→        Relationships: []
+   187→      }
+   188→      organizations: {
+   189→        Row: {
+   190→          accent_color: string | null
+   191→          app_name: string | null
+   192→          brand_color: string | null
+   193→          category: Database["public"]["Enums"]["store_category"] | null
+   194→          country: string | null
+   195→          created_at: string
+   196→          currency: string | null
+   197→          default_tax_rate: number
+   198→          font_family: string | null
+   199→          id: string
+   200→          language: string | null
+   201→          logo_url: string | null
+   202→          name: string
+   203→          owner_user_id: string
+   204→          receipt_template: string | null
+   205→          subscription_expires_at: string | null
+   206→          subscription_plan:
+   207→            | Database["public"]["Enums"]["subscription_plan"]
+   208→            | null
+   209→          theme_mode: string | null
+   210→          updated_at: string
+   211→        }
+   212→        Insert: {
+   213→          accent_color?: string | null
+   214→          app_name?: string | null
+   215→          brand_color?: string | null
+   216→          category?: Database["public"]["Enums"]["store_category"] | null
+   217→          country?: string | null
+   218→          created_at?: string
+   219→          currency?: string | null
+   220→          default_tax_rate?: number
+   221→          font_family?: string | null
+   222→          id?: string
+   223→          language?: string | null
+   224→          logo_url?: string | null
+   225→          name: string
+   226→          owner_user_id: string
+   227→          receipt_template?: string | null
+   228→          subscription_expires_at?: string | null
+   229→          subscription_plan?:
+   230→            | Database["public"]["Enums"]["subscription_plan"]
+   231→            | null
+   232→          theme_mode?: string | null
+   233→          updated_at?: string
+   234→        }
+   235→        Update: {
+   236→          accent_color?: string | null
+   237→          app_name?: string | null
+   238→          brand_color?: string | null
+   239→          category?: Database["public"]["Enums"]["store_category"] | null
+   240→          country?: string | null
+   241→          created_at?: string
+   242→          currency?: string | null
+   243→          default_tax_rate?: number
+   244→          font_family?: string | null
+   245→          id?: string
+   246→          language?: string | null
+   247→          logo_url?: string | null
+   248→          name?: string
+   249→          owner_user_id?: string
+   250→          receipt_template?: string | null
+   251→          subscription_expires_at?: string | null
+   252→          subscription_plan?:
+   253→            | Database["public"]["Enums"]["subscription_plan"]
+   254→            | null
+   255→          theme_mode?: string | null
+   256→          updated_at?: string
+   257→        }
+   258→        Relationships: []
+   259→      }
+   260→      password_reset_tokens: {
+   261→        Row: {
+   262→          channel: string
+   263→          created_at: string
+   264→          created_by: string
+   265→          destination: string
+   266→          expires_at: string
+   267→          id: string
+   268→          organization_id: string | null
+   269→          token_hash: string
+   270→          used_at: string | null
+   271→          user_id: string
+   272→        }
+   273→        Insert: {
+   274→          channel: string
+   275→          created_at?: string
+   276→          created_by: string
+   277→          destination: string
+   278→          expires_at: string
+   279→          id?: string
+   280→          organization_id?: string | null
+   281→          token_hash: string
+   282→          used_at?: string | null
+   283→          user_id: string
+   284→        }
+   285→        Update: {
+   286→          channel?: string
+   287→          created_at?: string
+   288→          created_by?: string
+   289→          destination?: string
+   290→          expires_at?: string
+   291→          id?: string
+   292→          organization_id?: string | null
+   293→          token_hash?: string
+   294→          used_at?: string | null
+   295→          user_id?: string
+   296→        }
+   297→        Relationships: []
+   298→      }
+   299→      products: {
+   300→        Row: {
+   301→          barcode: string | null
+   302→          category_id: string | null
+   303→          cost_price: number | null
+   304→          created_at: string
+   305→          expiry_date: string | null
+   306→          id: string
+   307→          image_url: string | null
+   308→          is_active: boolean | null
+   309→          min_stock_alert: number | null
+   310→          name: string
+   311→          organization_id: string | null
+   312→          price: number
+   313→          stock_quantity: number
+   314→          sync_status: Database["public"]["Enums"]["sync_status"] | null
+   315→          tax_rate: number | null
+   316→          unit: string | null
+   317→          updated_at: string
+   318→          user_id: string
+   319→        }
+   320→        Insert: {
+   321→          barcode?: string | null
+   322→          category_id?: string | null
+   323→          cost_price?: number | null
+   324→          created_at?: string
+   325→          expiry_date?: string | null
+   326→          id?: string
+   327→          image_url?: string | null
+   328→          is_active?: boolean | null
+   329→          min_stock_alert?: number | null
+   330→          name: string
+   331→          organization_id?: string | null
+   332→          price?: number
+   333→          stock_quantity?: number
+   334→          sync_status?: Database["public"]["Enums"]["sync_status"] | null
+   335→          tax_rate?: number | null
+   336→          unit?: string | null
+   337→          updated_at?: string
+   338→          user_id: string
+   339→        }
+   340→        Update: {
+   341→          barcode?: string | null
+   342→          category_id?: string | null
+   343→          cost_price?: number | null
+   344→          created_at?: string
+   345→          expiry_date?: string | null
+   346→          id?: string
+   347→          image_url?: string | null
+   348→          is_active?: boolean | null
+   349→          min_stock_alert?: number | null
+   350→          name?: string
+   351→          organization_id?: string | null
+   352→          price?: number
+   353→          stock_quantity?: number
+   354→          sync_status?: Database["public"]["Enums"]["sync_status"] | null
+   355→          tax_rate?: number | null
+   356→          unit?: string | null
+   357→          updated_at?: string
+   358→          user_id?: string
+   359→        }
+   360→        Relationships: [
+   361→          {
+   362→            foreignKeyName: "products_category_id_fkey"
+   363→            columns: ["category_id"]
+   364→            isOneToOne: false
+   365→            referencedRelation: "categories"
+   366→            referencedColumns: ["id"]
+   367→          },
+   368→        ]
+   369→      }
+   370→      profiles: {
+   371→        Row: {
+   372→          address: string | null
+   373→          business_name: string
+   374→          city: string | null
+   375→          country: string | null
+   376→          created_at: string
+   377→          currency: string | null
+   378→          deactivated_at: string | null
+   379→          deactivation_reason: string | null
+   380→          id: string
+   381→          is_active: boolean
+   382→          is_test_account: boolean
+   383→          language: string | null
+   384→          last_login_at: string | null
+   385→          nfc_enabled: boolean | null
+   386→          organization_id: string | null
+   387→          owner_name: string
+   388→          phone: string | null
+   389→          subscription_expires_at: string | null
+   390→          subscription_plan:
+   391→            | Database["public"]["Enums"]["subscription_plan"]
+   392→            | null
+   393→          test_expires_at: string | null
+   394→          theme_mode: string | null
+   395→          updated_at: string
+   396→          user_id: string
+   397→        }
+   398→        Insert: {
+   399→          address?: string | null
+   400→          business_name: string
+   401→          city?: string | null
+   402→          country?: string | null
+   403→          created_at?: string
+   404→          currency?: string | null
+   405→          deactivated_at?: string | null
+   406→          deactivation_reason?: string | null
+   407→          id?: string
+   408→          is_active?: boolean
+   409→          is_test_account?: boolean
+   410→          language?: string | null
+   411→          last_login_at?: string | null
+   412→          nfc_enabled?: boolean | null
+   413→          organization_id?: string | null
+   414→          owner_name: string
+   415→          phone?: string | null
+   416→          subscription_expires_at?: string | null
+   417→          subscription_plan?:
+   418→            | Database["public"]["Enums"]["subscription_plan"]
+   419→            | null
+   420→          test_expires_at?: string | null
+   421→          theme_mode?: string | null
+   422→          updated_at?: string
+   423→          user_id: string
+   424→        }
+   425→        Update: {
+   426→          address?: string | null
+   427→          business_name?: string
+   428→          city?: string | null
+   429→          country?: string | null
+   430→          created_at?: string
+   431→          currency?: string | null
+   432→          deactivated_at?: string | null
+   433→          deactivation_reason?: string | null
+   434→          id?: string
+   435→          is_active?: boolean
+   436→          is_test_account?: boolean
+   437→          language?: string | null
+   438→          last_login_at?: string | null
+   439→          nfc_enabled?: boolean | null
+   440→          organization_id?: string | null
+   441→          owner_name?: string
+   442→          phone?: string | null
+   443→          subscription_expires_at?: string | null
+   444→          subscription_plan?:
+   445→            | Database["public"]["Enums"]["subscription_plan"]
+   446→            | null
+   447→          test_expires_at?: string | null
+   448→          theme_mode?: string | null
+   449→          updated_at?: string
+   450→          user_id?: string
+   451→        }
+   452→        Relationships: []
+   453→      }
+   454→      sale_items: {
+   455→        Row: {
+   456→          created_at: string
+   457→          id: string
+   458→          organization_id: string | null
+   459→          product_id: string | null
+   460→          product_name: string
+   461→          quantity: number
+   462→          sale_id: string
+   463→          total_price: number
+   464→          unit_price: number
+   465→        }
+   466→        Insert: {
+   467→          created_at?: string
+   468→          id?: string
+   469→          organization_id?: string | null
+   470→          product_id?: string | null
+   471→          product_name: string
+   472→          quantity?: number
+   473→          sale_id: string
+   474→          total_price: number
+   475→          unit_price: number
+   476→        }
+   477→        Update: {
+   478→          created_at?: string
+   479→          id?: string
+   480→          organization_id?: string | null
+   481→          product_id?: string | null
+   482→          product_name?: string
+   483→          quantity?: number
+   484→          sale_id?: string
+   485→          total_price?: number
+   486→          unit_price?: number
+   487→        }
+   488→        Relationships: [
+   489→          {
+   490→            foreignKeyName: "sale_items_product_id_fkey"
+   491→            columns: ["product_id"]
+   492→            isOneToOne: false
+   493→            referencedRelation: "products"
+   494→            referencedColumns: ["id"]
+   495→          },
+   496→          {
+   497→            foreignKeyName: "sale_items_sale_id_fkey"
+   498→            columns: ["sale_id"]
+   499→            isOneToOne: false
+   500→            referencedRelation: "sales"
+   501→            referencedColumns: ["id"]
+   502→          },
+   503→        ]
+   504→      }
+   505→      sales: {
+   506→        Row: {
+   507→          amount_paid: number
+   508→          change_amount: number | null
+   509→          created_at: string
+   510→          customer_id: string | null
+   511→          customer_name: string | null
+   512→          customer_phone: string | null
+   513→          discount_amount: number | null
+   514→          id: string
+   515→          notes: string | null
+   516→          organization_id: string | null
+   517→          payment_method: Database["public"]["Enums"]["payment_method"]
+   518→          sale_number: string
+   519→          seller_name: string | null
+   520→          subtotal: number
+   521→          sync_status: Database["public"]["Enums"]["sync_status"] | null
+   522→          tax_amount: number | null
+   523→          total_amount: number
+   524→          user_id: string
+   525→        }
+   526→        Insert: {
+   527→          amount_paid?: number
+   528→          change_amount?: number | null
+   529→          created_at?: string
+   530→          customer_id?: string | null
+   531→          customer_name?: string | null
+   532→          customer_phone?: string | null
+   533→          discount_amount?: number | null
+   534→          id?: string
+   535→          notes?: string | null
+   536→          organization_id?: string | null
+   537→          payment_method?: Database["public"]["Enums"]["payment_method"]
+   538→          sale_number: string
+   539→          seller_name?: string | null
+   540→          subtotal?: number
+   541→          sync_status?: Database["public"]["Enums"]["sync_status"] | null
+   542→          tax_amount?: number | null
+   543→          total_amount?: number
+   544→          user_id: string
+   545→        }
+   546→        Update: {
+   547→          amount_paid?: number
+   548→          change_amount?: number | null
+   549→          created_at?: string
+   550→          customer_id?: string | null
+   551→          customer_name?: string | null
+   552→          customer_phone?: string | null
+   553→          discount_amount?: number | null
+   554→          id?: string
+   555→          notes?: string | null
+   556→          organization_id?: string | null
+   557→          payment_method?: Database["public"]["Enums"]["payment_method"]
+   558→          sale_number?: string
+   559→          seller_name?: string | null
+   560→          subtotal?: number
+   561→          sync_status?: Database["public"]["Enums"]["sync_status"] | null
+   562→          tax_amount?: number | null
+   563→          total_amount?: number
+   564→          user_id?: string
+   565→        }
+   566→        Relationships: [
+   567→          {
+   568→            foreignKeyName: "sales_customer_id_fkey"
+   569→            columns: ["customer_id"]
+   570→            isOneToOne: false
+   571→            referencedRelation: "customers"
+   572→            referencedColumns: ["id"]
+   573→          },
+   574→        ]
+   575→      }
+   576→      stock_movements: {
+   577→        Row: {
+   578→          created_at: string
+   579→          id: string
+   580→          new_quantity: number
+   581→          organization_id: string | null
+   582→          previous_quantity: number
+   583→          product_id: string
+   584→          quantity: number
+   585→          reason: string | null
+   586→          reference_id: string | null
+   587→          type: string
+   588→          user_id: string
+   589→        }
+   590→        Insert: {
+   591→          created_at?: string
+   592→          id?: string
+   593→          new_quantity: number
+   594→          organization_id?: string | null
+   595→          previous_quantity: number
+   596→          product_id: string
+   597→          quantity: number
+   598→          reason?: string | null
+   599→          reference_id?: string | null
+   600→          type: string
+   601→          user_id: string
+   602→        }
+   603→        Update: {
+   604→          created_at?: string
+   605→          id?: string
+   606→          new_quantity?: number
+   607→          organization_id?: string | null
+   608→          previous_quantity?: number
+   609→          product_id?: string
+   610→          quantity?: number
+   611→          reason?: string | null
+   612→          reference_id?: string | null
+   613→          type?: string
+   614→          user_id?: string
+   615→        }
+   616→        Relationships: [
+   617→          {
+   618→            foreignKeyName: "stock_movements_product_id_fkey"
+   619→            columns: ["product_id"]
+   620→            isOneToOne: false
+   621→            referencedRelation: "products"
+   622→            referencedColumns: ["id"]
+   623→          },
+   624→        ]
+   625→      }
+   626→      sync_conflicts: {
+   627→        Row: {
+   628→          acknowledged: boolean
+   629→          acknowledged_at: string | null
+   630→          created_at: string
+   631→          device_id: string | null
+   632→          entity_id: string | null
+   633→          entity_label: string | null
+   634→          entity_type: string
+   635→          error_message: string | null
+   636→          id: string
+   637→          local_data: Json | null
+   638→          remote_data: Json | null
+   639→          resolution_strategy: string
+   640→          resolved_data: Json | null
+   641→          status: string
+   642→          user_id: string
+   643→        }
+   644→        Insert: {
+   645→          acknowledged?: boolean
+   646→          acknowledged_at?: string | null
+   647→          created_at?: string
+   648→          device_id?: string | null
+   649→          entity_id?: string | null
+   650→          entity_label?: string | null
+   651→          entity_type: string
+   652→          error_message?: string | null
+   653→          id?: string
+   654→          local_data?: Json | null
+   655→          remote_data?: Json | null
+   656→          resolution_strategy: string
+   657→          resolved_data?: Json | null
+   658→          status?: string
+   659→          user_id: string
+   660→        }
+   661→        Update: {
+   662→          acknowledged?: boolean
+   663→          acknowledged_at?: string | null
+   664→          created_at?: string
+   665→          device_id?: string | null
+   666→          entity_id?: string | null
+   667→          entity_label?: string | null
+   668→          entity_type?: string
+   669→          error_message?: string | null
+   670→          id?: string
+   671→          local_data?: Json | null
+   672→          remote_data?: Json | null
+   673→          resolution_strategy?: string
+   674→          resolved_data?: Json | null
+   675→          status?: string
+   676→          user_id?: string
+   677→        }
+   678→        Relationships: []
+   679→      }
+   680→      user_audit_log: {
+   681→        Row: {
+   682→          action: string
+   683→          actor_id: string | null
+   684→          actor_name: string | null
+   685→          created_at: string
+   686→          details: Json | null
+   687→          id: string
+   688→          ip_address: string | null
+   689→          target_user_id: string | null
+   690→          target_user_name: string | null
+   691→        }
+   692→        Insert: {
+   693→          action: string
+   694→          actor_id?: string | null
+   695→          actor_name?: string | null
+   696→          created_at?: string
+   697→          details?: Json | null
+   698→          id?: string
+   699→          ip_address?: string | null
+   700→          target_user_id?: string | null
+   701→          target_user_name?: string | null
+   702→        }
+   703→        Update: {
+   704→          action?: string
+   705→          actor_id?: string | null
+   706→          actor_name?: string | null
+   707→          created_at?: string
+   708→          details?: Json | null
+   709→          id?: string
+   710→          ip_address?: string | null
+   711→          target_user_id?: string | null
+   712→          target_user_name?: string | null
+   713→        }
+   714→        Relationships: []
+   715→      }
+   716→      store_settings: {
+   717→        Row: {
+   718→          id: string
+   719→          organization_id: string
+   720→          store_name: string | null
+   721→          logo_url: string | null
+   722→          favicon_url: string | null
+   723→          primary_color: string | null
+   724→          secondary_color: string | null
+   725→          accent_color: string | null
+   726→          success_color: string | null
+   727→          template: string | null
+   728→          sidebar_style: string | null
+   729→          card_style: string | null
+   730→          receipt_footer: string | null
+   731→          receipt_show_logo: boolean | null
+   732→          receipt_show_tax: boolean | null
+   733→          extra_settings: Json | null
+   734→          created_at: string
+   735→          updated_at: string
+   736→        }
+   737→        Insert: {
+   738→          id?: string
+   739→          organization_id: string
+   740→          store_name?: string | null
+   741→          logo_url?: string | null
+   742→          favicon_url?: string | null
+   743→          primary_color?: string | null
+   744→          secondary_color?: string | null
+   745→          accent_color?: string | null
+   746→          success_color?: string | null
+   747→          template?: string | null
+   748→          sidebar_style?: string | null
+   749→          card_style?: string | null
+   750→          receipt_footer?: string | null
+   751→          receipt_show_logo?: boolean | null
+   752→          receipt_show_tax?: boolean | null
+   753→          extra_settings?: Json | null
+   754→          created_at?: string
+   755→          updated_at?: string
+   756→        }
+   757→        Update: {
+   758→          id?: string
+   759→          organization_id?: string
+   760→          store_name?: string | null
+   761→          logo_url?: string | null
+   762→          favicon_url?: string | null
+   763→          primary_color?: string | null
+   764→          secondary_color?: string | null
+   765→          accent_color?: string | null
+   766→          success_color?: string | null
+   767→          template?: string | null
+   768→          sidebar_style?: string | null
+   769→          card_style?: string | null
+   770→          receipt_footer?: string | null
+   771→          receipt_show_logo?: boolean | null
+   772→          receipt_show_tax?: boolean | null
+   773→          extra_settings?: Json | null
+   774→          created_at?: string
+   775→          updated_at?: string
+   776→        }
+   777→        Relationships: [
+   778→          {
+   779→            foreignKeyName: "store_settings_organization_id_fkey"
+   780→            columns: ["organization_id"]
+   781→            isOneToOne: true
+   782→            referencedRelation: "organizations"
+   783→            referencedColumns: ["id"]
+   784→          },
+   785→        ]
+   786→      }
+   787→      user_roles: {
+   788→        Row: {
+   789→          created_at: string
+   790→          id: string
+   791→          role: Database["public"]["Enums"]["app_role"]
+   792→          user_id: string
+   793→        }
+   794→        Insert: {
+   795→          created_at?: string
+   796→          id?: string
+   797→          role: Database["public"]["Enums"]["app_role"]
+   798→          user_id: string
+   799→        }
+   800→        Update: {
+   801→          created_at?: string
+   802→          id?: string
+   803→          role?: Database["public"]["Enums"]["app_role"]
+   804→          user_id?: string
+   805→        }
+   806→        Relationships: []
+   807→      }
+   808→    }
+   809→    Views: {
+   810→      [_ in never]: never
+   811→    }
+   812→    Functions: {
+   813→      admin_exists: { Args: never; Returns: boolean }
+   814→      check_account_status: {
+   815→        Args: never
+   816→        Returns: {
+   817→          is_active: boolean
+   818→          role: string | null
+   819→          organization_id: string | null
+   820→          deactivation_reason: string | null
+   821→        }[]
+   822→      }
+   823→      check_account_status_with_id: {
+   824→        Args: { check_user_id: string }
+   825→        Returns: {
+   826→          is_active: boolean
+   827→          role: string | null
+   828→          organization_id: string | null
+   829→        }[]
+   830→      }
+   831→      generate_sale_number: { Args: never; Returns: string }
+   832→      get_user_organization_id: { Args: never; Returns: string }
+   833→      has_role: {
+   834→        Args: {
+   835→          _role: Database["public"]["Enums"]["app_role"]
+   836→          _user_id: string
+   837→        }
+   838→        Returns: boolean
+   839→      }
+   840→      is_member_of_organization: { Args: { _org_id: string }; Returns: boolean }
+   841→      is_user_active: { Args: { _user_id: string }; Returns: boolean }
+   842→      insert_default_categories: { Args: { p_org_id: string; p_user_id: string }; Returns: undefined }
+   843→      resolve_stock_conflict: {
+   844→        Args: {
+   845→          local_new_qty: number
+   846→          previous_qty: number
+   847→          remote_new_qty: number
+   848→        }
+   849→        Returns: number
+   850→      }
+   851→      touch_last_login: { Args: never; Returns: undefined }
+   852→      create_full_sale: {
+   853→        Args: {
+   854→          p_user_id: string
+   855→          p_organization_id: string | null
+   856→          p_sale_number: string
+   857→          p_subtotal: number
+   858→          p_total_amount: number
+   859→          p_items: {
+   860→            product_id: string
+   861→            product_name: string
+   862→            quantity: number
+   863→            unit_price: number
+   864→            total_price: number
+   865→          }[]
+   866→          p_tax_amount?: number
+   867→          p_payment_method?: string
+   868→          p_amount_paid?: number
+   869→          p_change_amount?: number
+   870→          p_customer_name?: string | null
+   871→          p_customer_phone?: string | null
+   872→          p_seller_name?: string | null
+   873→        }
+   874→        Returns: string
+   875→      }
+   876→      adjust_product_stock: {
+   877→        Args: {
+   878→          p_product_id: string
+   879→          p_type: string
+   880→          p_quantity: number
+   881→          p_reason?: string | null
+   882→          p_user_id?: string | null
+   883→          p_organization_id?: string | null
+   884→        }
+   885→        Returns: {
+   886→          new_quantity: number
+   887→          previous_quantity: number
+   888→        }[]
+   889→      }
+   890→      increment_customer_credit: {
+   891→        Args: {
+   892→          p_customer_id: string
+   893→          p_amount: number
+   894→        }
+   895→        Returns: undefined
+   896→      }
+   897→      process_credit_payment: {
+   898→        Args: {
+   899→          p_user_id: string
+   900→          p_organization_id: string | null
+   901→          p_customer_id: string
+   902→          p_amount: number
+   903→          p_description?: string
+   904→        }
+   905→        Returns: undefined
+   906→      }
+   907→      register_user: {
+   908→        Args: {
+   909→          p_user_id: string
+   910→          p_business_name: string
+   911→          p_owner_name: string
+   912→          p_phone?: string | null
+   913→          p_role?: string
+   914→          p_organization_id?: string | null
+   915→        }
+   916→        Returns: undefined
+   917→      }
+   918→      batch_update_stock: {
+   919→        Args: {
+   920→          p_sale_id: string
+   921→          p_items: {
+   922→            product_id: string
+   923→            quantity: number
+   924→            previous_quantity: number
+   925→          }[]
+   926→        }
+   927→        Returns: undefined
+   928→      }
+   929→      decrement_stock: {
+   930→        Args: {
+   931→          p_product_id: string
+   932→          p_quantity: number
+   933→        }
+   934→        Returns: undefined
+   935→      }
+   936→      get_dashboard_stats: {
+   937→        Args: {
+   938→          p_organization_id?: string | null
+   939→          p_day_start?: string | null
+   940→          p_day_end?: string | null
+   941→          p_month_start?: string | null
+   942→          p_month_end?: string | null
+   943→        }
+   944→        Returns: {
+   945→          todaySales: number
+   946→          todayTransactions: number
+   947→          monthSales: number
+   948→          monthCreditCount: number
+   949→          monthExpenses: number
+   950→          totalProducts: number
+   951→          lowStockProducts: number
+   952→          totalCredits: number
+   953→          creditsCount: number
+   954→        }[]
+   955→      }
+   956→      get_top_products: {
+   957→        Args: {
+   958→          p_organization_id?: string | null
+   959→          p_since?: string | null
+   960→          p_limit?: number
+   961→        }
+   962→        Returns: {
+   963→          product_name: string
+   964→          total_quantity: number
+   965→          total_revenue: number
+   966→        }[]
+   967→      }
+   968→    }
+   969→    Enums: {
+   970→      app_role: "super_admin" | "admin" | "manager" | "vendeur" | "comptable"
+   971→      payment_method:
+   972→        | "cash"
+   973→        | "wave"
+   974→        | "orange_money"
+   975→        | "mtn_money"
+   976→        | "moov_money"
+   977→        | "mpesa"
+   978→        | "card"
+   979→        | "credit"
+   980→      subscription_plan: "starter" | "croissance" | "enterprise"
+   981→      store_category:
+   982→        | "epicerie"
+   983→        | "boutique_vetements"
+   984→        | "boutique_chaussures"
+   985→        | "supermarche"
+   986→        | "restaurant"
+   987→        | "boulangerie_patisserie"
+   988→        | "pharmacie"
+   989→        | "cosmetiques_beaute"
+   990→        | "electronique"
+   991→        | "quincaillerie"
+   992→        | "materiel_construction"
+   993→        | "alimentation_generale"
+   994→        | "station_service"
+   995→        | "point_vente_telecom"
+   996→        | "salon_coiffure"
+   997→        | "autre"
+   998→      sync_status: "synced" | "pending" | "conflict"
+   999→    }
+  1000→    CompositeTypes: {
+  1001→      [_ in never]: never
+  1002→    }
+  1003→  }
+  1004→}
+  1005→
+  1006→type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+  1007→
+  1008→type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+  1009→
+  1010→export type Tables<
+  1011→  DefaultSchemaTableNameOrOptions extends
+  1012→    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+  1013→    | { schema: keyof DatabaseWithoutInternals },
+  1014→  TableName extends DefaultSchemaTableNameOrOptions extends {
+  1015→    schema: keyof DatabaseWithoutInternals
+  1016→  }
+  1017→    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+  1018→        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+  1019→    : never = never,
+  1020→> = DefaultSchemaTableNameOrOptions extends {
+  1021→  schema: keyof DatabaseWithoutInternals
+  1022→}
+  1023→  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+  1024→      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+  1025→      Row: infer R
+  1026→    }
+  1027→    ? R
+  1028→    : never
+  1029→  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+  1030→        DefaultSchema["Views"])
+  1031→    ? (DefaultSchema["Tables"] &
+  1032→        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+  1033→        Row: infer R
+  1034→      }
+  1035→      ? R
+  1036→      : never
+  1037→    : never
+  1038→
+  1039→export type TablesInsert<
+  1040→  DefaultSchemaTableNameOrOptions extends
+  1041→    | keyof DefaultSchema["Tables"]
+  1042→    | { schema: keyof DatabaseWithoutInternals },
+  1043→  TableName extends DefaultSchemaTableNameOrOptions extends {
+  1044→    schema: keyof DatabaseWithoutInternals
+  1045→  }
+  1046→    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+  1047→    : never = never,
+  1048→> = DefaultSchemaTableNameOrOptions extends {
+  1049→  schema: keyof DatabaseWithoutInternals
+  1050→}
+  1051→  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+  1052→      Insert: infer I
+  1053→    }
+  1054→    ? I
+  1055→    : never
+  1056→  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+  1057→    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+  1058→        Insert: infer I
+  1059→      }
+  1060→      ? I
+  1061→      : never
+  1062→    : never
+  1063→
+  1064→export type TablesUpdate<
+  1065→  DefaultSchemaTableNameOrOptions extends
+  1066→    | keyof DefaultSchema["Tables"]
+  1067→    | { schema: keyof DatabaseWithoutInternals },
+  1068→  TableName extends DefaultSchemaTableNameOrOptions extends {
+  1069→    schema: keyof DatabaseWithoutInternals
+  1070→  }
+  1071→    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+  1072→    : never = never,
+  1073→> = DefaultSchemaTableNameOrOptions extends {
+  1074→  schema: keyof DatabaseWithoutInternals
+  1075→}
+  1076→  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+  1077→      Update: infer U
+  1078→    }
+  1079→    ? U
+  1080→    : never
+  1081→  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+  1082→    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+  1083→        Update: infer U
+  1084→      }
+  1085→      ? U
+  1086→      : never
+  1087→    : never
+  1088→
+  1089→export type Enums<
+  1090→  DefaultSchemaEnumNameOrOptions extends
+  1091→    | keyof DefaultSchema["Enums"]
+  1092→    | { schema: keyof DatabaseWithoutInternals },
+  1093→  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  1094→    schema: keyof DatabaseWithoutInternals
+  1095→  }
+  1096→    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+  1097→    : never = never,
+  1098→> = DefaultSchemaEnumNameOrOptions extends {
+  1099→  schema: keyof DatabaseWithoutInternals
+  1100→}
+  1101→  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  1102→  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+  1103→    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+  1104→    : never
+  1105→
+  1106→export type CompositeTypes<
+  1107→  PublicCompositeTypeNameOrOptions extends
+  1108→    | keyof DefaultSchema["CompositeTypes"]
+  1109→    | { schema: keyof DatabaseWithoutInternals },
+  1110→  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  1111→    schema: keyof DatabaseWithoutInternals
+  1112→  }
+  1113→    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+  1114→    : never = never,
+  1115→> = PublicCompositeTypeNameOrOptions extends {
+  1116→  schema: keyof DatabaseWithoutInternals
+  1117→}
+  1118→  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  1119→  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+  1120→    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+  1121→    : never
+  1122→
+  1123→export const Constants = {
+  1124→  public: {
+  1125→    Enums: {
+  1126→      app_role: ["super_admin", "admin", "manager", "vendeur", "comptable"],
+  1127→      payment_method: [
+  1128→        "cash",
+  1129→        "wave",
+  1130→        "orange_money",
+  1131→        "mtn_money",
+  1132→        "moov_money",
+  1133→        "mpesa",
+  1134→        "card",
+  1135→        "credit",
+  1136→      ],
+  1137→      subscription_plan: ["starter", "croissance", "enterprise"],
+  1138→      store_category: [
+  1139→        "epicerie",
+  1140→        "boutique_vetements",
+  1141→        "boutique_chaussures",
+  1142→        "supermarche",
+  1143→        "restaurant",
+  1144→        "boulangerie_patisserie",
+  1145→        "pharmacie",
+  1146→        "cosmetiques_beaute",
+  1147→        "electronique",
+  1148→        "quincaillerie",
+  1149→        "materiel_construction",
+  1150→        "alimentation_generale",
+  1151→        "station_service",
+  1152→        "point_vente_telecom",
+  1153→        "salon_coiffure",
+  1154→        "autre",
+  1155→      ],
+  1156→      sync_status: ["synced", "pending", "conflict"],
+  1157→    },
+  1158→  },
+  1159→} as const
+  1160→
