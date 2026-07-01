@@ -57,8 +57,6 @@ import { Supplier, SupplierUpdateParams } from "@/types";
 import { reportError } from "@/lib/sentry";
 import { FeatureGate } from "@/components/saas/PlanLimitGuard";
 import { Lock } from "lucide-react";
-import { FeatureGate } from "@/components/saas/PlanLimitGuard";
-import { Lock } from "lucide-react";
 
 const Suppliers = () => {
   const { user, profile, userRole } = useAuth();

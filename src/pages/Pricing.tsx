@@ -5,7 +5,7 @@
  * Accessible without authentication (public route).
  */
 
-import { usePlans } from "@/hooks/useSubscription";
+import { usePlans, useSubscription } from "@/hooks/useSubscription";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,7 @@ const FEATURE_LABELS: Record<string, string> = {
 export default function Pricing() {
   const { data: plans, isLoading } = usePlans();
   const { user } = useAuth();
+  const { data: subscription } = useSubscription();
   const navigate = useNavigate();
 
   if (isLoading) {
@@ -71,7 +72,7 @@ export default function Pricing() {
               key={plan.id}
               plan={plan}
               highlight={PLAN_HIGHLIGHTS[plan.id] || ""}
-              isCurrent={false}
+              isCurrent={!!subscription && subscription.plan_id === plan.id}
               onSelect={() => {
                 if (user) {
                   navigate("/dashboard/billing");
