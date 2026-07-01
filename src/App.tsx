@@ -2,7 +2,7 @@ import { useEffect, lazy, Suspense, Component, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, QueryCache, MutationCache, QueryErrorResetBoundary } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { SentryErrorBoundary, reportError } from "@/lib/sentry";
 import { ADMIN_ROLES, INVENTORY_ROLES, FINANCIAL_ROLES, POS_ROLES, STORE_ROLES, MANAGEMENT_ROLES } from "@/types";
@@ -90,12 +90,43 @@ class PageErrorBoundary extends Component<{ children: ReactNode }, { hasError: b
   }
 }
 
+/** Smart retry: more retries for network errors, none for 4xx client errors */
+function smartRetry(failureCount: number, error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+
+  // Never retry client errors (4xx) — the request itself is invalid
+  if (/4[0-9]{2}|PGRST|JWT|auth/i.test(message)) return false;
+
+  // Retry up to 3 times for network/server errors
+  return failureCount < 3;
+}
+
+/** Toast deduplication — prevents flooding the same error */
+const recentErrors = new Map<string, number>();
+const ERROR_DEDUP_MS = 5000; // 5 seconds
+
+function shouldShowError(message: string): boolean {
+  const now = Date.now();
+  const lastShown = recentErrors.get(message);
+  if (lastShown && now - lastShown < ERROR_DEDUP_MS) return false;
+  recentErrors.set(message, now);
+
+  // Cleanup old entries every 100 errors to prevent memory leak
+  if (recentErrors.size > 100) {
+    for (const [key, timestamp] of recentErrors) {
+      if (now - timestamp > ERROR_DEDUP_MS) recentErrors.delete(key);
+    }
+  }
+  return true;
+}
+
 const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error: unknown) => {
       const message = error instanceof Error ? error.message : String(error);
       // Suppress noise from offline/background requests — only when actually offline
       if (!navigator.onLine && (message.includes('Failed to fetch') || message.includes('NetworkError'))) return;
+      if (!shouldShowError(message)) return;
       sonnerToast.error('Erreur de chargement', {
         description: message.length > 120 ? message.slice(0, 120) + '…' : message,
         duration: 4000,
@@ -105,6 +136,7 @@ const queryClient = new QueryClient({
   mutationCache: new MutationCache({
     onError: (error: unknown) => {
       const message = error instanceof Error ? error.message : String(error);
+      if (!shouldShowError(message)) return;
       sonnerToast.error('Erreur', {
         description: message.length > 120 ? message.slice(0, 120) + '…' : message,
         duration: 5000,
@@ -114,15 +146,12 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 5 * 60 * 1000, // 5 minutes — reduces redundant network requests
-      retry: 1,
-      onError: (error: unknown) => {
-        const message = error instanceof Error ? error.message : String(error);
-        // Suppress noise from offline/background requests
-        if (message.includes('Failed to fetch') || message.includes('NetworkError')) return;
-        sonnerToast.error('Erreur de chargement', {
-          description: message.length > 120 ? message.slice(0, 120) + '…' : message,
-          duration: 4000,
-        });
+      retry: smartRetry,
+      refetchOnWindowFocus: (query) => {
+        // Don't refetch on focus if we're offline
+        if (!navigator.onLine) return false;
+        // Only refetch queries that have failed or are stale
+        return query.state.status === 'error' || query.isStale();
       },
     },
     mutations: {
@@ -150,6 +179,7 @@ const App = () => {
   }, []);
   return (
   <QueryClientProvider client={queryClient}>
+    <QueryErrorResetBoundary>
     <SentryErrorBoundary fallback={<ErrorFallback />}>
     <AuthProvider>
     <OfflineProvider>
@@ -306,6 +336,7 @@ const App = () => {
     </OfflineProvider>
     </AuthProvider>
     </SentryErrorBoundary>
+    </QueryErrorResetBoundary>
   </QueryClientProvider>
   );
 };

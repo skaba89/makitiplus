@@ -24,6 +24,7 @@ const ProductCard = memo(({
     role="button"
     tabIndex={product.stock_quantity > 0 ? 0 : -1}
     aria-label={`${product.name} — ${formattedPrice}${product.stock_quantity === 0 ? ' — Rupture' : ''}`}
+    data-testid={`product-card-${product.id}`}
     className={`card-elevated cursor-pointer hover:shadow-medium transition-all active:scale-95 overflow-hidden ${product.stock_quantity === 0 ? 'opacity-50 pointer-events-none' : ''}`}
     onClick={() => product.stock_quantity > 0 && onAddToCart(product)}
     onKeyDown={(e) => {
@@ -91,6 +92,7 @@ export const POSProductGrid = memo(({ products, onAddToCart, hasMore, isLoadingM
             variant="outline"
             onClick={onLoadMore}
             disabled={isLoadingMore}
+            data-testid="load-more-products"
           >
             {isLoadingMore ? (
               <>

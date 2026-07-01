@@ -47,7 +47,7 @@ export const POSCart = memo(({
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
-    <Card className="h-full flex flex-col card-elevated w-full">
+    <Card className="h-full flex flex-col card-elevated w-full" data-testid="pos-cart">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
@@ -77,7 +77,7 @@ export const POSCart = memo(({
         {items.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center py-8">
             <ShoppingCart className="h-12 w-12 text-muted-foreground/50 mb-4" />
-            <p className="text-muted-foreground">Panier vide</p>
+            <p className="text-muted-foreground" data-testid="cart-empty">Panier vide</p>
             <p className="text-sm text-muted-foreground">
               Cliquez sur un produit pour l'ajouter
             </p>
@@ -146,13 +146,14 @@ export const POSCart = memo(({
         <Separator />
         <div className="w-full flex items-center justify-between text-lg font-bold">
           <span>Total</span>
-          <span className="text-primary">{formatPrice(total)}</span>
+          <span className="text-primary" data-testid="cart-total">{formatPrice(total)}</span>
         </div>
         <Button
           className="w-full"
           size="lg"
           onClick={onCheckout}
           disabled={items.length === 0}
+          data-testid="checkout-btn"
         >
           Payer {formatPrice(total)}
         </Button>

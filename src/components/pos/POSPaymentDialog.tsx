@@ -104,7 +104,7 @@ export const POSPaymentDialog = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto" aria-describedby={undefined}>
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto" aria-describedby={undefined} data-testid="payment-dialog">
         <DialogHeader>
           <DialogTitle>Finaliser la vente</DialogTitle>
         </DialogHeader>
@@ -255,6 +255,7 @@ export const POSPaymentDialog = ({
               !canConfirm ||
               (paymentMethod === "credit" && !customerName.trim())
             }
+            data-testid="confirm-sale-btn"
           >
             {isLoading ? (
               <>
