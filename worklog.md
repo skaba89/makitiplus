@@ -112,3 +112,29 @@ Stage Summary:
 - CI pipeline established (P1)
 - Offline queue secured against cross-org data leaks
 - Build passes cleanly, all changes pushed to remote
+
+---
+Task ID: 4
+Agent: main
+Task: P0 Security Fix — Remove client-provided identity params from all SECURITY DEFINER RPCs
+
+Work Log:
+- Created migration 20260702090000_p0_security_remove_client_identity_params.sql
+- Fixed 16 SECURITY DEFINER RPCs that accepted client-provided p_user_id or p_organization_id:
+  - WRITE RPCs: create_full_sale, process_credit_payment, adjust_product_stock — removed p_user_id and p_organization_id, now use auth.uid() + get_user_organization_id()
+  - register_user — replaced p_user_id with auth.uid(), added admin verification for p_organization_id
+  - increment_customer_credit — added org verification via get_user_organization_id()
+  - READ RPCs: get_customer_stats, get_expense_stats, get_categories, get_product_stats, get_reports_stats, get_low_stock_products, get_next_category_sort_order, get_supplier_stats, get_supplier_with_products, get_dashboard_stats, get_top_products — all now derive org from auth session
+  - get_dashboard_stats: also eliminated dynamic SQL (format %L) pattern that was risky
+- Fixed ProtectedRoute: blocks ALL access when userRole===null (not just routes with allowedRoles)
+  - Added retry button with refreshUserData function
+  - Added refreshUserData to AuthContext interface and implementation
+- Updated 12 TypeScript client files to match new RPC signatures
+- Updated 4 test files
+- TypeScript compiles with zero errors, Vite build succeeds
+- All changes committed and pushed to GitHub
+
+Stage Summary:
+- All P0 security vulnerabilities fixed: no SECURITY DEFINER RPC accepts client-provided identity params
+- ProtectedRoute now blocks access when session is incomplete
+- Build passes, pushed to git
