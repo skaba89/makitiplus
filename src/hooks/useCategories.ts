@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Database } from "@/integrations/supabase/types";
+import { CategoryRpcRow } from "@/types";
 
 type Category = Database["public"]["Tables"]["categories"]["Row"] & {
   products?: { count: number }[];
@@ -32,16 +33,7 @@ export function useCategories() {
         });
         if (!error && data) {
           // Map RPC result to match Category type
-          return (data as Array<{
-            id: string;
-            name: string;
-            icon: string | null;
-            color: string | null;
-            description: string | null;
-            sort_order: number | null;
-            is_default: boolean | null;
-            product_count: number;
-          }>).map((c) => ({
+          return (data as CategoryRpcRow[]).map((c) => ({
             ...c,
             icon: c.icon || "Package",
             color: c.color || "#6366F1",

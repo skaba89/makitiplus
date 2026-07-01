@@ -51,7 +51,7 @@ import { CreditPaymentDialog } from "@/components/customers/CreditPaymentDialog"
 import { exportCustomersToCSV } from "@/utils/exportUtils";
 import { fetchAllRows } from "@/lib/batchedFetch";
 import { CustomersPageSkeleton } from "@/components/skeletons/PageSkeletons";
-import { Customer, CustomerUpdateParams } from "@/types";
+import { Customer, CustomerUpdateParams, CustomerStatsRpc } from "@/types";
 
 const PAGE_SIZE = 20;
 
@@ -90,7 +90,7 @@ const Customers = () => {
   });
 
   // Stats via RPC — agrégation côté serveur (remplace pageSize:1000 + reduce client)
-  const { data: customerStats } = useQuery({
+  const { data: customerStats } = useQuery<CustomerStatsRpc>({
     queryKey: ["customers-stats", user?.id, profile?.organization_id],
     queryFn: async () => {
       if (!profile?.organization_id) {
@@ -100,10 +100,11 @@ const Customers = () => {
         p_organization_id: profile.organization_id,
       });
       if (error) throw error;
+      const typed = data as unknown as CustomerStatsRpc;
       return {
-        totalCustomers: data?.totalCustomers ?? 0,
-        totalCredit: data?.totalCredit ?? 0,
-        customersWithCredit: data?.customersWithCredit ?? 0,
+        totalCustomers: typed.totalCustomers ?? 0,
+        totalCredit: typed.totalCredit ?? 0,
+        customersWithCredit: typed.customersWithCredit ?? 0,
       };
     },
     enabled: !!user && !!profile?.organization_id,

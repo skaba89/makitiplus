@@ -87,6 +87,46 @@ export interface AuditLogEntry {
   created_at: string;
 }
 
+// ─── RPC return types (Supabase RPCs are not in generated types) ────────────
+
+/** Return type of the `get_product_stats` RPC. */
+export interface ProductStatsRpc {
+  totalProducts: number;
+  lowStockCount: number;
+  outOfStockCount: number;
+  categoryCounts: Record<string, number>;
+}
+
+/** Return type of a single row from the `get_categories` RPC. */
+export interface CategoryRpcRow {
+  id: string;
+  name: string;
+  icon: string | null;
+  color: string | null;
+  description: string | null;
+  sort_order: number | null;
+  is_default: boolean | null;
+  product_count: number;
+}
+
+/** Return type of the `get_customer_stats` RPC. */
+export interface CustomerStatsRpc {
+  totalCustomers: number;
+  totalCredit: number;
+  customersWithCredit: number;
+}
+
+/** Return type of the `get_expense_stats` RPC. */
+export interface ExpenseStatsRpc {
+  monthTotal: number;
+  monthCount: number;
+}
+
+/** Return type of the `adjust_product_stock` RPC (single row). */
+export interface AdjustStockRpcRow {
+  new_quantity: number;
+}
+
 // ─── Customer update mutation params ─────────────────────────────────────────
 
 /** Params for the customer update mutation (id + partial fields). */

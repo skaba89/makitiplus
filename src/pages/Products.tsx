@@ -35,7 +35,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import { useCategories } from "@/hooks/useCategories";
 import { fetchAllRows } from "@/lib/batchedFetch";
-import { ProductWithCategory } from "@/types";
+import { ProductWithCategory, ProductStatsRpc, AdjustStockRpcRow } from "@/types";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
 type ProductInsert = Database["public"]["Tables"]["products"]["Insert"];
@@ -100,21 +100,22 @@ const Products = () => {
 
   // ── Product stats via RPC — remplace fetchAllRows qui chargeait TOUS les produits ──
   // L'agrégation (COUNT, FILTER) se fait côté serveur, réduisant drastiquement le transfert.
-  const { data: productStats } = useQuery({
+  const { data: productStats } = useQuery<ProductStatsRpc>({
     queryKey: ["products-stats", user?.id, profile?.organization_id],
     queryFn: async () => {
       if (!profile?.organization_id) {
-        return { totalProducts: 0, lowStockCount: 0, outOfStockCount: 0, categoryCounts: {} as Record<string, number> };
+        return { totalProducts: 0, lowStockCount: 0, outOfStockCount: 0, categoryCounts: {} };
       }
       const { data, error } = await supabase.rpc("get_product_stats", {
         p_organization_id: profile.organization_id,
       });
       if (error) throw error;
+      const typed = data as unknown as ProductStatsRpc;
       return {
-        totalProducts: data?.totalProducts ?? 0,
-        lowStockCount: data?.lowStockCount ?? 0,
-        outOfStockCount: data?.outOfStockCount ?? 0,
-        categoryCounts: data?.categoryCounts ?? {},
+        totalProducts: typed.totalProducts ?? 0,
+        lowStockCount: typed.lowStockCount ?? 0,
+        outOfStockCount: typed.outOfStockCount ?? 0,
+        categoryCounts: typed.categoryCounts ?? {},
       };
     },
     enabled: !!user && !!profile?.organization_id,
@@ -250,7 +251,8 @@ const Products = () => {
 
       if (rpcError) throw rpcError;
 
-      return { newQuantity: result?.[0]?.new_quantity ?? data.quantity };
+      const typed = result as unknown as AdjustStockRpcRow[];
+      return { newQuantity: typed?.[0]?.new_quantity ?? data.quantity };
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["products"] });

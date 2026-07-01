@@ -53,6 +53,7 @@ import { Plus, Trash2, Pencil, Wallet, Receipt, Calendar, Loader2, Home, Zap, Dr
 import { format } from "date-fns";
 import { formatDate } from "@/lib/utils";
 import { Database } from "@/integrations/supabase/types";
+import { ExpenseStatsRpc } from "@/types";
 import { useCurrency } from "@/hooks/useCurrency";
 import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
  
@@ -113,7 +114,7 @@ const Expenses = () => {
   });
 
   // Stats via RPC — agrégation côté serveur (remplace pageSize:1000 + reduce client)
-  const { data: expenseStats } = useQuery({
+  const { data: expenseStats } = useQuery<ExpenseStatsRpc>({
     queryKey: ["expenses-stats", user?.id, profile?.organization_id],
     queryFn: async () => {
       if (!profile?.organization_id) {
@@ -123,9 +124,10 @@ const Expenses = () => {
         p_organization_id: profile.organization_id,
       });
       if (error) throw error;
+      const typed = data as unknown as ExpenseStatsRpc;
       return {
-        monthTotal: data?.monthTotal ?? 0,
-        monthCount: data?.monthCount ?? 0,
+        monthTotal: typed.monthTotal ?? 0,
+        monthCount: typed.monthCount ?? 0,
       };
     },
     enabled: !!user && !!profile?.organization_id,
