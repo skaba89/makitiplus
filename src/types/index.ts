@@ -18,6 +18,12 @@ export type Product = Database["public"]["Tables"]["products"]["Row"];
 /** Full profile row from the `profiles` table. */
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 
+/** Full supplier row from the `suppliers` table. */
+export type Supplier = Database["public"]["Tables"]["suppliers"]["Row"];
+
+/** Full supplier_products row from the `supplier_products` table. */
+export type SupplierProduct = Database["public"]["Tables"]["supplier_products"]["Row"];
+
 // ─── Product with joined category ────────────────────────────────────────────
 
 /** Product row with the `categories` relation joined (select: "*, categories(name, color, icon)"). */
@@ -125,6 +131,28 @@ export interface ExpenseStatsRpc {
 /** Return type of the `adjust_product_stock` RPC (single row). */
 export interface AdjustStockRpcRow {
   new_quantity: number;
+}
+
+/** Return type of the `get_supplier_stats` RPC. */
+export interface SupplierStatsRpc {
+  totalSuppliers: number;
+  activeSuppliers: number;
+  totalProducts: number;
+  totalSupplyValue: number;
+}
+
+/** A product row from the `get_supplier_with_products` RPC. */
+export interface SupplierProductRpcRow {
+  id: string;
+  product_id: string;
+  product_name: string;
+  product_barcode: string | null;
+  product_unit: string | null;
+  supply_price: number | null;
+  min_quantity: number;
+  current_stock: number;
+  notes: string | null;
+  is_active: boolean;
 }
 
 // ─── Customer update mutation params ─────────────────────────────────────────

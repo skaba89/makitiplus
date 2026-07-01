@@ -30,6 +30,7 @@ const SyncConflicts = lazy(() => import("./pages/SyncConflicts"));
 const Products = lazy(() => import("./pages/Products"));
 const Expenses = lazy(() => import("./pages/Expenses"));
 const Customers = lazy(() => import("./pages/Customers"));
+const Suppliers = lazy(() => import("./pages/Suppliers"));
 
 /** Minimal loading spinner for lazy-loaded routes */
 const PageLoader = () => (
@@ -215,6 +216,18 @@ const App = () => {
                   <PageErrorBoundary>
                     <Suspense fallback={<PageLoader />}>
                       <Customers />
+                    </Suspense>
+                  </PageErrorBoundary>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/suppliers"
+              element={
+                <ProtectedRoute allowedRoles={MANAGEMENT_ROLES}>
+                  <PageErrorBoundary>
+                    <Suspense fallback={<PageLoader />}>
+                      <Suppliers />
                     </Suspense>
                   </PageErrorBoundary>
                 </ProtectedRoute>

@@ -1,5 +1,5 @@
 /**
- * Unit tests for the useProductStats hook.
+ * Unit tests for the useSupplierStats hook.
  * Verifies RPC data mapping, null defaults, and disabled state.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -17,7 +17,7 @@ vi.mock("@/integrations/supabase/client", () => ({
   getSupabaseClient: vi.fn(),
 }));
 
-// Mock auth context — default: authenticated with org
+// Mock auth context
 const mockAuth = {
   user: { id: "test-user-id" },
   profile: { organization_id: "test-org-id" },
@@ -26,7 +26,7 @@ vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => mockAuth,
 }));
 
-import { useProductStats } from "@/hooks/useProductStats";
+import { useSupplierStats } from "@/hooks/useSupplierStats";
 
 function createWrapper() {
   const qc = new QueryClient({
@@ -36,10 +36,9 @@ function createWrapper() {
     createElement(QueryClientProvider, { client: qc }, children);
 }
 
-describe("useProductStats", () => {
+describe("useSupplierStats", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Reset auth mock to default
     mockAuth.user = { id: "test-user-id" };
     mockAuth.profile = { organization_id: "test-org-id" };
   });
@@ -47,53 +46,51 @@ describe("useProductStats", () => {
   it("maps RPC result with null defaults", async () => {
     mockRpc.mockResolvedValue({
       data: {
-        totalProducts: 42,
-        lowStockCount: null,
-        outOfStockCount: 3,
-        categoryCounts: null,
+        totalSuppliers: 15,
+        activeSuppliers: null,
+        totalProducts: 48,
+        totalSupplyValue: null,
       },
       error: null,
     });
 
-    const { result } = renderHook(() => useProductStats(), {
+    const { result } = renderHook(() => useSupplierStats(), {
       wrapper: createWrapper(),
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     const stats = result.current.data!;
-    expect(stats.totalProducts).toBe(42);
-    expect(stats.lowStockCount).toBe(0); // null → 0
-    expect(stats.outOfStockCount).toBe(3);
-    expect(stats.categoryCounts).toEqual({}); // null → {}
+    expect(stats.totalSuppliers).toBe(15);
+    expect(stats.activeSuppliers).toBe(0); // null → 0
+    expect(stats.totalProducts).toBe(48);
+    expect(stats.totalSupplyValue).toBe(0); // null → 0
   });
 
   it("passes organization_id to RPC", async () => {
     mockRpc.mockResolvedValue({
-      data: { totalProducts: 10, lowStockCount: 2, outOfStockCount: 1, categoryCounts: {} },
+      data: { totalSuppliers: 5, activeSuppliers: 4, totalProducts: 20, totalSupplyValue: 1500000 },
       error: null,
     });
 
-    const { result } = renderHook(() => useProductStats(), {
+    const { result } = renderHook(() => useSupplierStats(), {
       wrapper: createWrapper(),
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    expect(mockRpc).toHaveBeenCalledWith("get_product_stats", {
+    expect(mockRpc).toHaveBeenCalledWith("get_supplier_stats", {
       p_organization_id: "test-org-id",
     });
   });
 
-  it("returns zeros when no organization", async () => {
+  it("does not call RPC when no organization", async () => {
     mockAuth.profile = null;
 
-    const { result } = renderHook(() => useProductStats(), {
+    const { result } = renderHook(() => useSupplierStats(), {
       wrapper: createWrapper(),
     });
 
-    // When no org, the query is disabled and data stays undefined.
-    // The hook's queryFn returns zeros, but it won't run because enabled = false.
     expect(result.current.data).toBeUndefined();
     expect(mockRpc).not.toHaveBeenCalled();
   });
@@ -101,34 +98,32 @@ describe("useProductStats", () => {
   it("propagates RPC errors", async () => {
     mockRpc.mockResolvedValue({
       data: null,
-      error: { message: "RPC not found", code: "42883" },
+      error: { message: "function not found" },
     });
 
-    const { result } = renderHook(() => useProductStats(), {
+    const { result } = renderHook(() => useSupplierStats(), {
       wrapper: createWrapper(),
     });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(result.current.error).toBeDefined();
   });
 
-  it("preserves categoryCounts object from RPC", async () => {
-    const categoryCounts = { Boissons: 12, Alimentation: 8 };
+  it("handles zero values correctly (not confused with null)", async () => {
     mockRpc.mockResolvedValue({
-      data: {
-        totalProducts: 20,
-        lowStockCount: 3,
-        outOfStockCount: 1,
-        categoryCounts,
-      },
+      data: { totalSuppliers: 0, activeSuppliers: 0, totalProducts: 0, totalSupplyValue: 0 },
       error: null,
     });
 
-    const { result } = renderHook(() => useProductStats(), {
+    const { result } = renderHook(() => useSupplierStats(), {
       wrapper: createWrapper(),
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data!.categoryCounts).toEqual(categoryCounts);
+
+    const stats = result.current.data!;
+    expect(stats.totalSuppliers).toBe(0);
+    expect(stats.activeSuppliers).toBe(0);
+    expect(stats.totalProducts).toBe(0);
+    expect(stats.totalSupplyValue).toBe(0);
   });
 });

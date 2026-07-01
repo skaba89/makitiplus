@@ -21,6 +21,7 @@ import {
   Store,
   Shield,
   GitMerge,
+  Truck,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -107,6 +108,12 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       name: "Clients",
       href: "/dashboard/customers",
       icon: Users,
+      roles: MANAGEMENT_ROLES,
+    },
+    {
+      name: "Fournisseurs",
+      href: "/dashboard/suppliers",
+      icon: Truck,
       roles: MANAGEMENT_ROLES,
     },
     {
