@@ -95,11 +95,10 @@ const Reports = () => {
   // ⚡ Stats via RPC — une seule requête au lieu de 3 fetchAllRows + 3 client-side reduce()
   // L'agrégation (SUM, COUNT, GROUP BY) se fait côté serveur, réduisant drastiquement le transfert.
   const { data: reportsStats, isLoading: isReportsLoading } = useQuery({
-    queryKey: ["reports-stats", user?.id, profile?.organization_id, period],
+    queryKey: ["reports-stats", user?.id, period],
     queryFn: async () => {
       if (!profile?.organization_id) return null;
       const { data, error } = await supabase.rpc("get_reports_stats", {
-        p_organization_id: profile.organization_id,
         p_start: start.toISOString(),
         p_end: end.toISOString(),
       });

@@ -67,7 +67,7 @@ describe("useSupplierStats", () => {
     expect(stats.totalSupplyValue).toBe(0); // null → 0
   });
 
-  it("passes organization_id to RPC", async () => {
+  it("calls RPC without organization_id (derived from auth)", async () => {
     mockRpc.mockResolvedValue({
       data: { totalSuppliers: 5, activeSuppliers: 4, totalProducts: 20, totalSupplyValue: 1500000 },
       error: null,
@@ -79,9 +79,7 @@ describe("useSupplierStats", () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    expect(mockRpc).toHaveBeenCalledWith("get_supplier_stats", {
-      p_organization_id: "test-org-id",
-    });
+    expect(mockRpc).toHaveBeenCalledWith("get_supplier_stats");
   });
 
   it("does not call RPC when no organization", async () => {

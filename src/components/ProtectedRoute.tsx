@@ -2,9 +2,11 @@ import { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
-import { Database } from "@/integrations/supabase/types";
+import { Database } from "@integrations/supabase/types";
 import { useAccountStatusGuard } from "@/hooks/useAccountStatusGuard";
 import { useQueryErrorGuard } from "@/hooks/useQueryErrorGuard";
+import { Button } from "@/components/ui/button";
+
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 
@@ -20,7 +22,7 @@ const SessionGuards = ({ children }: { children: ReactNode }) => {
 };
 
 export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
-  const { user, userRole, loading } = useAuth();
+  const { user, userRole, loading, refreshUserData } = useAuth();
 
   if (loading) {
     return (
@@ -40,13 +42,31 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
     return <Navigate to="/auth" replace />;
   }
 
-  // If roles are required but role isn't loaded yet, block access
-  // This prevents briefly showing a protected page while userRole is null
-  if (allowedRoles && !userRole) {
-    return <Navigate to="/dashboard" replace />;
+  // SECURITY: When loading is done but userRole is null, the session is incomplete.
+  // This can happen if the role fetch failed or the user has no role in user_roles.
+  // Block access to ALL routes (even those without allowedRoles) to prevent
+  // unauthenticated access via a broken session.
+  if (userRole === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4 text-center p-6">
+          <div className="w-16 h-16 rounded-2xl bg-destructive/10 flex items-center justify-center">
+            <span className="text-3xl font-bold text-destructive">!</span>
+          </div>
+          <h2 className="text-xl font-semibold">Session incomplète</h2>
+          <p className="text-muted-foreground max-w-md">
+            Votre rôle n'a pas pu être chargé. Cela peut arriver si votre compte
+            n'est pas encore configuré ou si la connexion a échoué.
+          </p>
+          <Button onClick={refreshUserData} variant="outline">
+            Réessayer
+          </Button>
+        </div>
+      </div>
+    );
   }
 
-  if (allowedRoles && userRole && !allowedRoles.includes(userRole)) {
+  if (allowedRoles && !allowedRoles.includes(userRole)) {
     return <Navigate to="/dashboard" replace />;
   }
 

@@ -14,14 +14,12 @@ export function useSupplierStats() {
   const { user, profile } = useAuth();
 
   return useQuery<SupplierStatsRpc>({
-    queryKey: ["suppliers-stats", user?.id, profile?.organization_id],
+    queryKey: ["suppliers-stats", user?.id],
     queryFn: async () => {
       if (!profile?.organization_id) {
         return { totalSuppliers: 0, activeSuppliers: 0, totalProducts: 0, totalSupplyValue: 0 };
       }
-      const { data, error } = await supabase.rpc("get_supplier_stats", {
-        p_organization_id: profile.organization_id,
-      });
+      const { data, error } = await supabase.rpc("get_supplier_stats");
       if (error) throw error;
       const typed = data as unknown as SupplierStatsRpc;
       return {

@@ -14,14 +14,12 @@ export function useExpenseStats() {
   const { user, profile } = useAuth();
 
   return useQuery<ExpenseStatsRpc>({
-    queryKey: ["expenses-stats", user?.id, profile?.organization_id],
+    queryKey: ["expenses-stats", user?.id],
     queryFn: async () => {
       if (!profile?.organization_id) {
         return { monthTotal: 0, monthCount: 0 };
       }
-      const { data, error } = await supabase.rpc("get_expense_stats", {
-        p_organization_id: profile.organization_id,
-      });
+      const { data, error } = await supabase.rpc("get_expense_stats");
       if (error) throw error;
       const typed = data as unknown as ExpenseStatsRpc;
       return {

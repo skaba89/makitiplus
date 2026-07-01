@@ -225,8 +225,6 @@ const Products = () => {
           p_type: data.type,
           p_quantity: data.quantity,
           p_reason: data.reason || null,
-          p_user_id: user!.id,
-          p_organization_id: profile?.organization_id || null,
         }
       );
 

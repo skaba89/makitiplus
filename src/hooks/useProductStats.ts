@@ -14,14 +14,12 @@ export function useProductStats() {
   const { user, profile } = useAuth();
 
   return useQuery<ProductStatsRpc>({
-    queryKey: ["products-stats", user?.id, profile?.organization_id],
+    queryKey: ["products-stats", user?.id],
     queryFn: async () => {
       if (!profile?.organization_id) {
         return { totalProducts: 0, lowStockCount: 0, outOfStockCount: 0, categoryCounts: {} };
       }
-      const { data, error } = await supabase.rpc("get_product_stats", {
-        p_organization_id: profile.organization_id,
-      });
+      const { data, error } = await supabase.rpc("get_product_stats");
       if (error) throw error;
       const typed = data as unknown as ProductStatsRpc;
       return {

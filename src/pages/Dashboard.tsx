@@ -48,10 +48,9 @@ const Dashboard = () => {
   // ⚡ Stats du Dashboard via RPC — une seule requête au lieu de 5+ fetchAllRows
   // L'agrégation (SUM, COUNT) se fait côté serveur, réduisant drastiquement le transfert de données
   const { data: dashboardStats, isLoading: isLoadingStats } = useQuery({
-    queryKey: ["dashboard-stats", user?.id, profile?.organization_id],
+    queryKey: ["dashboard-stats", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_dashboard_stats", {
-        p_organization_id: profile?.organization_id || null,
         p_day_start: dayStart,
         p_day_end: dayEnd,
         p_month_start: monthStart,
@@ -66,12 +65,11 @@ const Dashboard = () => {
 
   // Produits les plus vendus (30 derniers jours) — RPC avec agrégation serveur
   const { data: topProducts } = useQuery({
-    queryKey: ["dashboard-top-products", user?.id, profile?.organization_id],
+    queryKey: ["dashboard-top-products", user?.id],
     queryFn: async () => {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       const { data, error } = await supabase.rpc("get_top_products", {
-        p_organization_id: profile?.organization_id || null,
         p_since: thirtyDaysAgo.toISOString(),
         p_limit: 5,
       });

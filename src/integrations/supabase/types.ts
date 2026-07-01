@@ -1052,8 +1052,6 @@ export type Database = {
       touch_last_login: { Args: never; Returns: undefined }
       create_full_sale: {
         Args: {
-          p_user_id: string
-          p_organization_id: string | null
           p_sale_number: string
           p_subtotal: number
           p_total_amount: number
@@ -1080,8 +1078,6 @@ export type Database = {
           p_type: string
           p_quantity: number
           p_reason?: string | null
-          p_user_id?: string | null
-          p_organization_id?: string | null
         }
         Returns: {
           new_quantity: number
@@ -1097,8 +1093,6 @@ export type Database = {
       }
       process_credit_payment: {
         Args: {
-          p_user_id: string
-          p_organization_id: string | null
           p_customer_id: string
           p_amount: number
           p_description?: string
@@ -1107,7 +1101,6 @@ export type Database = {
       }
       register_user: {
         Args: {
-          p_user_id: string
           p_business_name: string
           p_owner_name: string
           p_phone?: string | null
@@ -1136,7 +1129,6 @@ export type Database = {
       }
       get_dashboard_stats: {
         Args: {
-          p_organization_id?: string | null
           p_day_start?: string | null
           p_day_end?: string | null
           p_month_start?: string | null
@@ -1156,7 +1148,6 @@ export type Database = {
       }
       get_top_products: {
         Args: {
-          p_organization_id?: string | null
           p_since?: string | null
           p_limit?: number
         }

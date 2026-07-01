@@ -64,8 +64,6 @@ export const CreditPaymentDialog = ({ customer, isOpen, onClose, onViewHistory }
       // Pas de fallback non-atomique : SELECT→UPDATE cause des incohérences
       // si deux paiements sont traités simultanément.
       const { error: rpcError } = await supabase.rpc("process_credit_payment", {
-        p_user_id: user!.id,
-        p_organization_id: profile?.organization_id || null,
         p_customer_id: customer.id,
         p_amount: numAmount,
         p_description: description || "Paiement de credit",

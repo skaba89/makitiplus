@@ -14,14 +14,12 @@ export function useCustomerStats() {
   const { user, profile } = useAuth();
 
   return useQuery<CustomerStatsRpc>({
-    queryKey: ["customers-stats", user?.id, profile?.organization_id],
+    queryKey: ["customers-stats", user?.id],
     queryFn: async () => {
       if (!profile?.organization_id) {
         return { totalCustomers: 0, totalCredit: 0, customersWithCredit: 0 };
       }
-      const { data, error } = await supabase.rpc("get_customer_stats", {
-        p_organization_id: profile.organization_id,
-      });
+      const { data, error } = await supabase.rpc("get_customer_stats");
       if (error) throw error;
       const typed = data as unknown as CustomerStatsRpc;
       return {

@@ -91,9 +91,7 @@ const Categories = () => {
         // Use RPC for atomic sort_order — avoids TOCTOU race condition
         // where two concurrent category creates could get the same sort_order.
         try {
-          const { data: nextOrder } = await supabase.rpc("get_next_category_sort_order", {
-            p_organization_id: profile?.organization_id,
-          });
+          const { data: nextOrder } = await supabase.rpc("get_next_category_sort_order");
           insertData.sort_order = nextOrder || 1;
         } catch {
           // RPC or sort_order column may not exist — skip it

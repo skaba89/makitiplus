@@ -65,7 +65,7 @@ describe("useCustomerStats", () => {
     expect(stats.customersWithCredit).toBe(12);
   });
 
-  it("passes organization_id to RPC", async () => {
+  it("calls RPC without organization_id (derived from auth)", async () => {
     mockRpc.mockResolvedValue({
       data: { totalCustomers: 50, totalCredit: 25000, customersWithCredit: 5 },
       error: null,
@@ -77,9 +77,7 @@ describe("useCustomerStats", () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    expect(mockRpc).toHaveBeenCalledWith("get_customer_stats", {
-      p_organization_id: "test-org-id",
-    });
+    expect(mockRpc).toHaveBeenCalledWith("get_customer_stats");
   });
 
   it("does not call RPC when no organization", async () => {

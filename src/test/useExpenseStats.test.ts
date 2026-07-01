@@ -63,7 +63,7 @@ describe("useExpenseStats", () => {
     expect(stats.monthCount).toBe(0); // null → 0
   });
 
-  it("passes organization_id to RPC", async () => {
+  it("calls RPC without organization_id (derived from auth)", async () => {
     mockRpc.mockResolvedValue({
       data: { monthTotal: 100000, monthCount: 8 },
       error: null,
@@ -75,9 +75,7 @@ describe("useExpenseStats", () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    expect(mockRpc).toHaveBeenCalledWith("get_expense_stats", {
-      p_organization_id: "test-org-id",
-    });
+    expect(mockRpc).toHaveBeenCalledWith("get_expense_stats");
   });
 
   it("does not call RPC when no organization", async () => {

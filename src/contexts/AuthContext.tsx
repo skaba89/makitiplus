@@ -22,6 +22,7 @@ interface AuthContextType {
   }) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  refreshUserData: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -203,7 +204,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // C9: Atomic profile + role creation via RPC
       // Try register_user RPC first (single transaction — no orphaned user without role)
       const { error: rpcError } = await supabase.rpc("register_user", {
-        p_user_id: data.user.id,
         p_business_name: profileData.businessName,
         p_owner_name: profileData.ownerName,
         p_phone: profileData.phone || null,
@@ -255,6 +255,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const refreshUserData = async () => {
+    if (user) {
+      setLoading(true);
+      try {
+        await fetchUserData(user.id);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -276,6 +287,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         signUp,
         signOut,
         refreshProfile,
+        refreshUserData,
       }}
     >
       {children}

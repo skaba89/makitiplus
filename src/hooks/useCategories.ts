@@ -22,15 +22,13 @@ export function useCategories() {
   const { user, profile } = useAuth();
 
   return useQuery<Category[]>({
-    queryKey: ["categories", user?.id, profile?.organization_id],
+    queryKey: ["categories", user?.id],
     queryFn: async () => {
       if (!profile?.organization_id) return [];
 
       // Try RPC first (includes product_count)
       try {
-        const { data, error } = await supabase.rpc("get_categories", {
-          p_organization_id: profile.organization_id,
-        });
+        const { data, error } = await supabase.rpc("get_categories");
         if (!error && data) {
           // Map RPC result to match Category type
           return (data as CategoryRpcRow[]).map((c) => ({

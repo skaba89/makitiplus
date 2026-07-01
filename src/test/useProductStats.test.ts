@@ -68,7 +68,7 @@ describe("useProductStats", () => {
     expect(stats.categoryCounts).toEqual({}); // null → {}
   });
 
-  it("passes organization_id to RPC", async () => {
+  it("calls RPC without organization_id (derived from auth)", async () => {
     mockRpc.mockResolvedValue({
       data: { totalProducts: 10, lowStockCount: 2, outOfStockCount: 1, categoryCounts: {} },
       error: null,
@@ -80,9 +80,7 @@ describe("useProductStats", () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    expect(mockRpc).toHaveBeenCalledWith("get_product_stats", {
-      p_organization_id: "test-org-id",
-    });
+    expect(mockRpc).toHaveBeenCalledWith("get_product_stats");
   });
 
   it("returns zeros when no organization", async () => {

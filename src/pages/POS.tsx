@@ -161,8 +161,6 @@ const POS = () => {
       // L'ancien chemin (INSERT sale + INSERT items + batch_update_stock) était
       // non-atomique : une panne entre les étapes laissait des données incohérentes.
       const { data: rpcSaleId, error: rpcError } = await supabase.rpc("create_full_sale", {
-        p_user_id: user!.id,
-        p_organization_id: orgId,
         p_sale_number: finalSaleNumber,
         p_subtotal: htAmount,
         p_tax_amount: taxAmount,
