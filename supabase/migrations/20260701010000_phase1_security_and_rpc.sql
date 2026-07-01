@@ -270,10 +270,11 @@ $$;
 
 -- ═══════════════════════════════════════════════════════════════════════
 -- 6. Fix check_account_status — Add SET search_path = public
+--    Column order MUST match the original function for CREATE OR REPLACE
+--    to work (PostgreSQL treats different column order = different type).
 -- ═══════════════════════════════════════════════════════════════════════
-DROP FUNCTION IF EXISTS public.check_account_status();
 CREATE OR REPLACE FUNCTION public.check_account_status()
-RETURNS TABLE(is_active boolean, deactivation_reason text)
+RETURNS TABLE(deactivation_reason text, is_active boolean)
 LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
@@ -288,7 +289,7 @@ BEGIN
   END IF;
 
   RETURN QUERY
-  SELECT p.is_active, p.deactivation_reason
+  SELECT p.deactivation_reason, p.is_active
   FROM profiles p
   WHERE p.user_id = v_uid
   LIMIT 1;
