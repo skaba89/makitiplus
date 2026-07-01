@@ -2,7 +2,6 @@
  * Export PDF / Excel (CSV-UTF8 compatible Excel) des tickets sélectionnés,
  * orienté support client & audit : inclut l'historique complet.
  */
-import jsPDF from "jspdf";
 import { format } from "date-fns";
 import type { QueuedDelivery } from "./receiptDeliveryQueue";
 import type { DeliveryDict } from "./receiptDeliveryI18n";
@@ -53,7 +52,8 @@ export const exportSelectedHistoryCSV = (rows: QueuedDelivery[], dict: DeliveryD
   URL.revokeObjectURL(a.href);
 };
 
-export const exportSelectedHistoryPDF = (rows: QueuedDelivery[], dict: DeliveryDict) => {
+export const exportSelectedHistoryPDF = async (rows: QueuedDelivery[], dict: DeliveryDict) => {
+  const { default: jsPDF } = await import("jspdf");
   const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
   doc.setFontSize(14);
   doc.text(`${dict.details} — ${rows.length} ${dict.ticket}`, 10, 14);

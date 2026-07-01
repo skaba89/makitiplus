@@ -4,7 +4,6 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { installAutoFlush } from "@/lib/receiptDeliveryQueue";
 import { SentryErrorBoundary } from "@/lib/sentry";
 import { ADMIN_ROLES, INVENTORY_ROLES, FINANCIAL_ROLES, POS_ROLES, STORE_ROLES, MANAGEMENT_ROLES } from "@/types";
 import { toast as sonnerToast } from "sonner";
@@ -117,12 +116,15 @@ const queryClient = new QueryClient({
 
 const App = () => {
   useEffect(() => {
-    installAutoFlush((r) => {
-      if (r.sent > 0) {
-        sonnerToast.success(`Tickets envoyés à la reconnexion : ${r.sent}`, {
-          description: r.skipped > 0 ? `${r.skipped} doublon(s) ignoré(s)` : undefined,
-        });
-      }
+    // Dynamic import avoids pulling jsPDF (390 kB) into the initial bundle
+    import("@/lib/receiptDeliveryQueue").then(({ installAutoFlush }) => {
+      installAutoFlush((r) => {
+        if (r.sent > 0) {
+          sonnerToast.success(`Tickets envoyés à la reconnexion : ${r.sent}`, {
+            description: r.skipped > 0 ? `${r.skipped} doublon(s) ignoré(s)` : undefined,
+          });
+        }
+      });
     });
   }, []);
   return (

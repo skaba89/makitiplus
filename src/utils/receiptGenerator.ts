@@ -1,4 +1,3 @@
-import jsPDF from "jspdf";
 import QRCode from "qrcode";
 import { DEFAULT_CURRENCY } from "@/utils/currencies";
 
@@ -983,7 +982,8 @@ function generateAfricanReceipt(data: ReceiptData, doc: jsPDF, config: typeof PA
 }
 
 // ─── Main entry point ──────────────────────────────────────────
-export const generateReceiptPDF = async (data: ReceiptData): Promise<jsPDF> => {
+export const generateReceiptPDF = async (data: ReceiptData) => {
+  const { default: jsPDF } = await import("jspdf");
   const paperSize: ReceiptPaperSize = data.paperSize || "80mm";
   const template: ReceiptTemplate = data.template || "default";
   const config = PAPER_CONFIGS[paperSize];

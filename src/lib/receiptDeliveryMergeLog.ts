@@ -15,7 +15,6 @@
  * via `purgeMergeLogNow()` — 100% hors-ligne.
  */
 import { logger } from "./logger";
-import jsPDF from "jspdf";
 import type { ConflictLogEntry } from "./receiptDeliveryConflict";
 import type { DeliveryStatus } from "./receiptDeliveryQueue";
 import {
@@ -325,7 +324,8 @@ export const exportMergeLogJSON = (entries: MergeLogEntry[]): void => {
  * Export PDF du journal — colonnes identiques à l'écran (Horodatage, client_uuid,
  * Source/Fantôme, Règle, Statuts local→remote). 100% hors-ligne via jsPDF.
  */
-export const exportMergeLogPDF = (entries: MergeLogEntry[]): void => {
+export const exportMergeLogPDF = async (entries: MergeLogEntry[]): Promise<void> => {
+  const { default: jsPDF } = await import("jspdf");
   const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
   const generatedAt = new Date().toISOString();
   doc.setFontSize(13);

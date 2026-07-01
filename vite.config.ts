@@ -15,6 +15,7 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     rollupOptions: {
+      external: (id) => id === "html2canvas",
       output: {
         manualChunks: {
           vendor: ["react", "react-dom", "react-router-dom"],
@@ -28,9 +29,15 @@ export default defineConfig(({ mode }) => ({
             "@radix-ui/react-dropdown-menu",
             "@radix-ui/react-select",
             "@radix-ui/react-tabs",
-            "@radix-ui/react-alert-dialog",
-            "@radix-ui/react-popover",
             "@radix-ui/react-tooltip",
+            "@radix-ui/react-popover",
+            "@radix-ui/react-checkbox",
+            "@radix-ui/react-switch",
+            "@radix-ui/react-alert-dialog",
+            "@radix-ui/react-avatar",
+            "@radix-ui/react-label",
+            "@radix-ui/react-separator",
+            "@radix-ui/react-slot",
           ],
           icons: ["lucide-react"],
           date: ["date-fns"],

@@ -1,5 +1,4 @@
-import jsPDF from "jspdf";
-import JsBarcode from "jsbarcode";
+import type { jsPDF } from "jspdf";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -61,8 +60,9 @@ const FONT = {
 /*  Render barcode directly to canvas using JsBarcode                  */
 /* ------------------------------------------------------------------ */
 
-function renderBarcodeToCanvas(barcodeValue: string): string | null {
+async function renderBarcodeToCanvas(barcodeValue: string): Promise<string | null> {
   try {
+    const { default: JsBarcode } = await import("jsbarcode");
     const canvas = document.createElement("canvas");
     JsBarcode(canvas, barcodeValue, {
       format: "CODE128",
@@ -187,16 +187,20 @@ function drawLabel(
 /*  Build PDF with 10 labels per A4 page                               */
 /* ------------------------------------------------------------------ */
 
-function buildLabelPDF(
+async function buildLabelPDF(
   product: Product,
   copies: number,
   formatPrice: (n: number) => string,
-): jsPDF {
+): Promise<jsPDF> {
+  const [{ default: jsPDF }, { default: JsBarcode }] = await Promise.all([
+    import("jspdf"),
+    import("jsbarcode"),
+  ]);
   const doc = new jsPDF({ unit: "mm", format: "a4" });
 
   // Pre-render barcode image once
   const barcodeImageData = product.barcode
-    ? renderBarcodeToCanvas(product.barcode)
+    ? await renderBarcodeToCanvas(product.barcode)
     : null;
 
   let labelIndex = 0;
@@ -231,9 +235,16 @@ export const BarcodeLabelPrinter = ({
   const { formatPrice } = useCurrency();
   const [copies, setCopies] = useState(10); // default: one full A4 page
 
-  const handlePrint = useCallback(() => {
+  const handlePrint = useCallback(async () => {
     if (!product.barcode) return;
-    const doc = buildLabelPDF(product, copies, formatPrice);
+
+    // Dynamic imports — jsPDF (390 kB) + jsbarcode loaded only on user action
+    const [{ default: jsPDF }, { default: JsBarcode }] = await Promise.all([
+      import("jspdf"),
+      import("jsbarcode"),
+    ]);
+
+    const doc = await buildLabelPDF(product, copies, formatPrice);
     const pdfBlob = doc.output("blob");
     const pdfUrl = URL.createObjectURL(pdfBlob);
     const printWindow = window.open(pdfUrl);
@@ -244,9 +255,9 @@ export const BarcodeLabelPrinter = ({
     }
   }, [product, copies, formatPrice]);
 
-  const handleDownload = useCallback(() => {
+  const handleDownload = useCallback(async () => {
     if (!product.barcode) return;
-    const doc = buildLabelPDF(product, copies, formatPrice);
+    const doc = await buildLabelPDF(product, copies, formatPrice);
     const safeName = product.name.replace(/[^a-zA-Z0-9]/g, "_").substring(0, 20);
     doc.save(`etiquette-${safeName}.pdf`);
   }, [product, copies, formatPrice]);
@@ -293,19 +304,21 @@ export const BarcodeLabelPrinter = ({
                       <canvas
                         ref={(el) => {
                           if (el && product.barcode) {
-                            try {
-                              JsBarcode(el, product.barcode, {
-                                format: "CODE128",
-                                width: 1,
-                                height: 18,
-                                displayValue: true,
-                                fontSize: 6,
-                                margin: 1,
-                                textMargin: 0,
-                              });
-                            } catch {
-                              // Invalid barcode — ignore
-                            }
+                            import("jsbarcode").then(({ default: JsBarcode }) => {
+                              try {
+                                JsBarcode(el, product.barcode!, {
+                                  format: "CODE128",
+                                  width: 1,
+                                  height: 18,
+                                  displayValue: true,
+                                  fontSize: 6,
+                                  margin: 1,
+                                  textMargin: 0,
+                                });
+                              } catch {
+                                // Invalid barcode — ignore
+                              }
+                            });
                           }
                         }}
                         style={{ maxWidth: "100%", height: "auto" }}

@@ -1,4 +1,3 @@
-import jsPDF from "jspdf";
 import { format } from "date-fns";
 import type { QueuedDelivery } from "./receiptDeliveryQueue";
 import type { DeliveryDict } from "./receiptDeliveryI18n";
@@ -43,7 +42,8 @@ export const exportDeliveryLogCSV = (rows: QueuedDelivery[], dict: DeliveryDict)
   URL.revokeObjectURL(a.href);
 };
 
-export const exportDeliveryLogPDF = (rows: QueuedDelivery[], dict: DeliveryDict) => {
+export const exportDeliveryLogPDF = async (rows: QueuedDelivery[], dict: DeliveryDict) => {
+  const { default: jsPDF } = await import("jspdf");
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   doc.setFontSize(14);
   doc.text(dict.title, 10, 14);
