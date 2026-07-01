@@ -40,6 +40,12 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
     return <Navigate to="/auth" replace />;
   }
 
+  // If roles are required but role isn't loaded yet, block access
+  // This prevents briefly showing a protected page while userRole is null
+  if (allowedRoles && !userRole) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   if (allowedRoles && userRole && !allowedRoles.includes(userRole)) {
     return <Navigate to="/dashboard" replace />;
   }

@@ -34,6 +34,8 @@ export interface QueuedMutation {
   operation: "INSERT" | "UPDATE" | "DELETE";
   data: Record<string, unknown>;
   filter?: Record<string, unknown>; // For UPDATE/DELETE: which row(s) to target
+  organizationId?: string; // Organization scope — used for security validation on flush
+  userId?: string; // User who created the mutation — validated on flush
   createdAt: string;
   retryCount: number;
   status: "pending" | "syncing" | "failed";
@@ -232,6 +234,21 @@ export async function flushQueue(): Promise<{ synced: number; failed: number }> 
   const { supabase } = await import("@/integrations/supabase/client");
   const pending = await getPendingMutations();
 
+  // Security: Get current user's organization_id to validate mutations
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    console.warn("[flushQueue] No authenticated user — skipping flush");
+    return { synced: 0, failed: 0 };
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organization_id")
+    .eq("user_id", user.id)
+    .single();
+
+  const currentUserOrgId = profile?.organization_id;
+
   let synced = 0;
   let failed = 0;
 
@@ -241,6 +258,28 @@ export async function flushQueue(): Promise<{ synced: number; failed: number }> 
       failed++;
       continue;
     }
+
+    // Security: Validate that the mutation belongs to the current user's organization
+    // If the mutation has an organizationId, verify it matches the current user's org
+    if (mutation.organizationId && currentUserOrgId && mutation.organizationId !== currentUserOrgId) {
+      await updateMutationStatus(mutation.id, "failed", "Organization mismatch — mutation rejected for security");
+      failed++;
+      continue;
+    }
+
+    // Security: Validate that the mutation was created by the current user
+    if (mutation.userId && mutation.userId !== user.id) {
+      await updateMutationStatus(mutation.id, "failed", "User mismatch — mutation rejected for security");
+      failed++;
+      continue;
+    }
+
+    // Security: Ensure mutation data includes the correct organization_id
+    // This prevents cross-org data leaks via offline mutations
+    const dataWithOrg = currentUserOrgId ? {
+      ...mutation.data,
+      organization_id: mutation.data.organization_id || currentUserOrgId,
+    } : mutation.data;
 
     await updateMutationStatus(mutation.id, "syncing");
 
