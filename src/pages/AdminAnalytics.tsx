@@ -58,6 +58,7 @@ import {
   Eye,
 } from "lucide-react";
 import { useCurrency } from "@/hooks/useCurrency";
+import { FeatureGate } from "@/components/saas/PlanLimitGuard";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 
@@ -340,6 +341,22 @@ const AdminAnalytics = () => {
 
   return (
     <DashboardLayout>
+      <FeatureGate
+        feature="admin_analytics"
+        fallback={
+          <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+            <AlertTriangle className="h-16 w-16 text-muted-foreground mb-4" />
+            <h1 className="text-2xl font-bold">Fonctionnalité Premium</h1>
+            <p className="text-muted-foreground mt-2 max-w-md">
+              L'analyse multi-magasins est disponible uniquement avec le plan Enterprise.
+              Contactez-nous pour en savoir plus.
+            </p>
+            <Button className="mt-4" onClick={() => window.location.hash = "/dashboard/billing"}>
+              Voir les abonnements
+            </Button>
+          </div>
+        }
+      >
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -926,6 +943,7 @@ const AdminAnalytics = () => {
           </TabsContent>
         </Tabs>
       </div>
+      </FeatureGate>
     </DashboardLayout>
   );
 };

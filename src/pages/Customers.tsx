@@ -53,6 +53,7 @@ import { fetchAllRows } from "@/lib/batchedFetch";
 import { CustomersPageSkeleton } from "@/components/skeletons/PageSkeletons";
 import { useCustomerStats } from "@/hooks/useCustomerStats";
 import { Customer, CustomerUpdateParams } from "@/types";
+import { FeatureGate } from "@/components/saas/PlanLimitGuard";
 
 const PAGE_SIZE = 20;
 
@@ -196,6 +197,7 @@ const Customers = () => {
             <p className="text-muted-foreground mt-1">Gérez vos clients et suivez les crédits</p>
           </div>
           <div className="flex gap-2">
+            <FeatureGate feature="exports">
             <Button
               variant="outline"
               onClick={async () => {
@@ -242,6 +244,7 @@ const Customers = () => {
               <Download className="mr-2 h-4 w-4" />
               Exporter
             </Button>
+            </FeatureGate>
             {canModify && (
               <Button onClick={() => { setSelectedCustomer(null); resetForm(); setIsFormOpen(true); }} className="gap-2">
                 <Plus className="h-4 w-4" />

@@ -55,6 +55,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { fetchAllRows } from "@/lib/batchedFetch";
 import { ReportsPageSkeleton } from "@/components/skeletons/PageSkeletons";
 import { CHART_COLORS } from "@/constants/colors";
+import { FeatureGate } from "@/components/saas/PlanLimitGuard";
 import type { Database } from "@/integrations/supabase/types";
 
 type Sale = Database["public"]["Tables"]["sales"]["Row"];
@@ -325,6 +326,7 @@ const Reports = () => {
               </TabsList>
             </Tabs>
 
+            <FeatureGate feature="exports">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
@@ -384,6 +386,7 @@ const Reports = () => {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            </FeatureGate>
           </div>
         </div>
 
@@ -573,6 +576,7 @@ const Reports = () => {
         </Card>
 
         {/* ═══════ Supplier Analytics ═══════ */}
+        <FeatureGate feature="supplier_management">
         <div className="space-y-6">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-blue-500/10">
@@ -695,6 +699,7 @@ const Reports = () => {
             </Card>
           )}
         </div>
+        </FeatureGate>
       </div>
     </DashboardLayout>
   );

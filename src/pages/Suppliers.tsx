@@ -55,6 +55,10 @@ import { fr } from "date-fns/locale";
 import { SupplierDetailDialog } from "@/components/suppliers/SupplierDetailDialog";
 import { Supplier, SupplierUpdateParams } from "@/types";
 import { reportError } from "@/lib/sentry";
+import { FeatureGate } from "@/components/saas/PlanLimitGuard";
+import { Lock } from "lucide-react";
+import { FeatureGate } from "@/components/saas/PlanLimitGuard";
+import { Lock } from "lucide-react";
 
 const Suppliers = () => {
   const { user, profile, userRole } = useAuth();
@@ -279,6 +283,24 @@ const Suppliers = () => {
 
   return (
     <DashboardLayout>
+      <FeatureGate
+        feature="supplier_management"
+        fallback={
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="p-4 rounded-full bg-primary/10 mb-4">
+              <Lock className="h-8 w-8 text-primary" />
+            </div>
+            <h2 className="text-xl font-bold mb-2">Gestion des fournisseurs</h2>
+            <p className="text-muted-foreground max-w-md mb-6">
+              La gestion des fournisseurs est disponible à partir du plan Croissance.
+              Upgradéz votre abonnement pour accéder à cette fonctionnalité.
+            </p>
+            <Button onClick={() => window.location.hash = "/dashboard/billing"}>
+              Voir les abonnements
+            </Button>
+          </div>
+        }
+      >
       <div className="space-y-6">
         {/* En-tête */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -659,6 +681,7 @@ const Suppliers = () => {
           </AlertDialogContent>
         </AlertDialog>
       </div>
+      </FeatureGate>
     </DashboardLayout>
   );
 };

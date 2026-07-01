@@ -24,6 +24,7 @@ import { CurrencySelector } from "@/components/ui/currency-selector";
 import { useCurrency } from "@/hooks/useCurrency";
 import { TaxSettingsCard } from "@/components/settings/TaxSettingsCard";
 import { BrandingSettings } from "@/components/settings/BrandingSettings";
+import { FeatureGate } from "@/components/saas/PlanLimitGuard";
 
 const Settings = () => {
   const { user, profile, refreshProfile } = useAuth();
@@ -185,6 +186,9 @@ const Settings = () => {
             <Palette className="h-4 w-4" />
             <span className="hidden sm:inline">Personnalisation</span>
             <span className="sm:hidden">Style</span>
+            <FeatureGate feature="custom_branding" fallback={<span className="text-xs">(Pro)</span>}>
+              <span />
+            </FeatureGate>
           </button>
         </div>
 
@@ -283,7 +287,9 @@ const Settings = () => {
                         </SelectContent>
                       </Select>
                     </div>
-                    <CurrencySelector variant="full" />
+                    <FeatureGate feature="multi_currency" fallback={<Input value={currency.code} disabled className="bg-muted" />}>
+                      <CurrencySelector variant="full" />
+                    </FeatureGate>
                   </div>
 
                   {/* Mobile Payments Available */}
@@ -402,7 +408,24 @@ const Settings = () => {
             <TaxSettingsCard />
           </div>
         ) : (
-          <StoreCustomization />
+          <FeatureGate
+            feature="custom_branding"
+            fallback={
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <Palette className="h-12 w-12 text-muted-foreground mb-4" />
+                <h2 className="text-xl font-bold mb-2">Personnalisation</h2>
+                <p className="text-muted-foreground max-w-md mb-6">
+                  La personnalisation de marque est disponible à partir du plan Croissance.
+                  Upgradéz pour personnaliser votre expérience.
+                </p>
+                <Button onClick={() => window.location.hash = "/dashboard/billing"}>
+                  Voir les abonnements
+                </Button>
+              </div>
+            }
+          >
+            <StoreCustomization />
+          </FeatureGate>
         )}
       </div>
     </DashboardLayout>
