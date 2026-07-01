@@ -8,9 +8,13 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "e2e": "playwright test",
+    "e2e:ui": "playwright test --ui",
+    "check": "npx eslint src/ --ignore-pattern 'src/test/**' && npm run typecheck && npm run build && npm test"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.1",
