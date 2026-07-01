@@ -11,8 +11,7 @@
  */
 
 import { STORES, type StoreName } from "./indexedDBStorage";
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyQuery = any;
+import type { DynamicSupabaseQuery } from "./supabaseDynamicQuery";
 
 // Extend the STORES constant with new stores for offline queue
 const OFFLINE_DB_NAME = "malikiplus_offline";
@@ -250,10 +249,10 @@ export async function flushQueue(): Promise<{ synced: number; failed: number }> 
 
       switch (mutation.operation) {
         case "INSERT":
-          result = await (supabase.from(mutation.table as never) as AnyQuery).insert(mutation.data as never);
+          result = await (supabase.from(mutation.table as never) as unknown as DynamicSupabaseQuery).insert(mutation.data as never);
           break;
         case "UPDATE": {
-          let query: AnyQuery = (supabase.from(mutation.table as never) as AnyQuery).update(mutation.data as never);
+          let query: DynamicSupabaseQuery = (supabase.from(mutation.table as never) as unknown as DynamicSupabaseQuery).update(mutation.data as never);
           // Apply filters
           if (mutation.filter) {
             for (const [key, value] of Object.entries(mutation.filter)) {
@@ -264,7 +263,7 @@ export async function flushQueue(): Promise<{ synced: number; failed: number }> 
           break;
         }
         case "DELETE": {
-          let query: AnyQuery = (supabase.from(mutation.table as never) as AnyQuery).delete();
+          let query: DynamicSupabaseQuery = (supabase.from(mutation.table as never) as unknown as DynamicSupabaseQuery).delete();
           if (mutation.filter) {
             for (const [key, value] of Object.entries(mutation.filter)) {
               query = query.eq(key, value as string | number | boolean);

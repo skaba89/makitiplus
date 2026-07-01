@@ -1,6 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyQuery = any;
+import type { DynamicSupabaseQuery } from "@/lib/supabaseDynamicQuery";
 
 /**
  * Fetch all rows from a Supabase table using batched pagination.
@@ -38,7 +37,7 @@ export async function fetchAllRows<T = unknown>(
     const from = page * batchSize;
     const to = from + batchSize - 1;
 
-    let query: AnyQuery = supabase
+    let query: DynamicSupabaseQuery = supabase
       .from(table as never)
       .select(select, { count: "exact" })
       .range(from, to);

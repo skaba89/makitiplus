@@ -2,8 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { sanitizeSearchInput } from "@/lib/postgrestSanitize";
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyQuery = any;
+import type { DynamicSupabaseQuery } from "@/lib/supabaseDynamicQuery";
 
 interface Filter {
   column: string;
@@ -74,7 +73,7 @@ export function usePaginatedQuery<T = unknown>(
       const to = from + pageSize - 1;
 
       // Use dynamic table name — cast through any to satisfy Supabase's typed .from()
-      let query: AnyQuery = supabase
+      let query: DynamicSupabaseQuery = supabase
         .from(table as never)
         .select(select, { count: "exact" })
         .range(from, to);

@@ -18,7 +18,7 @@
     "noUnusedParameters": false,
     "skipLibCheck": true,
     "allowJs": true,
-    "noUnusedLocals": false,
+    "noUnusedLocals": true,
     "strictNullChecks": true
   }
 }

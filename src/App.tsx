@@ -18,12 +18,9 @@ import { AlertTriangle } from "lucide-react";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
-import Products from "./pages/Products";
 import Categories from "./pages/Categories";
 import NotFound from "./pages/NotFound";
-import Expenses from "./pages/Expenses";
 import Settings from "./pages/Settings";
-import Customers from "./pages/Customers";
 
 // Lazy-loaded routes — heavy or admin-only pages
 const Reports = lazy(() => import("./pages/Reports"));
@@ -31,6 +28,9 @@ const POS = lazy(() => import("./pages/POS"));
 const Users = lazy(() => import("./pages/Users"));
 const Stores = lazy(() => import("./pages/Stores"));
 const SyncConflicts = lazy(() => import("./pages/SyncConflicts"));
+const Products = lazy(() => import("./pages/Products"));
+const Expenses = lazy(() => import("./pages/Expenses"));
+const Customers = lazy(() => import("./pages/Customers"));
 
 /** Minimal loading spinner for lazy-loaded routes */
 const PageLoader = () => (
@@ -151,7 +151,11 @@ const App = () => {
               path="/dashboard/products"
               element={
                 <ProtectedRoute allowedRoles={INVENTORY_ROLES}>
-                  <Products />
+                  <PageErrorBoundary>
+                    <Suspense fallback={<PageLoader />}>
+                      <Products />
+                    </Suspense>
+                  </PageErrorBoundary>
                 </ProtectedRoute>
               }
             />
@@ -191,7 +195,11 @@ const App = () => {
               path="/dashboard/expenses"
               element={
                 <ProtectedRoute allowedRoles={FINANCIAL_ROLES}>
-                  <Expenses />
+                  <PageErrorBoundary>
+                    <Suspense fallback={<PageLoader />}>
+                      <Expenses />
+                    </Suspense>
+                  </PageErrorBoundary>
                 </ProtectedRoute>
               }
             />
@@ -199,7 +207,11 @@ const App = () => {
               path="/dashboard/customers"
               element={
                 <ProtectedRoute allowedRoles={MANAGEMENT_ROLES}>
-                  <Customers />
+                  <PageErrorBoundary>
+                    <Suspense fallback={<PageLoader />}>
+                      <Customers />
+                    </Suspense>
+                  </PageErrorBoundary>
                 </ProtectedRoute>
               }
             />

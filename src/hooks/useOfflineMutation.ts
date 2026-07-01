@@ -4,8 +4,7 @@ import { enqueueMutation, cacheData, getCachedData, OFFLINE_STORES, type Offline
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyQuery = any;
+import type { DynamicSupabaseQuery } from "@/lib/supabaseDynamicQuery";
 
 /**
  * Offline-aware query: fetches from Supabase when online,
@@ -38,7 +37,7 @@ export function useOfflineQuery<T extends { id: string }>(
       }
 
       // Online: fetch from Supabase (dynamic table — cast through any)
-      let query: AnyQuery = supabase.from(table as never).select(options?.select || "*");
+      let query: DynamicSupabaseQuery = supabase.from(table as never).select(options?.select || "*");
 
       if (options?.filter) {
         for (const [key, value] of Object.entries(options.filter)) {
@@ -108,7 +107,7 @@ export function useOfflineMutation<TData = unknown>(
       }
 
       // Online: execute immediately (dynamic table — cast through any)
-      let result: AnyQuery;
+      let result: DynamicSupabaseQuery;
 
       switch (operation) {
         case "INSERT":
