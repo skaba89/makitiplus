@@ -117,12 +117,6 @@ const Reports = () => {
     );
   }
 
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user,
-  });
-
   // Fetch top products
   const { data: topProducts } = useQuery({
     queryKey: ["reports-top-products", user?.id, period],

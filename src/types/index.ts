@@ -186,3 +186,22 @@ export interface SupplierWithStats extends Supplier {
   product_count?: number;
   total_stock_value?: number;
 }
+
+// ─── Role helpers ──────────────────────────────────────────────────────────────
+
+type AppRole = Database["public"]["Enums"]["app_role"];
+
+/** Check if the given role has admin-level privileges (super_admin or admin). */
+export function isAdminRole(role: AppRole | null | undefined): boolean {
+  return role === "super_admin" || role === "admin";
+}
+
+// ─── Role constants for route guards ──────────────────────────────────────────
+
+export const ALL_ROLES: AppRole[] = ["super_admin", "admin", "manager", "vendeur", "comptable"];
+export const ADMIN_ROLES: AppRole[] = ["super_admin", "admin"];
+export const MANAGEMENT_ROLES: AppRole[] = ["super_admin", "admin", "manager"];
+export const INVENTORY_ROLES: AppRole[] = ["super_admin", "admin", "manager", "vendeur"];
+export const FINANCIAL_ROLES: AppRole[] = ["super_admin", "admin", "manager", "comptable"];
+export const POS_ROLES: AppRole[] = ["super_admin", "admin", "manager", "vendeur"];
+export const STORE_ROLES: AppRole[] = ["super_admin"];
