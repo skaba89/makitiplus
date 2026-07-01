@@ -114,6 +114,19 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 5 * 60 * 1000, // 5 minutes — reduces redundant network requests
       retry: 1,
+      onError: (error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        // Suppress noise from offline/background requests
+        if (message.includes('Failed to fetch') || message.includes('NetworkError')) return;
+        sonnerToast.error('Erreur de chargement', {
+          description: message.length > 120 ? message.slice(0, 120) + '…' : message,
+          duration: 4000,
+        });
+      },
+    },
+    mutations: {
+      // No global onError — each mutation has its own local handler
+      // to avoid double toast (local Shadcn + global Sonner)
     },
   },
 });

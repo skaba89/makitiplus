@@ -54,6 +54,7 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { SupplierDetailDialog } from "@/components/suppliers/SupplierDetailDialog";
 import { Supplier, SupplierUpdateParams } from "@/types";
+import { reportError } from "@/lib/sentry";
 
 const Suppliers = () => {
   const { user, profile, userRole } = useAuth();
@@ -142,11 +143,13 @@ const Suppliers = () => {
       setIsFormOpen(false);
       resetForm();
     },
-    onError: () => {
+    onError: (error: unknown) => {
+      const msg = error instanceof Error ? error.message : String(error);
+      reportError(error, { action: 'create_supplier' });
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: "Impossible d'ajouter le fournisseur",
+        description: msg.length > 120 ? msg.slice(0, 120) + '\u2026' : "Impossible d'ajouter le fournisseur",
       });
     },
   });
@@ -168,11 +171,13 @@ const Suppliers = () => {
       setSelectedSupplier(null);
       resetForm();
     },
-    onError: () => {
+    onError: (error: unknown) => {
+      const msg = error instanceof Error ? error.message : String(error);
+      reportError(error, { action: 'update_supplier', supplierId: selectedSupplier?.id });
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: "Impossible de modifier le fournisseur",
+        description: msg.length > 120 ? msg.slice(0, 120) + '\u2026' : "Impossible de modifier le fournisseur",
       });
     },
   });
@@ -193,11 +198,13 @@ const Suppliers = () => {
       setIsDeleteOpen(false);
       setSelectedSupplier(null);
     },
-    onError: () => {
+    onError: (error: unknown) => {
+      const msg = error instanceof Error ? error.message : String(error);
+      reportError(error, { action: 'delete_supplier', supplierId: selectedSupplier?.id });
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: "Impossible de supprimer le fournisseur",
+        description: msg.length > 120 ? msg.slice(0, 120) + '\u2026' : "Impossible de supprimer le fournisseur",
       });
     },
   });

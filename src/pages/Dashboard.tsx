@@ -6,8 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useCurrency } from "@/hooks/useCurrency";
-import { POS_ROLES, INVENTORY_ROLES, FINANCIAL_ROLES } from "@/types";
-import { DashboardPageSkeleton } from "@/components/skeletons/PageSkeletons";
 import {
   TrendingUp,
   ShoppingCart,
@@ -16,15 +14,24 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   AlertTriangle,
-  CreditCard,
-  BarChart3,
-  ArrowRight,
+  Truck,
+  DollarSign,
 } from "lucide-react";
 import { CategoryIcon } from "@/components/ui/category-icon";
 import { startOfDay, endOfDay, startOfMonth, endOfMonth } from "date-fns";
 import { format } from "date-fns";
 import { formatDateTime } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
+
+/** Product with optional category icon + supplier name for stock alerts */
+interface DashboardProduct {
+  id: string;
+  name: string;
+  stock_quantity: number;
+  min_stock_alert: number | null;
+  categories: { icon: string | null } | null;
+  suppliers: { name: string } | null;
+}
 
 const Dashboard = () => {
   const { user, profile, userRole } = useAuth();
@@ -73,7 +80,65 @@ const Dashboard = () => {
     enabled: !!user,
   });
 
-  // Ventes récentes — petite requête limitée, filtrée par organisation
+  // Month sales (for profit calculation)
+  const { data: monthSales } = useQuery({
+    queryKey: ["dashboard-sales-month", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sales")
+        .select("total_amount")
+        .gte("created_at", monthStart)
+        .lte("created_at", monthEnd);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  // Month expenses
+  const { data: monthExpenses } = useQuery({
+    queryKey: ["dashboard-expenses-month", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("expenses")
+        .select("amount")
+        .gte("expense_date", format(startOfMonth(today), "yyyy-MM-dd"))
+        .lte("expense_date", format(endOfMonth(today), "yyyy-MM-dd"));
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  // Products count & stock alerts (with supplier info for restock)
+  const { data: products } = useQuery({
+    queryKey: ["dashboard-products", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("id, name, stock_quantity, min_stock_alert, categories(icon), suppliers(name)")
+        .eq("is_active", true);
+      if (error) throw error;
+      return data as DashboardProduct[];
+    },
+    enabled: !!user,
+  });
+
+  // Active suppliers count
+  const { data: suppliersCount } = useQuery({
+    queryKey: ["dashboard-suppliers-count", user?.id],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("suppliers")
+        .select("*", { count: "exact", head: true })
+        .eq("is_active", true);
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!user,
+  });
+
+  // Recent sales
   const { data: recentSales } = useQuery({
     queryKey: ["dashboard-recent-sales", user?.id, profile?.organization_id],
     queryFn: async () => {
@@ -93,50 +158,15 @@ const Dashboard = () => {
     enabled: !!user && !!profile?.organization_id,
   });
 
-  // Produits en alerte stock — RPC pour comparaison croisée (stock_quantity <= min_stock_alert)
-  // PostgREST ne permet pas les comparaisons entre colonnes, d'où le RPC.
-  // Avant: .lte("stock_quantity", 5) — seuil codé en dur, ne respectait pas min_stock_alert.
-  const { data: lowStockProducts } = useQuery({
-    queryKey: ["dashboard-low-stock", user?.id, profile?.organization_id],
-    queryFn: async () => {
-      if (!profile?.organization_id) return [];
-      const { data, error } = await supabase.rpc("get_low_stock_products", {
-        p_organization_id: profile.organization_id,
-        p_limit: 6,
-      });
-      if (error) throw error;
-      // Mapper le résultat pour correspondre au format attendu par le JSX
-      return (data || []).map((p: { id: string; name: string; stock_quantity: number; min_stock_alert: number | null; category_icon: string | null }) => ({
-        id: p.id,
-        name: p.name,
-        stock_quantity: p.stock_quantity,
-        min_stock_alert: p.min_stock_alert,
-        categories: { icon: p.category_icon },
-      }));
-    },
-    enabled: !!user && !!profile?.organization_id,
-  });
-
-  const totalSalesToday = dashboardStats?.todaySales ?? 0;
-  const transactionsToday = dashboardStats?.todayTransactions ?? 0;
-  const totalSalesMonth = dashboardStats?.monthSales ?? 0;
-  const creditSalesMonth = dashboardStats?.monthCreditCount ?? 0;
-  const totalExpensesMonth = dashboardStats?.monthExpenses ?? 0;
-  const totalProducts = dashboardStats?.totalProducts ?? 0;
-  const lowStockCount = dashboardStats?.lowStockProducts ?? 0;
-  const totalCredits = dashboardStats?.totalCredits ?? 0;
-  const creditsCount = dashboardStats?.creditsCount ?? 0;
-  const netResult = totalSalesMonth - totalExpensesMonth;
-
-  const isDashboardLoading = isLoadingStats;
-
-  if (isDashboardLoading) {
-    return (
-      <DashboardLayout>
-        <DashboardPageSkeleton />
-      </DashboardLayout>
-    );
-  }
+  const totalSalesToday = todaySales?.reduce((s, sale) => s + sale.total_amount, 0) || 0;
+  const transactionsToday = todaySales?.length || 0;
+  const totalSalesMonth = monthSales?.reduce((s, sale) => s + sale.total_amount, 0) || 0;
+  const totalExpensesMonth = monthExpenses?.reduce((s, e) => s + e.amount, 0) || 0;
+  const netProfit = totalSalesMonth - totalExpensesMonth;
+  const totalProducts = products?.length || 0;
+  const lowStockProducts = products?.filter(
+    (p) => p.stock_quantity <= (p.min_stock_alert || 5)
+  ) || [];
 
   const roleLabels: Record<string, string> = {
     admin: "Administrateur",
@@ -177,11 +207,11 @@ const Dashboard = () => {
       icon: Package,
     },
     {
-      title: "Credits en cours",
-      value: formatPrice(totalCredits),
-      change: `${creditsCount} client${creditsCount > 1 ? "s" : ""}`,
-      trend: totalCredits > 0 ? "down" as const : "up" as const,
-      icon: CreditCard,
+      title: "Dépenses du mois",
+      value: formatPrice(totalExpensesMonth),
+      change: `${monthExpenses?.length || 0} dépense(s)`,
+      trend: "down" as const,
+      icon: Wallet,
     },
   ];
 
@@ -222,8 +252,58 @@ const Dashboard = () => {
           ))}
         </div>
 
-        {/* Stock Alerts */}
-        {lowStockProducts && lowStockProducts.length > 0 && (
+        {/* Net Profit + Suppliers Row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Card className="card-elevated">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Bénéfice net du mois</CardTitle>
+              <div className={`p-2 rounded-lg ${netProfit >= 0 ? "bg-green-500/10" : "bg-destructive/10"}`}>
+                <DollarSign className={`h-4 w-4 ${netProfit >= 0 ? "text-green-600" : "text-destructive"}`} />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${netProfit >= 0 ? "text-green-600" : "text-destructive"}`}>
+                {netProfit >= 0 ? "+" : ""}{formatPrice(netProfit)}
+              </div>
+              <div className="flex items-center gap-1 mt-1">
+                {netProfit >= 0 ? (
+                  <ArrowUpRight className="h-4 w-4 text-green-600" />
+                ) : (
+                  <ArrowDownRight className="h-4 w-4 text-destructive" />
+                )}
+                <span className={`text-sm ${netProfit >= 0 ? "text-green-600" : "text-destructive"}`}>
+                  Ventes {formatPrice(totalSalesMonth)} − Dépenses {formatPrice(totalExpensesMonth)}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+          <Card
+            className="card-elevated hover:shadow-medium transition-shadow cursor-pointer group"
+            role="button"
+            tabIndex={0}
+            onClick={() => navigate("/dashboard/suppliers")}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/dashboard/suppliers"); } }}
+          >
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Fournisseurs actifs</CardTitle>
+              <div className="p-2 rounded-lg bg-blue-500/10">
+                <Truck className="h-4 w-4 text-blue-600" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{suppliersCount || 0}</div>
+              <div className="flex items-center gap-1 mt-1">
+                <ArrowUpRight className="h-4 w-4 text-blue-600" />
+                <span className="text-sm text-blue-600 group-hover:underline">
+                  Voir les fournisseurs
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Stock Alerts — now clickable with supplier info */}
+        {lowStockProducts.length > 0 && (
           <Card className="card-elevated border-destructive/30">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-destructive">
@@ -233,17 +313,27 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {lowStockProducts.map((p) => (
-                  <div key={p.id} className="flex items-center gap-3 p-3 bg-destructive/5 rounded-lg">
+                {lowStockProducts.slice(0, 6).map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => navigate("/dashboard/products")}
+                    className="flex items-center gap-3 p-3 bg-destructive/5 rounded-lg hover:bg-destructive/10 transition-colors text-left w-full"
+                  >
                     <CategoryIcon iconName={p.categories?.icon} className="h-5 w-5" />
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">{p.name}</p>
                       <p className="text-xs text-destructive">
                         Stock: {p.stock_quantity} / Seuil: {p.min_stock_alert || 5}
                       </p>
+                      {p.suppliers?.name && (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                          <Truck className="h-3 w-3" />
+                          {p.suppliers.name}
+                        </p>
+                      )}
                     </div>
                     <Badge variant="destructive" className="text-xs">{p.stock_quantity}</Badge>
-                  </div>
+                  </button>
                 ))}
               </div>
             </CardContent>
@@ -253,8 +343,8 @@ const Dashboard = () => {
         {/* Quick Actions */}
         <div>
           <h2 className="text-lg font-semibold mb-4">Actions rapides</h2>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            {userRole && POS_ROLES.includes(userRole) && (
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+            {userRole && ["admin", "manager", "vendeur"].includes(userRole) && (
               <Card
                 className="card-elevated hover:shadow-medium transition-shadow cursor-pointer group"
                 role="button"
@@ -288,7 +378,23 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
             )}
-            {userRole && FINANCIAL_ROLES.includes(userRole) && (
+            {userRole && ["admin", "manager"].includes(userRole) && (
+              <Card
+                className="card-elevated hover:shadow-medium transition-shadow cursor-pointer group"
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate("/dashboard/suppliers")}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/dashboard/suppliers"); } }}
+              >
+                <CardContent className="flex flex-col items-center justify-center py-8">
+                  <div className="p-4 rounded-2xl bg-blue-500/10 mb-4 group-hover:scale-110 transition-transform">
+                    <Truck className="h-8 w-8 text-blue-600" />
+                  </div>
+                  <span className="font-medium">Fournisseurs</span>
+                </CardContent>
+              </Card>
+            )}
+            {userRole && ["admin", "manager", "comptable"].includes(userRole) && (
               <Card
                 className="card-elevated hover:shadow-medium transition-shadow cursor-pointer group"
                 role="button"

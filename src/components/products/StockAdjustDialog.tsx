@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +18,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Loader2, Plus, Minus, RotateCcw, AlertTriangle} from "lucide-react";
+import { Loader2, Plus, Minus, RotateCcw, AlertTriangle, Truck, Phone } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
 import { useCurrency } from "@/hooks/useCurrency";
 
@@ -55,6 +57,21 @@ export const StockAdjustDialog = ({
   const [adjustType, setAdjustType] = useState<AdjustmentType>("restock");
   const [quantity, setQuantity] = useState<number>(0);
   const [reason, setReason] = useState("");
+
+  // Lookup supplier info when the product has a supplier_id
+  const { data: supplier } = useQuery({
+    queryKey: ["supplier-for-product", product?.supplier_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("suppliers")
+        .select("id, name, phone, email")
+        .eq("id", product!.supplier_id!)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!product?.supplier_id && isOpen,
+  });
 
   if (!product) return null;
 
@@ -122,6 +139,28 @@ export const StockAdjustDialog = ({
               <span className={product.stock_quantity <= product.min_stock_alert ? "text-warning font-medium" : ""}>
                 {product.min_stock_alert} {product.unit || "unité(s)"}
               </span>
+            </div>
+          )}
+
+          {/* Supplier info — shown when product has a supplier, especially useful for restock */}
+          {supplier && (
+            <div className="mt-2 pt-2 border-t border-border/50">
+              <div className="flex items-center gap-2 text-sm">
+                <Truck className="h-4 w-4 text-blue-600" />
+                <span className="text-muted-foreground">Fournisseur :</span>
+                <span className="font-medium">{supplier.name}</span>
+              </div>
+              {supplier.phone && (
+                <div className="flex items-center gap-2 text-sm mt-1 ml-6">
+                  <Phone className="h-3 w-3 text-muted-foreground" />
+                  <a
+                    href={`tel:${supplier.phone}`}
+                    className="text-blue-600 hover:underline"
+                  >
+                    {supplier.phone}
+                  </a>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -205,7 +244,9 @@ export const StockAdjustDialog = ({
               onChange={(e) => setReason(e.target.value)}
               placeholder={
                 adjustType === "restock"
-                  ? "Ex: Livraison fournisseur"
+                  ? supplier
+                    ? `Ex: Livraison de ${supplier.name}`
+                    : "Ex: Livraison fournisseur"
                   : adjustType === "loss"
                   ? "Ex: Produit périmé, casse"
                   : "Ex: Inventaire, correction"
