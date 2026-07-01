@@ -82,3 +82,33 @@ Stage Summary:
 - Files created: src/pages/AdminAnalytics.tsx, supabase/migrations/20260702070000_admin_multi_store_analytics.sql
 - Files modified: src/App.tsx (route), src/components/dashboard/DashboardLayout.tsx (nav), src/pages/Dashboard.tsx (quick action)
 - Feature: Super admin can now view analytics across all stores, classify stores by sales, identify top/bad articles per period, and track stock movements globally or per store
+
+---
+Task ID: 3
+Agent: main
+Task: Security Hardening — P0/P1 Vulnerability Fixes + CI
+
+Work Log:
+- Created security_hardening_rpc.sql migration fixing 5 SECURITY DEFINER RPCs:
+  - has_role(): now verifies auth.uid() matches _user_id OR caller is admin in same org
+  - is_user_active(): same pattern — self-check, admin in same org, or super_admin
+  - insert_default_categories(): verifies auth.uid() matches p_user_id + org membership
+  - batch_update_stock(): verifies sale belongs to caller's organization
+  - Admin analytics RPCs: confirmed is_super_admin() guard, defense-in-depth maintained
+- Fixed ProtectedRoute: blocks access when allowedRoles is set but userRole is null
+- Added security headers to render.yaml: X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy, Content-Security-Policy
+- Removed .env from git tracking; added .env and .env.* to .gitignore
+- Added security warning to .env.example about key rotation
+- Created .github/workflows/ci.yml with lint, type-check, test, build + security audit + .env leak detection
+- Installed eslint-plugin-jsx-a11y as dev dependency
+- Secured offlineQueue flushQueue(): validates organization_id and user_id on flush, scopes UPDATE/DELETE by organization_id, injects correct org on INSERT
+- Resolved merge conflicts during rebase (Reports.tsx, types/index.ts, App.tsx, etc.)
+- Added missing type exports (isAdminRole, ADMIN_ROLES, ALL_ROLES, etc.) lost during merge
+- Installed missing web-vitals dependency
+- Pushed all changes to GitHub main branch
+
+Stage Summary:
+- Critical security vulnerabilities fixed (P0)
+- CI pipeline established (P1)
+- Offline queue secured against cross-org data leaks
+- Build passes cleanly, all changes pushed to remote
