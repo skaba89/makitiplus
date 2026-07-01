@@ -3,9 +3,9 @@
 -- Date: 2026-07-02
 --
 -- This script creates the ENTIRE SaaS billing and quota system
-- from scratch. It is safe to run even if no tables exist yet.
+-- from scratch. It is safe to run even if no tables exist yet.
 --
-- Run this in the Supabase SQL Editor.
+-- Run this in the Supabase SQL Editor.
 -- ============================================================
 
 -- ════════════════════════════════════════════════════════════════
