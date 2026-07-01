@@ -258,6 +258,7 @@ const Dashboard = () => {
               <Card
                 className="card-elevated hover:shadow-medium transition-shadow cursor-pointer group"
                 role="button"
+                aria-label="Nouvelle vente"
                 tabIndex={0}
                 onClick={() => navigate("/dashboard/pos")}
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/dashboard/pos"); } }}
@@ -274,6 +275,7 @@ const Dashboard = () => {
               <Card
                 className="card-elevated hover:shadow-medium transition-shadow cursor-pointer group"
                 role="button"
+                aria-label="Ajouter produit"
                 tabIndex={0}
                 onClick={() => navigate("/dashboard/products")}
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/dashboard/products"); } }}
@@ -290,6 +292,7 @@ const Dashboard = () => {
               <Card
                 className="card-elevated hover:shadow-medium transition-shadow cursor-pointer group"
                 role="button"
+                aria-label="Enregistrer dépense"
                 tabIndex={0}
                 onClick={() => navigate("/dashboard/expenses")}
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/dashboard/expenses"); } }}
@@ -305,6 +308,7 @@ const Dashboard = () => {
             <Card
               className="card-elevated hover:shadow-medium transition-shadow cursor-pointer group"
               role="button"
+              aria-label="Voir rapports"
               tabIndex={0}
               onClick={() => navigate("/dashboard/reports")}
               onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/dashboard/reports"); } }}

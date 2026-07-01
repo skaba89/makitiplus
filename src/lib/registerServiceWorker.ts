@@ -55,8 +55,9 @@ export const registerServiceWorker = () => {
   }
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register(SW_URL, { type: "classic" }).catch(() => {
-      /* ignore registration failures */
+    navigator.serviceWorker.register(SW_URL, { type: "classic" }).catch((e) => {
+      /* registration failure — non-critical, PWA will just be unavailable */
+      console.warn("[MalikiPlus] Service Worker registration échouée :", e);
     });
   });
 };

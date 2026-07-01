@@ -56,8 +56,9 @@ export function useOfflineQuery<T extends { id: string }>(
 
       // Cache the data for offline use
       if (data && data.length > 0) {
-        await cacheData(cacheStore as OfflineStoreName, data as T[]).catch(() => {
+        await cacheData(cacheStore as OfflineStoreName, data as T[]).catch((e) => {
           // Cache failure shouldn't break the query
+          console.warn("[MalikiPlus] Cache offline échoué :", e);
         });
       }
 

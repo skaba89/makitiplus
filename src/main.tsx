@@ -9,13 +9,15 @@ import { initSentry } from "./lib/sentry";
 initSentry();
 
 // Run localStorage → IndexedDB migrations before rendering
-runMigrations().catch(() => {
+runMigrations().catch((e) => {
   // IndexedDB migration échouée — fallback localStorage sera utilisé
+  console.warn("[MalikiPlus] IndexedDB migration échouée, fallback localStorage :", e);
 });
 
 // Initialize the offline queue DB (creates v2 stores if needed)
-import("./lib/offlineQueue").catch(() => {
+import("./lib/offlineQueue").catch((e) => {
   // Offline queue init échouée — mode hors-ligne dégradé
+  console.warn("[MalikiPlus] Offline queue init échouée, mode dégradé :", e);
 });
 
 createRoot(document.getElementById("root")!).render(<App />);

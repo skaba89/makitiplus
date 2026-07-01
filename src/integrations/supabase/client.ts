@@ -5,13 +5,51 @@ import type { Database } from './types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+// Validation des variables d'environnement avec message descriptif
+function validateEnv(): void {
+  const missing: string[] = [];
+  if (!SUPABASE_URL) missing.push("VITE_SUPABASE_URL");
+  if (!SUPABASE_PUBLISHABLE_KEY) missing.push("VITE_SUPABASE_PUBLISHABLE_KEY");
+  if (missing.length > 0) {
+    throw new Error(
+      `[MalikiPlus] Variables d'environnement manquantes : ${missing.join(", ")}. ` +
+      "Vérifiez que le fichier .env existe à la racine du projet. " +
+      "Consultez .env.example pour la liste des variables requises."
+    );
+  }
+}
+
+// Lazy singleton — ne crée le client que lors du premier accès réel.
+// Cela permet aux tests unitaires d'importer ce module sans crash
+// (les fonctions pures comme mergeStockDelta n'accèdent jamais à supabase).
+// L'export nommé `supabase` utilise un Proxy qui délègue au lazy singleton,
+// garantissant la compatibilité backward avec `import { supabase } from "..."`.
+let _supabase: ReturnType<typeof createClient<Database>> | null = null;
+
+export function getSupabaseClient() {
+  if (!_supabase) {
+    validateEnv();
+    _supabase = createClient<Database>(SUPABASE_URL!, SUPABASE_PUBLISHABLE_KEY!, {
+      auth: {
+        storage: localStorage,
+        persistSession: true,
+        autoRefreshToken: true,
+      }
+    });
+  }
+  return _supabase;
+}
+
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
-
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  auth: {
-    storage: localStorage,
-    persistSession: true,
-    autoRefreshToken: true,
-  }
+//
+// Backward-compatible export via Proxy — ne crée PAS le client au niveau du module.
+// Le client n'est instancié que lors du premier accès à une propriété de `supabase`.
+// Sans cette indirection, createClient() s'exécute au module-level et crash
+// les tests unitaires qui n'ont pas de .env ("supabaseUrl is required").
+export const supabase = new Proxy({} as ReturnType<typeof createClient<Database>>, {
+  get(_target, prop) {
+    const client = getSupabaseClient();
+    return (client as Record<string | symbol, unknown>)[prop];
+  },
 });

@@ -1,5 +1,15 @@
 import { logger } from "@/lib/logger";
-import { supabase } from "@/integrations/supabase/client";
+
+// Lazy import de supabase pour éviter le side-effect au niveau du module
+// (crash "supabaseUrl is required" dans les tests unitaires qui n'ont pas de .env)
+let _supabase: typeof import("@/integrations/supabase/client")["supabase"] | null = null;
+async function getSupabase() {
+  if (!_supabase) {
+    const mod = await import("@/integrations/supabase/client");
+    _supabase = mod.supabase;
+  }
+  return _supabase;
+}
 
 /**
  * Stratégie de résolution de conflits offline pour MalikiPlus.
@@ -70,6 +80,7 @@ export function lastWriteWins<T extends { updated_at?: string | null }>(
 /** Logge un conflit dans la base (best-effort, non-bloquant). */
 export async function logConflict(entry: ConflictLog): Promise<void> {
   try {
+    const supabase = await getSupabase();
     await supabase.from("sync_conflicts").insert({
       ...entry,
       device_id: entry.device_id ?? getDeviceId(),
@@ -94,6 +105,7 @@ export interface SyncReport {
 
 /** Vérifie s'il existe des conflits non acquittés pour cet utilisateur (visible admin). */
 export async function fetchUnacknowledgedConflicts(): Promise<number> {
+  const supabase = await getSupabase();
   const { count } = await supabase
     .from("sync_conflicts")
     .select("id", { count: "exact", head: true })

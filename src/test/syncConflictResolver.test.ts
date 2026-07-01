@@ -1,4 +1,25 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+
+// Mock le module supabase client — hoisted pour s'exécuter avant tout import
+// Cela empêche le crash "supabaseUrl is required" quand les variables d'env
+// ne sont pas définies dans l'environnement de test
+vi.mock("@/integrations/supabase/client", () => ({
+  supabase: {
+    from: vi.fn(() => ({
+      insert: vi.fn(),
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({ data: { count: 0 } })),
+      })),
+    })),
+    rpc: vi.fn(),
+    auth: {
+      getSession: vi.fn(),
+      onAuthStateChange: vi.fn(),
+    },
+  },
+  getSupabaseClient: vi.fn(),
+}));
+
 import { mergeStockDelta, lastWriteWins } from "@/lib/syncConflictResolver";
 
 describe("mergeStockDelta", () => {
