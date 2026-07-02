@@ -7,18 +7,17 @@
  */
 
 import { useState, useEffect } from "react";
-import { useSubscription, usePlanLimit, usePlans, formatLimit, type LimitType } from "@/hooks/useSubscription";
+import { useSubscription, usePlanLimit, usePlans, formatLimit, type LimitType, type Plan } from "@/hooks/useSubscription";
 import { useAuth } from "@/contexts/AuthContext";
 import { useStripeCheckout, useStripePortal, usePaymentHistory } from "@/hooks/useStripe";
+import { isStripeConfigured as isStripeEnvConfigured, formatStripeAmount } from "@/integrations/stripe/config";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
-import { Loader2, CheckCircle, AlertTriangle, CreditCard, Calendar, TrendingUp, ExternalLink, FileText, Download, Crown, Sparkles } from "lucide-react";
+import { Loader2, CheckCircle, AlertTriangle, CreditCard, Calendar, TrendingUp, ExternalLink, FileText, Download, Crown, Sparkles, XCircle, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useCurrency } from "@/hooks/useCurrency";
 
 const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   active: { label: "Actif", variant: "default" },
@@ -29,18 +28,10 @@ const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secon
   expired: { label: "Expiré", variant: "destructive" },
 };
 
-// Stripe Price IDs — set these after creating products in Stripe Dashboard
-const STRIPE_PRICES: Record<string, { monthly: string | null; yearly: string | null }> = {
-  croissance: { monthly: null, yearly: null },  // Replace with price_xxx after Stripe setup
-  enterprise: { monthly: null, yearly: null },  // Replace with price_xxx after Stripe setup
-};
-
 export default function Billing() {
   const { data: subscription, isLoading: subLoading } = useSubscription();
   const { data: plans } = usePlans();
-  const { userRole } = useAuth();
   const { toast } = useToast();
-  const { formatPrice } = useCurrency();
   const stripeCheckout = useStripeCheckout();
   const stripePortal = useStripePortal();
   const { data: payments } = usePaymentHistory(10);
@@ -51,7 +42,7 @@ export default function Billing() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("checkout") === "success") {
-      toast({ title: "Paiement réussi !", description: "Votre abonnement a été mis à jour." });
+      toast({ title: "Paiement réussi !", description: "Votre abonnement a été mis à jour. La mise à jour peut prendre quelques instants." });
       window.history.replaceState({}, "", "/dashboard/billing");
     }
     if (params.get("checkout") === "cancelled") {
@@ -59,6 +50,26 @@ export default function Billing() {
       window.history.replaceState({}, "", "/dashboard/billing");
     }
   }, []);
+
+  // Resolve price_id from DB plans data
+  const getStripePriceId = (targetPlan: string): string | null => {
+    const plan = plans?.find((p) => p.id === targetPlan);
+    if (!plan) return null;
+    return billingPeriod === "yearly" ? plan.stripe_price_id_yearly : plan.stripe_price_id_monthly;
+  };
+
+  // Check if Stripe prices are configured for a plan
+  const isPlanReady = (targetPlan: string): boolean => {
+    return getStripePriceId(targetPlan) !== null;
+  };
+
+  // Check if ANY plan has Stripe prices configured
+  const anyStripePriceConfigured = plans?.some(
+    (p) => p.stripe_price_id_monthly || p.stripe_price_id_yearly
+  ) ?? false;
+
+  // Stripe env key check
+  const stripeEnvReady = isStripeEnvConfigured();
 
   if (subLoading) {
     return (
@@ -78,22 +89,21 @@ export default function Billing() {
   const isPaidPlan = planId !== "starter";
 
   const handleUpgrade = (targetPlan: string) => {
-    const prices = STRIPE_PRICES[targetPlan];
-    if (!prices) {
+    if (!stripeEnvReady) {
       toast({
         variant: "destructive",
-        title: "Configuration requise",
-        description: "Les prix Stripe ne sont pas encore configurés. Contactez le support.",
+        title: "Stripe non configuré",
+        description: "La clé Stripe n'est pas encore configurée. Contactez le support.",
       });
       return;
     }
 
-    const priceId = billingPeriod === "yearly" ? prices.yearly : prices.monthly;
+    const priceId = getStripePriceId(targetPlan);
     if (!priceId) {
       toast({
         variant: "destructive",
         title: "Prix non disponible",
-        description: `Le tarif ${billingPeriod === "yearly" ? "annuel" : "mensuel"} pour ce plan n'est pas encore configuré.`,
+        description: `Le tarif ${billingPeriod === "yearly" ? "annuel" : "mensuel"} pour ce plan n'est pas encore configuré dans Stripe. Contactez le support.`,
       });
       return;
     }
@@ -109,6 +119,17 @@ export default function Billing() {
     stripePortal.mutate();
   };
 
+  // Get display price for a plan from DB data
+  const getDisplayPrice = (plan: Plan): string => {
+    const amount = billingPeriod === "yearly" ? plan.price_yearly : plan.price_monthly;
+    if (amount === 0 || amount === null) return "Gratuit";
+    // DB prices are in cents for USD
+    if (plan.currency === 'usd') {
+      return `${billingPeriod === "yearly" ? (amount / 100) : (amount / 100)}$/${billingPeriod === "yearly" ? "an" : "mois"}`;
+    }
+    return `${amount} ${plan.currency.toUpperCase()}/${billingPeriod === "yearly" ? "an" : "mois"}`;
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6 max-w-4xl mx-auto p-4 sm:p-6">
@@ -119,6 +140,38 @@ export default function Billing() {
           </div>
           <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
         </div>
+
+        {/* Checkout Error Banner */}
+        {(stripeCheckout.isError || stripePortal.isError) && (
+          <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200">
+            <XCircle className="h-5 w-5 text-destructive shrink-0" />
+            <div className="text-sm">
+              <p className="font-medium">Erreur de paiement</p>
+              <p className="text-muted-foreground">
+                {stripeCheckout.error?.message || stripePortal.error?.message || "Une erreur est survenue. Veuillez réessayer."}
+              </p>
+            </div>
+            <Button variant="ghost" size="sm" className="ml-auto" onClick={() => {
+              stripeCheckout.reset();
+              stripePortal.reset();
+            }}>
+              Fermer
+            </Button>
+          </div>
+        )}
+
+        {/* Stripe Not Configured Banner */}
+        {!stripeEnvReady && (
+          <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200">
+            <Info className="h-5 w-5 text-blue-500 shrink-0" />
+            <div className="text-sm">
+              <p className="font-medium">Paiement en cours de configuration</p>
+              <p className="text-muted-foreground">
+                Le système de paiement Stripe est en cours de configuration. Les abonnements payants seront disponibles prochainement.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Current Plan Card */}
         <Card>
@@ -244,80 +297,51 @@ export default function Billing() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Croissance */}
                 {planId === "starter" && (
-                  <Card className="relative overflow-hidden">
-                    <div className="absolute top-0 right-0 bg-primary text-primary-foreground text-xs font-medium px-3 py-1 rounded-bl-lg">
-                      Populaire
-                    </div>
-                    <CardContent className="pt-6 space-y-3">
-                      <div>
-                        <h3 className="font-bold text-lg flex items-center gap-2">
-                          <Sparkles className="h-5 w-5 text-primary" />
-                          Croissance
-                        </h3>
-                        <p className="text-2xl font-bold mt-1">
-                          ${billingPeriod === "yearly" ? "290/an" : "29/mois"}
-                        </p>
-                      </div>
-                      <ul className="text-sm space-y-1.5">
-                        <li className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-green-500" /> 3 boutiques</li>
-                        <li className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-green-500" /> 10 utilisateurs</li>
-                        <li className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-green-500" /> Fournisseurs & commandes</li>
-                        <li className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-green-500" /> Rapports & exports</li>
-                        <li className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-green-500" /> WhatsApp Business</li>
-                        <li className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-green-500" /> Branding personnalisé</li>
-                      </ul>
-                      <Button
-                        className="w-full"
-                        onClick={() => handleUpgrade("croissance")}
-                        disabled={stripeCheckout.isPending}
-                      >
-                        {stripeCheckout.isPending ? (
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        ) : null}
-                        Choisir Croissance
-                      </Button>
-                    </CardContent>
-                  </Card>
+                  <UpgradeCard
+                    planId="croissance"
+                    plans={plans}
+                    billingPeriod={billingPeriod}
+                    isReady={isPlanReady("croissance") && stripeEnvReady}
+                    isLoading={stripeCheckout.isPending}
+                    badge="Populaire"
+                    badgeColor="bg-primary text-primary-foreground"
+                    icon={<Sparkles className="h-5 w-5 text-primary" />}
+                    features={[
+                      "3 boutiques",
+                      "10 utilisateurs",
+                      "Fournisseurs & commandes",
+                      "Rapports & exports",
+                      "WhatsApp Business",
+                      "Branding personnalisé",
+                    ]}
+                    onUpgrade={() => handleUpgrade("croissance")}
+                  />
                 )}
 
                 {/* Enterprise */}
-                <Card className="relative overflow-hidden">
-                  <div className="absolute top-0 right-0 bg-amber-500 text-white text-xs font-medium px-3 py-1 rounded-bl-lg">
-                    Premium
-                  </div>
-                  <CardContent className="pt-6 space-y-3">
-                    <div>
-                      <h3 className="font-bold text-lg flex items-center gap-2">
-                        <Crown className="h-5 w-5 text-amber-500" />
-                        Enterprise
-                      </h3>
-                      <p className="text-2xl font-bold mt-1">
-                        ${billingPeriod === "yearly" ? "790/an" : "79/mois"}
-                      </p>
-                    </div>
-                    <ul className="text-sm space-y-1.5">
-                      <li className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-green-500" /> Boutiques & utilisateurs illimités</li>
-                      <li className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-green-500" /> Tout dans Croissance</li>
-                      <li className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-green-500" /> API externe</li>
-                      <li className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-green-500" /> Assistant IA</li>
-                      <li className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-green-500" /> Support prioritaire</li>
-                      <li className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-green-500" /> Programme fidélité</li>
-                    </ul>
-                    <Button
-                      className="w-full bg-amber-500 hover:bg-amber-600"
-                      onClick={() => handleUpgrade("enterprise")}
-                      disabled={stripeCheckout.isPending}
-                    >
-                      {stripeCheckout.isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      ) : null}
-                      Choisir Enterprise
-                    </Button>
-                  </CardContent>
-                </Card>
+                <UpgradeCard
+                  planId="enterprise"
+                  plans={plans}
+                  billingPeriod={billingPeriod}
+                  isReady={isPlanReady("enterprise") && stripeEnvReady}
+                  isLoading={stripeCheckout.isPending}
+                  badge="Premium"
+                  badgeColor="bg-amber-500 text-white"
+                  icon={<Crown className="h-5 w-5 text-amber-500" />}
+                  features={[
+                    "Boutiques & utilisateurs illimités",
+                    "Tout dans Croissance",
+                    "API externe",
+                    "Assistant IA",
+                    "Support prioritaire",
+                    "Programme fidélité",
+                  ]}
+                  onUpgrade={() => handleUpgrade("enterprise")}
+                  buttonClassName="bg-amber-500 hover:bg-amber-600"
+                />
               </div>
 
-              {!STRIPE_PRICES.croissance.monthly && (
+              {!anyStripePriceConfigured && (
                 <p className="text-xs text-muted-foreground text-center">
                   Les prix Stripe seront configurés prochainement. Contactez-nous pour une activation anticipée.
                 </p>
@@ -352,7 +376,7 @@ export default function Billing() {
                     <div className="flex items-center gap-3">
                       <div className="text-right">
                         <p className="font-medium">
-                          {(payment.amount / 100).toFixed(2)} {payment.currency.toUpperCase()}
+                          {formatStripeAmount(payment.amount, payment.currency)}
                         </p>
                         <Badge variant={payment.status === "paid" ? "default" : "destructive"} className="text-xs">
                           {payment.status === "paid" ? "Payé" : payment.status === "failed" ? "Échoué" : payment.status}
@@ -388,7 +412,7 @@ export default function Billing() {
                       <th key={plan.id} className="text-center py-2 px-2">
                         <div className="font-semibold">{plan.name}</div>
                         <div className="text-muted-foreground text-xs">
-                          {plan.price_monthly === 0 ? "Gratuit" : `$${plan.price_monthly}/mois`}
+                          {plan.price_monthly === 0 ? "Gratuit" : `$${plan.price_monthly / 100}/mois`}
                         </div>
                       </th>
                     ))}
@@ -415,6 +439,75 @@ export default function Billing() {
         </Card>
       </div>
     </DashboardLayout>
+  );
+}
+
+// ─── UpgradeCard Component ──────────────────────────────────
+
+function UpgradeCard({
+  planId,
+  plans,
+  billingPeriod,
+  isReady,
+  isLoading,
+  badge,
+  badgeColor,
+  icon,
+  features,
+  onUpgrade,
+  buttonClassName,
+}: {
+  planId: string;
+  plans: Plan[] | undefined;
+  billingPeriod: "monthly" | "yearly";
+  isReady: boolean;
+  isLoading: boolean;
+  badge: string;
+  badgeColor: string;
+  icon: React.ReactNode;
+  features: string[];
+  onUpgrade: () => void;
+  buttonClassName?: string;
+}) {
+  const plan = plans?.find((p) => p.id === planId);
+  const displayPrice = plan
+    ? billingPeriod === "yearly" && plan.price_yearly
+      ? `$${plan.price_yearly / 100}/an`
+      : `$${plan.price_monthly / 100}/mois`
+    : "—";
+
+  return (
+    <Card className="relative overflow-hidden">
+      <div className={`absolute top-0 right-0 ${badgeColor} text-xs font-medium px-3 py-1 rounded-bl-lg`}>
+        {badge}
+      </div>
+      <CardContent className="pt-6 space-y-3">
+        <div>
+          <h3 className="font-bold text-lg flex items-center gap-2">
+            {icon}
+            {planId.charAt(0).toUpperCase() + planId.slice(1)}
+          </h3>
+          <p className="text-2xl font-bold mt-1">{displayPrice}</p>
+        </div>
+        <ul className="text-sm space-y-1.5">
+          {features.map((feature) => (
+            <li key={feature} className="flex items-center gap-2">
+              <CheckCircle className="h-3.5 w-3.5 text-green-500" /> {feature}
+            </li>
+          ))}
+        </ul>
+        <Button
+          className={`w-full ${buttonClassName || ""}`}
+          onClick={onUpgrade}
+          disabled={isLoading || !isReady}
+        >
+          {isLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+          ) : null}
+          {isReady ? `Choisir ${planId.charAt(0).toUpperCase() + planId.slice(1)}` : "Bientôt disponible"}
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -465,8 +558,8 @@ function PlanFeatureRow({
   getValue,
 }: {
   label: string;
-  plans: { id: string; name: string; price_monthly: number; max_stores: number | null; max_users: number | null; max_products: number | null; has_advanced_reports: boolean; has_exports: boolean; has_supplier_management: boolean; has_offline_advanced: boolean; has_custom_branding: boolean; has_multi_currency: boolean; has_api_access: boolean; has_priority_support: boolean; has_ai_assistant: boolean; has_loyalty_program: boolean }[] | undefined;
-  getValue: (plan: NonNullable<typeof plans>[0]) => boolean | string;
+  plans: Plan[] | undefined;
+  getValue: (plan: Plan) => boolean | string;
 }) {
   if (!plans) return null;
 

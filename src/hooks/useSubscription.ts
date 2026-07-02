@@ -37,6 +37,8 @@ export interface Plan {
   has_loyalty_program: boolean;
   sort_order: number;
   is_active: boolean;
+  stripe_price_id_monthly: string | null;
+  stripe_price_id_yearly: string | null;
 }
 
 export interface Subscription {

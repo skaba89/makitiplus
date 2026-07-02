@@ -1,6 +1,19 @@
+/**
+ * Stripe Integration Hooks for MakitiPlus
+ *
+ * Provides:
+ * - useStripeCustomer: Get the Stripe customer for the current org
+ * - usePaymentHistory: Get payment history for the current org
+ * - useStripeCheckout: Initiate a Stripe Checkout session
+ * - useStripePortal: Open Stripe Customer Portal
+ *
+ * All hooks use Supabase Edge Functions as the backend proxy.
+ */
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { isStripeConfigured } from "@/integrations/stripe/config";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -42,7 +55,7 @@ export function useStripeCustomer() {
       if (error) throw error;
       return (data as StripeCustomer) ?? null;
     },
-    enabled: !!user,
+    enabled: !!user && isStripeConfigured(),
   });
 }
 
@@ -58,20 +71,35 @@ export function usePaymentHistory(limit = 20) {
       if (error) throw error;
       return (data as StripePayment[]) ?? [];
     },
-    enabled: !!user,
+    enabled: !!user && isStripeConfigured(),
   });
 }
 
 // ─── Hook: useStripeCheckout ───────────────────────────────────────────────
 
 export function useStripeCheckout() {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: async (params: { price_id: string; plan_id: string; billing_period?: 'monthly' | 'yearly' }) => {
+      if (!isStripeConfigured()) {
+        throw new Error("Stripe n'est pas configuré. Veuillez contacter le support.");
+      }
+
       const { data, error } = await supabase.functions.invoke("stripe-checkout", {
         body: params,
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+
+      if (error) {
+        // Extract meaningful error message from Supabase Functions error
+        const message = error.message || error.name || "Erreur lors de la création de la session de paiement.";
+        throw new Error(message);
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
       return data as { url: string; session_id: string };
     },
     onSuccess: (data) => {
@@ -79,6 +107,9 @@ export function useStripeCheckout() {
       if (data.url) {
         window.location.href = data.url;
       }
+    },
+    onError: (error: Error) => {
+      console.error("[useStripeCheckout] Checkout failed:", error.message);
     },
   });
 }
@@ -88,11 +119,23 @@ export function useStripeCheckout() {
 export function useStripePortal() {
   return useMutation({
     mutationFn: async () => {
+      if (!isStripeConfigured()) {
+        throw new Error("Stripe n'est pas configuré. Veuillez contacter le support.");
+      }
+
       const { data, error } = await supabase.functions.invoke("stripe-portal", {
         body: {},
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+
+      if (error) {
+        const message = error.message || error.name || "Erreur lors de l'ouverture du portail client.";
+        throw new Error(message);
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
       return data as { url: string };
     },
     onSuccess: (data) => {
@@ -100,6 +143,9 @@ export function useStripePortal() {
       if (data.url) {
         window.location.href = data.url;
       }
+    },
+    onError: (error: Error) => {
+      console.error("[useStripePortal] Portal failed:", error.message);
     },
   });
 }

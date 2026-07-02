@@ -4,11 +4,9 @@
 
 import { getCorsHeaders, corsOptionsResponse } from '../_shared/cors.ts';
 
-const corsHeaders = getCorsHeaders;
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return corsOptionsResponse(req);
-  const headers = { ...corsHeaders(req), 'Content-Type': 'application/json' };
+  const headers = { ...getCorsHeaders(req), 'Content-Type': 'application/json' };
 
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers });
@@ -25,6 +23,11 @@ Deno.serve(async (req) => {
     const anonKey = Deno.env.get('SUPABASE_PUBLISHABLE_KEY') ?? Deno.env.get('SUPABASE_ANON_KEY')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY')!;
+
+    if (!stripeSecretKey) {
+      console.error('[stripe-checkout] STRIPE_SECRET_KEY not configured');
+      return new Response(JSON.stringify({ error: 'Stripe non configuré' }), { status: 500, headers });
+    }
 
     const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2.93.3');
     const userClient = createClient(supabaseUrl, anonKey, {
@@ -59,6 +62,22 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'price_id and plan_id are required' }), { status: 400, headers });
     }
 
+    // ── Validate price_id against DB ──────────────────────────────
+    const { data: planData } = await adminClient
+      .from('plans').select('id, stripe_price_id_monthly, stripe_price_id_yearly')
+      .eq('id', plan_id).maybeSingle();
+
+    if (!planData) {
+      return new Response(JSON.stringify({ error: 'Plan introuvable' }), { status: 400, headers });
+    }
+
+    // Verify the price_id matches one configured for this plan
+    const validPriceIds = [planData.stripe_price_id_monthly, planData.stripe_price_id_yearly].filter(Boolean);
+    if (validPriceIds.length > 0 && !validPriceIds.includes(price_id)) {
+      console.warn(`[stripe-checkout] Invalid price_id ${price_id} for plan ${plan_id}. Expected one of: ${validPriceIds.join(', ')}`);
+      return new Response(JSON.stringify({ error: 'Prix invalide pour ce plan' }), { status: 400, headers });
+    }
+
     // ── Get or create Stripe customer ─────────────────────────────
     let stripeCustomerId: string;
 
@@ -72,25 +91,25 @@ Deno.serve(async (req) => {
       stripeCustomerId = existingCustomer.stripe_customer_id;
     } else {
       // Create Stripe customer
+      const customerParams = new URLSearchParams({
+        email: user.email || profile.email || '',
+        name: profile.business_name || profile.owner_name || '',
+        'metadata[organization_id]': profile.organization_id,
+        'metadata[supabase_user_id]': user.id,
+      });
+
       const customerRes = await fetch('https://api.stripe.com/v1/customers', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${stripeSecretKey}`,
           'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: new URLSearchParams({
-          email: user.email || profile.email || '',
-          name: profile.business_name || profile.owner_name || '',
-          metadata: JSON.stringify({
-            organization_id: profile.organization_id,
-            supabase_user_id: user.id,
-          }),
-        } as Record<string, string>),
+        body: customerParams,
       });
 
-      // Handle metadata separately (must be sent as individual keys)
       const customerData = await customerRes.json();
       if (!customerRes.ok) {
+        console.error('[stripe-checkout] Customer creation failed:', customerData);
         return new Response(
           JSON.stringify({ error: customerData.error?.message || 'Failed to create Stripe customer' }),
           { status: 502, headers }
@@ -109,21 +128,7 @@ Deno.serve(async (req) => {
 
     // ── Create Checkout Session ───────────────────────────────────
     const appUrl = Deno.env.get('APP_URL') || 'https://makitiplus.onrender.com';
-    const params = new URLSearchParams({
-      customer: stripeCustomerId,
-      'price_data[currency]': 'usd',
-      'price_data[product_data][name]': `MakitiPlus ${plan_id.charAt(0).toUpperCase() + plan_id.slice(1)}`,
-      'price_data[product_data][description]': `Plan ${plan_id} - ${billing_period === 'yearly' ? 'Annuel' : 'Mensuel'}`,
-      'price_data[unit_amount]': '0', // Will be overridden by the price_id mode
-      mode: 'subscription',
-      success_url: `${appUrl}/dashboard/billing?checkout=success`,
-      cancel_url: `${appUrl}/dashboard/billing?checkout=cancelled`,
-      'subscription_data[metadata][organization_id]': profile.organization_id,
-      'subscription_data[metadata][plan_id]': plan_id,
-      'subscription_data[metadata][user_id]': user.id,
-    });
 
-    // Use existing price_id from Stripe
     const checkoutParams = new URLSearchParams({
       customer: stripeCustomerId,
       mode: 'subscription',
@@ -159,12 +164,24 @@ Deno.serve(async (req) => {
 
     const checkoutData = await checkoutRes.json();
     if (!checkoutRes.ok) {
-      console.error('[stripe-checkout] Error:', checkoutData);
+      console.error('[stripe-checkout] Checkout session failed:', checkoutData);
       return new Response(
         JSON.stringify({ error: checkoutData.error?.message || 'Failed to create checkout session' }),
         { status: 502, headers }
       );
     }
+
+    // Log checkout initiation
+    await adminClient.from('subscription_events').insert({
+      organization_id: profile.organization_id,
+      event_type: 'checkout_initiated',
+      metadata: {
+        plan_id,
+        price_id,
+        billing_period: billing_period || 'monthly',
+        stripe_customer_id: stripeCustomerId,
+      },
+    });
 
     return new Response(
       JSON.stringify({

@@ -13,6 +13,8 @@ services:
         sync: false
       - key: VITE_SUPABASE_PUBLISHABLE_KEY
         sync: false
+      - key: VITE_STRIPE_PUBLISHABLE_KEY
+        sync: false
       - key: VITE_SENTRY_DSN
         sync: false
       - key: VITE_SENTRY_ENVIRONMENT
@@ -35,7 +37,7 @@ services:
         value: camera=(self), geolocation=(), microphone=()
       - path: /*
         name: Content-Security-Policy
-        value: "default-src 'self'; connect-src 'self' https://*.supabase.co https://*.sentry.io; img-src 'self' data: blob: https:; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; frame-ancestors 'none';"
+        value: "default-src 'self'; connect-src 'self' https://*.supabase.co https://*.sentry.io https://api.stripe.com; img-src 'self' data: blob: https:; script-src 'self' https://js.stripe.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; frame-src https://js.stripe.com https://checkout.stripe.com https://billing.stripe.com; frame-ancestors 'none';"
       # --- Cache headers (specific paths) ---
       - path: /assets/*
         name: Cache-Control

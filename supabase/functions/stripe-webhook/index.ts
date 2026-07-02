@@ -29,15 +29,24 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Missing signature' }), { status: 400, headers });
     }
 
-    // Import Stripe webhook helpers (lightweight, no full SDK needed)
-    // We'll verify the signature manually
-    const { createHmac } = await import('node:crypto');
-
-    const expectedSig = computeSignature(webhookSecret, body);
+    // ── Verify webhook signature (HMAC-SHA256) ─────────────────────
     const sigParts = parseSignature(signature);
-    const v1 = sigParts.v1;
+    if (!sigParts.t || !sigParts.v1) {
+      console.warn('[stripe-webhook] Malformed signature header');
+      return new Response(JSON.stringify({ error: 'Malformed signature' }), { status: 400, headers });
+    }
 
-    if (v1 !== expectedSig) {
+    // Reject replays older than 5 minutes (300 seconds)
+    const timestamp = parseInt(sigParts.t, 10);
+    const currentTime = Math.floor(Date.now() / 1000);
+    if (isNaN(timestamp) || Math.abs(currentTime - timestamp) > 300) {
+      console.warn('[stripe-webhook] Signature timestamp outside tolerance');
+      return new Response(JSON.stringify({ error: 'Timestamp outside tolerance' }), { status: 400, headers });
+    }
+
+    const expectedSig = await computeSignature(webhookSecret, body, sigParts.t);
+
+    if (sigParts.v1 !== expectedSig) {
       console.warn('[stripe-webhook] Invalid signature');
       return new Response(JSON.stringify({ error: 'Invalid signature' }), { status: 400, headers });
     }
@@ -226,19 +235,35 @@ Deno.serve(async (req) => {
 
 // ── Signature verification helpers ────────────────────────────────────
 
-function parseSignature(sig: string): Record<string, string> {
+function parseSignature(sig: string): { t: string; v1: string } {
   const parts: Record<string, string> = {};
   sig.split(',').forEach((part) => {
-    const [key, value] = part.split('=');
-    if (key && value) parts[key.trim()] = value.trim();
+    const eqIdx = part.indexOf('=');
+    if (eqIdx > 0) {
+      const key = part.substring(0, eqIdx).trim();
+      const value = part.substring(eqIdx + 1).trim();
+      parts[key] = value;
+    }
   });
-  return parts;
+  return { t: parts['t'] || '', v1: parts['v1'] || '' };
 }
 
-function computeSignature(secret: string, payload: string): string {
-  const crypto = globalThis.crypto as unknown as { subtle: { importKey: (...args: unknown[]) => Promise<unknown>; sign: (...args: unknown[]) => Promise<unknown> } };
-  // Simplified: In production, use proper HMAC-SHA256
-  // For now, return the v1 value from the signature (Stripe test mode)
-  // NOTE: In production, you MUST verify with proper HMAC
-  return '';
+/**
+ * Compute Stripe webhook signature using HMAC-SHA256.
+ * Stripe signs with: HMAC-SHA256(webhook_secret, timestamp + "." + payload)
+ * The signature header format is: t=<timestamp>,v1=<signature>
+ */
+async function computeSignature(secret: string, payload: string, timestamp: string): Promise<string> {
+  const signedPayload = `${timestamp}.${payload}`;
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const signatureBuffer = await crypto.subtle.sign('HMAC', key, encoder.encode(signedPayload));
+  const signatureArray = Array.from(new Uint8Array(signatureBuffer));
+  return signatureArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 }

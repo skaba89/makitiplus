@@ -216,3 +216,33 @@ Stage Summary:
 - Purchase orders SQL schema deployed (po_status enum, purchase_orders + items tables, RLS, 2 RPCs)
 - All core data hooks and Dashboard now filter by active store
 - Store switching via StoreSwitcher triggers automatic query invalidation
+---
+Task ID: 7
+Agent: main
+Task: Stripe Payment Integration — Security & Architecture Fixes
+
+Work Log:
+- 🔴 CRITICAL: Fixed Stripe webhook signature verification — replaced stubbed computeSignature() (was returning empty string) with proper HMAC-SHA256 using Web Crypto API
+- Added timestamp tolerance check (5 min) to prevent replay attacks
+- Added malformed signature header detection
+- Removed hardcoded STRIPE_PRICES object from Billing.tsx — now reads price IDs from DB (plans.stripe_price_id_monthly/yearly columns)
+- Added stripe_price_id_monthly and stripe_price_id_yearly to Plan interface in useSubscription.ts
+- Installed @stripe/stripe-js (^9.9.0) for client-side Stripe integration
+- Created /src/integrations/stripe/config.ts: isStripeConfigured(), getStripe() lazy singleton, formatStripeAmount()
+- Rewrote useStripe.ts: added isStripeConfigured() guards, better error extraction, queryClient integration
+- Cleaned up stripe-checkout Edge Function: removed dead code (unused first params block), added price_id validation against DB, added checkout_initiated event logging, added STRIPE_SECRET_KEY presence check
+- Harmonized Landing Page pricing: Pricing.tsx now uses usePlans() for DB-driven prices instead of hardcoded GNF values; changed "Flutterwave" → "Stripe" trust note
+- Added VITE_STRIPE_PUBLISHABLE_KEY to .env, .env.example, render.yaml
+- Updated CSP in render.yaml: added js.stripe.com, api.stripe.com, checkout.stripe.com, billing.stripe.com
+- Rewrote Billing.tsx: added error banner, Stripe-not-configured banner, UpgradeCard component with dynamic pricing, better loading/disabled states
+- Created scripts/seed-stripe-prices.ts: creates Products & Prices in Stripe, updates DB with price IDs
+- TypeScript compilation passes, Vite build succeeds
+
+Stage Summary:
+- Stripe webhook security fixed (HMAC-SHA256 + replay protection)
+- Price IDs now DB-driven instead of hardcoded nulls
+- @stripe/stripe-js installed with client config module
+- Checkout flow cleaned up with validation and logging
+- Landing page and billing page prices harmonized
+- Environment variables configured for local and production
+- Seed script ready for initial Stripe setup
