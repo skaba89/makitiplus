@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useStoreId } from "@/contexts/StoreContext";
 import { sanitizeSearchInput } from "@/lib/postgrestSanitize";
 import type { DynamicSupabaseQuery } from "@/lib/supabaseDynamicQuery";
 
@@ -57,6 +58,7 @@ export function usePaginatedQuery<T = unknown>(
     enabled = true,
   } = options;
   const { profile } = useAuth();
+  const storeId = useStoreId();
 
   // Stable serialisation of filters for the query key
   const filtersKey = filters.map((f) => `${f.column}${f.operator}${String(f.value)}`).join("|");
@@ -67,7 +69,7 @@ export function usePaginatedQuery<T = unknown>(
     : "";
 
   const { data, isLoading, error } = useQuery({
-    queryKey: [...queryKey, page, pageSize, searchKey, filtersKey],
+    queryKey: [...queryKey, page, pageSize, searchKey, filtersKey, storeId ?? "no-store"],
     queryFn: async () => {
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
@@ -81,6 +83,11 @@ export function usePaginatedQuery<T = unknown>(
       // Defense-in-depth: always filter by organization_id
       if (profile?.organization_id) {
         query = query.eq("organization_id", profile.organization_id);
+      }
+
+      // Store-aware: filter by store_id when a store is active
+      if (storeId) {
+        query = query.eq("store_id", storeId);
       }
 
       // Apply filters

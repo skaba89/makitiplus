@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useStoreId } from "@/contexts/StoreContext";
 import { Database } from "@/integrations/supabase/types";
 import { CategoryRpcRow } from "@/types";
 
@@ -20,15 +21,18 @@ type Category = Database["public"]["Tables"]["categories"]["Row"] & {
  */
 export function useCategories() {
   const { user, profile } = useAuth();
+  const storeId = useStoreId();
 
   return useQuery<Category[]>({
-    queryKey: ["categories", user?.id],
+    queryKey: ["categories", user?.id, storeId ?? "no-store"],
     queryFn: async () => {
       if (!profile?.organization_id) return [];
 
       // Try RPC first (includes product_count)
       try {
-        const { data, error } = await supabase.rpc("get_categories");
+        const { data, error } = await supabase.rpc("get_categories", {
+          p_store_id: storeId,
+        });
         if (!error && data) {
           // Map RPC result to match Category type
           return (data as CategoryRpcRow[]).map((c) => ({
@@ -46,10 +50,16 @@ export function useCategories() {
       }
 
       // Fallback: basic query without product counts
-      const { data, error } = await supabase
+      let fallbackQuery = supabase
         .from("categories")
         .select("*, products(count)")
-        .eq("organization_id", profile.organization_id)
+        .eq("organization_id", profile.organization_id);
+
+      if (storeId) {
+        fallbackQuery = fallbackQuery.eq("store_id", storeId);
+      }
+
+      const { data, error } = await fallbackQuery
         .order("name")
         .limit(500);
 

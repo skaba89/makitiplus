@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useStoreId } from "@/contexts/StoreContext";
 import { ProductStatsRpc } from "@/types";
 
 /**
@@ -12,14 +13,17 @@ import { ProductStatsRpc } from "@/types";
  */
 export function useProductStats() {
   const { user, profile } = useAuth();
+  const storeId = useStoreId();
 
   return useQuery<ProductStatsRpc>({
-    queryKey: ["products-stats", user?.id],
+    queryKey: ["products-stats", user?.id, storeId ?? "no-store"],
     queryFn: async () => {
       if (!profile?.organization_id) {
         return { totalProducts: 0, lowStockCount: 0, outOfStockCount: 0, categoryCounts: {} };
       }
-      const { data, error } = await supabase.rpc("get_product_stats");
+      const { data, error } = await supabase.rpc("get_product_stats", {
+        p_store_id: storeId,
+      });
       if (error) throw error;
       const typed = data as unknown as ProductStatsRpc;
       return {

@@ -1,4 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { useStoreId } from "@/contexts/StoreContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -36,6 +37,7 @@ interface DashboardProduct {
 
 const Dashboard = () => {
   const { user, profile, userRole } = useAuth();
+  const storeId = useStoreId();
   const { formatPrice } = useCurrency();
   const navigate = useNavigate();
 
@@ -48,13 +50,14 @@ const Dashboard = () => {
   // ⚡ Stats du Dashboard via RPC — une seule requête au lieu de 5+ fetchAllRows
   // L'agrégation (SUM, COUNT) se fait côté serveur, réduisant drastiquement le transfert de données
   const { data: dashboardStats, isLoading: isLoadingStats } = useQuery({
-    queryKey: ["dashboard-stats", user?.id],
+    queryKey: ["dashboard-stats", user?.id, storeId ?? "no-store"],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_dashboard_stats", {
         p_day_start: dayStart,
         p_day_end: dayEnd,
         p_month_start: monthStart,
         p_month_end: monthEnd,
+        p_store_id: storeId,
       });
       if (error) throw error;
       // RPC returns array with single object
@@ -65,13 +68,14 @@ const Dashboard = () => {
 
   // Produits les plus vendus (30 derniers jours) — RPC avec agrégation serveur
   const { data: topProducts } = useQuery({
-    queryKey: ["dashboard-top-products", user?.id],
+    queryKey: ["dashboard-top-products", user?.id, storeId ?? "no-store"],
     queryFn: async () => {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       const { data, error } = await supabase.rpc("get_top_products", {
         p_since: thirtyDaysAgo.toISOString(),
         p_limit: 5,
+        p_store_id: storeId,
       });
       if (error) throw error;
       return data;
@@ -81,13 +85,15 @@ const Dashboard = () => {
 
   // Month sales (for profit calculation)
   const { data: monthSales } = useQuery({
-    queryKey: ["dashboard-sales-month", user?.id],
+    queryKey: ["dashboard-sales-month", user?.id, storeId ?? "no-store"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("sales")
         .select("total_amount")
         .gte("created_at", monthStart)
         .lte("created_at", monthEnd);
+      if (storeId) query = query.eq("store_id", storeId);
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -96,13 +102,15 @@ const Dashboard = () => {
 
   // Month expenses
   const { data: monthExpenses } = useQuery({
-    queryKey: ["dashboard-expenses-month", user?.id],
+    queryKey: ["dashboard-expenses-month", user?.id, storeId ?? "no-store"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("expenses")
         .select("amount")
         .gte("expense_date", format(startOfMonth(today), "yyyy-MM-dd"))
         .lte("expense_date", format(endOfMonth(today), "yyyy-MM-dd"));
+      if (storeId) query = query.eq("store_id", storeId);
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -111,13 +119,14 @@ const Dashboard = () => {
 
   // Products count & stock alerts (with supplier info for restock)
   const { data: products } = useQuery({
-    queryKey: ["dashboard-products", user?.id],
+    queryKey: ["dashboard-products", user?.id, storeId ?? "no-store"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("products")
         .select("id, name, stock_quantity, min_stock_alert, categories(icon), suppliers(name)")
         .eq("is_active", true);
-      if (error) throw error;
+      if (storeId) query = query.eq("store_id", storeId);
+      const { data, error } = await query;
       return data as DashboardProduct[];
     },
     enabled: !!user,
@@ -139,7 +148,7 @@ const Dashboard = () => {
 
   // Recent sales
   const { data: recentSales } = useQuery({
-    queryKey: ["dashboard-recent-sales", user?.id, profile?.organization_id],
+    queryKey: ["dashboard-recent-sales", user?.id, profile?.organization_id, storeId ?? "no-store"],
     queryFn: async () => {
       let query = supabase
         .from("sales")
@@ -149,6 +158,9 @@ const Dashboard = () => {
       // Filtrer par organisation si disponible (évite de voir les ventes d'autres orgs)
       if (profile?.organization_id) {
         query = query.eq("organization_id", profile.organization_id);
+      }
+      if (storeId) {
+        query = query.eq("store_id", storeId);
       }
       const { data, error } = await query;
       if (error) throw error;

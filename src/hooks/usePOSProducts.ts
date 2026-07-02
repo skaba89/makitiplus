@@ -1,6 +1,7 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useStoreId } from "@/contexts/StoreContext";
 import { Database } from "@/integrations/supabase/types";
 import { buildSafeOrFilter } from "@/lib/postgrestSanitize";
 
@@ -29,12 +30,14 @@ export function usePOSProducts({
   pageSize = 24,
 }: UsePOSProductsOptions) {
   const { user, profile } = useAuth();
+  const storeId = useStoreId();
 
   return useInfiniteQuery({
     queryKey: [
       "pos-products",
       user?.id,
       profile?.organization_id,
+      storeId ?? "no-store",
       categoryId ?? "all",
       showOutOfStock ? "with-oos" : "in-stock",
       searchQuery ?? "",
@@ -52,6 +55,11 @@ export function usePOSProducts({
       // Filtre organization_id — defense-in-depth (+ performance index)
       if (profile?.organization_id) {
         query = query.eq("organization_id", profile.organization_id);
+      }
+
+      // Store-aware: filter by store_id when a store is active
+      if (storeId) {
+        query = query.eq("store_id", storeId);
       }
 
       // Category filter
