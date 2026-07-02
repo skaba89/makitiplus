@@ -372,4 +372,4 @@ BEGIN
   END IF;
 END $$;
 
-RAISE NOTICE 'Toutes les corrections ont ete appliquees !';
+-- Toutes les corrections ont ete appliquees !
