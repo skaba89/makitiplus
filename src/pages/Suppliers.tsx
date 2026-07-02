@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useStoreId } from "@/contexts/StoreContext";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -60,6 +61,7 @@ import { Lock } from "lucide-react";
 
 const Suppliers = () => {
   const { user, profile, userRole } = useAuth();
+  const storeId = useStoreId();
   const { toast } = useToast();
   const { formatPrice } = useCurrency();
   const queryClient = useQueryClient();
@@ -82,12 +84,14 @@ const Suppliers = () => {
 
   // ─── Récupération des fournisseurs ────────────────────────────────────────
   const { data: suppliers, isLoading } = useQuery({
-    queryKey: ["suppliers", user?.id],
+    queryKey: ["suppliers", user?.id, storeId ?? "no-store"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("suppliers")
         .select("*")
         .order("name");
+      if (storeId) query = query.eq("store_id", storeId);
+      const { data, error } = await query;
       if (error) throw error;
       return data as Supplier[];
     },
@@ -96,12 +100,14 @@ const Suppliers = () => {
 
   // ─── Récupération des produits (pour compter par fournisseur) ─────────────
   const { data: products } = useQuery({
-    queryKey: ["products", user?.id],
+    queryKey: ["products", user?.id, storeId ?? "no-store"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("products")
         .select("id, supplier_id, cost_price, stock_quantity")
         .eq("is_active", true);
+      if (storeId) query = query.eq("store_id", storeId);
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -135,6 +141,9 @@ const Suppliers = () => {
       };
       if (profile?.organization_id) {
         insertData.organization_id = profile.organization_id;
+      }
+      if (storeId) {
+        insertData.store_id = storeId;
       }
       const { error } = await supabase.from("suppliers").insert(insertData);
       if (error) throw error;

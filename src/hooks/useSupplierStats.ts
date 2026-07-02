@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useStoreId } from "@/contexts/StoreContext";
 import { SupplierStatsRpc } from "@/types";
 
 /**
@@ -8,18 +9,24 @@ import { SupplierStatsRpc } from "@/types";
  *
  * Uses the get_supplier_stats RPC which returns aggregated counts
  * (total suppliers, active suppliers, total products, total supply value)
- * scoped to the user's organization.
+ * scoped to the user's organization and current store.
+ *
+ * Passes p_store_id to the RPC for store-level filtering.
+ * If storeId is null (no store selected), the RPC returns org-wide stats.
  */
 export function useSupplierStats() {
   const { user, profile } = useAuth();
+  const storeId = useStoreId();
 
   return useQuery<SupplierStatsRpc>({
-    queryKey: ["suppliers-stats", user?.id],
+    queryKey: ["suppliers-stats", user?.id, storeId ?? "no-store"],
     queryFn: async () => {
       if (!profile?.organization_id) {
         return { totalSuppliers: 0, activeSuppliers: 0, totalProducts: 0, totalSupplyValue: 0 };
       }
-      const { data, error } = await supabase.rpc("get_supplier_stats");
+      const { data, error } = await supabase.rpc("get_supplier_stats", {
+        p_store_id: storeId,
+      });
       if (error) throw error;
       const typed = data as unknown as SupplierStatsRpc;
       return {

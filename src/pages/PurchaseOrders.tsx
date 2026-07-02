@@ -143,6 +143,7 @@ const PurchaseOrders = () => {
   const [formSupplier, setFormSupplier] = useState("");
   const [formNotes, setFormNotes] = useState("");
   const [formExpectedDelivery, setFormExpectedDelivery] = useState("");
+  const [receiveItems, setReceiveItems] = useState<Record<string, number>>({});
 
   const canModify =
     userRole === "admin" || userRole === "manager" || userRole === "super_admin";
@@ -333,6 +334,60 @@ const PurchaseOrders = () => {
         variant: "destructive",
         title: "Erreur",
         description: "Impossible de supprimer la commande",
+      });
+    },
+  });
+
+  // ─── Fetch order items for receive dialog ─────────────────
+  const { data: orderItems } = useQuery({
+    queryKey: ["purchase-order-items", selectedOrder?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("purchase_order_items")
+        .select("*")
+        .eq("purchase_order_id", selectedOrder!.id)
+        .order("product_name");
+      if (error) throw error;
+      return data as PurchaseOrderItem[];
+    },
+    enabled: !!selectedOrder?.id && (isReceiveOpen || isDetailOpen),
+  });
+
+  // ─── Receive order mutation ────────────────────────────────────
+  const receiveMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedOrder) return;
+      const items = orderItems
+        ?.filter((item) => (receiveItems[item.id!] || 0) > 0)
+        .map((item) => ({
+          id: item.id,
+          quantity_received: receiveItems[item.id!] || 0,
+        }));
+      if (!items || items.length === 0) {
+        throw new Error("Veuillez saisir au moins une quantité reçue");
+      }
+      const { error } = await supabase.rpc("receive_purchase_order", {
+        p_order_id: selectedOrder.id,
+        p_items: items,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["stock-movements"] });
+      toast({ title: "Commande réceptionnée", description: "Le stock a été mis à jour automatiquement." });
+      setIsReceiveOpen(false);
+      setSelectedOrder(null);
+      setReceiveItems({});
+    },
+    onError: (error: unknown) => {
+      reportError(error, { action: "receive_purchase_order" });
+      const msg = error instanceof Error ? error.message : "Erreur lors de la réception";
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: msg,
       });
     },
   });
@@ -816,6 +871,111 @@ const PurchaseOrders = () => {
                       <p className="text-sm text-muted-foreground">{selectedOrder.notes}</p>
                     </div>
                   )}
+
+                  {/* Order Items */}
+                  {orderItems && orderItems.length > 0 && (
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Article</TableHead>
+                            <TableHead className="text-right">Qté commandée</TableHead>
+                            <TableHead className="text-right">Qté reçue</TableHead>
+                            <TableHead className="text-right">Prix unit.</TableHead>
+                            <TableHead className="text-right">Total</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {orderItems.map((item) => (
+                            <TableRow key={item.id}>
+                              <TableCell className="font-medium">{item.product_name}</TableCell>
+                              <TableCell className="text-right">{item.quantity_ordered}</TableCell>
+                              <TableCell className="text-right">{item.quantity_received}</TableCell>
+                              <TableCell className="text-right">{formatPrice(item.unit_cost)}</TableCell>
+                              <TableCell className="text-right font-medium">{formatPrice(item.line_total)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+
+          {/* Receive Order Dialog */}
+          <Dialog open={isReceiveOpen} onOpenChange={(open) => { setIsReceiveOpen(open); if (!open) { setReceiveItems({}); } }}>
+            <DialogContent className="max-w-2xl" aria-describedby={undefined}>
+              <DialogHeader>
+                <DialogTitle>Réceptionner la commande {selectedOrder?.order_number}</DialogTitle>
+                <DialogDescription className="sr-only">
+                  Saisir les quantités reçues pour chaque article de la commande
+                </DialogDescription>
+              </DialogHeader>
+              {selectedOrder && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Truck className="h-4 w-4" />
+                    <span>Fournisseur : <strong className="text-foreground">{selectedOrder.supplier_name}</strong></span>
+                    <span className="ml-4">Montant : <strong className="text-foreground">{formatPrice(Number(selectedOrder.total_amount))}</strong></span>
+                  </div>
+
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Article</TableHead>
+                        <TableHead className="text-right">Qté commandée</TableHead>
+                        <TableHead className="text-right">Qté reçue</TableHead>
+                        <TableHead className="text-right">Prix unitaire</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {orderItems?.map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell className="font-medium">{item.product_name}</TableCell>
+                          <TableCell className="text-right">{item.quantity_ordered}</TableCell>
+                          <TableCell className="text-right">
+                            <Input
+                              type="number"
+                              min={0}
+                              max={item.quantity_ordered}
+                              value={receiveItems[item.id!] ?? item.quantity_ordered}
+                              onChange={(e) =>
+                                setReceiveItems((prev) => ({
+                                  ...prev,
+                                  [item.id!]: Math.min(Number(e.target.value), item.quantity_ordered),
+                                }))
+                              }
+                              className="w-20 h-8 text-sm text-right"
+                            />
+                          </TableCell>
+                          <TableCell className="text-right">{formatPrice(item.unit_cost)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => { setIsReceiveOpen(false); setReceiveItems({}); }}
+                    >
+                      Annuler
+                    </Button>
+                    <Button
+                      onClick={() => receiveMutation.mutate()}
+                      disabled={receiveMutation.isPending}
+                      className="gap-2"
+                    >
+                      {receiveMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <CheckCircle className="h-4 w-4" />
+                      )}
+                      Confirmer la réception
+                    </Button>
+                  </div>
                 </div>
               )}
             </DialogContent>
