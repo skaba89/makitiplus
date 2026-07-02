@@ -1714,6 +1714,57 @@ export type Database = {
         }
         Returns: string
       }
+      get_organization_stores: {
+        Args: never
+        Returns: {
+          id: string
+          name: string
+          slug: string | null
+          address: string | null
+          city: string | null
+          country: string | null
+          currency: string | null
+          phone: string | null
+          is_active: boolean
+          is_headquarters: boolean
+          category: Database["public"]["Enums"]["store_category"] | null
+          metadata: Json | null
+          created_at: string
+          updated_at: string
+          product_count: number
+          sales_this_month: number
+        }[]
+      }
+      select_plan: {
+        Args: { p_plan_id: string }
+        Returns: string
+      }
+      update_onboarding_progress: {
+        Args: {
+          p_current_step?: string | null
+          p_completed_steps?: string[] | null
+          p_onboarding_complete?: boolean | null
+        }
+        Returns: Json
+      }
+      update_business_type: {
+        Args: {
+          p_category: string
+          p_currency?: string | null
+          p_country?: string | null
+        }
+        Returns: Json
+      }
+      setup_onboarding_store: {
+        Args: {
+          p_store_name: string
+          p_address?: string | null
+          p_city?: string | null
+          p_phone?: string | null
+          p_category?: Database["public"]["Enums"]["store_category"] | null
+        }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "super_admin" | "admin" | "manager" | "vendeur" | "comptable"

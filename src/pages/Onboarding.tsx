@@ -84,20 +84,12 @@ export default function Onboarding() {
     setIsSubmitting(true);
 
     try {
-      // If selecting starter (free), the trigger on subscriptions table
-      // already creates a starter subscription. We just need to confirm/update.
+      // Use the secure select_plan RPC instead of direct upsert
+      // This bypasses RLS issues and validates the plan_id server-side
       if (selectedPlan === "starter") {
-        const { error } = await supabase
-          .from("subscriptions")
-          .upsert({
-            organization_id: profile.organization_id,
-            plan_id: "starter",
-            status: "active",
-            current_period_start: new Date().toISOString(),
-            current_period_end: new Date(
-              new Date().setMonth(new Date().getMonth() + 1)
-            ).toISOString(),
-          }, { onConflict: "organization_id" });
+        const { error } = await supabase.rpc("select_plan", {
+          p_plan_id: "starter",
+        });
 
         if (error) throw error;
         setStep("confirm");
