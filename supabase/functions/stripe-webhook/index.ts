@@ -1,8 +1,10 @@
 // stripe-webhook — Handle Stripe webhook events
 // Syncs subscription status, payment events, and customer data
+// Sends transactional emails via Resend on key events
 // Must be configured with STRIPE_WEBHOOK_SECRET env var
 
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { sendEmail, paymentSuccessEmail, paymentFailedEmail, subscriptionCancelledEmail, planUpgradeEmail } from '../_shared/email-templates.ts';
 
 Deno.serve(async (req) => {
   const headers = { ...getCorsHeaders(req), 'Content-Type': 'application/json' };
@@ -15,6 +17,8 @@ Deno.serve(async (req) => {
   const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET')!;
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const resendApiKey = Deno.env.get('RESEND_API_KEY');
+  const appUrl = Deno.env.get('APP_URL') || 'https://makitiplus.onrender.com';
 
   if (!webhookSecret) {
     console.error('[stripe-webhook] STRIPE_WEBHOOK_SECRET not set');
@@ -57,6 +61,27 @@ Deno.serve(async (req) => {
     const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2.93.3');
     const adminClient = createClient(supabaseUrl, serviceKey);
 
+    // Helper: get org admin profile for email notifications
+    const getOrgProfile = async (orgId: string) => {
+      const { data } = await adminClient
+        .from('profiles')
+        .select('email, owner_name, business_name')
+        .eq('organization_id', orgId)
+        .limit(1)
+        .maybeSingle();
+      return data;
+    };
+
+    // Helper: get plan name
+    const getPlanName = async (planId: string) => {
+      const { data } = await adminClient
+        .from('plans')
+        .select('name')
+        .eq('id', planId)
+        .maybeSingle();
+      return data?.name || planId;
+    };
+
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object;
@@ -87,6 +112,28 @@ Deno.serve(async (req) => {
             .from('stripe_customers')
             .update({ stripe_subscription_id: subscriptionId, updated_at: new Date().toISOString() })
             .eq('organization_id', orgId);
+
+          // Send upgrade confirmation email
+          if (resendApiKey) {
+            const profile = await getOrgProfile(orgId);
+            if (profile?.email) {
+              const planName = await getPlanName(planId);
+              await sendEmail({
+                resendApiKey,
+                to: profile.email,
+                subject: `🚀 MakitiPlus — Bienvenue dans le plan ${planName} !`,
+                html: planUpgradeEmail({
+                  name: profile.business_name || profile.owner_name || 'Utilisateur',
+                  fromPlan: 'Starter',
+                  toPlan: planName,
+                  newFeatures: planId === 'croissance'
+                    ? ['3 boutiques', '10 utilisateurs', 'Rapports avancés', 'Fournisseurs & commandes', 'WhatsApp Business', 'Branding personnalisé']
+                    : ['Boutiques & utilisateurs illimités', 'API externe', 'Assistant IA', 'Support prioritaire', 'Programme fidélité'],
+                  billingUrl: `${appUrl}/dashboard/billing`,
+                }),
+              });
+            }
+          }
         }
         break;
       }
@@ -134,6 +181,28 @@ Deno.serve(async (req) => {
             .from('stripe_customers')
             .update({ stripe_subscription_id: null, updated_at: new Date().toISOString() })
             .eq('organization_id', orgId);
+
+          // Send cancellation email
+          if (resendApiKey) {
+            const profile = await getOrgProfile(orgId);
+            if (profile?.email) {
+              // Get current period end from subscription
+              const periodEnd = subscription.current_period_end
+                ? new Date(subscription.current_period_end * 1000).toLocaleDateString('fr-FR')
+                : 'immédiatement';
+              await sendEmail({
+                resendApiKey,
+                to: profile.email,
+                subject: 'MakitiPlus — Abonnement annulé',
+                html: subscriptionCancelledEmail({
+                  name: profile.business_name || profile.owner_name || 'Utilisateur',
+                  planName: await getPlanName('croissance'), // was on a paid plan
+                  endDate: periodEnd,
+                  billingUrl: `${appUrl}/dashboard/billing`,
+                }),
+              });
+            }
+          }
         }
         break;
       }
@@ -176,6 +245,32 @@ Deno.serve(async (req) => {
               currency: invoice.currency,
             },
           });
+
+          // Send payment confirmation email
+          if (resendApiKey) {
+            const profile = await getOrgProfile(customer.organization_id);
+            if (profile?.email) {
+              const planId = invoice.metadata?.plan_id || invoice.lines?.data?.[0]?.plan?.id;
+              const planName = planId ? await getPlanName(planId) : 'Abonnement';
+              const amount = `${(invoice.amount_paid / 100).toFixed(2)} ${(invoice.currency || 'usd').toUpperCase()}`;
+              const periodEnd = invoice.period_end
+                ? new Date(invoice.period_end * 1000).toLocaleDateString('fr-FR')
+                : '—';
+              await sendEmail({
+                resendApiKey,
+                to: profile.email,
+                subject: `✅ MakitiPlus — Paiement reçu (${amount})`,
+                html: paymentSuccessEmail({
+                  name: profile.business_name || profile.owner_name || 'Utilisateur',
+                  planName,
+                  amount,
+                  period: invoice.lines?.data?.[0]?.plan?.interval === 'year' ? 'Annuel' : 'Mensuel',
+                  nextBillingDate: periodEnd,
+                  billingUrl: `${appUrl}/dashboard/billing`,
+                }),
+              });
+            }
+          }
         }
         break;
       }
@@ -215,6 +310,27 @@ Deno.serve(async (req) => {
             event_type: 'payment_failed',
             metadata: { invoice_id: invoice.id, attempt: invoice.attempt_count },
           });
+
+          // Send payment failure email
+          if (resendApiKey) {
+            const profile = await getOrgProfile(customer.organization_id);
+            if (profile?.email) {
+              const amount = `${(invoice.amount_due / 100).toFixed(2)} ${(invoice.currency || 'usd').toUpperCase()}`;
+              const retryDate = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toLocaleDateString('fr-FR');
+              await sendEmail({
+                resendApiKey,
+                to: profile.email,
+                subject: `⚠️ MakitiPlus — Échec du paiement`,
+                html: paymentFailedEmail({
+                  name: profile.business_name || profile.owner_name || 'Utilisateur',
+                  planName: 'votre abonnement',
+                  amount,
+                  retryDate,
+                  billingUrl: `${appUrl}/dashboard/billing`,
+                }),
+              });
+            }
+          }
         }
         break;
       }

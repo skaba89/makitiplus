@@ -13,6 +13,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePlans, useSubscription } from "@/hooks/useSubscription";
+import { useStripeCheckout } from "@/hooks/useStripe";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -56,6 +57,7 @@ export default function Onboarding() {
   const { user, profile } = useAuth();
   const { data: plans, isLoading: plansLoading } = usePlans();
   const { data: subscription } = useSubscription();
+  const stripeCheckout = useStripeCheckout();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -82,24 +84,43 @@ export default function Onboarding() {
     setIsSubmitting(true);
 
     try {
-      // If selecting starter (free), the trigger on subscriptions table
-      // already creates a starter subscription. We just need to confirm/update.
-      // For paid plans, we'll create a pending subscription (payment flow to be added).
-      const { error } = await supabase
-        .from("subscriptions")
-        .upsert({
-          organization_id: profile.organization_id,
-          plan_id: selectedPlan,
-          status: selectedPlan === "starter" ? "active" : "pending",
-          current_period_start: new Date().toISOString(),
-          current_period_end: new Date(
-            new Date().setMonth(new Date().getMonth() + 1)
-          ).toISOString(),
-        }, { onConflict: "organization_id" });
+      if (selectedPlan === "starter") {
+        // Starter is free — just ensure the subscription exists (trigger already creates it)
+        setStep("confirm");
+        return;
+      }
 
-      if (error) throw error;
+      // Paid plan — redirect to Stripe Checkout
+      const plan = plans?.find((p) => p.id === selectedPlan);
+      if (!plan) {
+        toast({ variant: "destructive", title: "Plan introuvable" });
+        return;
+      }
 
-      setStep("confirm");
+      const priceId = plan.stripe_price_id_monthly;
+      if (!priceId) {
+        // Stripe not configured yet — fall back to pending subscription
+        const { error } = await supabase
+          .from("subscriptions")
+          .upsert({
+            organization_id: profile.organization_id,
+            plan_id: selectedPlan,
+            status: "pending",
+            current_period_start: new Date().toISOString(),
+            current_period_end: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString(),
+          }, { onConflict: "organization_id" });
+
+        if (error) throw error;
+        setStep("confirm");
+        return;
+      }
+
+      // Redirect to Stripe Checkout (useStripeCheckout handles the redirect on success)
+      stripeCheckout.mutate({
+        price_id: priceId,
+        plan_id: selectedPlan,
+        billing_period: "monthly",
+      });
     } catch (error) {
       reportError(error, { action: "onboarding_select_plan", planId: selectedPlan });
       toast({
@@ -357,10 +378,8 @@ export default function Onboarding() {
               {selectedPlan !== "starter" && (
                 <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-950/20 text-left">
                   <p className="text-sm text-amber-700 dark:text-amber-400">
-                    <strong>Note :</strong> Le paiement pour le plan{" "}
-                    {plans?.find((p) => p.id === selectedPlan)?.name} sera
-                    traité séparément. Vous serez contacté par notre équipe pour
-                    finaliser votre abonnement.
+                    <strong>Note :</strong> Vous serez redirigé vers Stripe pour finaliser le paiement de votre plan{" "}
+                    {plans?.find((p) => p.id === selectedPlan)?.name}. Vous bénéficiez d'un essai gratuit de 7 jours.
                   </p>
                 </div>
               )}

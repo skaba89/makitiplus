@@ -104,7 +104,7 @@ async function main() {
       product: product.id,
       unit_amount: String(plan.monthlyPrice),
       currency: plan.currency,
-      recurring[interval]: "month",
+      "recurring[interval]": "month",
       nickname: `${plan.name} — Mensuel`,
       metadata: { plan_id: plan.id, period: "monthly" },
     });
@@ -137,12 +137,32 @@ async function main() {
   }
 
   console.log("\n✨ Stripe seeding complete!");
+
+  // 5. Configure Stripe Customer Portal
+  console.log("\n🔧 Configuring Stripe Customer Portal...");
+  try {
+    const portalConfig = await stripeRequest("billing_portal/configurations", {
+      "features[subscription_update][enabled]": "true",
+      "features[subscription_update][default_allowed_update][0][behavior]": "allow",
+      "features[subscription_cancel][enabled]": "true",
+      "features[subscription_cancel][mode]": "at_period_end",
+      "features[payment_method_update][enabled]": "true",
+      "features[invoice_history][enabled]": "true",
+      "business_profile[headline]": "Gérez votre abonnement MakitiPlus",
+    });
+    console.log(`   ✅ Portal configured: ${portalConfig.id}`);
+  } catch (err) {
+    console.warn(`   ⚠️  Portal config failed (may already exist): ${err.message}`);
+    console.warn("   You can configure it manually at: https://dashboard.stripe.com/settings/billing/portal");
+  }
+
   console.log("\n⚠️  Next steps:");
-  console.log("   1. Configure the Stripe Customer Portal in Dashboard → Settings → Billing");
-  console.log("   2. Create a webhook endpoint pointing to: https://<project>.supabase.co/functions/v1/stripe-webhook");
-  console.log("   3. Subscribe to: checkout.session.completed, customer.subscription.updated, customer.subscription.deleted, invoice.paid, invoice.payment_failed");
-  console.log("   4. Set STRIPE_WEBHOOK_SECRET in Supabase Edge Function secrets");
+  console.log("   1. Create a webhook endpoint pointing to: https://<project>.supabase.co/functions/v1/stripe-webhook");
+  console.log("   2. Subscribe to: checkout.session.completed, customer.subscription.updated, customer.subscription.deleted, invoice.paid, invoice.payment_failed");
+  console.log("   3. Set STRIPE_WEBHOOK_SECRET in Supabase Edge Function secrets");
+  console.log("   4. Set RESEND_API_KEY in Supabase Edge Function secrets (for transactional emails)");
   console.log("   5. Set VITE_STRIPE_PUBLISHABLE_KEY in your .env and deployment");
+  console.log("   6. Enable pg_cron in Supabase Dashboard → Database → Extensions, then uncomment the cron.schedule() lines in the migration SQL");
 }
 
 main().catch((err) => {

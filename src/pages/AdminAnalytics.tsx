@@ -56,6 +56,10 @@ import {
   Activity,
   ArrowUpDown,
   Eye,
+  CreditCard,
+  Users,
+  DollarSign,
+  ArrowRightLeft,
 } from "lucide-react";
 import { useCurrency } from "@/hooks/useCurrency";
 import { FeatureGate } from "@/components/saas/PlanLimitGuard";
@@ -422,7 +426,7 @@ const AdminAnalytics = () => {
 
         {/* Tabs */}
         <Tabs defaultValue="stores" className="space-y-4">
-          <TabsList className="grid grid-cols-2 sm:grid-cols-4 gap-1 h-auto p-1">
+          <TabsList className="grid grid-cols-2 sm:grid-cols-5 gap-1 h-auto p-1">
             <TabsTrigger value="stores" className="text-xs sm:text-sm">
               <Store className="h-4 w-4 mr-1" />
               Classement Magasins
@@ -438,6 +442,10 @@ const AdminAnalytics = () => {
             <TabsTrigger value="trends" className="text-xs sm:text-sm">
               <TrendingUp className="h-4 w-4 mr-1" />
               Tendances
+            </TabsTrigger>
+            <TabsTrigger value="saas" className="text-xs sm:text-sm">
+              <CreditCard className="h-4 w-4 mr-1" />
+              SaaS
             </TabsTrigger>
           </TabsList>
 
@@ -941,6 +949,10 @@ const AdminAnalytics = () => {
               </Card>
             )}
           </TabsContent>
+          {/* TAB: SaaS Metrics */}
+          <TabsContent value="saas" className="space-y-4">
+            <SaaSMetricsTab />
+          </TabsContent>
         </Tabs>
       </div>
       </FeatureGate>
@@ -949,3 +961,254 @@ const AdminAnalytics = () => {
 };
 
 export default AdminAnalytics;
+
+// ─── SaaS Metrics Tab Component ────────────────────────────────────────
+
+function SaaSMetricsTab() {
+  const { data: overview, isLoading: overviewLoading } = useQuery({
+    queryKey: ["saas-overview"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_saas_overview");
+      if (error) throw error;
+      return data as Record<string, unknown>;
+    },
+  });
+
+  const { data: churn, isLoading: churnLoading } = useQuery({
+    queryKey: ["saas-churn"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_saas_churn_metrics", { p_period_days: 30 });
+      if (error) throw error;
+      return data as Record<string, unknown>;
+    },
+  });
+
+  const { data: revenue, isLoading: revenueLoading } = useQuery({
+    queryKey: ["saas-revenue"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_saas_revenue_metrics");
+      if (error) throw error;
+      return data as Record<string, unknown>;
+    },
+  });
+
+  const isLoading = overviewLoading || churnLoading || revenueLoading;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Activity className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const mrr = ((overview?.mrr_cents as number) || 0) / 100;
+  const arr = ((overview?.arr_cents as number) || 0) / 100;
+  const planDistribution = (overview?.plan_distribution as Array<Record<string, unknown>>) || [];
+  const monthlyBreakdown = (churn?.monthly_breakdown as Array<Record<string, unknown>>) || [];
+  const revenueByPlan = (revenue?.revenue_by_plan as Array<Record<string, unknown>>) || [];
+  const monthlyRevenue = (revenue?.monthly_revenue as Array<Record<string, unknown>>) || [];
+
+  return (
+    <div className="space-y-4">
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <KPICard
+          title="MRR"
+          value={`$${mrr.toLocaleString("fr-FR")}`}
+          subtitle="Revenu mensuel récurrent"
+          icon={<DollarSign className="h-5 w-5" />}
+          color="text-green-600"
+        />
+        <KPICard
+          title="ARR"
+          value={`$${arr.toLocaleString("fr-FR")}`}
+          subtitle="Revenu annuel récurrent"
+          icon={<TrendingUp className="h-5 w-5" />}
+          color="text-blue-600"
+        />
+        <KPICard
+          title="Taux de churn"
+          value={`${churn?.churn_rate_pct || 0}%`}
+          subtitle="Derniers 30 jours"
+          icon={<ArrowRightLeft className="h-5 w-5" />}
+          color="text-amber-600"
+        />
+        <KPICard
+          title="Conversion"
+          value={`${churn?.conversion_rate_pct || 0}%`}
+          subtitle="Inscription → Payant"
+          icon={<Users className="h-5 w-5" />}
+          color="text-purple-600"
+        />
+      </div>
+
+      {/* Subscription Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <MiniStat label="Organisations" value={String(overview?.total_organizations || 0)} />
+        <MiniStat label="Abonnements payants" value={String(overview?.active_paid_subscriptions || 0)} color="text-green-600" />
+        <MiniStat label="En période d'essai" value={String(overview?.trial_subscriptions || 0)} color="text-blue-600" />
+        <MiniStat label="En grâce" value={String(overview?.grace_period_subscriptions || 0)} color="text-amber-600" />
+        <MiniStat label="Expirés" value={String(overview?.expired_subscriptions || 0)} color="text-red-600" />
+      </div>
+
+      {/* Revenue by Plan */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <Card className="card-elevated">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              Revenu par plan
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {revenueByPlan.length > 0 ? (
+              <div className="space-y-3">
+                {revenueByPlan.map((plan) => (
+                  <div key={plan.plan_id as string} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div>
+                      <p className="font-medium text-sm">{plan.plan_name as string}</p>
+                      <p className="text-xs text-muted-foreground">{plan.active_subscriptions as number} abonné(s)</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold">${(((plan.mrr_cents as number) || 0) / 100).toLocaleString("fr-FR")}/mois</p>
+                      <p className="text-xs text-muted-foreground">${(((plan.price_monthly_cents as number) || 0) / 100)}/abonné</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-8">Aucune donnée de revenu disponible</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="card-elevated">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Distribution des plans
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {planDistribution.length > 0 ? (
+              <div className="h-[250px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={planDistribution.map((p) => ({
+                        name: p.plan_name as string,
+                        value: p.active_count as number,
+                      }))}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={80}
+                      dataKey="value"
+                      label={({ name, value }) => `${name}: ${value}`}
+                    >
+                      {planDistribution.map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-8">Aucune donnée de distribution</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Monthly Churn & Revenue Trend */}
+      {monthlyBreakdown.length > 0 && (
+        <Card className="card-elevated">
+          <CardHeader>
+            <CardTitle className="text-lg">Évolution mensuelle — Acquisition vs Churn</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={monthlyBreakdown.map((m) => ({
+                  month: m.month as string,
+                  "Nouveaux payants": m.new_paid as number,
+                  "Résiliés": m.churned as number,
+                  "Inscriptions": m.signups as number,
+                }))}>
+                  <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar dataKey="Inscriptions" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Nouveaux payants" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Résiliés" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Monthly Revenue Trend */}
+      {monthlyRevenue.length > 0 && (
+        <Card className="card-elevated">
+          <CardHeader>
+            <CardTitle className="text-lg">Revenus mensuels Stripe</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={monthlyRevenue.map((m) => ({
+                  month: m.month as string,
+                  "Revenu ($)": ((m.total_cents as number) || 0) / 100,
+                  "Paiements réussis": m.paid_count as number,
+                  "Paiements échoués": m.failed_count as number,
+                }))}>
+                  <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Line type="monotone" dataKey="Revenu ($)" stroke="#22c55e" strokeWidth={2} dot={{ r: 4 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function KPICard({ title, value, subtitle, icon, color }: {
+  title: string;
+  value: string;
+  subtitle: string;
+  icon: React.ReactNode;
+  color: string;
+}) {
+  return (
+    <Card className="card-elevated">
+      <CardContent className="p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <div className={`${color}`}>{icon}</div>
+          <span className="text-sm font-medium text-muted-foreground">{title}</span>
+        </div>
+        <p className="text-2xl font-bold">{value}</p>
+        <p className="text-xs text-muted-foreground">{subtitle}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function MiniStat({ label, value, color }: { label: string; value: string; color?: string }) {
+  return (
+    <Card className="card-elevated">
+      <CardContent className="p-3 text-center">
+        <p className={`text-xl font-bold ${color || ""}`}>{value}</p>
+        <p className="text-xs text-muted-foreground">{label}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+const PIE_COLORS = ['#3b82f6', '#f59e0b', '#8b5cf6', '#22c55e', '#ef4444'];
