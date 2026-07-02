@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDemo } from "@/contexts/DemoContext";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -29,6 +30,7 @@ import { FeatureGate } from "@/components/saas/PlanLimitGuard";
 const Settings = () => {
   const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
+  const { blockMutation } = useDemo();
   const queryClient = useQueryClient();
   const { currency, country } = useCurrency();
 
@@ -103,6 +105,7 @@ const Settings = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (blockMutation('Modifier les paramètres')) return;
     updateProfileMutation.mutate(formData);
   };
 

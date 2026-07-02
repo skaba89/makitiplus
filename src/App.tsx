@@ -12,6 +12,7 @@ import { OfflineProvider } from "@/contexts/OfflineContext";
 import { BrandingProvider } from "@/contexts/BrandingContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { StoreProvider } from "@/contexts/StoreContext";
+import { DemoProvider } from "@/contexts/DemoContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
@@ -189,6 +190,7 @@ const App = () => {
     <SentryErrorBoundary fallback={<ErrorFallback />}>
     <AuthProvider>
     <OfflineProvider>
+    <DemoProvider>
     <StoreProvider>
     <BrandingProvider>
     <ThemeProvider>
@@ -389,6 +391,7 @@ const App = () => {
     </ThemeProvider>
     </BrandingProvider>
     </StoreProvider>
+    </DemoProvider>
     </OfflineProvider>
     </AuthProvider>
     </SentryErrorBoundary>

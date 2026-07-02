@@ -2,6 +2,7 @@
  import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
  import { supabase } from "@/integrations/supabase/client";
  import { useAuth } from "@/contexts/AuthContext";
+ import { useDemo } from "@/contexts/DemoContext";
  import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
  import { ExpensesPageSkeleton } from "@/components/skeletons/PageSkeletons";
  import { Button } from "@/components/ui/button";
@@ -84,6 +85,7 @@ import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 const Expenses = () => {
   const { user, profile, userRole } = useAuth();
   const { toast } = useToast();
+  const { blockMutation } = useDemo();
   const { formatPrice } = useCurrency();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -259,8 +261,10 @@ const Expenses = () => {
      e.preventDefault();
      if (!amount || !category) return;
      if (editingExpense) {
+       if (blockMutation('Modifier une dépense')) return;
        updateExpenseMutation.mutate();
      } else {
+       if (blockMutation('Ajouter une dépense')) return;
        createExpenseMutation.mutate();
      }
    };
@@ -612,6 +616,7 @@ const Expenses = () => {
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 onClick={() => {
                   if (deleteTarget) {
+                    if (blockMutation('Supprimer une dépense')) return;
                     deleteExpenseMutation.mutate(deleteTarget.id);
                     setDeleteTarget(null);
                   }

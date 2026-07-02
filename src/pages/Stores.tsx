@@ -2,6 +2,7 @@ import { useState, ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDemo } from "@/contexts/DemoContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -146,6 +147,7 @@ const CategoryBadge = ({ value }: { value: StoreCategory | null }) => {
 const Stores = () => {
   const { userRole } = useAuth();
   const { toast } = useToast();
+  const { blockMutation } = useDemo();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [adminDialogOpen, setAdminDialogOpen] = useState(false);
@@ -235,6 +237,7 @@ const Stores = () => {
 
   const handleCreateStore = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (blockMutation('Gérer les boutiques')) return;
     setCreating(true);
     try {
       // Use server-side plan-enforced RPC
@@ -337,6 +340,7 @@ const Stores = () => {
 
   const confirmDeleteStore = async () => {
     if (!storeToDelete) return;
+    if (blockMutation('Gérer les boutiques')) return;
     try {
       const { error } = await supabase.from("organizations").delete().eq("id", storeToDelete.id);
       if (error) throw error;

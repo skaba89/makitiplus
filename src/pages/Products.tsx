@@ -38,6 +38,7 @@ import { useProductStats } from "@/hooks/useProductStats";
 import { fetchAllRows } from "@/lib/batchedFetch";
 import { ProductWithCategory, AdjustStockRpcRow } from "@/types";
 import { PlanLimitGuard, FeatureGate } from "@/components/saas/PlanLimitGuard";
+import { useDemo } from "@/contexts/DemoContext";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
 type ProductInsert = Database["public"]["Tables"]["products"]["Insert"];
@@ -47,6 +48,7 @@ const Products = () => {
   const { user, profile, userRole } = useAuth();
   const { currency } = useCurrency();
   const { toast } = useToast();
+  const { blockMutation } = useDemo();
   const queryClient = useQueryClient();
   const [searchInput, setSearchInput] = useState("");
   const searchQuery = useDeferredValue(searchInput);
@@ -273,8 +275,10 @@ const Products = () => {
 
   const handleSubmit = (productData: Omit<ProductInsert, "user_id">) => {
     if (selectedProduct) {
+      if (blockMutation('Modifier un produit')) return;
       updateProductMutation.mutate({ id: selectedProduct.id, ...productData });
     } else {
+      if (blockMutation('Créer un produit')) return;
       createProductMutation.mutate(productData);
     }
   };
@@ -570,7 +574,10 @@ const Products = () => {
             setIsStockAdjustOpen(false);
             setStockAdjustProduct(null);
           }}
-          onConfirm={(data) => stockAdjustMutation.mutate(data)}
+          onConfirm={(data) => {
+            if (blockMutation('Ajuster le stock')) return;
+            stockAdjustMutation.mutate(data);
+          }}
           isLoading={stockAdjustMutation.isPending}
         />
 
@@ -600,6 +607,7 @@ const Products = () => {
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 onClick={() => {
                   if (deleteTarget) {
+                    if (blockMutation('Supprimer un produit')) return;
                     deleteProductMutation.mutate(deleteTarget.id);
                     setDeleteTarget(null);
                   }

@@ -2,6 +2,7 @@ import React, { useState, useMemo, useDeferredValue } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDemo } from "@/contexts/DemoContext";
 import { useCategories } from "@/hooks/useCategories";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { DEFAULT_CATEGORY_COLOR, PRESET_COLORS } from "@/constants/colors";
@@ -44,6 +45,7 @@ const PRESET_ICONS = ["Package", "Wheat", "CupSoda", "Sparkles", "Brush", "Wrenc
 const Categories = () => {
   const { user, profile, userRole } = useAuth();
   const { toast } = useToast();
+  const { blockMutation } = useDemo();
   const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
@@ -212,6 +214,7 @@ const Categories = () => {
     if (!formData.name.trim()) return;
 
     if (selectedCategory) {
+      if (blockMutation('Modifier une cat\u00e9gorie')) return;
       updateMutation.mutate({
         id: selectedCategory.id,
         name: formData.name,
@@ -220,6 +223,7 @@ const Categories = () => {
         description: formData.description || null,
       });
     } else {
+      if (blockMutation('Cr\u00e9er une cat\u00e9gorie')) return;
       createMutation.mutate({
         name: formData.name,
         icon: formData.icon,
@@ -554,7 +558,12 @@ const Categories = () => {
             <AlertDialogFooter>
               <AlertDialogCancel>Annuler</AlertDialogCancel>
               <AlertDialogAction
-                onClick={() => deleteId && deleteMutation.mutate(deleteId)}
+                onClick={() => {
+                  if (deleteId) {
+                    if (blockMutation('Supprimer une cat\u00e9gorie')) return;
+                    deleteMutation.mutate(deleteId);
+                  }
+                }}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
                 Supprimer

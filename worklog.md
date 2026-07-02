@@ -295,3 +295,26 @@ Stage Summary:
 - Validation script catches anti-patterns before deployment
 - 0 compilation errors, clean build
 - TypeScript: 0 errors, Vite build: OK
+
+---
+Task ID: 15
+Agent: main
+Task: P1 — Demo safe mode + GRANT EXECUTE + ReceiveOrderForm
+
+Work Log:
+- Created DemoContext.tsx: isDemo detection (VITE_DEMO_MODE env + localStorage), blockMutation() hook
+- Created useDemoMutation.ts: drop-in useMutation wrapper that blocks in demo mode
+- Added DemoProvider to App.tsx (between OfflineProvider and StoreProvider)
+- Added "Démo" badge to DashboardLayout (sidebar + mobile header)
+- Added demo banner (fixed top, amber) with "Créer mon compte" CTA
+- Added blockMutation() guards to all 9 pages with mutations (20 total guards)
+- Created migration 20260703030000_p1_grant_execute_fixes.sql (6 GRANT EXECUTE on utility RPCs)
+- Created ReceiveOrderForm component for purchase order reception
+- Connected ReceiveOrderForm to receive_purchase_order RPC in PurchaseOrders.tsx
+- Identified that Stripe webhook integration doesn't exist yet (deferred)
+
+Stage Summary:
+- Demo mode: fully functional with toast blocking, badges, and CTA banner
+- GRANT EXECUTE: added on 6 utility functions (get_user_organization_id, admin_exists, etc.)
+- Purchase order reception: now calls receive_purchase_order RPC (updates stock + stock_movements)
+- Build: 0 errors, clean

@@ -13,6 +13,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDemo } from "@/contexts/DemoContext";
 import { useStoreId } from "@/contexts/StoreContext";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { FeatureGate } from "@/components/saas/PlanLimitGuard";
@@ -75,6 +76,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Supplier, Product } from "@/types";
+import { ReceiveOrderForm } from "@/components/purchase-orders/ReceiveOrderForm";
 import { reportError } from "@/lib/sentry";
 import { Lock } from "lucide-react";
 
@@ -127,6 +129,7 @@ const PurchaseOrders = () => {
   const { user, profile, userRole } = useAuth();
   const storeId = useStoreId();
   const { toast } = useToast();
+  const { blockMutation } = useDemo();
   const { formatPrice } = useCurrency();
   const queryClient = useQueryClient();
 
@@ -558,9 +561,10 @@ const PurchaseOrders = () => {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    onClick={() =>
-                                      updateStatusMutation.mutate({ id: order.id, status: "sent" })
-                                    }
+                                    onClick={() => {
+                                      if (blockMutation('Modifier le statut d\'une commande')) return;
+                                      updateStatusMutation.mutate({ id: order.id, status: "sent" });
+                                    }}
                                     aria-label="Envoyer la commande"
                                   >
                                     <Send className="h-4 w-4 text-blue-500" />
@@ -750,7 +754,10 @@ const PurchaseOrders = () => {
               </div>
               <DialogFooter>
                 <Button
-                  onClick={() => createMutation.mutate()}
+                  onClick={() => {
+                    if (blockMutation('Cr\u00e9er une commande')) return;
+                    createMutation.mutate();
+                  }}
                   disabled={createMutation.isPending || !formSupplier}
                   className="gap-2"
                 >
@@ -822,7 +829,10 @@ const PurchaseOrders = () => {
                 <AlertDialogAction
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                   onClick={() => {
-                    if (selectedOrder) deleteMutation.mutate(selectedOrder.id);
+                    if (selectedOrder) {
+                      if (blockMutation('Supprimer une commande')) return;
+                      deleteMutation.mutate(selectedOrder.id);
+                    }
                   }}
                 >
                   Supprimer
@@ -830,6 +840,33 @@ const PurchaseOrders = () => {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+
+          {/* Receive Order Dialog */}
+          <Dialog open={isReceiveOpen} onOpenChange={setIsReceiveOpen}>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Réceptionner la commande</DialogTitle>
+                <DialogDescription>
+                  Indiquez les quantités reçues pour chaque article. Le stock sera mis à jour automatiquement.
+                </DialogDescription>
+              </DialogHeader>
+              {selectedOrder && (
+                <ReceiveOrderForm
+                  orderId={selectedOrder.id}
+                  orderNumber={selectedOrder.order_number}
+                  onSuccess={() => {
+                    setIsReceiveOpen(false);
+                    setSelectedOrder(null);
+                    queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+                    toast({ title: "Commande réceptionnée", description: "Le stock a été mis à jour." });
+                  }}
+                  onError={(msg: string) => {
+                    toast({ variant: "destructive", title: "Erreur", description: msg });
+                  }}
+                />
+              )}
+            </DialogContent>
+          </Dialog>
         </div>
       </FeatureGate>
     </DashboardLayout>

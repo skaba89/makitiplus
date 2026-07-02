@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDemo } from "@/contexts/DemoContext";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -61,6 +62,7 @@ import { Lock } from "lucide-react";
 const Suppliers = () => {
   const { user, profile, userRole } = useAuth();
   const { toast } = useToast();
+  const { blockMutation } = useDemo();
   const { formatPrice } = useCurrency();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
@@ -254,8 +256,10 @@ const Suppliers = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedSupplier) {
+      if (blockMutation('Modifier un fournisseur')) return;
       updateMutation.mutate({ id: selectedSupplier.id, ...formData });
     } else {
+      if (blockMutation('Ajouter un fournisseur')) return;
       createMutation.mutate(formData);
     }
   };
@@ -475,12 +479,13 @@ const Suppliers = () => {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  onClick={() =>
+                                  onClick={() => {
+                                    if (blockMutation('Activer/d\u00e9sactiver un fournisseur')) return;
                                     toggleActiveMutation.mutate({
                                       id: supplier.id,
                                       is_active: !supplier.is_active,
-                                    })
-                                  }
+                                    });
+                                  }}
                                   aria-label={
                                     supplier.is_active
                                       ? "Désactiver le fournisseur"
@@ -668,6 +673,7 @@ const Suppliers = () => {
               <AlertDialogAction
                 onClick={() => {
                   if (selectedSupplier) {
+                    if (blockMutation('Supprimer un fournisseur')) return;
                     deleteMutation.mutate(selectedSupplier.id);
                   }
                 }}

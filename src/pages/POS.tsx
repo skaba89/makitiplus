@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect, useDeferredValue, lazy, Suspe
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDemo } from "@/contexts/DemoContext";
 import { usePOSCartStore, useCartTotal } from "@/contexts/POSCartContext";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { POSProductGrid } from "@/components/pos/POSProductGrid";
@@ -53,6 +54,7 @@ type PaymentMethod = Database["public"]["Enums"]["payment_method"];
 const POS = () => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
+  const { blockMutation } = useDemo();
   const { currency, formatPrice } = useCurrency();
   const orgTaxRate = useOrgTaxRate();
   const { branding } = useBranding();
@@ -660,14 +662,15 @@ const POS = () => {
           isOpen={isPaymentOpen}
           onClose={() => setIsPaymentOpen(false)}
           total={cartTotal}
-          onConfirm={(paymentMethod, amountPaid, customerName, customerPhone) =>
+          onConfirm={(paymentMethod, amountPaid, customerName, customerPhone) => {
+            if (blockMutation('Enregistrer une vente')) return;
             createSaleMutation.mutate({
               paymentMethod,
               amountPaid,
               customerName,
               customerPhone,
-            })
-          }
+            });
+          }}
           isLoading={createSaleMutation.isPending}
           confirmRef={confirmPaymentRef}
         />

@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDemo } from "@/contexts/DemoContext";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -60,6 +61,7 @@ const PAGE_SIZE = 20;
 const Customers = () => {
   const { user, profile, userRole } = useAuth();
   const { toast } = useToast();
+  const { blockMutation } = useDemo();
   const { formatPrice, currency } = useCurrency();
   const queryClient = useQueryClient();
   const [searchInput, setSearchInput] = useState("");
@@ -173,8 +175,10 @@ const Customers = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedCustomer) {
+      if (blockMutation('Modifier un client')) return;
       updateMutation.mutate({ id: selectedCustomer.id, ...formData });
     } else {
+      if (blockMutation('Ajouter un client')) return;
       createMutation.mutate(formData);
     }
   };
@@ -492,6 +496,7 @@ const Customers = () => {
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 onClick={() => {
                   if (deleteTarget) {
+                    if (blockMutation('Supprimer un client')) return;
                     deleteMutation.mutate(deleteTarget.id);
                     setDeleteTarget(null);
                   }

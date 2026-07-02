@@ -40,6 +40,8 @@ import { ALL_ROLES, ADMIN_ROLES, MANAGEMENT_ROLES, INVENTORY_ROLES, FINANCIAL_RO
 import { OfflineIndicator, OfflineBanner } from "@/components/ui/offline-indicator";
 import { PWAInstallPrompt } from "@/components/ui/pwa-install-prompt";
 import { StoreSwitcher } from "@/components/shared/StoreSwitcher";
+import { useDemo } from "@/contexts/DemoContext";
+import { Badge } from "@/components/ui/badge";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -53,6 +55,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const { isDemo } = useDemo();
 
   // Use theme settings (store_settings) with fallback to branding context
   const displayName = settings?.store_name || branding.appName || "MalikiPlus";
@@ -186,9 +189,19 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     <div className="min-h-screen bg-background">
       {/* Offline Banner */}
       <OfflineBanner />
+      {/* Demo Mode Banner */}
+      {isDemo && (
+        <div className="fixed top-0 left-0 right-0 z-[60] bg-amber-500 text-white text-center py-1.5 text-sm font-medium">
+          Mode démo — les modifications ne sont pas enregistrées.{" "}
+          <a href="/auth" className="underline font-bold hover:text-amber-100">Créer mon compte</a>
+        </div>
+      )}
 
       {/* Mobile Header */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-50 glass h-14 sm:h-16 flex items-center justify-between px-3 sm:px-4 safe-top">
+      <header className={cn(
+        "lg:hidden fixed left-0 right-0 z-50 glass h-14 sm:h-16 flex items-center justify-between px-3 sm:px-4 safe-top",
+        isDemo ? "top-8" : "top-0"
+      )}>
         <button
           ref={menuButtonRef}
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -207,6 +220,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             )}
           </div>
           <span className="font-bold">{displayName}</span>
+          {isDemo && <Badge variant="outline" className="ml-1.5 text-xs border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950/30">Démo</Badge>}
         </div>
 
         <div className="flex items-center gap-2">
@@ -259,6 +273,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             </div>
             <div>
               <span className="font-bold text-sidebar-foreground">{displayName}</span>
+              {isDemo && <Badge variant="outline" className="ml-1.5 text-xs border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950/30">Démo</Badge>}
               <p className="text-xs text-muted-foreground">{profile?.business_name}</p>
             </div>
           </div>
@@ -342,7 +357,10 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       )}
 
       {/* Main content */}
-      <main className="lg:ml-64 min-h-screen pt-14 sm:pt-16 lg:pt-0">
+      <main className={cn(
+        "lg:ml-64 min-h-screen pt-14 sm:pt-16 lg:pt-0",
+        isDemo && "pt-22 sm:pt-24 lg:pt-8"
+      )}>
         <div className="p-3 sm:p-4 lg:p-8 pb-28 sm:pb-24 lg:pb-8">{children}</div>
       </main>
 
