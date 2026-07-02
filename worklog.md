@@ -276,3 +276,35 @@ Stage Summary:
 - Onboarding flow now redirects to Stripe Checkout for paid plans
 - SaaS business metrics dashboard live for super_admin
 - All 8 tasks completed, build clean
+
+---
+Task ID: 9
+Agent: main
+Task: Onboarding Premium — Guided Wizard + Dashboard Checklist
+
+Work Log:
+- Created SQL migration 20260702150000_onboarding_premium.sql with:
+  - onboarding_step, onboarding_completed, business_type columns on profiles
+  - 6 SECURITY DEFINER RPCs: update_onboarding_progress, complete_onboarding, get_onboarding_status, update_business_type, setup_onboarding_store, get_onboarding_checklist
+  - Existing users auto-marked as onboarding_completed=TRUE
+- Refactored Onboarding.tsx from 3-step to 5-step premium wizard:
+  - Step 1: Welcome + business type selection (Boutique, Restaurant, Grossiste, Service, Autre)
+  - Step 2: Store configuration with African market presets (13 countries, auto-currency)
+  - Step 3: Plan selection (Starter/Croissance/Enterprise with Stripe)
+  - Step 4: Quick product add with business-type-specific suggestions
+  - Step 5: Success screen with summary + next steps
+- Created OnboardingChecklist component for Dashboard:
+  - Auto-detects 5 progress items (account, store, products, categories, first sale)
+  - Progress bar with actionable buttons per incomplete step
+  - Dismissible via localStorage, auto-hides at 100%
+- Integrated OnboardingChecklist into Dashboard.tsx
+- Updated ProtectedRoute: redirects to /onboarding if profile.onboarding_completed is false
+- Updated TypeScript types (profiles Row/Insert/Update) with onboarding_step, onboarding_completed, business_type
+- Updated README roadmap: checked off "Onboarding premium"
+- TypeScript compiles with 0 errors, Vite build OK, 147/174 tests pass, pushed to main
+
+Stage Summary:
+- Complete onboarding premium experience: guided wizard + dashboard checklist
+- New users are automatically redirected to onboarding flow
+- Dashboard shows contextual setup progress for incomplete accounts
+- All existing users are grandfathered (auto-completed)
