@@ -193,3 +193,73 @@ Stage Summary:
 - Purchase order system with full CRUD and stock auto-update
 - AI assistant with contextual business advice (placeholder for LLM integration)
 - All 174/174 tests pass, tsc clean, build OK, pushed to main
+
+---
+Task ID: 14
+Agent: main
+Task: P0 Hotfix — Fix all critical SQL migration issues
+
+Work Log:
+- Created hotfix migration: 20260703010000_p0_hotfix_migrations.sql
+- Fixed #1: All CREATE OR REPLACE POLICY replaced with DROP POLICY IF EXISTS + CREATE POLICY
+  - stores: 4 policies (select, insert, update, delete)
+  - purchase_orders: 4 policies (select, insert, update, delete)
+  - purchase_order_items: 4 policies (select, insert, update, delete)
+- Fixed #2: All profile_roles → user_roles in policies and RPCs
+  - stores RLS policies now use user_roles JOIN
+  - purchase_orders/items RLS policies now use user_roles JOIN
+  - receive_purchase_order now uses user_roles for access check
+  - get_organization_stores now uses get_user_organization_id()
+  - set_current_store now uses get_user_organization_id()
+- Fixed #3: check_plan_limit completely rewritten
+  - Dropped and recreated (return type changed from BIGINT back to INTEGER)
+  - Proper column mapping: stores→max_stores, users→max_users, products→max_products, sales_this_month→max_sales_per_month
+  - No more broken dynamic SQL (EXECUTE format('SELECT %I'))
+  - Uses v_sub.max_stores etc. directly from joined plans table
+  - Users count via COUNT(DISTINCT ur.user_id) from user_roles
+- Fixed #4: get_store_stats: low_stock_threshold → COALESCE(min_stock_alert, 5)
+- Fixed #5: receive_purchase_order stock_movements insert
+  - movement_type → type (correct column name)
+  - Added user_id, previous_quantity, new_quantity (all NOT NULL)
+  - Added store_id
+  - Uses SELECT FOR UPDATE + RETURNING pattern for atomicity
+- Fixed #6: Added GRANT EXECUTE for get_store_stats and receive_purchase_order
+- Fixed #7: batch_update_stock now includes organization_id and uses get_user_organization_id()
+
+Stage Summary:
+- All P0 issues resolved in a single idempotent hotfix migration
+- Server now correctly enforces RLS with user_roles
+- check_plan_limit no longer crashes on column names
+- receive_purchase_order will actually work in production
+
+---
+Task ID: 15
+Agent: main
+Task: P1 — Server-side plan enforcement RPCs
+
+Work Log:
+- Created migration: 20260703020000_p1_server_side_plan_enforcement.sql
+- Added create_product RPC with check_plan_limit('products') enforcement
+  - Auto-determines store_id (from param → profile → org headquarters)
+  - Verifies store belongs to org
+  - Returns created product UUID
+- Added create_store RPC with check_plan_limit('stores') enforcement
+  - Only admins can create stores
+  - Generates slug from name
+- Added invite_user RPC with check_plan_limit('users') enforcement
+  - Only admins can invite
+  - Checks if user already exists
+  - Creates user_roles + profile entries
+- Added create_sale_with_limit RPC wrapping create_full_sale
+  - Checks check_plan_limit('sales_this_month') before delegating
+- Updated Products.tsx: createProductMutation now uses supabase.rpc("create_product")
+  - Better error handling: detects plan limit errors and shows specific message
+- Updated Stores.tsx: handleCreateStore now uses supabase.rpc("create_store")
+  - Auto-generates slug from store name
+  - Better error handling: detects plan limit errors
+
+Stage Summary:
+- Server-side plan enforcement prevents quota bypass via direct Supabase calls
+- Frontend now uses secure RPCs instead of direct inserts
+- Plan limit errors show user-friendly messages
+- TypeScript: 0 errors, Vite build: OK

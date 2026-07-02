@@ -237,12 +237,20 @@ const Stores = () => {
     e.preventDefault();
     setCreating(true);
     try {
-      const { error } = await supabase.from("organizations").insert({
-        name: storeName,
-        category: storeCategory,
-        owner_user_id: (await supabase.auth.getUser()).data.user?.id ?? "",
-        country: storeCountry,
-        currency: storeCurrency,
+      // Use server-side plan-enforced RPC
+      const slug = storeName
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "");
+
+      const { error } = await supabase.rpc("create_store", {
+        p_name: storeName,
+        p_slug: slug || `store-${Date.now()}`,
+        p_category: storeCategory,
+        p_country: storeCountry,
+        p_currency: storeCurrency,
       });
 
       if (error) throw error;
@@ -254,7 +262,14 @@ const Stores = () => {
       queryClient.invalidateQueries({ queryKey: ["stores"] });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      toast({ variant: "destructive", title: "Erreur", description: message });
+      const isPlanLimit = message.includes('Limite') || message.includes('plan') || message.includes('Upgradéz');
+      toast({
+        variant: "destructive",
+        title: isPlanLimit ? "Limite atteinte" : "Erreur",
+        description: isPlanLimit
+          ? "Limite de boutiques atteinte pour votre plan. Upgradéz votre abonnement."
+          : message,
+      });
     } finally {
       setCreating(false);
     }

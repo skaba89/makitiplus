@@ -109,24 +109,34 @@ const Products = () => {
 
   const createProductMutation = useMutation({
     mutationFn: async (product: Omit<ProductInsert, "user_id">) => {
-      const insertData: Record<string, unknown> = {
-        ...product,
-        user_id: user!.id,
-      };
-
-      // Explicitly set organization_id from profile to avoid relying solely on trigger
-      if (profile?.organization_id) {
-        insertData.organization_id = profile.organization_id;
-      }
-
-      const { data, error } = await supabase
-        .from("products")
-        .insert(insertData as ProductInsert)
-        .select()
-        .single();
+      // Use server-side plan-enforced RPC
+      const { data, error } = await supabase.rpc("create_product", {
+        p_name: product.name,
+        p_price: product.price,
+        p_category_id: product.category_id || null,
+        p_barcode: product.barcode || null,
+        p_unit: product.unit || 'unité',
+        p_stock_quantity: product.stock_quantity ?? 0,
+        p_min_stock_alert: product.min_stock_alert ?? 5,
+        p_buy_price: product.buy_price || null,
+        p_supplier_id: product.supplier_id || null,
+        p_store_id: product.store_id || null,
+        p_description: product.description || null,
+        p_image_url: product.image_url || null,
+        p_is_active: product.is_active ?? true,
+      });
 
       if (error) throw error;
-      return data;
+
+      // Fetch the created product for cache update
+      const { data: newProduct, error: fetchError } = await supabase
+        .from("products")
+        .select()
+        .eq("id", data)
+        .single();
+
+      if (fetchError) throw fetchError;
+      return newProduct;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
@@ -136,11 +146,14 @@ const Products = () => {
     },
     onError: (error: unknown) => {
       const msg = error instanceof Error ? error.message : (typeof error === 'object' && error !== null && 'message' in error) ? String((error as Record<string, unknown>).message) : String(error);
+      const isPlanLimit = msg.includes('Limite') || msg.includes('plan') || msg.includes('Upgradéz');
       const isRlsError = msg.includes('policy') || msg.includes('row-level') || msg.includes('violates') || msg.includes('409');
       toast({
         variant: "destructive",
-        title: "Erreur",
-        description: isRlsError
+        title: isPlanLimit ? "Limite atteinte" : "Erreur",
+        description: isPlanLimit
+          ? "Limite de produits atteinte pour votre plan. Upgradéz votre abonnement."
+          : isRlsError
           ? "Permission insuffisante. Seuls les administrateurs et managers peuvent créer des produits."
           : `Impossible de créer le produit: ${msg}`,
       });
