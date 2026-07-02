@@ -177,7 +177,20 @@ BEGIN
   RAISE NOTICE 'Trigger re-active';
 
   -- ================================================================
-  -- 6. UPGRADE SUBSCRIPTION -> ENTERPRISE (ILLIMITE, 100 ANS)
+  -- 6. AJOUTER billing_period SI LA COLONNE N'EXISTE PAS
+  --    (migration Stripe pas encore deployee sur production)
+  -- ================================================================
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'subscriptions' AND column_name = 'billing_period'
+  ) THEN
+    ALTER TABLE public.subscriptions ADD COLUMN billing_period TEXT DEFAULT 'monthly'
+      CHECK (billing_period IN ('monthly', 'yearly'));
+    RAISE NOTICE 'Colonne billing_period ajoutee a subscriptions';
+  END IF;
+
+  -- ================================================================
+  -- 7. UPGRADE SUBSCRIPTION -> ENTERPRISE (ILLIMITE, 100 ANS)
   -- ================================================================
   UPDATE public.subscriptions
   SET
