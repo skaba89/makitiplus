@@ -140,7 +140,7 @@ Deno.serve(async (req) => {
 
     const sessionParams = new URLSearchParams({
       customer: customerId,
-      mode: billing === 'yearly' ? 'payment' : 'subscription',
+      mode: 'subscription',
       'line_items[0][price]': priceId,
       'line_items[0][quantity]': '1',
       success_url: `${appUrl}/dashboard/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
@@ -148,14 +148,10 @@ Deno.serve(async (req) => {
       'metadata[organization_id]': orgId,
       'metadata[plan_id]': planId,
       'metadata[billing]': billing,
+      'subscription_data[metadata][organization_id]': orgId,
+      'subscription_data[metadata][plan_id]': planId,
+      'subscription_data[metadata][billing]': billing,
     } as Record<string, string>);
-
-    // For yearly billing, add subscription data
-    if (billing === 'yearly') {
-      sessionParams.set('subscription_data[metadata][organization_id]', orgId);
-      sessionParams.set('subscription_data[metadata][plan_id]', planId);
-      sessionParams.set('mode', 'subscription');
-    }
 
     const sessionRes = await fetch('https://api.stripe.com/v1/checkout/sessions', {
       method: 'POST',

@@ -26,6 +26,9 @@ ALL_FUNCTIONS=(
   "admin-send-reset-link"
   "redeem-reset-token"
   "rotate-test-accounts"
+  "stripe-checkout"
+  "stripe-webhook"
+  "stripe-portal"
 )
 
 # Couleurs

@@ -435,3 +435,34 @@ Stage Summary:
 - No more broken /dashboard/billing/upgrade route — upgrade now happens in-place via Stripe redirect
 - CI/CD pipeline restored with security audit gates
 - All 46 migrations ready for remote deployment
+---
+Task ID: stripe-v2-hardening
+Agent: main
+Task: Stripe integration v2 — fix yearly billing bug, enhance webhook, create Customer Portal, update Supabase types
+
+Work Log:
+- Fixed stripe-checkout: yearly billing was using mode='payment' then overriding to 'subscription'. Simplified to always use mode='subscription' with subscription_data metadata for both monthly and yearly
+- Rewrote stripe-webhook with major improvements:
+  - Added resolveOrgId() with 3 fallback strategies: metadata → stripe_customer_id lookup → stripe_subscription_id lookup
+  - Now saves stripe_subscription_id and billing_period on checkout.session.completed
+  - handleSubscriptionUpdated: derives plan from price ID when metadata missing, maps new Stripe statuses (paused→grace_period)
+  - handleSubscriptionDeleted: clears stripe_subscription_id, resets billing_period to monthly
+  - handleInvoicePaymentFailed: fetches Stripe subscription when org not resolvable from invoice directly
+  - Added lookupPlanByPriceId() helper to map price env vars back to plan_id
+- Created supabase/functions/stripe-portal/index.ts — Customer Portal Edge Function:
+  - Creates Stripe Billing Portal sessions for self-serve subscription management
+  - Allows payment method updates, invoice history, subscription cancellation (at_period_end), price changes
+  - Admin-only, rate-limited, with audit logging
+- Created src/hooks/useStripePortal.ts — frontend hook for portal redirect
+- Updated Billing.tsx: added "Gérer mon abonnement" card with portal button (only for paid active subscriptions)
+- Updated supabase/config.toml: added [functions.stripe-webhook] verify_jwt=false
+- Updated deploy-functions.sh: added stripe-checkout, stripe-webhook, stripe-portal to ALL_FUNCTIONS
+- Updated src/integrations/supabase/types.ts: added 6 missing tables (plans, subscriptions, subscription_events, stripe_events, usage_counters, feature_flags) + 5 missing RPCs (get_organization_subscription, check_plan_limit, check_feature_access, get_plans, create_sale_with_limit)
+- TypeScript: 0 errors, Vite build: OK, 195/195 tests pass
+
+Stage Summary:
+- Stripe yearly billing bug fixed (was creating one-time payments instead of subscriptions)
+- Webhook robustness: org lookup works even when Stripe metadata is missing
+- Customer Portal: users can now self-manage payment methods, view invoices, cancel subscriptions
+- Supabase types now include all SaaS tables and RPCs (previously stale)
+- All 3 Stripe Edge Functions ready for deployment

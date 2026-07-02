@@ -1,5 +1,10 @@
 project_id = "exxntkuursgwhxvehekr"
 
+# Stripe webhook needs verify_jwt=false because Stripe sends
+# requests without a Supabase JWT (uses its own signature instead)
+[functions.stripe-webhook]
+verify_jwt = false
+
 [functions.redeem-reset-token]
 verify_jwt = false
 

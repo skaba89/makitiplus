@@ -7,6 +7,7 @@
 
 import { useSubscription, usePlanLimit, usePlans, formatLimit, type LimitType } from "@/hooks/useSubscription";
 import { useStripeCheckout } from "@/hooks/useStripeCheckout";
+import { useStripePortal } from "@/hooks/useStripePortal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,6 +35,7 @@ export default function Billing() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { checkout, isLoading: isCheckingOut, error: checkoutError, isStripeConfigured } = useStripeCheckout();
+  const { openPortal, isLoading: isPortalLoading } = useStripePortal();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -147,6 +149,24 @@ export default function Billing() {
           <UsageBar label="Produits" limitType="products" />
         </CardContent>
       </Card>
+
+      {/* Manage Subscription — only for paid plans */}
+      {planId !== "starter" && subscription?.status === "active" && isStripeConfigured && (
+        <Card>
+          <CardContent className="flex items-center justify-between p-6">
+            <div>
+              <h3 className="font-semibold text-lg">Gérer votre abonnement</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Modifiez votre moyen de paiement, consultez l'historique de facturation ou annulez votre abonnement.
+              </p>
+            </div>
+            <Button variant="outline" onClick={openPortal} disabled={isPortalLoading}>
+              {isPortalLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CreditCard className="h-4 w-4 mr-2" />}
+              Gérer mon abonnement
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Upgrade CTA */}
       {planId !== "enterprise" && (

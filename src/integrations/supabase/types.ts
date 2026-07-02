@@ -1220,6 +1220,264 @@ export type Database = {
         }
         Relationships: []
       }
+      plans: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          price_monthly: number
+          price_yearly: number | null
+          currency: string
+          max_stores: number | null
+          max_users: number | null
+          max_products: number | null
+          max_sales_per_month: number | null
+          has_advanced_reports: boolean
+          has_exports: boolean
+          has_supplier_management: boolean
+          has_offline_advanced: boolean
+          has_api_access: boolean
+          has_priority_support: boolean
+          has_custom_branding: boolean
+          has_multi_currency: boolean
+          has_ai_assistant: boolean
+          has_loyalty_program: boolean
+          sort_order: number
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          name: string
+          description?: string | null
+          price_monthly?: number
+          price_yearly?: number | null
+          currency?: string
+          max_stores?: number | null
+          max_users?: number | null
+          max_products?: number | null
+          max_sales_per_month?: number | null
+          has_advanced_reports?: boolean
+          has_exports?: boolean
+          has_supplier_management?: boolean
+          has_offline_advanced?: boolean
+          has_api_access?: boolean
+          has_priority_support?: boolean
+          has_custom_branding?: boolean
+          has_multi_currency?: boolean
+          has_ai_assistant?: boolean
+          has_loyalty_program?: boolean
+          sort_order?: number
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          description?: string | null
+          price_monthly?: number
+          price_yearly?: number | null
+          currency?: string
+          max_stores?: number | null
+          max_users?: number | null
+          max_products?: number | null
+          max_sales_per_month?: number | null
+          has_advanced_reports?: boolean
+          has_exports?: boolean
+          has_supplier_management?: boolean
+          has_offline_advanced?: boolean
+          has_api_access?: boolean
+          has_priority_support?: boolean
+          has_custom_branding?: boolean
+          has_multi_currency?: boolean
+          has_ai_assistant?: boolean
+          has_loyalty_program?: boolean
+          sort_order?: number
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          id: string
+          organization_id: string
+          plan_id: string
+          status: string
+          current_period_start: string
+          current_period_end: string
+          trial_ends_at: string | null
+          grace_period_ends_at: string | null
+          cancelled_at: string | null
+          billing_period: string | null
+          stripe_subscription_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          plan_id: string
+          status?: string
+          current_period_start?: string
+          current_period_end?: string
+          trial_ends_at?: string | null
+          grace_period_ends_at?: string | null
+          cancelled_at?: string | null
+          billing_period?: string | null
+          stripe_subscription_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          plan_id?: string
+          status?: string
+          current_period_start?: string
+          current_period_end?: string
+          trial_ends_at?: string | null
+          grace_period_ends_at?: string | null
+          cancelled_at?: string | null
+          billing_period?: string | null
+          stripe_subscription_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          { foreignKeyName: "subscriptions_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] },
+          { foreignKeyName: "subscriptions_plan_id_fkey"; columns: ["plan_id"]; isOneToOne: false; referencedRelation: "plans"; referencedColumns: ["id"] }
+        ]
+      }
+      subscription_events: {
+        Row: {
+          id: string
+          organization_id: string
+          event_type: string
+          from_plan: string | null
+          to_plan: string | null
+          performed_by: string | null
+          metadata: Json | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          event_type: string
+          from_plan?: string | null
+          to_plan?: string | null
+          performed_by?: string | null
+          metadata?: Json | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          event_type?: string
+          from_plan?: string | null
+          to_plan?: string | null
+          performed_by?: string | null
+          metadata?: Json | null
+          created_at?: string
+        }
+        Relationships: [
+          { foreignKeyName: "subscription_events_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] },
+          { foreignKeyName: "subscription_events_performed_by_fkey"; columns: ["performed_by"]; isOneToOne: false; referencedRelation: "users"; referencedColumns: ["id"] }
+        ]
+      }
+      stripe_events: {
+        Row: {
+          event_id: string
+          event_type: string
+          processed_at: string
+          payload: Json | null
+          organization_id: string | null
+        }
+        Insert: {
+          event_id: string
+          event_type: string
+          processed_at?: string
+          payload?: Json | null
+          organization_id?: string | null
+        }
+        Update: {
+          event_id?: string
+          event_type?: string
+          processed_at?: string
+          payload?: Json | null
+          organization_id?: string | null
+        }
+        Relationships: [
+          { foreignKeyName: "stripe_events_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] }
+        ]
+      }
+      usage_counters: {
+        Row: {
+          id: string
+          organization_id: string
+          stores: number
+          users: number
+          products: number
+          sales_this_month: number
+          exports_this_month: number
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          stores?: number
+          users?: number
+          products?: number
+          sales_this_month?: number
+          exports_this_month?: number
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          stores?: number
+          users?: number
+          products?: number
+          sales_this_month?: number
+          exports_this_month?: number
+          updated_at?: string
+        }
+        Relationships: [
+          { foreignKeyName: "usage_counters_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] }
+        ]
+      }
+      feature_flags: {
+        Row: {
+          id: string
+          plan_id: string
+          feature_key: string
+          is_enabled: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          plan_id: string
+          feature_key: string
+          is_enabled?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          plan_id?: string
+          feature_key?: string
+          is_enabled?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          { foreignKeyName: "feature_flags_plan_id_fkey"; columns: ["plan_id"]; isOneToOne: false; referencedRelation: "plans"; referencedColumns: ["id"] }
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -1370,6 +1628,91 @@ export type Database = {
           total_quantity: number
           total_revenue: number
         }[]
+      }
+      get_organization_subscription: {
+        Args: never
+        Returns: {
+          subscription_id: string
+          plan_id: string
+          plan_name: string
+          status: string
+          current_period_end: string
+          trial_ends_at: string | null
+          grace_period_ends_at: string | null
+          max_stores: number | null
+          max_users: number | null
+          max_products: number | null
+          max_sales_per_month: number | null
+          has_advanced_reports: boolean
+          has_exports: boolean
+          has_supplier_management: boolean
+          has_offline_advanced: boolean
+          has_api_access: boolean
+          has_priority_support: boolean
+          has_custom_branding: boolean
+          has_multi_currency: boolean
+          has_ai_assistant: boolean
+          has_loyalty_program: boolean
+        }[]
+      }
+      check_plan_limit: {
+        Args: { p_limit_type: string }
+        Returns: {
+          allowed: boolean
+          current_count: number
+          limit_value: number | null
+          plan_id: string
+        }[]
+      }
+      check_feature_access: {
+        Args: { p_feature_key: string }
+        Returns: {
+          allowed: boolean
+          plan_id: string
+        }[]
+      }
+      get_plans: {
+        Args: never
+        Returns: {
+          id: string
+          name: string
+          description: string | null
+          price_monthly: number
+          price_yearly: number | null
+          currency: string
+          max_stores: number | null
+          max_users: number | null
+          max_products: number | null
+          max_sales_per_month: number | null
+          has_advanced_reports: boolean
+          has_exports: boolean
+          has_supplier_management: boolean
+          has_offline_advanced: boolean
+          has_api_access: boolean
+          has_priority_support: boolean
+          has_custom_branding: boolean
+          has_multi_currency: boolean
+          has_ai_assistant: boolean
+          has_loyalty_program: boolean
+          sort_order: number
+          is_active: boolean
+        }[]
+      }
+      create_sale_with_limit: {
+        Args: {
+          p_store_id: string
+          p_customer_name: string | null
+          p_customer_phone: string | null
+          p_payment_method: string
+          p_items: Json
+          p_subtotal: number
+          p_tax_amount: number
+          p_total_amount: number
+          p_amount_paid: number
+          p_change_amount: number
+          p_seller_name: string | null
+        }
+        Returns: string
       }
     }
     Enums: {
