@@ -13,6 +13,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePlans, useSubscription } from "@/hooks/useSubscription";
+import { useStripeCheckout } from "@/hooks/useStripeCheckout";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -58,6 +59,7 @@ export default function Onboarding() {
   const { data: subscription } = useSubscription();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { checkout: stripeCheckout, isLoading: isStripeLoading, isStripeConfigured } = useStripeCheckout();
 
   const [step, setStep] = useState<Step>("welcome");
   const [selectedPlan, setSelectedPlan] = useState<string>("starter");
@@ -84,22 +86,29 @@ export default function Onboarding() {
     try {
       // If selecting starter (free), the trigger on subscriptions table
       // already creates a starter subscription. We just need to confirm/update.
-      // For paid plans, we'll create a pending subscription (payment flow to be added).
-      const { error } = await supabase
-        .from("subscriptions")
-        .upsert({
-          organization_id: profile.organization_id,
-          plan_id: selectedPlan,
-          status: selectedPlan === "starter" ? "active" : "pending",
-          current_period_start: new Date().toISOString(),
-          current_period_end: new Date(
-            new Date().setMonth(new Date().getMonth() + 1)
-          ).toISOString(),
-        }, { onConflict: "organization_id" });
+      if (selectedPlan === "starter") {
+        const { error } = await supabase
+          .from("subscriptions")
+          .upsert({
+            organization_id: profile.organization_id,
+            plan_id: "starter",
+            status: "active",
+            current_period_start: new Date().toISOString(),
+            current_period_end: new Date(
+              new Date().setMonth(new Date().getMonth() + 1)
+            ).toISOString(),
+          }, { onConflict: "organization_id" });
 
-      if (error) throw error;
-
-      setStep("confirm");
+        if (error) throw error;
+        setStep("confirm");
+      } else {
+        // Paid plan → redirect to Stripe Checkout
+        await stripeCheckout(selectedPlan);
+        // If Stripe is not configured, the hook will show an error.
+        // The user will be redirected to Stripe, so we don't need to do more here.
+        // If Stripe redirect doesn't happen (error), stop loading.
+        setIsSubmitting(false);
+      }
     } catch (error) {
       reportError(error, { action: "onboarding_select_plan", planId: selectedPlan });
       toast({
@@ -107,7 +116,6 @@ export default function Onboarding() {
         title: "Erreur",
         description: "Impossible de sélectionner ce plan. Veuillez réessayer.",
       });
-    } finally {
       setIsSubmitting(false);
     }
   };
@@ -305,13 +313,13 @@ export default function Onboarding() {
               </Button>
               <Button
                 onClick={handleSelectPlan}
-                disabled={isSubmitting || plansLoading}
+                disabled={isSubmitting || isStripeLoading || plansLoading}
                 className="gap-2"
               >
-                {isSubmitting ? (
+                {isSubmitting || isStripeLoading ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Enregistrement...
+                    {isStripeLoading ? "Redirection vers le paiement..." : "Enregistrement..."}
                   </>
                 ) : (
                   <>
@@ -357,10 +365,9 @@ export default function Onboarding() {
               {selectedPlan !== "starter" && (
                 <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-950/20 text-left">
                   <p className="text-sm text-amber-700 dark:text-amber-400">
-                    <strong>Note :</strong> Le paiement pour le plan{" "}
-                    {plans?.find((p) => p.id === selectedPlan)?.name} sera
-                    traité séparément. Vous serez contacté par notre équipe pour
-                    finaliser votre abonnement.
+                    <strong>Note :</strong> Vous allez être redirigé vers Stripe pour finaliser le paiement
+                    du plan {plans?.find((p) => p.id === selectedPlan)?.name}.
+                    Votre abonnement sera activé dès la confirmation du paiement.
                   </p>
                 </div>
               )}

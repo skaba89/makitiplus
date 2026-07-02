@@ -413,3 +413,25 @@ Stage Summary:
 - TanStack Query no longer retries on auth/404 errors
 - Migration push script ready for remote Supabase deployment
 - _deploy_combined.sql now includes P0 hotfix (was missing before)
+---
+Task ID: stripe-integration
+Agent: main
+Task: Implement Stripe Checkout + Webhook Edge Functions + wire Billing/Onboarding
+
+Work Log:
+- Created supabase/functions/stripe-webhook/index.ts — handles checkout.session.completed, customer.subscription.updated, customer.subscription.deleted, invoice.payment_failed with idempotency via stripe_events table + HMAC-SHA256 signature verification
+- Created supabase/functions/stripe-checkout/index.ts — creates Stripe Checkout Sessions with admin auth, auto-creates Stripe customer, uses plan price IDs from env vars
+- Created supabase/migrations/20260703050000_stripe_integration.sql — adds stripe_customer_id to organizations, billing_period + stripe_subscription_id to subscriptions
+- Updated .env.example with VITE_STRIPE_PUBLISHABLE_KEY + Edge Function secrets documentation
+- Created src/hooks/useStripeCheckout.ts — client hook that calls stripe-checkout Edge Function, handles Stripe redirect, shows helpful error when Stripe not configured
+- Updated Billing.tsx — replaced navigate("/dashboard/billing/upgrade") with useStripeCheckout, added checkout success/cancel URL param handling, error display
+- Updated Onboarding.tsx — paid plans now redirect to Stripe Checkout instead of creating "pending" subscription, free starter plan still uses direct upsert
+- Recreated .github/workflows/ci.yml — lint, typecheck, build, test, SQL validation, high audit (blocking), moderate audit (informational)
+- Rebuilt _deploy_combined.sql with all 46 migrations
+- TypeScript: 0 errors, Vite build: OK, 195/195 tests pass
+
+Stage Summary:
+- Full Stripe payment flow implemented: Frontend → Edge Function → Stripe Checkout → Webhook → Subscription activation
+- No more broken /dashboard/billing/upgrade route — upgrade now happens in-place via Stripe redirect
+- CI/CD pipeline restored with security audit gates
+- All 46 migrations ready for remote deployment

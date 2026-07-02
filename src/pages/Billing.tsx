@@ -6,13 +6,17 @@
  */
 
 import { useSubscription, usePlanLimit, usePlans, formatLimit, type LimitType } from "@/hooks/useSubscription";
+import { useStripeCheckout } from "@/hooks/useStripeCheckout";
 import { useAuth } from "@/contexts/AuthContext";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Loader2, CheckCircle, AlertTriangle, CreditCard, Calendar, TrendingUp } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   active: { label: "Actif", variant: "default" },
@@ -28,6 +32,25 @@ export default function Billing() {
   const { data: plans } = usePlans();
   const { userRole } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { checkout, isLoading: isCheckingOut, error: checkoutError, isStripeConfigured } = useStripeCheckout();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  // Handle Stripe Checkout return URLs
+  useEffect(() => {
+    const checkoutStatus = searchParams.get("checkout");
+    if (checkoutStatus === "success") {
+      toast({ title: "Paiement en cours de traitement", description: "Votre abonnement sera activé dans quelques instants." });
+      // Invalidate subscription to refetch
+      queryClient.invalidateQueries({ queryKey: ["subscription"] });
+      // Clean URL
+      setSearchParams({}, { replace: true });
+    } else if (checkoutStatus === "cancelled") {
+      toast({ title: "Paiement annulé", description: "Vous n'avez pas été débité.", variant: "destructive" });
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, toast, queryClient, setSearchParams]);
 
   if (subLoading) {
     return (
@@ -141,11 +164,22 @@ export default function Billing() {
                   : "$79/mois — Boutiques et utilisateurs illimités, assistant IA, programme fidélité"}
               </p>
             </div>
-            <Button size="lg" onClick={() => navigate("/dashboard/billing/upgrade")}>
+            <Button size="lg" onClick={() => checkout(planId === "starter" ? "croissance" : "enterprise")} disabled={isCheckingOut}>
+              {isCheckingOut ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Upgrader
             </Button>
           </CardContent>
         </Card>
+      )}
+
+      {/* Checkout Error */}
+      {checkoutError && (
+        <div className="flex items-center gap-2 p-3 bg-destructive/10 rounded-lg border border-destructive/20">
+          <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
+          <div className="text-sm">
+            <p className="font-medium text-destructive">{checkoutError}</p>
+          </div>
+        </div>
       )}
 
       {/* All Plans */}

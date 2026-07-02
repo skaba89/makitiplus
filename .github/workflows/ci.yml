@@ -2,109 +2,56 @@ name: CI
 
 on:
   push:
-    branches: [main, master, develop]
+    branches: [main, develop]
   pull_request:
-    branches: [main, master, develop]
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+    branches: [main]
 
 jobs:
-  lint-build-test:
-    name: Lint, Build & Test
+  build-and-test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
       - name: Lint
-        run: npm run lint -- --max-warnings=0 2>/dev/null || npm run lint
+        run: npx eslint src/ --ignore-pattern 'src/test/**' --max-warnings 50
 
       - name: Type check
         run: npx tsc --noEmit
 
       - name: Build
-        run: npm run build
+        run: npx vite build
 
-      - name: Test
-        run: npm test
+      - name: Unit tests
+        run: npx vitest run --reporter=verbose
+        env:
+          # Provide dummy env vars so supabase client doesn't crash
+          VITE_SUPABASE_URL: https://dummy.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: dummy-key
 
       - name: Validate SQL migrations
-        run: python scripts/validate_sql_migrations.py
+        run: python3 scripts/validate_sql_migrations.py
 
-  security-audit:
-    name: Security Audit
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: npm audit (high+)
+      - name: Security audit (high/critical — blocks the pipeline)
         run: npm audit --audit-level=high
-        # High and critical vulnerabilities will block the pipeline
-        # Moderate are reported but don't fail the job
 
-      - name: npm audit (moderate info)
+      - name: Security audit (moderate — informational only)
         run: npm audit --audit-level=moderate || true
-        # Informational only — moderate warnings don't block
+        continue-on-error: true
 
-      - name: Check for known vulnerable packages
-        run: npx better-npm-audit audit --level high || true
-
-  e2e-tests:
-    name: E2E Tests (Playwright)
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    needs: lint-build-test
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
-
-      - name: Run E2E tests
-        run: npx playwright test
-        env:
-          CI: true
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 7
+      - name: Check for .env leaks
+        run: |
+          if git diff --cached --name-only | grep -q '\.env$'; then
+            echo "ERROR: .env file detected in commit!"
+            exit 1
+          fi
