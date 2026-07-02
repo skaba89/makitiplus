@@ -285,8 +285,9 @@ CREATE POLICY "stores_insert_admin"
   WITH CHECK (
     organization_id IN (
       SELECT p.organization_id FROM public.profiles p
+      INNER JOIN public.user_roles ur ON ur.user_id = p.user_id
       WHERE p.user_id = auth.uid()
-      AND p.role IN ('admin', 'super_admin', 'manager')
+      AND ur.role IN ('admin', 'super_admin', 'manager')
     )
   );
 
@@ -298,8 +299,9 @@ CREATE POLICY "stores_update_admin"
   USING (
     organization_id IN (
       SELECT p.organization_id FROM public.profiles p
+      INNER JOIN public.user_roles ur ON ur.user_id = p.user_id
       WHERE p.user_id = auth.uid()
-      AND p.role IN ('admin', 'super_admin', 'manager')
+      AND ur.role IN ('admin', 'super_admin', 'manager')
     )
   );
 
@@ -311,8 +313,9 @@ CREATE POLICY "stores_delete_super_admin"
   USING (
     organization_id IN (
       SELECT p.organization_id FROM public.profiles p
+      INNER JOIN public.user_roles ur ON ur.user_id = p.user_id
       WHERE p.user_id = auth.uid()
-      AND p.role = 'super_admin'
+      AND ur.role = 'super_admin'
     )
   );
 

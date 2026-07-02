@@ -108,8 +108,9 @@ CREATE POLICY "po_insert_admin"
   WITH CHECK (
     organization_id IN (
       SELECT p.organization_id FROM public.profiles p
+      INNER JOIN public.user_roles ur ON ur.user_id = p.user_id
       WHERE p.user_id = auth.uid()
-      AND p.role IN ('admin', 'super_admin', 'manager')
+      AND ur.role IN ('admin', 'super_admin', 'manager')
       AND p.organization_id IS NOT NULL
     )
   );
@@ -122,8 +123,9 @@ CREATE POLICY "po_update_admin"
   USING (
     organization_id IN (
       SELECT p.organization_id FROM public.profiles p
+      INNER JOIN public.user_roles ur ON ur.user_id = p.user_id
       WHERE p.user_id = auth.uid()
-      AND p.role IN ('admin', 'super_admin', 'manager')
+      AND ur.role IN ('admin', 'super_admin', 'manager')
     )
   );
 
@@ -135,8 +137,9 @@ CREATE POLICY "po_delete_admin"
   USING (
     organization_id IN (
       SELECT p.organization_id FROM public.profiles p
+      INNER JOIN public.user_roles ur ON ur.user_id = p.user_id
       WHERE p.user_id = auth.uid()
-      AND p.role IN ('admin', 'super_admin')
+      AND ur.role IN ('admin', 'super_admin')
     )
   );
 
@@ -161,8 +164,9 @@ CREATE POLICY "poi_insert_admin"
     purchase_order_id IN (
       SELECT po.id FROM public.purchase_orders po
       INNER JOIN public.profiles p ON p.organization_id = po.organization_id
+      INNER JOIN public.user_roles ur ON ur.user_id = p.user_id
       WHERE p.user_id = auth.uid()
-      AND p.role IN ('admin', 'super_admin', 'manager')
+      AND ur.role IN ('admin', 'super_admin', 'manager')
     )
   );
 
@@ -174,8 +178,9 @@ CREATE POLICY "poi_update_admin"
     purchase_order_id IN (
       SELECT po.id FROM public.purchase_orders po
       INNER JOIN public.profiles p ON p.organization_id = po.organization_id
+      INNER JOIN public.user_roles ur ON ur.user_id = p.user_id
       WHERE p.user_id = auth.uid()
-      AND p.role IN ('admin', 'super_admin', 'manager')
+      AND ur.role IN ('admin', 'super_admin', 'manager')
     )
   );
 
@@ -187,8 +192,9 @@ CREATE POLICY "poi_delete_admin"
     purchase_order_id IN (
       SELECT po.id FROM public.purchase_orders po
       INNER JOIN public.profiles p ON p.organization_id = po.organization_id
+      INNER JOIN public.user_roles ur ON ur.user_id = p.user_id
       WHERE p.user_id = auth.uid()
-      AND p.role IN ('admin', 'super_admin')
+      AND ur.role IN ('admin', 'super_admin')
     )
   );
 
@@ -242,8 +248,9 @@ BEGIN
 
   IF NOT EXISTS (
     SELECT 1 FROM public.profiles p
+    INNER JOIN public.user_roles ur ON ur.user_id = p.user_id
     WHERE p.user_id = auth.uid() AND p.organization_id = v_org_id
-    AND p.role IN ('admin', 'super_admin', 'manager')
+    AND ur.role IN ('admin', 'super_admin', 'manager')
   ) THEN
     RAISE EXCEPTION 'Access denied';
   END IF;
