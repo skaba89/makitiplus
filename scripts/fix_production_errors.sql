@@ -44,7 +44,7 @@ BEGIN
   ) pcnt ON pcnt.store_id = s.id
   LEFT JOIN (
     SELECT store_id, SUM(total_amount) AS total FROM public.sales
-    WHERE store_id IS NOT NULL AND created_at >= date_trunc('month', now())
+    WHERE store_id IS NOT NULL AND public.sales.created_at >= date_trunc('month', now())
     GROUP BY store_id
   ) sales ON sales.store_id = s.id
   WHERE s.organization_id = v_org_id
