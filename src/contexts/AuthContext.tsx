@@ -92,6 +92,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
 
+        // Handle session expiration — redirect to login
+        if (event === "TOKEN_REFRESHED" && !session) {
+          // Refresh token failed — session is dead
+          setUserRole(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+
         // Defer Supabase calls with setTimeout
         if (session?.user) {
           setTimeout(() => {
@@ -109,7 +118,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     );
 
     // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      // If session retrieval fails (expired refresh token), clear state
+      if (error) {
+        console.warn("[Auth] Session retrieval failed:", error.message);
+        setSession(null);
+        setUser(null);
+        setUserRole(null);
+        setProfile(null);
+        // Clear invalid session from storage to stop retry loops
+        supabase.auth.signOut().catch(() => {});
+        setLoading(false);
+        return;
+      }
+
       setSession(session);
       setUser(session?.user ?? null);
       

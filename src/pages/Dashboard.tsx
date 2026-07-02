@@ -56,11 +56,16 @@ const Dashboard = () => {
         p_month_start: monthStart,
         p_month_end: monthEnd,
       });
-      if (error) throw error;
+      if (error) {
+        // Graceful fallback: RPC not deployed yet — return zeros so the dashboard renders
+        console.warn("[Dashboard] get_dashboard_stats RPC failed:", error.message);
+        return null;
+      }
       // RPC returns array with single object
       return Array.isArray(data) ? data[0] : data;
     },
     enabled: !!user,
+    retry: 1,
   });
 
   // Produits les plus vendus (30 derniers jours) — RPC avec agrégation serveur
@@ -73,10 +78,14 @@ const Dashboard = () => {
         p_since: thirtyDaysAgo.toISOString(),
         p_limit: 5,
       });
-      if (error) throw error;
+      if (error) {
+        console.warn("[Dashboard] get_top_products RPC failed:", error.message);
+        return [];
+      }
       return data;
     },
     enabled: !!user,
+    retry: 1,
   });
 
   // Month sales (for profit calculation)

@@ -96,7 +96,7 @@ describe("useProductStats", () => {
     expect(mockRpc).not.toHaveBeenCalled();
   });
 
-  it("propagates RPC errors", async () => {
+  it("returns fallback data on RPC error", async () => {
     mockRpc.mockResolvedValue({
       data: null,
       error: { message: "RPC not found", code: "42883" },
@@ -106,8 +106,11 @@ describe("useProductStats", () => {
       wrapper: createWrapper(),
     });
 
-    await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(result.current.error).toBeDefined();
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    const stats = result.current.data!;
+    expect(stats.totalProducts).toBe(0);
+    expect(stats.lowStockCount).toBe(0);
+    expect(stats.outOfStockCount).toBe(0);
   });
 
   it("preserves categoryCounts object from RPC", async () => {

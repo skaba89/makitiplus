@@ -93,7 +93,7 @@ describe("useSupplierStats", () => {
     expect(mockRpc).not.toHaveBeenCalled();
   });
 
-  it("propagates RPC errors", async () => {
+  it("returns fallback data on RPC error", async () => {
     mockRpc.mockResolvedValue({
       data: null,
       error: { message: "function not found" },
@@ -103,7 +103,12 @@ describe("useSupplierStats", () => {
       wrapper: createWrapper(),
     });
 
-    await waitFor(() => expect(result.current.isError).toBe(true));
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    const stats = result.current.data!;
+    expect(stats.totalSuppliers).toBe(0);
+    expect(stats.activeSuppliers).toBe(0);
+    expect(stats.totalProducts).toBe(0);
+    expect(stats.totalSupplyValue).toBe(0);
   });
 
   it("handles zero values correctly (not confused with null)", async () => {

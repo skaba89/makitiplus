@@ -20,7 +20,10 @@ export function useExpenseStats() {
         return { monthTotal: 0, monthCount: 0 };
       }
       const { data, error } = await supabase.rpc("get_expense_stats");
-      if (error) throw error;
+      if (error) {
+        console.warn("[ExpenseStats] get_expense_stats RPC failed:", error.message);
+        return { monthTotal: 0, monthCount: 0 };
+      }
       const typed = data as unknown as ExpenseStatsRpc;
       return {
         monthTotal: typed.monthTotal ?? 0,

@@ -20,7 +20,10 @@ export function useSupplierStats() {
         return { totalSuppliers: 0, activeSuppliers: 0, totalProducts: 0, totalSupplyValue: 0 };
       }
       const { data, error } = await supabase.rpc("get_supplier_stats");
-      if (error) throw error;
+      if (error) {
+        console.warn("[SupplierStats] get_supplier_stats RPC failed:", error.message);
+        return { totalSuppliers: 0, activeSuppliers: 0, totalProducts: 0, totalSupplyValue: 0 };
+      }
       const typed = data as unknown as SupplierStatsRpc;
       return {
         totalSuppliers: typed.totalSuppliers ?? 0,

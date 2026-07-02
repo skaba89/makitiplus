@@ -20,7 +20,10 @@ export function useCustomerStats() {
         return { totalCustomers: 0, totalCredit: 0, customersWithCredit: 0 };
       }
       const { data, error } = await supabase.rpc("get_customer_stats");
-      if (error) throw error;
+      if (error) {
+        console.warn("[CustomerStats] get_customer_stats RPC failed:", error.message);
+        return { totalCustomers: 0, totalCredit: 0, customersWithCredit: 0 };
+      }
       const typed = data as unknown as CustomerStatsRpc;
       return {
         totalCustomers: typed.totalCustomers ?? 0,

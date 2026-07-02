@@ -20,7 +20,10 @@ export function useProductStats() {
         return { totalProducts: 0, lowStockCount: 0, outOfStockCount: 0, categoryCounts: {} };
       }
       const { data, error } = await supabase.rpc("get_product_stats");
-      if (error) throw error;
+      if (error) {
+        console.warn("[ProductStats] get_product_stats RPC failed:", error.message);
+        return { totalProducts: 0, lowStockCount: 0, outOfStockCount: 0, categoryCounts: {} };
+      }
       const typed = data as unknown as ProductStatsRpc;
       return {
         totalProducts: typed.totalProducts ?? 0,

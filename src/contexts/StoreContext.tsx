@@ -59,11 +59,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     queryKey: ["organization-stores"],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_organization_stores");
-      if (error) throw error;
+      if (error) {
+        // Graceful fallback: if RPC doesn't exist yet (migration not deployed),
+        // try a direct query on the stores table instead
+        console.warn("[Store] get_organization_stores RPC failed:", error.message);
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from("stores")
+          .select("*")
+          .eq("organization_id", profile?.organization_id || "")
+          .eq("is_active", true);
+        if (fallbackError) return [];
+        return (fallbackData as Store[]) || [];
+      }
       return (data as Store[]) || [];
     },
     enabled: !!user && !!profile?.organization_id,
     staleTime: 2 * 60 * 1000,
+    retry: 1,
   });
 
   // ─── Determine current store ──────────────────────────────────

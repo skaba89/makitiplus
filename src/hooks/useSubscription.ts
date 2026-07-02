@@ -99,11 +99,16 @@ export function useSubscription() {
     queryKey: ["subscription"],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_organization_subscription");
-      if (error) throw error;
+      if (error) {
+        // Graceful fallback: if RPC doesn't exist, return null (starter plan assumed)
+        console.warn("[Subscription] get_organization_subscription failed:", error.message);
+        return null;
+      }
       return data as Subscription | null;
     },
     enabled: !!user,
     staleTime: 5 * 60 * 1000,
+    retry: 1,
   });
 }
 
@@ -118,11 +123,22 @@ export function usePlanLimit(limitType: LimitType, enabled = true) {
       const { data, error } = await supabase.rpc("check_plan_limit", {
         p_limit_type: limitType,
       });
-      if (error) throw error;
+      if (error) {
+        // Graceful fallback: if RPC doesn't exist yet (404) or auth issue (400),
+        // default to allowed=true to avoid blocking the entire UI
+        console.warn(`[PlanLimit] check_plan_limit failed (${limitType}):`, error.message);
+        return {
+          allowed: true,
+          current_count: 0,
+          limit_value: null,
+          plan_id: "starter",
+        } as PlanLimitCheck;
+      }
       return data as PlanLimitCheck | null;
     },
     enabled: !!user && enabled,
     staleTime: 2 * 60 * 1000,
+    retry: 1, // Don't retry infinitely on missing RPCs
   });
 }
 
@@ -137,11 +153,18 @@ export function useFeatureAccess(featureKey: FeatureKey, enabled = true) {
       const { data, error } = await supabase.rpc("check_feature_access", {
         p_feature_key: featureKey,
       });
-      if (error) throw error;
+      if (error) {
+        // Graceful fallback: if RPC doesn't exist yet, default based on feature
+        console.warn(`[FeatureAccess] check_feature_access failed (${featureKey}):`, error.message);
+        // Core features should be allowed by default; premium features blocked
+        const coreFeatures: FeatureKey[] = ["pos", "stock_management", "customer_credit", "basic_reports"];
+        return coreFeatures.includes(featureKey);
+      }
       return (data as { allowed: boolean; plan_id: string } | null)?.allowed ?? false;
     },
     enabled: !!user && enabled,
     staleTime: 10 * 60 * 1000,
+    retry: 1,
   });
 }
 
@@ -152,10 +175,14 @@ export function usePlans() {
     queryKey: ["plans"],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_plans");
-      if (error) throw error;
+      if (error) {
+        console.warn("[Plans] get_plans failed:", error.message);
+        return [] as Plan[];
+      }
       return data as Plan[];
     },
     staleTime: 30 * 60 * 1000, // Plans rarely change
+    retry: 1,
   });
 }
 

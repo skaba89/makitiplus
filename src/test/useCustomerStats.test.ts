@@ -91,7 +91,7 @@ describe("useCustomerStats", () => {
     expect(mockRpc).not.toHaveBeenCalled();
   });
 
-  it("propagates RPC errors", async () => {
+  it("returns fallback data on RPC error", async () => {
     mockRpc.mockResolvedValue({
       data: null,
       error: { message: "function not found" },
@@ -101,6 +101,10 @@ describe("useCustomerStats", () => {
       wrapper: createWrapper(),
     });
 
-    await waitFor(() => expect(result.current.isError).toBe(true));
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    const stats = result.current.data!;
+    expect(stats.totalCustomers).toBe(0);
+    expect(stats.totalCredit).toBe(0);
+    expect(stats.customersWithCredit).toBe(0);
   });
 });

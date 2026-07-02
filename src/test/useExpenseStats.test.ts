@@ -89,7 +89,7 @@ describe("useExpenseStats", () => {
     expect(mockRpc).not.toHaveBeenCalled();
   });
 
-  it("propagates RPC errors", async () => {
+  it("returns fallback data on RPC error", async () => {
     mockRpc.mockResolvedValue({
       data: null,
       error: { message: "connection refused" },
@@ -99,7 +99,10 @@ describe("useExpenseStats", () => {
       wrapper: createWrapper(),
     });
 
-    await waitFor(() => expect(result.current.isError).toBe(true));
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    const stats = result.current.data!;
+    expect(stats.monthTotal).toBe(0);
+    expect(stats.monthCount).toBe(0);
   });
 
   it("handles zero values correctly (not confused with null)", async () => {

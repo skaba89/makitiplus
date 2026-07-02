@@ -356,3 +356,37 @@ Stage Summary:
 - E2E test coverage for stock, purchase orders, plan limits, demo mode
 - CI now includes SQL migration validation
 - Build: 0 errors, 195/195 tests pass
+
+---
+Task ID: 17
+Agent: main
+Task: Fix runtime errors (400/404 RPCs) + Invalid Refresh Token + graceful degradation
+
+Work Log:
+- Fixed AuthContext: Invalid Refresh Token handling
+  - On TOKEN_REFRESHED with null session → clear state (no retry loop)
+  - On getSession error → clear state + signOut to stop infinite retries
+- Added graceful degradation for ALL RPC hooks (fallback instead of throw):
+  - usePlanLimit → returns {allowed: true} on error (no blocking UI)
+  - useFeatureAccess → core features allowed, premium blocked on error
+  - useSubscription → returns null on error (starter assumed)
+  - usePlans → returns [] on error
+  - useProductStats → returns zeros on error
+  - useCustomerStats → returns zeros on error
+  - useExpenseStats → returns zeros on error
+  - useSupplierStats → returns zeros on error
+  - Dashboard: get_dashboard_stats → null, get_top_products → []
+  - StoreContext: get_organization_stores → fallback direct query on stores table
+  - All hooks set retry: 1 (no infinite retry on missing RPCs)
+- Updated 4 unit tests (propagates RPC errors → returns fallback data)
+- Created deployment script: scripts/generate_deploy_sql.py
+  - Combines 31 custom migrations into _deploy_combined.sql
+  - Skips original UUID migrations (already on remote DB)
+  - Skips p0_hotfix (for already-deployed DBs only)
+- Build: 0 errors, 195/195 tests pass, Vite build OK
+
+Stage Summary:
+- All RPC errors now gracefully degrade instead of crashing the UI
+- Invalid refresh token no longer causes infinite retry loops
+- Combined deployment script ready for Supabase SQL Editor
+- Root cause: migrations not deployed to remote DB — user needs to run _deploy_combined.sql
