@@ -49,6 +49,8 @@ interface StoreContextValue {
 
 const StoreContext = createContext<StoreContextValue | undefined>(undefined);
 
+export { StoreContext };
+
 export function StoreProvider({ children }: { children: ReactNode }) {
   const { user, profile } = useAuth();
   const queryClient = useQueryClient();

@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 import { ArrowRight, Play, Wifi, WifiOff, Smartphone, ShoppingCart as CartIcon, Package, BarChart3, Users, Banknote, QrCode } from "lucide-react";
 
 export const Hero = () => {
@@ -43,9 +44,11 @@ export const Hero = () => {
                 Essai gratuit 14 jours
                 <ArrowRight className="transition-transform group-hover:translate-x-1" />
               </Button>
-              <Button variant="outline" size="xl">
-                <Play className="mr-1" />
-                Voir la démo
+              <Button variant="outline" size="xl" asChild>
+                <Link to="/demo">
+                  <Play className="mr-1" />
+                  Voir la démo
+                </Link>
               </Button>
             </div>
 

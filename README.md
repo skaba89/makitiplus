@@ -20,6 +20,7 @@ MakitiPlus est une plateforme SaaS de gestion commerciale pensée pour les comme
 | **Mobile & PWA** | Application installable sur mobile, responsive, scan code-barres caméra |
 | **Reçus & tickets** | Génération PDF, QR code, envoi WhatsApp/SMS, impression thermique 58mm/80mm |
 | **Admin Analytics** | Dashboard super_admin, ranking produits, tendances ventes, distribution paiements, mouvements stock |
+| **Mode démo** | Exploration complète sans compte, données réalistes (24 produits, 5 catégories, ventes, clients), bandeau démo persistant |
 | **Sécurité** | RLS Supabase, SECURITY DEFINER RPC, auth.uid() server-side, headers sécurité, CI audit |
 
 ---
@@ -207,7 +208,7 @@ npm run e2e:ui
 - [x] Module abonnements et quotas (SaaS Foundation)
 - [x] Page Billing/Pricing
 - [x] Onboarding premium
-- [ ] Mode démo commercial
+- [x] Mode démo commercial
 - [ ] Multi-boutiques avancé (transfert stock)
 - [ ] Commandes fournisseurs intelligentes
 - [ ] Assistant IA métier

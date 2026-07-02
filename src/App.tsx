@@ -13,6 +13,8 @@ import { BrandingProvider } from "@/contexts/BrandingContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { StoreProvider } from "@/contexts/StoreContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+import { DemoProviders, DemoLanding } from "@/contexts/DemoContext";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
 
@@ -381,6 +383,117 @@ const App = () => {
                 </Suspense>
               }
             />
+
+            {/* Demo Mode Routes — No auth required, mock data */}
+            <Route
+              path="/demo"
+              element={<DemoLanding />}
+            />
+            <Route
+              path="/demo/dashboard"
+              element={
+                <DemoProviders>
+                  <DashboardLayout>
+                    <Dashboard />
+                  </DashboardLayout>
+                </DemoProviders>
+              }
+            />
+            <Route
+              path="/demo/dashboard/pos"
+              element={
+                <DemoProviders>
+                  <DashboardLayout>
+                    <Suspense fallback={<PageLoader />}>
+                      <POS />
+                    </Suspense>
+                  </DashboardLayout>
+                </DemoProviders>
+              }
+            />
+            <Route
+              path="/demo/dashboard/products"
+              element={
+                <DemoProviders>
+                  <DashboardLayout>
+                    <Products />
+                  </DashboardLayout>
+                </DemoProviders>
+              }
+            />
+            <Route
+              path="/demo/dashboard/categories"
+              element={
+                <DemoProviders>
+                  <DashboardLayout>
+                    <Suspense fallback={<PageLoader />}>
+                      <Categories />
+                    </Suspense>
+                  </DashboardLayout>
+                </DemoProviders>
+              }
+            />
+            <Route
+              path="/demo/dashboard/customers"
+              element={
+                <DemoProviders>
+                  <DashboardLayout>
+                    <Suspense fallback={<PageLoader />}>
+                      <Customers />
+                    </Suspense>
+                  </DashboardLayout>
+                </DemoProviders>
+              }
+            />
+            <Route
+              path="/demo/dashboard/suppliers"
+              element={
+                <DemoProviders>
+                  <DashboardLayout>
+                    <Suspense fallback={<PageLoader />}>
+                      <Suppliers />
+                    </Suspense>
+                  </DashboardLayout>
+                </DemoProviders>
+              }
+            />
+            <Route
+              path="/demo/dashboard/reports"
+              element={
+                <DemoProviders>
+                  <DashboardLayout>
+                    <Suspense fallback={<PageLoader />}>
+                      <Reports />
+                    </Suspense>
+                  </DashboardLayout>
+                </DemoProviders>
+              }
+            />
+            <Route
+              path="/demo/dashboard/expenses"
+              element={
+                <DemoProviders>
+                  <DashboardLayout>
+                    <Suspense fallback={<PageLoader />}>
+                      <Expenses />
+                    </Suspense>
+                  </DashboardLayout>
+                </DemoProviders>
+              }
+            />
+            <Route
+              path="/demo/dashboard/settings"
+              element={
+                <DemoProviders>
+                  <DashboardLayout>
+                    <Suspense fallback={<PageLoader />}>
+                      <Settings />
+                    </Suspense>
+                  </DashboardLayout>
+                </DemoProviders>
+              }
+            />
+
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
