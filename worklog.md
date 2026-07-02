@@ -193,3 +193,26 @@ Stage Summary:
 - Purchase order system with full CRUD and stock auto-update
 - AI assistant with contextual business advice (placeholder for LLM integration)
 - All 174/174 tests pass, tsc clean, build OK, pushed to main
+
+---
+Task ID: 6
+Agent: main
+Task: Multi-Store Support — SQL Migrations + Frontend Store-Aware Integration
+
+Work Log:
+- Created 4-step SQL migration scripts for Supabase (step1: stores table, step2: store_id columns, step3: RLS+RPCs, step4: purchase_orders)
+- Fixed 3 SQL bugs: CREATE OR REPLACE POLICY → DROP POLICY + CREATE, v_plan RECORD → v_plan_id TEXT, profiles.role → user_roles JOIN
+- Fixed function return type conflict: DROP FUNCTION CASCADE before CREATE
+- All 4 scripts executed successfully in Supabase
+- Made usePaginatedQuery store-aware (auto store_id filter + query key) — fixes Products, Expenses, Customers pages
+- Made useProductStats, useExpenseStats, useCustomerStats store-aware (p_store_id param to RPCs)
+- Made useCategories store-aware (p_store_id to RPC + fallback filter)
+- Made usePOSProducts store-aware (store_id filter + query key)
+- Made Dashboard.tsx store-aware (all 6 queries: RPC params + direct store_id filters)
+- Build verified: TypeScript clean, Vite build OK
+
+Stage Summary:
+- Multi-store SQL schema fully deployed (stores table, store_id on 8 data tables, RLS policies, 4 RPCs)
+- Purchase orders SQL schema deployed (po_status enum, purchase_orders + items tables, RLS, 2 RPCs)
+- All core data hooks and Dashboard now filter by active store
+- Store switching via StoreSwitcher triggers automatic query invalidation
