@@ -64,6 +64,7 @@ CREATE POLICY "stores_delete_super_admin"
   );
 
 -- RPC: get_organization_stores()
+DROP FUNCTION IF EXISTS public.get_organization_stores();
 CREATE OR REPLACE FUNCTION public.get_organization_stores()
 RETURNS TABLE (
   id UUID,
@@ -132,6 +133,7 @@ END;
 $$;
 
 -- RPC: set_current_store()
+DROP FUNCTION IF EXISTS public.set_current_store(UUID);
 CREATE OR REPLACE FUNCTION public.set_current_store(p_store_id UUID)
 RETURNS BOOLEAN
 LANGUAGE plpgsql
@@ -167,6 +169,7 @@ END;
 $$;
 
 -- RPC: check_plan_limit() — mise à jour pour compter les stores
+DROP FUNCTION IF EXISTS public.check_plan_limit(TEXT);
 CREATE OR REPLACE FUNCTION public.check_plan_limit(p_limit_type TEXT)
 RETURNS TABLE (
   allowed BOOLEAN,
@@ -228,6 +231,7 @@ END;
 $$;
 
 -- RPC: get_store_stats()
+DROP FUNCTION IF EXISTS public.get_store_stats(UUID);
 CREATE OR REPLACE FUNCTION public.get_store_stats(p_store_id UUID)
 RETURNS TABLE (
   product_count BIGINT,
