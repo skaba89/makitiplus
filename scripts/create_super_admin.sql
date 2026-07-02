@@ -95,8 +95,7 @@ BEGIN
     confirmation_token,
     email_change,
     email_change_token_new,
-    recovery_token,
-    confirmed_at
+    recovery_token
   ) VALUES (
     '00000000-0000-0000-0000-000000000000',
     v_user_id,
@@ -111,8 +110,7 @@ BEGIN
     '',
     '',
     '',
-    '',
-    NOW()
+    ''
   );
 
   RAISE NOTICE '✅ Utilisateur auth créé : % (ID: %)', v_admin_email, v_user_id;
