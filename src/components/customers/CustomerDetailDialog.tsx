@@ -1,16 +1,34 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useStoreId } from "@/contexts/StoreContext";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useToast } from "@/hooks/use-toast";
+import { useSendWhatsApp, useWhatsAppConfig } from "@/hooks/useWhatsApp";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { formatDate, formatDateTime } from "@/lib/utils";
-import { ShoppingCart, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import {
+  ShoppingCart,
+  ArrowUpRight,
+  ArrowDownRight,
+  MessageSquare,
+  Send,
+  Loader2,
+  Phone,
+  CreditCard,
+} from "lucide-react";
 import { Customer } from "@/types";
 import { Database } from "@/integrations/supabase/types";
 
@@ -22,7 +40,13 @@ interface Props {
 
 export const CustomerDetailDialog = ({ customer, isOpen, onClose }: Props) => {
   const { user } = useAuth();
+  const storeId = useStoreId();
   const { formatPrice } = useCurrency();
+  const { toast } = useToast();
+  const sendMessage = useSendWhatsApp();
+  const { data: whatsappConfig } = useWhatsAppConfig();
+  const [isMessageOpen, setIsMessageOpen] = useState(false);
+  const [messageText, setMessageText] = useState("");
 
   const { data: sales } = useQuery({
     queryKey: ["customer-sales", customer?.id],
@@ -55,13 +79,69 @@ export const CustomerDetailDialog = ({ customer, isOpen, onClose }: Props) => {
     enabled: !!customer && isOpen,
   });
 
+  const handleSendWhatsApp = () => {
+    if (!customer?.phone || !messageText.trim()) return;
+    sendMessage.mutate(
+      {
+        phone: customer.phone,
+        message_type: "custom",
+        text: messageText,
+        customer_id: customer.id,
+        store_id: storeId ?? undefined,
+      },
+      {
+        onSuccess: () => {
+          toast({ title: "Message envoyé", description: `WhatsApp envoyé au ${customer.phone}` });
+          setIsMessageOpen(false);
+          setMessageText("");
+        },
+        onError: (error) => {
+          toast({
+            variant: "destructive",
+            title: "Échec de l'envoi",
+            description: error instanceof Error ? error.message : "Erreur",
+          });
+        },
+      }
+    );
+  };
+
+  const handleSendCreditReminder = () => {
+    if (!customer?.phone) return;
+    const text = `Bonjour ${customer.name}, un rappel amical : votre crédit restant est de ${formatPrice(Number(customer.total_credit))}. Merci de régler votre solde à votre convenance.`;
+    sendMessage.mutate(
+      {
+        phone: customer.phone,
+        message_type: "custom",
+        text,
+        customer_id: customer.id,
+        store_id: storeId ?? undefined,
+      },
+      {
+        onSuccess: () => {
+          toast({ title: "Rappel de crédit envoyé", description: `WhatsApp envoyé au ${customer.phone}` });
+        },
+        onError: (error) => {
+          toast({
+            variant: "destructive",
+            title: "Échec de l'envoi",
+            description: error instanceof Error ? error.message : "Erreur",
+          });
+        },
+      }
+    );
+  };
+
   if (!customer) return null;
+
+  const isWhatsAppReady = whatsappConfig?.is_active;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>{customer.name}</DialogTitle>
+          <DialogDescription className="sr-only">Détails du client {customer.name}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -76,8 +156,76 @@ export const CustomerDetailDialog = ({ customer, isOpen, onClose }: Props) => {
             </div>
           </div>
 
-          {customer.phone && <p className="text-sm"><span className="text-muted-foreground">Tél:</span> {customer.phone}</p>}
+          {/* Contact + WhatsApp Actions */}
+          <div className="flex flex-wrap items-center gap-2">
+            {customer.phone && (
+              <div className="flex items-center gap-1 text-sm">
+                <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>{customer.phone}</span>
+              </div>
+            )}
+            {customer.phone && isWhatsAppReady && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 text-green-600 border-green-200 hover:bg-green-50"
+                  onClick={() => setIsMessageOpen(true)}
+                >
+                  <MessageSquare className="h-3.5 w-3.5" />
+                  WhatsApp
+                </Button>
+                {Number(customer.total_credit) > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 text-amber-600 border-amber-200 hover:bg-amber-50"
+                    onClick={handleSendCreditReminder}
+                    disabled={sendMessage.isPending}
+                  >
+                    <CreditCard className="h-3.5 w-3.5" />
+                    Rappel crédit
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
           {customer.address && <p className="text-sm"><span className="text-muted-foreground">Adresse:</span> {customer.address}</p>}
+
+          {/* WhatsApp Message Dialog */}
+          {isMessageOpen && (
+            <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg space-y-3">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4 text-green-600" />
+                <p className="font-medium text-sm">Envoyer un message WhatsApp</p>
+              </div>
+              <Textarea
+                value={messageText}
+                onChange={(e) => setMessageText(e.target.value)}
+                placeholder={`Bonjour ${customer.name}, ...`}
+                rows={3}
+                className="text-sm"
+              />
+              <div className="flex justify-end gap-2">
+                <Button variant="ghost" size="sm" onClick={() => { setIsMessageOpen(false); setMessageText(""); }}>
+                  Annuler
+                </Button>
+                <Button
+                  size="sm"
+                  className="gap-1.5 bg-green-600 hover:bg-green-700"
+                  onClick={handleSendWhatsApp}
+                  disabled={sendMessage.isPending || !messageText.trim()}
+                >
+                  {sendMessage.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Send className="h-3.5 w-3.5" />
+                  )}
+                  Envoyer
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* Credit History */}
           {credits && credits.length > 0 && (

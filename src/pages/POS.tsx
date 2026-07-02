@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useStoreId } from "@/contexts/StoreContext";
+import { generateReceiptText } from "@/utils/receiptGenerator";
 import { usePOSCartStore, useCartTotal } from "@/contexts/POSCartContext";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { POSProductGrid } from "@/components/pos/POSProductGrid";
@@ -320,6 +321,34 @@ const POS = () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["sales"] });
       setIsPaymentOpen(false);
+
+      // ── Auto-send WhatsApp receipt if configured ──────────────
+      if (sale.customer_phone && profile?.organization_id) {
+        // Fire-and-forget: check WhatsApp config and send receipt
+        supabase.rpc("get_whatsapp_config").then(({ data: waConfig }) => {
+          if (waConfig?.auto_send_receipt && waConfig?.is_active) {
+            const receiptText = generateReceiptText(receiptData);
+            const customPrefix = waConfig.auto_send_message ? `${waConfig.auto_send_message}\n\n` : "";
+            supabase.functions.invoke("send-whatsapp", {
+              body: {
+                phone: sale.customer_phone,
+                message_type: "receipt",
+                text: customPrefix + receiptText,
+                sale_id: sale.id,
+                store_id: storeId,
+              },
+            }).then(({ data: result, error: sendErr }) => {
+              if (sendErr || result?.error) {
+                console.warn("[POS] Auto WhatsApp send failed:", sendErr || result?.error);
+              } else {
+                console.log("[POS] WhatsApp receipt auto-sent to", sale.customer_phone);
+              }
+            }).catch((err) => {
+              console.warn("[POS] Auto WhatsApp send error:", err);
+            });
+          }
+        }).catch(() => {/* Silently ignore if config check fails */});
+      }
 
       // Avertir l'utilisateur si la mise à jour du crédit a échoué
       if (creditUpdateFailed) {

@@ -15,6 +15,7 @@
 
 import { logger } from "./logger";
 import { ReceiptData, generateReceiptText, shareViaWhatsApp } from "@/utils/receiptGenerator";
+import { supabase } from "@/integrations/supabase/client";
 import {
   STORES,
   isIndexedDBAvailable,
@@ -246,12 +247,48 @@ export type Sender = (entry: QueuedDelivery) => void;
 let customSender: Sender | null = null;
 export const setSender = (s: Sender | null) => { customSender = s; };
 
-const sendOne = (entry: QueuedDelivery) => {
+const sendOne = async (entry: QueuedDelivery) => {
   if (customSender) { customSender(entry); return; }
+
   if (entry.channel === "whatsapp") {
+    // Try WhatsApp Business API (Edge Function) first
+    try {
+      const text = generateReceiptText(entry.payload);
+      const { data, error } = await supabase.functions.invoke("send-whatsapp", {
+        body: {
+          phone: entry.phone,
+          message_type: "receipt",
+          text,
+          sale_id: entry.payload.saleNumber,
+          store_id: entry.payload.organizationId,
+        },
+      });
+      if (!error && data?.success) {
+        entry.status = "sent";
+        entry.sent_at = new Date().toISOString();
+        entry.attempts += 1;
+        entry.last_error = undefined;
+        entry.next_retry_at = undefined;
+        entry.exhausted = false;
+        if (isIndexedDBAvailable()) {
+          await idbPutOne(entry);
+        } else {
+          const queue = lsLoad();
+          lsSave(queue);
+        }
+        return;
+      }
+      // If API call failed, fall through to wa.me deep link
+      logger.warn("[Queue] WhatsApp API failed, falling back to wa.me:", error || data?.error);
+    } catch (err) {
+      logger.warn("[Queue] WhatsApp API error, falling back to wa.me:", err);
+    }
+    // Fallback: open wa.me deep link in browser
     shareViaWhatsApp(entry.payload, entry.phone);
     return;
   }
+
+  // SMS channel
   const text = generateReceiptText(entry.payload);
   const cleanPhone = entry.phone.replace(/[\s\-()]/g, "");
   const url = `sms:${cleanPhone}?body=${encodeURIComponent(text)}`;

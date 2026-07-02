@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Store, MapPin, Phone, Globe, Smartphone, Nfc, Palette } from "lucide-react";
+import { Loader2, Store, MapPin, Phone, Globe, Smartphone, Nfc, Palette, MessageSquare } from "lucide-react";
 import { CountryFlag } from "@/components/ui/country-flag";
 import StoreCustomization from "@/components/settings/StoreCustomization";
 import {
@@ -25,6 +25,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { TaxSettingsCard } from "@/components/settings/TaxSettingsCard";
 import { BrandingSettings } from "@/components/settings/BrandingSettings";
 import { FeatureGate } from "@/components/saas/PlanLimitGuard";
+import { WhatsAppSettingsCard } from "@/components/settings/WhatsAppSettings";
 
 const Settings = () => {
   const { user, profile, refreshProfile } = useAuth();
@@ -43,7 +44,7 @@ const Settings = () => {
 
   const [nfcEnabled, setNfcEnabled] = useState(profile?.nfc_enabled ?? false);
   const [nfcSupported, setNfcSupported] = useState(false);
-  const [activeTab, setActiveTab] = useState<"general" | "branding">("general");
+  const [activeTab, setActiveTab] = useState<"general" | "whatsapp" | "branding">("general");
 
   useEffect(() => {
     if (profile) {
@@ -174,6 +175,18 @@ const Settings = () => {
             <Store className="h-4 w-4" />
             <span className="hidden sm:inline">Général</span>
             <span className="sm:hidden">Général</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("whatsapp")}
+            className={`flex items-center justify-center gap-2 flex-1 px-3 sm:px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              activeTab === "whatsapp"
+                ? "bg-card text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <MessageSquare className="h-4 w-4 text-green-600" />
+            <span className="hidden sm:inline">WhatsApp</span>
+            <span className="sm:hidden">WA</span>
           </button>
           <button
             onClick={() => setActiveTab("branding")}
@@ -407,6 +420,8 @@ const Settings = () => {
 
             <TaxSettingsCard />
           </div>
+        ) : activeTab === "whatsapp" ? (
+          <WhatsAppSettingsCard />
         ) : (
           <FeatureGate
             feature="custom_branding"
