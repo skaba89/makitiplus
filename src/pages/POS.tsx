@@ -159,10 +159,11 @@ const POS = () => {
       const orgId = profile?.organization_id || null;
       let creditUpdateFailed = false;
 
-      // ⚠️ create_full_sale RPC est OBLIGATOIRE — plus de fallback non-atomique.
-      // L'ancien chemin (INSERT sale + INSERT items + batch_update_stock) était
-      // non-atomique : une panne entre les étapes laissait des données incohérentes.
-      const { data: rpcSaleId, error: rpcError } = await supabase.rpc("create_full_sale", {
+      // ⚠️ create_sale_with_limit RPC est OBLIGATOIRE — plan-enforced + atomique.
+      // Délègue à create_full_sale après vérification du quota mensuel.
+      // Plus de fallback non-atomique : une panne entre les étapes laissait
+      // des données incohérentes.
+      const { data: rpcSaleId, error: rpcError } = await supabase.rpc("create_sale_with_limit", {
         p_sale_number: finalSaleNumber,
         p_subtotal: htAmount,
         p_tax_amount: taxAmount,
@@ -178,7 +179,7 @@ const POS = () => {
 
       if (rpcError || !rpcSaleId) {
         throw new Error(
-          `Impossible de créer la vente (RPC create_full_sale) : ${rpcError?.message || 'Réponse vide'}. Veuillez réessayer.`
+          `Impossible de créer la vente (RPC create_sale_with_limit) : ${rpcError?.message || 'Réponse vide'}. Veuillez réessayer.`
         );
       }
 
@@ -349,12 +350,18 @@ const POS = () => {
       } else {
         message = String(error);
       }
+      // Detect plan limit errors from create_sale_with_limit
+      const isPlanLimit = message.includes('Limite') || message.includes('plan') || message.includes('Upgradéz');
       toast({
         variant: "destructive",
-        title: "Erreur de vente",
-        description: message,
+        title: isPlanLimit ? "Limite atteinte" : "Erreur de vente",
+        description: isPlanLimit
+          ? "Limite de ventes mensuelles atteinte pour votre plan. Upgradéz votre abonnement."
+          : message,
       });
-      reportError(error instanceof Error ? error : new Error(message));
+      if (!isPlanLimit) {
+        reportError(error instanceof Error ? error : new Error(message));
+      }
     },
   });
 

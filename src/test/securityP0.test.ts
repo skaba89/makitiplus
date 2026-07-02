@@ -23,8 +23,8 @@ function findRpcParams(source: string, rpcName: string): string | null {
 
 // ─── 1. Write RPCs — must NOT send p_user_id or p_organization_id ──
 describe("P0 Security: Write RPCs don't send client identity params", () => {
-  it("create_full_sale does NOT include p_user_id or p_organization_id", () => {
-    const params = findRpcParams(readSrc("pages/POS.tsx"), "create_full_sale");
+  it("create_sale_with_limit does NOT include p_user_id or p_organization_id", () => {
+    const params = findRpcParams(readSrc("pages/POS.tsx"), "create_sale_with_limit");
     expect(params).not.toBeNull();
     expect(params).not.toContain("p_user_id");
     expect(params).not.toContain("p_organization_id");

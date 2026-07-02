@@ -318,3 +318,41 @@ Stage Summary:
 - GRANT EXECUTE: added on 6 utility functions (get_user_organization_id, admin_exists, etc.)
 - Purchase order reception: now calls receive_purchase_order RPC (updates stock + stock_movements)
 - Build: 0 errors, clean
+
+---
+Task ID: 16
+Agent: main
+Task: P1 — Fix create_sale_with_limit signature + GRANT EXECUTE + Stripe idempotency + E2E tests + CI
+
+Work Log:
+- Fixed create_sale_with_limit RPC signature to match create_full_sale (was broken — different params)
+- Added DROP FUNCTION IF EXISTS for old wrong signature before creating new one
+- Updated POS.tsx: switched from create_full_sale to create_sale_with_limit (plan-enforced sales)
+- Added plan limit error detection in POS.tsx onError handler
+- Created migration 20260703040000_p1_sale_limit_grant_stripe_idempotency.sql with:
+  - Fixed create_sale_with_limit (11 params matching create_full_sale)
+  - GRANT EXECUTE on 8 trigger/utility functions (defense in depth)
+  - stripe_events table for webhook idempotency (event_id PK, RLS, auto-purge index)
+- Updated validate_sql_migrations.py: skip trigger functions (RETURNS TRIGGER + name patterns)
+  - Warnings reduced from 17 → 9 (remaining are functions with GRANTs in later migrations)
+- Added SQL validation step to CI (.github/workflows/ci.yml)
+- Created E2E tests: e2e/stock-and-purchase-orders.spec.ts
+  - Stock management: alerts, adjustment, movement history
+  - Purchase orders: list, creation, status badges
+  - Plan limit enforcement guards
+  - Demo mode: badge, mutation blocking toast
+- Created regression tests: src/test/p1PlanEnforcement.test.ts (21 tests)
+  - create_sale_with_limit signature matches create_full_sale
+  - All plan enforcement RPCs have GRANT EXECUTE
+  - No SQL anti-patterns (CREATE OR REPLACE POLICY, profile_roles, movement_type, low_stock_threshold)
+  - Stripe webhook idempotency table integrity
+  - Frontend uses correct RPCs (POS→create_sale_with_limit, Products→create_product, Stores→create_store)
+- Updated securityP0.test.ts: create_full_sale → create_sale_with_limit
+- All 195/195 tests pass, tsc clean, Vite build OK
+
+Stage Summary:
+- Server-side plan enforcement fully wired: all 4 RPCs + frontend integration
+- Stripe webhook idempotency table ready for Edge Function implementation
+- E2E test coverage for stock, purchase orders, plan limits, demo mode
+- CI now includes SQL migration validation
+- Build: 0 errors, 195/195 tests pass

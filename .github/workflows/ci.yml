@@ -41,6 +41,9 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Validate SQL migrations
+        run: python scripts/validate_sql_migrations.py
+
   security-audit:
     name: Security Audit
     runs-on: ubuntu-latest

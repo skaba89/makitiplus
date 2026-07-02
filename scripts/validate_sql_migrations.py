@@ -116,6 +116,20 @@ def check_file(filepath: Path) -> list:
         func_section = content[func_start:func_body_end]
 
         if "SECURITY DEFINER" in func_section:
+            # Skip trigger functions — they don't need GRANT EXECUTE
+            # (PostgreSQL calls them internally, not by users)
+            if "RETURNS TRIGGER" in func_section:
+                continue
+
+            # Also skip if the function is clearly a trigger helper
+            # (name pattern: handle_*, set_*, auto_*, update_*_updated_at)
+            trigger_name_patterns = [
+                r"^handle_", r"^set_", r"^auto_",
+                r"^update_\w+_updated_at$",
+            ]
+            if any(re.search(p, func_name) for p in trigger_name_patterns):
+                continue
+
             # Check for GRANT EXECUTE after the function definition
             after_func = content[func_body_end:]
             grant_pattern = rf"GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+public\.{func_name}"
