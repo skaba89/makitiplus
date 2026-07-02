@@ -95,9 +95,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Handle session expiration — redirect to login
         if (event === "TOKEN_REFRESHED" && !session) {
           // Refresh token failed — session is dead
+          console.warn("[Auth] Refresh token invalid — signing out and redirecting to /auth");
           setUserRole(null);
           setProfile(null);
           setLoading(false);
+          // Sign out to clear stale session from localStorage, then redirect
+          supabase.auth.signOut().catch(() => {});
+          // Use replace to prevent back-button loop
+          window.location.replace("/auth");
           return;
         }
 
@@ -119,7 +124,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session }, error }) => {
-      // If session retrieval fails (expired refresh token), clear state
+      // If session retrieval fails (expired refresh token), clear state + redirect
       if (error) {
         console.warn("[Auth] Session retrieval failed:", error.message);
         setSession(null);
@@ -129,6 +134,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Clear invalid session from storage to stop retry loops
         supabase.auth.signOut().catch(() => {});
         setLoading(false);
+        // Redirect to login if not already there
+        if (window.location.pathname !== "/auth" && window.location.pathname !== "/") {
+          window.location.replace("/auth");
+        }
         return;
       }
 

@@ -97,12 +97,18 @@ class PageErrorBoundary extends Component<{ children: ReactNode }, { hasError: b
   }
 }
 
-/** Smart retry: more retries for network errors, none for 4xx client errors */
+/** Smart retry: more retries for network errors, none for 4xx client errors or auth failures */
 function smartRetry(failureCount: number, error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
 
+  // Never retry auth failures — refresh token is dead, retrying makes it worse
+  if (/Refresh Token Not Found|Invalid Refresh Token|JWTExpired|JWT invalid/i.test(message)) return false;
+
   // Never retry client errors (4xx) — the request itself is invalid
   if (/4[0-9]{2}|PGRST|JWT|auth/i.test(message)) return false;
+
+  // Never retry 404 — RPC/table doesn't exist (migration not applied yet)
+  if (/404|not found|Could not find the function/i.test(message)) return false;
 
   // Retry up to 3 times for network/server errors
   return failureCount < 3;

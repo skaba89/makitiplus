@@ -1,7 +1,359 @@
 -- ============================================================
 -- MakitiPlus — Combined Deployment Script
--- Generated automatically — DO NOT EDIT
+-- Auto-generated — DO NOT EDIT
 -- ============================================================
+
+-- ════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260202072852_917790af-3d14-44e9-bcdd-d88776ced82b.sql
+-- ════════════════════════════════════════════════════════════════
+
+-- Allow users to insert their own role after signup
+CREATE POLICY "Users can create their own role" 
+ON public.user_roles 
+FOR INSERT 
+WITH CHECK (auth.uid() = user_id);
+
+-- ════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260207065000_da463d93-5048-43ec-bb39-482bb0ea3ab9.sql
+-- ════════════════════════════════════════════════════════════════
+
+
+-- Create customers table
+CREATE TABLE public.customers (
+  id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL,
+  name TEXT NOT NULL,
+  phone TEXT,
+  email TEXT,
+  address TEXT,
+  notes TEXT,
+  total_purchases NUMERIC NOT NULL DEFAULT 0,
+  total_credit NUMERIC NOT NULL DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own customers" ON public.customers FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can create their own customers" ON public.customers FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update their own customers" ON public.customers FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete their own customers" ON public.customers FOR DELETE USING (auth.uid() = user_id);
+
+-- Create customer_credits table for credit tracking
+CREATE TABLE public.customer_credits (
+  id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL,
+  customer_id UUID NOT NULL REFERENCES public.customers(id) ON DELETE CASCADE,
+  sale_id UUID REFERENCES public.sales(id),
+  amount NUMERIC NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('credit', 'payment')),
+  description TEXT,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.customer_credits ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own credits" ON public.customer_credits FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can create their own credits" ON public.customer_credits FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update their own credits" ON public.customer_credits FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete their own credits" ON public.customer_credits FOR DELETE USING (auth.uid() = user_id);
+
+-- Add customer_id to sales table
+ALTER TABLE public.sales ADD COLUMN customer_id UUID REFERENCES public.customers(id);
+
+-- Add trigger for updated_at on customers
+CREATE TRIGGER update_customers_updated_at
+BEFORE UPDATE ON public.customers
+FOR EACH ROW
+EXECUTE FUNCTION public.update_updated_at_column();
+
+-- ════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260423040958_42cc2233-086f-4864-a7d3-64cb40a81ed5.sql
+-- ════════════════════════════════════════════════════════════════
+
+-- Function to check if any admin already exists (used to allow first signup as admin)
+CREATE OR REPLACE FUNCTION public.admin_exists()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.user_roles WHERE role = 'admin'
+  );
+$$;
+
+-- Ensure only one admin can exist (race condition protection)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_single_admin ON public.user_roles (role)
+WHERE role = 'admin';
+
+-- RLS: only admin can insert into user_roles (except the very first admin)
+DROP POLICY IF EXISTS "Users can insert their own role on signup" ON public.user_roles;
+DROP POLICY IF EXISTS "Admins can insert any role" ON public.user_roles;
+DROP POLICY IF EXISTS "Allow first admin or admin-created roles" ON public.user_roles;
+
+CREATE POLICY "Allow first admin or admin-created roles"
+ON public.user_roles
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  -- Allow if no admin exists yet AND user is creating their own admin role
+  (NOT public.admin_exists() AND auth.uid() = user_id AND role = 'admin')
+  OR
+  -- Allow existing admins to create any role for any user
+  public.has_role(auth.uid(), 'admin')
+);
+
+-- Allow admins to delete user_roles
+DROP POLICY IF EXISTS "Admins can delete user roles" ON public.user_roles;
+CREATE POLICY "Admins can delete user roles"
+ON public.user_roles
+FOR DELETE
+TO authenticated
+USING (public.has_role(auth.uid(), 'admin'));
+
+-- Allow admins to view all user_roles
+DROP POLICY IF EXISTS "Admins can view all user roles" ON public.user_roles;
+CREATE POLICY "Admins can view all user roles"
+ON public.user_roles
+FOR SELECT
+TO authenticated
+USING (public.has_role(auth.uid(), 'admin') OR auth.uid() = user_id);
+
+-- Allow admins to view/update all profiles
+DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles;
+CREATE POLICY "Admins can view all profiles"
+ON public.profiles
+FOR SELECT
+TO authenticated
+USING (public.has_role(auth.uid(), 'admin') OR auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Admins can update all profiles" ON public.profiles;
+CREATE POLICY "Admins can update all profiles"
+ON public.profiles
+FOR UPDATE
+TO authenticated
+USING (public.has_role(auth.uid(), 'admin') OR auth.uid() = user_id);
+
+-- Allow admins to insert profiles for other users
+DROP POLICY IF EXISTS "Admins can insert any profile" ON public.profiles;
+CREATE POLICY "Admins can insert any profile"
+ON public.profiles
+FOR INSERT
+TO authenticated
+WITH CHECK (public.has_role(auth.uid(), 'admin') OR auth.uid() = user_id);
+
+-- ════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260423042235_125de771-f1c8-4b67-90db-2b6d811096ca.sql
+-- ════════════════════════════════════════════════════════════════
+
+-- 1. Add status & login tracking columns to profiles
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS last_login_at timestamptz,
+  ADD COLUMN IF NOT EXISTS deactivated_at timestamptz,
+  ADD COLUMN IF NOT EXISTS deactivation_reason text;
+
+-- 2. Tighten RLS on profiles: drop overly permissive policies
+DROP POLICY IF EXISTS "Profiles are viewable by everyone" ON public.profiles;
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.profiles;
+DROP POLICY IF EXISTS "Anyone can view profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Authenticated users can view profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Users can view all profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Admins can update all profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Admins can insert any profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users can view their own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users can insert their own profile" ON public.profiles;
+
+-- Recreate strict policies
+CREATE POLICY "profiles_select_own_or_admin"
+ON public.profiles FOR SELECT TO authenticated
+USING (auth.uid() = user_id OR public.has_role(auth.uid(), 'admin'));
+
+CREATE POLICY "profiles_insert_own_or_admin"
+ON public.profiles FOR INSERT TO authenticated
+WITH CHECK (auth.uid() = user_id OR public.has_role(auth.uid(), 'admin'));
+
+CREATE POLICY "profiles_update_own_or_admin"
+ON public.profiles FOR UPDATE TO authenticated
+USING (auth.uid() = user_id OR public.has_role(auth.uid(), 'admin'))
+WITH CHECK (auth.uid() = user_id OR public.has_role(auth.uid(), 'admin'));
+
+CREATE POLICY "profiles_delete_admin_only"
+ON public.profiles FOR DELETE TO authenticated
+USING (public.has_role(auth.uid(), 'admin'));
+
+-- 3. Tighten RLS on user_roles: vendors/managers see only their own role
+DROP POLICY IF EXISTS "Users can view their own role" ON public.user_roles;
+DROP POLICY IF EXISTS "Admins can view all user roles" ON public.user_roles;
+DROP POLICY IF EXISTS "Anyone can view roles" ON public.user_roles;
+DROP POLICY IF EXISTS "Authenticated users can view all roles" ON public.user_roles;
+
+CREATE POLICY "user_roles_select_own_or_admin"
+ON public.user_roles FOR SELECT TO authenticated
+USING (auth.uid() = user_id OR public.has_role(auth.uid(), 'admin'));
+
+-- 4. Audit log table (immutable trail)
+CREATE TABLE IF NOT EXISTS public.user_audit_log (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  actor_id uuid,
+  actor_name text,
+  target_user_id uuid,
+  target_user_name text,
+  action text NOT NULL,
+  details jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_audit_log_created_at
+  ON public.user_audit_log (created_at DESC);
+
+ALTER TABLE public.user_audit_log ENABLE ROW LEVEL SECURITY;
+
+-- Only admins can read audit log
+DROP POLICY IF EXISTS "audit_select_admin" ON public.user_audit_log;
+CREATE POLICY "audit_select_admin"
+ON public.user_audit_log FOR SELECT TO authenticated
+USING (public.has_role(auth.uid(), 'admin'));
+
+-- Insert allowed by authenticated admins (edge functions use service role and bypass RLS)
+DROP POLICY IF EXISTS "audit_insert_admin" ON public.user_audit_log;
+CREATE POLICY "audit_insert_admin"
+ON public.user_audit_log FOR INSERT TO authenticated
+WITH CHECK (public.has_role(auth.uid(), 'admin'));
+
+-- No UPDATE / DELETE policies → effectively immutable for end users
+
+-- 5. Function to update own last_login_at safely
+CREATE OR REPLACE FUNCTION public.touch_last_login()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  UPDATE public.profiles
+  SET last_login_at = now()
+  WHERE user_id = auth.uid();
+END;
+$$;
+
+-- 6. Function to check if user is active (used by edge functions)
+CREATE OR REPLACE FUNCTION public.is_user_active(_user_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT COALESCE(
+    (SELECT is_active FROM public.profiles WHERE user_id = _user_id),
+    true
+  );
+$$;
+
+-- ════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260424042936_db7e40cf-c001-4513-9126-a0596e12f542.sql
+-- ════════════════════════════════════════════════════════════════
+
+-- Table de journal des conflits de synchronisation
+CREATE TABLE public.sync_conflicts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  entity_type TEXT NOT NULL, -- 'product', 'sale', 'profile', 'user_role', 'stock'
+  entity_id UUID,
+  entity_label TEXT, -- nom lisible (ex: nom du produit)
+  device_id TEXT, -- identifiant de l'appareil source
+  local_data JSONB,
+  remote_data JSONB,
+  resolved_data JSONB,
+  resolution_strategy TEXT NOT NULL, -- 'last_write_wins', 'merge_delta', 'unique_id', 'manual'
+  status TEXT NOT NULL DEFAULT 'resolved', -- 'resolved', 'pending', 'failed'
+  error_message TEXT,
+  acknowledged BOOLEAN NOT NULL DEFAULT false,
+  acknowledged_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.sync_conflicts ENABLE ROW LEVEL SECURITY;
+
+-- Seul l'admin voit / gère les conflits de toute l'équipe
+CREATE POLICY "sync_conflicts_select_admin"
+  ON public.sync_conflicts FOR SELECT
+  TO authenticated
+  USING (public.has_role(auth.uid(), 'admin'));
+
+CREATE POLICY "sync_conflicts_insert_authenticated"
+  ON public.sync_conflicts FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() IS NOT NULL);
+
+CREATE POLICY "sync_conflicts_update_admin"
+  ON public.sync_conflicts FOR UPDATE
+  TO authenticated
+  USING (public.has_role(auth.uid(), 'admin'))
+  WITH CHECK (public.has_role(auth.uid(), 'admin'));
+
+CREATE INDEX idx_sync_conflicts_user_acknowledged
+  ON public.sync_conflicts (user_id, acknowledged, created_at DESC);
+
+-- Fonction : statut du compte connecté (pour polling client)
+CREATE OR REPLACE FUNCTION public.check_account_status()
+RETURNS TABLE(is_active boolean, deactivation_reason text)
+LANGUAGE sql
+STABLE SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT
+    COALESCE(p.is_active, true) AS is_active,
+    p.deactivation_reason
+  FROM public.profiles p
+  WHERE p.user_id = auth.uid()
+  LIMIT 1;
+$$;
+
+-- Fonction : résolution conflit stock par deltas
+-- previous = quantité de référence connue avant édition
+-- local_new = quantité après opération locale
+-- remote_new = quantité après opération distante
+-- résultat = remote_new + (local_new - previous)
+CREATE OR REPLACE FUNCTION public.resolve_stock_conflict(
+  previous_qty integer,
+  local_new_qty integer,
+  remote_new_qty integer
+)
+RETURNS integer
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT GREATEST(0, remote_new_qty + (local_new_qty - previous_qty));
+$$;
+
+-- Index pour accélérer les filtres audit
+CREATE INDEX IF NOT EXISTS idx_audit_action ON public.user_audit_log (action);
+CREATE INDEX IF NOT EXISTS idx_audit_target_user ON public.user_audit_log (target_user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_created_at ON public.user_audit_log (created_at DESC);
+
+-- ════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260424042947_b1941d89-89c0-4cb2-bdbc-6aaebc400cbb.sql
+-- ════════════════════════════════════════════════════════════════
+
+CREATE OR REPLACE FUNCTION public.resolve_stock_conflict(
+  previous_qty integer,
+  local_new_qty integer,
+  remote_new_qty integer
+)
+RETURNS integer
+LANGUAGE sql
+IMMUTABLE
+SET search_path = public
+AS $$
+  SELECT GREATEST(0, remote_new_qty + (local_new_qty - previous_qty));
+$$;
 
 -- ════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260424045251_3195f18f-7faa-4f1f-9d47-323cb8b7fac7.sql
@@ -391,7 +743,176 @@ DROP TRIGGER IF EXISTS auto_org_sale_items ON public.sale_items;
 CREATE TRIGGER auto_org_sale_items BEFORE INSERT ON public.sale_items
   FOR EACH ROW EXECUTE FUNCTION public.set_sale_item_organization();
 
+-- ════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260425041530_c56455ad-2249-438f-b9a2-15f7f64df5e5.sql
+-- ════════════════════════════════════════════════════════════════
 
+-- Ajout d'un taux de taxe par défaut au niveau organisation et override par produit
+ALTER TABLE public.organizations
+  ADD COLUMN IF NOT EXISTS default_tax_rate numeric NOT NULL DEFAULT 0;
+
+ALTER TABLE public.products
+  ADD COLUMN IF NOT EXISTS tax_rate numeric;
+
+COMMENT ON COLUMN public.organizations.default_tax_rate IS 'Taux de taxe par défaut en % (ex: 18 pour TVA Sénégal). 0 = pas de taxe.';
+COMMENT ON COLUMN public.products.tax_rate IS 'Taux de taxe spécifique au produit en %. NULL = utiliser le taux de la boutique. Le prix produit est considéré TTC.';
+
+-- ════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260426042420_f2188ae3-aeea-4b23-9b02-04b4b9938345.sql
+-- ════════════════════════════════════════════════════════════════
+
+-- 1. Add test account columns to profiles
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS is_test_account boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS test_expires_at timestamptz;
+
+CREATE INDEX IF NOT EXISTS idx_profiles_test_expiry
+  ON public.profiles (test_expires_at)
+  WHERE is_test_account = true AND is_active = true;
+
+-- 2. Password reset tokens table (one-time magic links)
+CREATE TABLE IF NOT EXISTS public.password_reset_tokens (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  token_hash text NOT NULL UNIQUE,
+  channel text NOT NULL CHECK (channel IN ('email','sms')),
+  destination text NOT NULL,
+  created_by uuid NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  expires_at timestamptz NOT NULL,
+  used_at timestamptz,
+  organization_id uuid
+);
+
+CREATE INDEX IF NOT EXISTS idx_pwd_reset_tokens_user
+  ON public.password_reset_tokens (user_id, used_at);
+
+ALTER TABLE public.password_reset_tokens ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "admins_view_reset_tokens"
+  ON public.password_reset_tokens FOR SELECT
+  TO authenticated
+  USING (has_role(auth.uid(), 'admin'::app_role));
+
+CREATE POLICY "admins_insert_reset_tokens"
+  ON public.password_reset_tokens FOR INSERT
+  TO authenticated
+  WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
+
+-- No UPDATE/DELETE policies: only edge functions (service role) can mutate
+
+-- 3. Mark existing test accounts as test with 7-day rotation
+UPDATE public.profiles p
+SET is_test_account = true,
+    test_expires_at = now() + interval '7 days'
+FROM auth.users u
+WHERE p.user_id = u.id
+  AND u.email LIKE '%.test@malikiplus.local';
+
+-- 4. Enable cron + net extensions for scheduled rotation
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+CREATE EXTENSION IF NOT EXISTS pg_net;
+
+-- ════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260426042625_fac2f592-7105-47f9-b6d5-63e8c4135346.sql
+-- ════════════════════════════════════════════════════════════════
+
+-- Schedule daily test account rotation at 03:00 UTC
+SELECT cron.schedule(
+  'rotate-test-accounts-daily',
+  '0 3 * * *',
+  $$
+  SELECT net.http_post(
+    url := 'https://eiquqawymbgfejwucvyt.supabase.co/functions/v1/rotate-test-accounts',
+    headers := '{"Content-Type": "application/json"}'::jsonb,
+    body := '{}'::jsonb
+  );
+  $$
+);
+
+-- ════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260427045819_7d242cc0-26f4-4887-a0d5-d687cb78cdba.sql
+-- ════════════════════════════════════════════════════════════════
+
+-- 1. Add IP address column to audit log (admin-only visible via existing RLS)
+ALTER TABLE public.user_audit_log
+  ADD COLUMN IF NOT EXISTS ip_address text;
+
+-- 2. Tighten password_reset_tokens RLS: admins only see tokens of their own org
+DROP POLICY IF EXISTS admins_view_reset_tokens ON public.password_reset_tokens;
+
+CREATE POLICY admins_view_reset_tokens_org
+ON public.password_reset_tokens
+FOR SELECT
+TO authenticated
+USING (
+  has_role(auth.uid(), 'admin'::app_role)
+  AND organization_id = public.get_user_organization_id()
+);
+
+-- Insert policy: admin must insert for their own org
+DROP POLICY IF EXISTS admins_insert_reset_tokens ON public.password_reset_tokens;
+
+CREATE POLICY admins_insert_reset_tokens_org
+ON public.password_reset_tokens
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  has_role(auth.uid(), 'admin'::app_role)
+  AND organization_id = public.get_user_organization_id()
+);
+
+-- ════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260612031944_ff09240b-7ecb-49e5-b88b-e9800618663b.sql
+-- ════════════════════════════════════════════════════════════════
+
+REVOKE EXECUTE ON FUNCTION public.is_user_active(uuid) FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.set_organization_id() FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.set_sale_item_organization() FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.update_updated_at_column() FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.generate_sale_number() FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.resolve_stock_conflict(integer, integer, integer) FROM anon, authenticated;
+
+-- ════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260612031957_f26f99b1-d459-4100-876b-f11b8ebf4985.sql
+-- ════════════════════════════════════════════════════════════════
+
+REVOKE EXECUTE ON FUNCTION public.has_role(uuid, app_role) FROM anon;
+REVOKE EXECUTE ON FUNCTION public.get_user_organization_id() FROM anon;
+REVOKE EXECUTE ON FUNCTION public.is_member_of_organization(uuid) FROM anon;
+REVOKE EXECUTE ON FUNCTION public.check_account_status() FROM anon;
+REVOKE EXECUTE ON FUNCTION public.touch_last_login() FROM anon;
+REVOKE EXECUTE ON FUNCTION public.admin_exists() FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_exists() TO service_role;
+
+-- ════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260612032011_a2f1b765-7ea2-46da-be0c-40a9e3e7f831.sql
+-- ════════════════════════════════════════════════════════════════
+
+-- Revoke PUBLIC on all SECURITY DEFINER functions
+REVOKE EXECUTE ON FUNCTION public.is_user_active(uuid) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.set_organization_id() FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.set_sale_item_organization() FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.update_updated_at_column() FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.generate_sale_number() FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.resolve_stock_conflict(integer, integer, integer) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.has_role(uuid, app_role) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.get_user_organization_id() FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.is_member_of_organization(uuid) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.check_account_status() FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.touch_last_login() FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.admin_exists() FROM PUBLIC;
+
+-- Re-grant only to legitimate roles
+GRANT EXECUTE ON FUNCTION public.has_role(uuid, app_role) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_user_organization_id() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.is_member_of_organization(uuid) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.check_account_status() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.touch_last_login() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_exists() TO service_role;
+GRANT EXECUTE ON FUNCTION public.is_user_active(uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.resolve_stock_conflict(integer, integer, integer) TO service_role;
+GRANT EXECUTE ON FUNCTION public.generate_sale_number() TO service_role;
 
 -- ════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260614010000_batch_update_stock_rpc.sql
@@ -442,8 +963,6 @@ BEGIN
   END LOOP;
 END;
 $$;
-
-
 
 -- ════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260614020000_add_missing_foreign_keys.sql
@@ -508,8 +1027,6 @@ ALTER TABLE public.stock_movements
 ALTER TABLE public.password_reset_tokens
   ADD CONSTRAINT password_reset_tokens_organization_id_fkey
   FOREIGN KEY (organization_id) REFERENCES public.organizations(id);
-
-
 
 -- ════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260614030000_tighten_rls_policies.sql
@@ -624,8 +1141,6 @@ CREATE POLICY "org_admins_insert_credits" ON public.customer_credits
 
 DROP POLICY IF EXISTS "Admins can view all user roles" ON public.user_roles;
 
-
-
 -- ════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260614040000_grant_admin_exists_to_anon.sql
 -- ════════════════════════════════════════════════════════════════
@@ -633,8 +1148,6 @@ DROP POLICY IF EXISTS "Admins can view all user roles" ON public.user_roles;
 -- Allow unauthenticated users to check if an admin exists
 -- This is required for the "Premier admin" signup tab to appear
 GRANT EXECUTE ON FUNCTION public.admin_exists() TO anon, authenticated;
-
-
 
 -- ════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260629010000_add_super_admin_role.sql
@@ -754,8 +1267,6 @@ CREATE POLICY "admins_view_audit_log" ON public.user_audit_log
   );
 
 -- ✅ Migration terminée !
-
-
 
 -- ════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260629010000_store_settings_and_default_categories.sql
@@ -988,8 +1499,6 @@ $$;
 GRANT EXECUTE ON FUNCTION public.insert_default_categories TO authenticated;
 GRANT EXECUTE ON FUNCTION public.auto_create_store_settings TO authenticated;
 
-
-
 -- ════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260629020000_add_store_category.sql
 -- ════════════════════════════════════════════════════════════════
@@ -1026,8 +1535,6 @@ ALTER TABLE public.organizations
 
 -- Étape 3 : Recharger le cache PostgREST
 NOTIFY pgrst, 'reload schema';
-
-
 
 -- ════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260701010000_fix_rls_self_escalation_and_super_admin.sql
@@ -1146,8 +1653,6 @@ AS $$
     SELECT 1 FROM profiles WHERE user_id = check_user_id
   );
 $$;
-
-
 
 -- ════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260701010000_phase1_security_and_rpc.sql
@@ -1729,8 +2234,6 @@ GRANT EXECUTE ON FUNCTION public.decrement_stock(UUID, INT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.decrement_credits(UUID, NUMERIC) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.process_pos_sale(UUID, UUID, INT) TO authenticated;
 
-
-
 -- ════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260701020000_critical_audit_fixes.sql
 -- ════════════════════════════════════════════════════════════════
@@ -2114,8 +2617,6 @@ EXCEPTION WHEN OTHERS THEN
   RAISE NOTICE 'touch_last_login grant: %', SQLERRM;
 END $$;
 
-
-
 -- ════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260701030000_high_audit_fixes.sql
 -- ════════════════════════════════════════════════════════════════
@@ -2213,8 +2714,6 @@ EXCEPTION WHEN OTHERS THEN
   RAISE NOTICE 'logos bucket: %', SQLERRM;
 END $$;
 
-
-
 -- ════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260701040000_add_nfc_enabled_to_profiles.sql
 -- ════════════════════════════════════════════════════════════════
@@ -2223,8 +2722,6 @@ END $$;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS nfc_enabled boolean DEFAULT false;
 
 -- Grant is already covered by existing RLS policies on profiles
-
-
 
 -- ════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260701050000_fix_create_full_sale_race_condition.sql
@@ -2352,8 +2849,6 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.create_full_sale TO authenticated;
 
-
-
 -- ════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702010000_add_missing_indexes.sql
 -- ════════════════════════════════════════════════════════════════
@@ -2382,8 +2877,6 @@ CREATE INDEX IF NOT EXISTS idx_sales_org_created_at ON public.sales(organization
 
 -- Index composite sur products(organization_id, is_active) — pour les requêtes de produits actifs par magasin
 CREATE INDEX IF NOT EXISTS idx_products_org_active ON public.products(organization_id, is_active);
-
-
 
 -- ════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702010000_add_suppliers_table.sql
@@ -2511,8 +3004,6 @@ CREATE INDEX idx_products_supplier_id ON public.products(supplier_id);
 -- 6. REALTIME — activer pour la table suppliers
 -- ============================================================
 ALTER PUBLICATION supabase_realtime ADD TABLE public.suppliers;
-
-
 
 -- ════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702020000_race_condition_fixes.sql
@@ -2706,8 +3197,6 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.check_account_status(UUID) TO authenticated, service_role;
 
-
-
 -- ════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702030000_dashboard_rpc_aggregation.sql
 -- ════════════════════════════════════════════════════════════════
@@ -2861,8 +3350,6 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.get_top_products(UUID, TIMESTAMPTZ, INTEGER) TO authenticated;
-
-
 
 -- ════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702040000_data_correctness_and_performance.sql
@@ -3113,8 +3600,6 @@ GRANT EXECUTE ON FUNCTION get_product_stats(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_reports_stats(UUID, TIMESTAMPTZ, TIMESTAMPTZ) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_next_category_sort_order(UUID) TO authenticated;
 
-
-
 -- ════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702050000_org_scoping_and_shared_hooks.sql
 -- ════════════════════════════════════════════════════════════════
@@ -3238,8 +3723,6 @@ $$;
 GRANT EXECUTE ON FUNCTION get_customer_stats(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_expense_stats(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_categories(UUID) TO authenticated;
-
-
 
 -- ════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702060000_add_suppliers_and_supplier_products.sql
@@ -3455,8 +3938,6 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.get_supplier_with_products(UUID, UUID) TO authenticated;
-
-
 
 -- ════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702070000_admin_multi_store_analytics.sql
@@ -3938,8 +4419,6 @@ GRANT EXECUTE ON FUNCTION public.get_admin_article_ranking(uuid, text, integer, 
 GRANT EXECUTE ON FUNCTION public.get_admin_stock_movements(uuid, text, integer, timestamptz, timestamptz) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_admin_sales_trend(uuid, text, timestamptz, timestamptz) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_admin_payment_distribution(uuid, text, timestamptz, timestamptz) TO authenticated;
-
-
 
 -- ════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702080000_security_hardening_rpc.sql
@@ -4437,8 +4916,6 @@ GRANT EXECUTE ON FUNCTION public.get_admin_article_ranking(uuid, text, integer, 
 GRANT EXECUTE ON FUNCTION public.get_admin_stock_movements(uuid, text, integer, timestamptz, timestamptz) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_admin_sales_trend(uuid, text, timestamptz, timestamptz) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_admin_payment_distribution(uuid, text, timestamptz, timestamptz) TO authenticated;
-
-
 
 -- ════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702090000_p0_security_remove_client_identity_params.sql
@@ -5574,8 +6051,6 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.get_top_products(TIMESTAMPTZ, INTEGER) TO authenticated;
 
-
-
 -- ════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702100000_fix_register_user_first_admin.sql
 -- ════════════════════════════════════════════════════════════════
@@ -5673,8 +6148,6 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.register_user(TEXT, TEXT, TEXT, TEXT, UUID) TO authenticated, service_role;
-
-
 
 -- ════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702110000_saas_foundation_plans_subscriptions.sql
@@ -6152,8 +6625,6 @@ SELECT id, 'starter', 'active', NOW(), NOW() + INTERVAL '30 days'
 FROM public.organizations
 WHERE id NOT IN (SELECT organization_id FROM public.subscriptions)
 ON CONFLICT (organization_id) DO NOTHING;
-
-
 
 -- ════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702120000_multi_store_support.sql
@@ -6744,8 +7215,6 @@ GRANT EXECUTE ON FUNCTION public.get_store_stats(UUID) TO authenticated;
 
 -- ─── Done ──────────────────────────────────────────────────────
 
-
-
 -- ════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702130000_purchase_orders.sql
 -- ════════════════════════════════════════════════════════════════
@@ -7098,7 +7567,681 @@ GRANT EXECUTE ON FUNCTION public.receive_purchase_order(UUID, JSONB) TO authenti
 
 -- ─── Done ──────────────────────────────────────────────────────
 
+-- ════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260703010000_p0_hotfix_migrations.sql
+-- ════════════════════════════════════════════════════════════════
 
+-- ============================================================
+-- P0 HOTFIX — Fix all critical SQL migration issues
+-- Date: 2026-07-03
+--
+-- This migration fixes:
+-- 1. CREATE OR REPLACE POLICY → DROP + CREATE POLICY
+-- 2. profile_roles → user_roles in all policies & RPCs
+-- 3. check_plan_limit: proper column mapping (stores→max_stores, etc.)
+-- 4. get_store_stats: low_stock_threshold → min_stock_alert
+-- 5. receive_purchase_order: stock_movements fields (movement_type→type, add missing NOT NULL cols)
+-- 6. Missing GRANT EXECUTE on get_store_stats, receive_purchase_order
+--
+-- All changes are idempotent and safe to run on an existing DB.
+-- ============================================================
+
+-- ════════════════════════════════════════════════════════════════
+-- 1. FIX: stores RLS policies — DROP + CREATE, use user_roles
+-- ════════════════════════════════════════════════════════════════
+
+-- Drop old policies
+DROP POLICY IF EXISTS "stores_select_org_member" ON public.stores;
+DROP POLICY IF EXISTS "stores_insert_admin" ON public.stores;
+DROP POLICY IF EXISTS "stores_update_admin" ON public.stores;
+DROP POLICY IF EXISTS "stores_delete_super_admin" ON public.stores;
+
+-- Recreate with user_roles instead of profile_roles
+CREATE POLICY "stores_select_org_member"
+  ON public.stores FOR SELECT
+  TO authenticated
+  USING (
+    organization_id IN (
+      SELECT p.organization_id FROM public.profiles p
+      WHERE p.user_id = auth.uid() AND p.organization_id IS NOT NULL
+    )
+  );
+
+CREATE POLICY "stores_insert_admin"
+  ON public.stores FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    organization_id IN (
+      SELECT p.organization_id FROM public.profiles p
+      WHERE p.user_id = auth.uid()
+      AND p.organization_id IS NOT NULL
+      AND EXISTS (
+        SELECT 1 FROM public.user_roles ur
+        WHERE ur.user_id = p.user_id
+        AND ur.role IN ('admin', 'super_admin', 'manager')
+      )
+    )
+  );
+
+CREATE POLICY "stores_update_admin"
+  ON public.stores FOR UPDATE
+  TO authenticated
+  USING (
+    organization_id IN (
+      SELECT p.organization_id FROM public.profiles p
+      WHERE p.user_id = auth.uid()
+      AND p.organization_id IS NOT NULL
+      AND EXISTS (
+        SELECT 1 FROM public.user_roles ur
+        WHERE ur.user_id = p.user_id
+        AND ur.role IN ('admin', 'super_admin', 'manager')
+      )
+    )
+  );
+
+CREATE POLICY "stores_delete_super_admin"
+  ON public.stores FOR DELETE
+  TO authenticated
+  USING (
+    organization_id IN (
+      SELECT p.organization_id FROM public.profiles p
+      WHERE p.user_id = auth.uid()
+      AND p.organization_id IS NOT NULL
+      AND EXISTS (
+        SELECT 1 FROM public.user_roles ur
+        WHERE ur.user_id = p.user_id
+        AND ur.role = 'super_admin'
+      )
+    )
+  );
+
+
+-- ════════════════════════════════════════════════════════════════
+-- 2. FIX: purchase_orders RLS policies — DROP + CREATE, use user_roles
+-- ════════════════════════════════════════════════════════════════
+
+-- Drop old policies
+DROP POLICY IF EXISTS "po_select_org" ON public.purchase_orders;
+DROP POLICY IF EXISTS "po_insert_admin" ON public.purchase_orders;
+DROP POLICY IF EXISTS "po_update_admin" ON public.purchase_orders;
+DROP POLICY IF EXISTS "po_delete_admin" ON public.purchase_orders;
+DROP POLICY IF EXISTS "poi_select_org" ON public.purchase_order_items;
+DROP POLICY IF EXISTS "poi_insert_admin" ON public.purchase_order_items;
+DROP POLICY IF EXISTS "poi_update_admin" ON public.purchase_order_items;
+DROP POLICY IF EXISTS "poi_delete_admin" ON public.purchase_order_items;
+
+-- Recreate with user_roles
+CREATE POLICY "po_select_org"
+  ON public.purchase_orders FOR SELECT
+  TO authenticated
+  USING (
+    organization_id IN (
+      SELECT p.organization_id FROM public.profiles p
+      WHERE p.user_id = auth.uid() AND p.organization_id IS NOT NULL
+    )
+  );
+
+CREATE POLICY "po_insert_admin"
+  ON public.purchase_orders FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    organization_id IN (
+      SELECT p.organization_id FROM public.profiles p
+      WHERE p.user_id = auth.uid()
+      AND p.organization_id IS NOT NULL
+      AND EXISTS (
+        SELECT 1 FROM public.user_roles ur
+        WHERE ur.user_id = p.user_id
+        AND ur.role IN ('admin', 'super_admin', 'manager')
+      )
+    )
+  );
+
+CREATE POLICY "po_update_admin"
+  ON public.purchase_orders FOR UPDATE
+  TO authenticated
+  USING (
+    organization_id IN (
+      SELECT p.organization_id FROM public.profiles p
+      WHERE p.user_id = auth.uid()
+      AND p.organization_id IS NOT NULL
+      AND EXISTS (
+        SELECT 1 FROM public.user_roles ur
+        WHERE ur.user_id = p.user_id
+        AND ur.role IN ('admin', 'super_admin', 'manager')
+      )
+    )
+  );
+
+CREATE POLICY "po_delete_admin"
+  ON public.purchase_orders FOR DELETE
+  TO authenticated
+  USING (
+    organization_id IN (
+      SELECT p.organization_id FROM public.profiles p
+      WHERE p.user_id = auth.uid()
+      AND p.organization_id IS NOT NULL
+      AND EXISTS (
+        SELECT 1 FROM public.user_roles ur
+        WHERE ur.user_id = p.user_id
+        AND ur.role IN ('admin', 'super_admin')
+      )
+    )
+  );
+
+-- Items: same role check via parent order's organization
+CREATE POLICY "poi_select_org"
+  ON public.purchase_order_items FOR SELECT
+  TO authenticated
+  USING (
+    purchase_order_id IN (
+      SELECT po.id FROM public.purchase_orders po
+      WHERE po.organization_id IN (
+        SELECT p.organization_id FROM public.profiles p
+        WHERE p.user_id = auth.uid() AND p.organization_id IS NOT NULL
+      )
+    )
+  );
+
+CREATE POLICY "poi_insert_admin"
+  ON public.purchase_order_items FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    purchase_order_id IN (
+      SELECT po.id FROM public.purchase_orders po
+      WHERE po.organization_id IN (
+        SELECT p.organization_id FROM public.profiles p
+        WHERE p.user_id = auth.uid()
+        AND p.organization_id IS NOT NULL
+        AND EXISTS (
+          SELECT 1 FROM public.user_roles ur
+          WHERE ur.user_id = p.user_id
+          AND ur.role IN ('admin', 'super_admin', 'manager')
+        )
+      )
+    )
+  );
+
+CREATE POLICY "poi_update_admin"
+  ON public.purchase_order_items FOR UPDATE
+  TO authenticated
+  USING (
+    purchase_order_id IN (
+      SELECT po.id FROM public.purchase_orders po
+      WHERE po.organization_id IN (
+        SELECT p.organization_id FROM public.profiles p
+        WHERE p.user_id = auth.uid()
+        AND p.organization_id IS NOT NULL
+        AND EXISTS (
+          SELECT 1 FROM public.user_roles ur
+          WHERE ur.user_id = p.user_id
+          AND ur.role IN ('admin', 'super_admin', 'manager')
+        )
+      )
+    )
+  );
+
+CREATE POLICY "poi_delete_admin"
+  ON public.purchase_order_items FOR DELETE
+  TO authenticated
+  USING (
+    purchase_order_id IN (
+      SELECT po.id FROM public.purchase_orders po
+      WHERE po.organization_id IN (
+        SELECT p.organization_id FROM public.profiles p
+        WHERE p.user_id = auth.uid()
+        AND p.organization_id IS NOT NULL
+        AND EXISTS (
+          SELECT 1 FROM public.user_roles ur
+          WHERE ur.user_id = p.user_id
+          AND ur.role IN ('admin', 'super_admin')
+        )
+      )
+    )
+  );
+
+
+-- ════════════════════════════════════════════════════════════════
+-- 3. FIX: check_plan_limit — proper column mapping
+-- ════════════════════════════════════════════════════════════════
+-- The multi-store migration overwrote this function with a broken
+-- version that used dynamic SQL with raw limit_type as column name.
+-- We must DROP first because the return type changed from INTEGER to BIGINT.
+
+DROP FUNCTION IF EXISTS public.check_plan_limit(TEXT);
+
+CREATE FUNCTION public.check_plan_limit(
+  p_limit_type TEXT -- 'stores', 'users', 'products', 'sales_this_month'
+)
+RETURNS TABLE (
+  allowed BOOLEAN,
+  current_count INTEGER,
+  limit_value INTEGER,
+  plan_id TEXT
+)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_org_id UUID;
+  v_sub record;
+  v_current INTEGER;
+  v_limit INTEGER;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+  IF v_org_id IS NULL THEN
+    RAISE EXCEPTION 'Organisation introuvable';
+  END IF;
+
+  -- Get active subscription with plan details
+  SELECT s.plan_id, p.max_stores, p.max_users, p.max_products, p.max_sales_per_month
+  INTO v_sub
+  FROM public.subscriptions s
+  JOIN public.plans p ON p.id = s.plan_id
+  WHERE s.organization_id = v_org_id
+    AND s.status IN ('active', 'past_due', 'grace_period')
+  ORDER BY s.created_at DESC
+  LIMIT 1;
+
+  -- If no subscription, default to starter limits
+  IF NOT FOUND THEN
+    SELECT 'starter'::text AS plan_id, max_stores, max_users, max_products, max_sales_per_month
+    INTO v_sub
+    FROM public.plans WHERE id = 'starter';
+  END IF;
+
+  -- Calculate current count + get limit based on limit type
+  CASE p_limit_type
+    WHEN 'stores' THEN
+      SELECT COUNT(*) INTO v_current FROM public.stores WHERE organization_id = v_org_id;
+      v_limit := v_sub.max_stores;
+    WHEN 'users' THEN
+      SELECT COUNT(DISTINCT ur.user_id) INTO v_current
+      FROM public.user_roles ur
+      JOIN public.profiles p ON p.user_id = ur.user_id
+      WHERE p.organization_id = v_org_id;
+      v_limit := v_sub.max_users;
+    WHEN 'products' THEN
+      SELECT COUNT(*) INTO v_current FROM public.products WHERE organization_id = v_org_id;
+      v_limit := v_sub.max_products;
+    WHEN 'sales_this_month' THEN
+      SELECT COUNT(*) INTO v_current FROM public.sales
+      WHERE organization_id = v_org_id
+        AND created_at >= date_trunc('month', NOW());
+      v_limit := v_sub.max_sales_per_month;
+    ELSE
+      RAISE EXCEPTION 'Type de limite inconnu : %', p_limit_type;
+  END CASE;
+
+  -- NULL limit means unlimited
+  RETURN QUERY SELECT
+    (v_limit IS NULL OR v_current < v_limit)::BOOLEAN,
+    v_current,
+    v_limit,
+    v_sub.plan_id;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.check_plan_limit(TEXT) TO authenticated;
+
+
+-- ════════════════════════════════════════════════════════════════
+-- 4. FIX: get_store_stats — low_stock_threshold → min_stock_alert
+-- ════════════════════════════════════════════════════════════════
+
+CREATE OR REPLACE FUNCTION public.get_store_stats(p_store_id UUID)
+RETURNS TABLE (
+  product_count BIGINT,
+  active_product_count BIGINT,
+  low_stock_count BIGINT,
+  sales_today NUMERIC,
+  sales_this_month NUMERIC,
+  expenses_this_month NUMERIC,
+  customer_count BIGINT
+)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_org_id UUID;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+
+  -- Verify store belongs to user's org
+  IF NOT EXISTS (
+    SELECT 1 FROM public.stores
+    WHERE id = p_store_id AND organization_id = v_org_id
+  ) THEN
+    RAISE EXCEPTION 'Store not found or access denied';
+  END IF;
+
+  RETURN QUERY
+  SELECT
+    COALESCE(pcnt.total, 0),
+    COALESCE(pcnt.active, 0),
+    COALESCE(pcnt.low, 0),
+    COALESCE(sales_today.total, 0),
+    COALESCE(sales_month.total, 0),
+    COALESCE(expenses_month.total, 0),
+    COALESCE(cust.cnt, 0)
+  FROM (SELECT 1) AS dummy
+  LEFT JOIN (
+    SELECT
+      COUNT(*) AS total,
+      COUNT(*) FILTER (WHERE is_active = true) AS active,
+      COUNT(*) FILTER (
+        WHERE stock_quantity <= COALESCE(min_stock_alert, 5)
+        AND is_active = true
+      ) AS low
+    FROM public.products WHERE store_id = p_store_id
+  ) pcnt ON true
+  LEFT JOIN (
+    SELECT COALESCE(SUM(total_amount), 0) AS total
+    FROM public.sales
+    WHERE store_id = p_store_id AND created_at >= date_trunc('day', now())
+  ) sales_today ON true
+  LEFT JOIN (
+    SELECT COALESCE(SUM(total_amount), 0) AS total
+    FROM public.sales
+    WHERE store_id = p_store_id AND created_at >= date_trunc('month', now())
+  ) sales_month ON true
+  LEFT JOIN (
+    SELECT COALESCE(SUM(amount), 0) AS total
+    FROM public.expenses
+    WHERE store_id = p_store_id AND expense_date >= date_trunc('month', now())
+  ) expenses_month ON true
+  LEFT JOIN (
+    SELECT COUNT(*) AS cnt FROM public.customers WHERE store_id = p_store_id
+  ) cust ON true;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_store_stats(UUID) TO authenticated;
+
+
+-- ════════════════════════════════════════════════════════════════
+-- 5. FIX: receive_purchase_order — stock_movements fields
+-- ════════════════════════════════════════════════════════════════
+-- Fixes:
+-- - movement_type → type (correct column name)
+-- - Added missing NOT NULL columns: user_id, previous_quantity, new_quantity
+-- - profile_roles → user_roles for access check
+-- - Added store_id to stock_movements
+
+CREATE OR REPLACE FUNCTION public.receive_purchase_order(
+  p_order_id UUID,
+  p_items JSONB -- [{"id": "item_uuid", "quantity_received": 5}, ...]
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_org_id UUID;
+  v_store_id UUID;
+  v_item RECORD;
+  v_product_id UUID;
+  v_qty_received INTEGER;
+  v_previous_qty INTEGER;
+  v_new_qty INTEGER;
+BEGIN
+  -- Verify access
+  SELECT organization_id, store_id INTO v_org_id, v_store_id
+  FROM public.purchase_orders WHERE id = p_order_id;
+
+  IF v_org_id IS NULL THEN
+    RAISE EXCEPTION 'Order not found';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.user_roles ur
+    WHERE ur.user_id = auth.uid()
+    AND ur.role IN ('admin', 'super_admin', 'manager')
+  ) THEN
+    RAISE EXCEPTION 'Access denied';
+  END IF;
+
+  -- Verify org membership
+  IF NOT EXISTS (
+    SELECT 1 FROM public.profiles p
+    WHERE p.user_id = auth.uid() AND p.organization_id = v_org_id
+  ) THEN
+    RAISE EXCEPTION 'Access denied';
+  END IF;
+
+  -- Update each item
+  FOR v_item IN SELECT * FROM jsonb_array_elements(p_items) AS item
+  LOOP
+    UPDATE public.purchase_order_items
+    SET quantity_received = (v_item->>'quantity_received')::INTEGER
+    WHERE id = (v_item->>'id')::UUID;
+
+    -- Update product stock if product is linked
+    SELECT product_id INTO v_product_id
+    FROM public.purchase_order_items
+    WHERE id = (v_item->>'id')::UUID;
+
+    IF v_product_id IS NOT NULL THEN
+      v_qty_received := (v_item->>'quantity_received')::INTEGER;
+
+      -- Get previous quantity for stock_movements
+      SELECT stock_quantity INTO v_previous_qty
+      FROM public.products
+      WHERE id = v_product_id
+      FOR UPDATE;
+
+      -- Update product stock
+      UPDATE public.products
+      SET stock_quantity = stock_quantity + v_qty_received,
+          updated_at = now()
+      WHERE id = v_product_id
+      RETURNING stock_quantity INTO v_new_qty;
+
+      -- Log stock movement with correct column names and all required fields
+      INSERT INTO public.stock_movements (
+        product_id,
+        type,
+        quantity,
+        previous_quantity,
+        new_quantity,
+        reason,
+        user_id,
+        organization_id,
+        store_id
+      ) VALUES (
+        v_product_id,
+        'restock',
+        v_qty_received,
+        v_previous_qty,
+        v_new_qty,
+        'Réception commande fournisseur',
+        auth.uid(),
+        v_org_id,
+        v_store_id
+      );
+    END IF;
+  END LOOP;
+
+  -- Update order status
+  UPDATE public.purchase_orders
+  SET status = 'received',
+      received_date = current_date,
+      updated_at = now()
+  WHERE id = p_order_id;
+
+  RETURN true;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.receive_purchase_order(UUID, JSONB) TO authenticated;
+
+
+-- ════════════════════════════════════════════════════════════════
+-- 6. FIX: get_organization_stores — use user_roles instead of profile_roles
+-- ════════════════════════════════════════════════════════════════
+
+CREATE OR REPLACE FUNCTION public.get_organization_stores()
+RETURNS TABLE (
+  id UUID,
+  name TEXT,
+  slug TEXT,
+  address TEXT,
+  city TEXT,
+  country TEXT,
+  currency TEXT,
+  phone TEXT,
+  is_active BOOLEAN,
+  is_headquarters BOOLEAN,
+  category public.store_category,
+  metadata JSONB,
+  created_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ,
+  product_count BIGINT,
+  sales_this_month NUMERIC
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_org_id UUID;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+
+  IF v_org_id IS NULL THEN
+    RAISE EXCEPTION 'No organization found for current user';
+  END IF;
+
+  RETURN QUERY
+  SELECT
+    s.id,
+    s.name,
+    s.slug,
+    s.address,
+    s.city,
+    s.country,
+    s.currency,
+    s.phone,
+    s.is_active,
+    s.is_headquarters,
+    s.category,
+    s.metadata,
+    s.created_at,
+    s.updated_at,
+    COALESCE(pcnt.cnt, 0) AS product_count,
+    COALESCE(sales.total, 0) AS sales_this_month
+  FROM public.stores s
+  LEFT JOIN (SELECT store_id, COUNT(*) AS cnt FROM public.products WHERE store_id IS NOT NULL GROUP BY store_id) pcnt ON pcnt.store_id = s.id
+  LEFT JOIN (
+    SELECT store_id, SUM(total_amount) AS total
+    FROM public.sales
+    WHERE store_id IS NOT NULL
+      AND created_at >= date_trunc('month', now())
+    GROUP BY store_id
+  ) sales ON sales.store_id = s.id
+  WHERE s.organization_id = v_org_id
+  ORDER BY s.is_headquarters DESC, s.name;
+END;
+$$;
+
+
+-- ════════════════════════════════════════════════════════════════
+-- 7. FIX: set_current_store — use get_user_organization_id()
+-- ════════════════════════════════════════════════════════════════
+
+CREATE OR REPLACE FUNCTION public.set_current_store(p_store_id UUID)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_org_id UUID;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+
+  IF v_org_id IS NULL THEN
+    RAISE EXCEPTION 'No organization found for current user';
+  END IF;
+
+  -- Verify store belongs to same org
+  IF NOT EXISTS (
+    SELECT 1 FROM public.stores
+    WHERE id = p_store_id AND organization_id = v_org_id
+  ) THEN
+    RAISE EXCEPTION 'Store does not belong to your organization';
+  END IF;
+
+  -- Update profile
+  UPDATE public.profiles
+  SET current_store_id = p_store_id,
+      updated_at = now()
+  WHERE user_id = auth.uid();
+
+  RETURN true;
+END;
+$$;
+
+
+-- ════════════════════════════════════════════════════════════════
+-- 8. FIX: batch_update_stock — add missing organization_id
+-- ════════════════════════════════════════════════════════════════
+
+CREATE OR REPLACE FUNCTION public.batch_update_stock(
+  p_updates JSONB
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_update RECORD;
+  v_org_id UUID;
+  v_previous_qty INTEGER;
+  v_new_qty INTEGER;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+  IF v_org_id IS NULL THEN
+    RAISE EXCEPTION 'Organisation introuvable';
+  END IF;
+
+  FOR v_update IN SELECT * FROM jsonb_array_elements(p_updates) AS u
+  LOOP
+    SELECT stock_quantity INTO v_previous_qty
+    FROM public.products
+    WHERE id = (v_update->>'product_id')::UUID
+    FOR UPDATE;
+
+    UPDATE public.products
+    SET stock_quantity = (v_update->>'new_quantity')::INTEGER,
+        updated_at = now()
+    WHERE id = (v_update->>'product_id')::UUID
+    RETURNING stock_quantity INTO v_new_qty;
+
+    INSERT INTO public.stock_movements (
+      user_id, product_id, type, quantity,
+      previous_quantity, new_quantity,
+      reason, reference_id, organization_id
+    ) VALUES (
+      auth.uid(),
+      (v_update->>'product_id')::UUID,
+      'adjustment',
+      (v_update->>'new_quantity')::INTEGER - v_previous_qty,
+      v_previous_qty,
+      v_new_qty,
+      COALESCE(v_update->>'reason', 'Ajustement manuel'),
+      NULL,
+      v_org_id
+    );
+  END LOOP;
+
+  RETURN true;
+END;
+$$;
+
+-- ════════════════════════════════════════════════════════════════
+-- Done — All P0 issues fixed
+-- ════════════════════════════════════════════════════════════════
 
 -- ════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260703020000_p1_server_side_plan_enforcement.sql
@@ -7371,8 +8514,6 @@ GRANT EXECUTE ON FUNCTION public.create_sale_with_limit(
 -- Done — Server-side plan enforcement active
 -- ════════════════════════════════════════════════════════════════
 
-
-
 -- ════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260703030000_p1_grant_execute_fixes.sql
 -- ════════════════════════════════════════════════════════════════
@@ -7409,8 +8550,6 @@ GRANT EXECUTE ON FUNCTION public.is_user_active() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.check_account_status() TO authenticated;
 
 -- ─── Done ──────────────────────────────────────────────────────
-
-
 
 -- ════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260703040000_p1_sale_limit_grant_stripe_idempotency.sql
@@ -7564,5 +8703,4 @@ CREATE POLICY stripe_events_select_authenticated ON public.stripe_events
 -- ════════════════════════════════════════════════════════════════
 -- Done
 -- ════════════════════════════════════════════════════════════════
-
 

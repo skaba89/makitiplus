@@ -32,6 +32,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useOrgTaxRate } from "@/hooks/useOrgTaxRate";
 import { computeTax } from "@/lib/taxUtils";
+import { reportError } from "@/lib/sentry";
 import { ShoppingCart, Camera, LayoutGrid, List, Keyboard } from "lucide-react";
 import { CurrencySelector } from "@/components/ui/currency-selector";
 import { CategoryIcon } from "@/components/ui/category-icon";

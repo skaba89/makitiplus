@@ -13,6 +13,7 @@ import {
   Wallet,
   ArrowUpRight,
   ArrowDownRight,
+  ArrowRight,
   AlertTriangle,
   Truck,
   DollarSign,
@@ -23,6 +24,7 @@ import { startOfDay, endOfDay, startOfMonth, endOfMonth } from "date-fns";
 import { format } from "date-fns";
 import { formatDateTime } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
+import { INVENTORY_ROLES } from "@/types";
 
 /** Product with optional category icon + supplier name for stock alerts */
 interface DashboardProduct {
@@ -166,8 +168,11 @@ const Dashboard = () => {
     enabled: !!user && !!profile?.organization_id,
   });
 
-  const totalSalesToday = todaySales?.reduce((s, sale) => s + sale.total_amount, 0) || 0;
-  const transactionsToday = todaySales?.length || 0;
+  // Dérivés depuis dashboardStats RPC (agrégation serveur) + fallback client-side
+  const totalSalesToday = dashboardStats?.sales_today ?? monthSales?.filter(
+    (s) => s.created_at >= dayStart && s.created_at <= dayEnd
+  ).reduce((s, sale) => s + sale.total_amount, 0) ?? 0;
+  const transactionsToday = dashboardStats?.transactions_today ?? 0;
   const totalSalesMonth = monthSales?.reduce((s, sale) => s + sale.total_amount, 0) || 0;
   const totalExpensesMonth = monthExpenses?.reduce((s, e) => s + e.amount, 0) || 0;
   const netProfit = totalSalesMonth - totalExpensesMonth;
@@ -203,15 +208,15 @@ const Dashboard = () => {
     {
       title: "Ventes du mois",
       value: formatPrice(totalSalesMonth),
-      change: creditSalesMonth > 0 ? `${creditSalesMonth} a credit` : "voir rapports",
+      change: dashboardStats?.credit_sales_month > 0 ? `${dashboardStats.credit_sales_month} a credit` : "voir rapports",
       trend: "up" as const,
       icon: BarChart3,
     },
     {
       title: "Produits en stock",
       value: String(totalProducts),
-      change: lowStockCount > 0 ? `${lowStockCount} en alerte` : "Stock OK",
-      trend: lowStockCount > 0 ? "down" as const : "up" as const,
+      change: lowStockProducts.length > 0 ? `${lowStockProducts.length} en alerte` : "Stock OK",
+      trend: lowStockProducts.length > 0 ? "down" as const : "up" as const,
       icon: Package,
     },
     {
@@ -316,7 +321,7 @@ const Dashboard = () => {
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-destructive">
                 <AlertTriangle className="h-5 w-5" />
-                Alertes de stock ({lowStockCount})
+                Alertes de stock ({lowStockProducts.length})
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -518,8 +523,8 @@ const Dashboard = () => {
                     <BarChart3 className="h-4 w-4" />
                     <span className="text-sm font-medium">Resultat net</span>
                   </div>
-                  <span className={`font-bold ${netResult >= 0 ? "text-success" : "text-destructive"}`}>
-                    {formatPrice(netResult)}
+                  <span className={`font-bold ${netProfit >= 0 ? "text-success" : "text-destructive"}`}>
+                    {formatPrice(netProfit)}
                   </span>
                 </div>
               </div>

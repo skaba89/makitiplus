@@ -390,3 +390,26 @@ Stage Summary:
 - Invalid refresh token no longer causes infinite retry loops
 - Combined deployment script ready for Supabase SQL Editor
 - Root cause: migrations not deployed to remote DB — user needs to run _deploy_combined.sql
+---
+Task ID: production-runtime-fix
+Agent: main
+Task: Fix production runtime errors (Invalid Refresh Token, 404 RPCs, Dashboard crashes)
+
+Work Log:
+- Fixed Dashboard.tsx: replaced 5 undefined variable references (todaySales, creditSalesMonth, lowStockCount, netResult) with correct derivations from dashboardStats + lowStockProducts.length + netProfit
+- Added ArrowRight to lucide-react imports in Dashboard.tsx
+- Added INVENTORY_ROLES import from @/types in Dashboard.tsx
+- Fixed POS.tsx: added missing `import { reportError } from "@/lib/sentry"` (was causing ReferenceError on error paths)
+- Fixed AuthContext.tsx: added signOut + redirect to /auth on TOKEN_REFRESHED failure with invalid refresh token
+- Fixed AuthContext.tsx: added redirect to /auth on getSession failure (expired refresh token)
+- Enhanced smartRetry in App.tsx: added patterns for "Refresh Token Not Found", "Invalid Refresh Token", "JWTExpired", "404", "not found", "Could not find the function"
+- Created scripts/push_migrations_remote.sh with 3 fallback methods (CLI, psql, SQL Editor)
+- Rebuilt _deploy_combined.sql with all 45 migrations including the missing P0 hotfix
+- TypeScript: 0 errors, Vite build: OK, 195/195 tests pass
+
+Stage Summary:
+- All 5 Dashboard crash-causing undefined vars fixed
+- Auth session loop fixed (sign out + redirect on invalid refresh token)
+- TanStack Query no longer retries on auth/404 errors
+- Migration push script ready for remote Supabase deployment
+- _deploy_combined.sql now includes P0 hotfix (was missing before)
