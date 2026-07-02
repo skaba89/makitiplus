@@ -1,23 +1,13 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * 🚀 SUPER ADMIN MAKITIPLUS — Plan Enterprise (Tout Illimité)
+ * 🚀 SUPER ADMIN MAKITIPLUS — Plan Enterprise (Tout Illimité) — v2 CORRIGÉ
  * ═══════════════════════════════════════════════════════════════════════════
  *
  * ⚠️  EXÉCUTER DANS : Supabase Dashboard → SQL Editor → New Query
  * ⚠️  MODIFIEZ l'email/mot de passe ci-dessous avant d'exécuter !
  *
- * Ce script est IDEMPOTENT : vous pouvez le relancer sans risque.
- *
- * Ce qui est créé :
- *   ✅ Utilisateur auth (email confirmé, mot de passe hashé)
- *   ✅ Organisation "MakitiPlus HQ"
- *   ✅ Magasin principal "principal" (auto via trigger)
- *   ✅ Catégories par défaut (auto via trigger)
- *   ✅ Subscription Enterprise (100 ans, tout illimité)
- *   ✅ Profil complet (super_admin, enterprise)
- *   ✅ Rôle super_admin
- *   ✅ Compteurs d'utilisation initialisés (NULL = illimité)
- *   ✅ Événement d'abonnement tracé
+ * FIX v2 : confirm_at est une colonne générée dans Supabase récent,
+ *          on ne peut pas y insérer de valeur — email_confirmed_at suffit.
  *
  * CONNEXION APRÈS EXÉCUTION :
  *   Email    : admin@makitiplus.com
@@ -43,17 +33,13 @@ DECLARE
   v_sub_id   uuid;
 BEGIN
   -- ═══ NETTOYAGE IDEMPOTENT ═══════════════════════════════════════════════
-  -- Si un utilisateur avec cet email existe déjà, on nettoie tout
-
   SELECT id INTO v_user_id FROM auth.users WHERE email = v_admin_email;
 
   IF v_user_id IS NOT NULL THEN
     RAISE NOTICE '🔄 Utilisateur existant détecté (%), nettoyage...', v_admin_email;
 
-    -- Supprimer les dépendances
     DELETE FROM public.user_roles WHERE user_id = v_user_id;
 
-    -- Récupérer l'org existante
     SELECT organization_id INTO v_org_id FROM public.profiles WHERE user_id = v_user_id LIMIT 1;
 
     IF v_org_id IS NOT NULL THEN
@@ -79,6 +65,8 @@ BEGIN
   END IF;
 
   -- ═══ 1. CRÉER L'UTILISATEUR AUTH ════════════════════════════════════════
+  -- NOTE: confirmed_at est une colonne GENERATED — on NE l'insère PAS.
+  --       email_confirmed_at = NOW() suffit pour confirmer le compte.
   v_user_id := gen_random_uuid();
 
   INSERT INTO auth.users (
@@ -116,12 +104,6 @@ BEGIN
   RAISE NOTICE '✅ Utilisateur auth créé : % (ID: %)', v_admin_email, v_user_id;
 
   -- ═══ 2. CRÉER L'ORGANISATION ════════════════════════════════════════════
-  -- Les triggers AFTER INSERT créent automatiquement :
-  --   - subscription starter
-  --   - store_settings
-  --   - magasin "principal" (is_headquarters=true)
-  --   - catégories par défaut
-
   INSERT INTO public.organizations (
     name,
     owner_user_id,
@@ -154,7 +136,6 @@ BEGIN
   RETURNING id INTO v_sub_id;
 
   IF v_sub_id IS NULL THEN
-    -- Si le trigger n'a pas fonctionné, créer manuellement
     INSERT INTO public.subscriptions (
       organization_id, plan_id, status, billing_period,
       current_period_start, current_period_end
