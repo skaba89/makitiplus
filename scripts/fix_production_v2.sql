@@ -9,6 +9,13 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 
 -- ================================================================
+-- 0. DROP les fonctions dont le type de retour change
+--    PostgreSQL refuse CREATE OR REPLACE si le RETURNS TABLE change
+-- ================================================================
+DROP FUNCTION IF EXISTS public.check_plan_limit(TEXT);
+DROP FUNCTION IF EXISTS public.get_organization_stores();
+
+-- ================================================================
 -- 1. FIX check_plan_limit — "plan_id is ambiguous"
 --    Le SELECT plan_id est ambigu car subscriptions ET plans
 --    ont toutes les deux une colonne plan_id.
@@ -149,7 +156,7 @@ BEGIN
       CREATE INDEX IF NOT EXISTS idx_products_supplier_id ON public.products(supplier_id);
       RAISE NOTICE 'Colonne supplier_id ajoutee a products';
     ELSE
-      RAISE NOTICE 'Table suppliers non trouvée, supplier_id non ajoutee';
+      RAISE NOTICE 'Table suppliers non trouvee, supplier_id non ajoutee';
     END IF;
   END IF;
 END $$;
