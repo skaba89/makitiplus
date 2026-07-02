@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, FolderOpen, Pencil, Trash2, Loader2, Search, ArrowUpDown, Tag, Package } from "lucide-react";
 import { CategoryIcon, ICON_MAP } from "@/components/ui/category-icon";
+import { useStoreId } from "@/contexts/StoreContext";
 
 import {
   Dialog,
@@ -45,6 +46,7 @@ const Categories = () => {
   const { user, profile, userRole } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const storeId = useStoreId();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -84,6 +86,11 @@ const Categories = () => {
       // Explicitly set organization_id from profile to avoid relying solely on trigger
       if (profile?.organization_id) {
         insertData.organization_id = profile.organization_id;
+      }
+
+      // Set store_id from current store context
+      if (storeId) {
+        insertData.store_id = storeId;
       }
 
       // Only include sort_order if the column exists in the database

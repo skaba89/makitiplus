@@ -149,7 +149,7 @@ const PurchaseOrders = () => {
 
   // ─── Fetch purchase orders ───────────────────────────────────
   const { data: orders, isLoading } = useQuery({
-    queryKey: ["purchase-orders", user?.id, statusFilter],
+    queryKey: ["purchase-orders", user?.id, statusFilter, storeId ?? "no-store"],
     queryFn: async () => {
       let query = supabase
         .from("purchase_orders")
@@ -161,6 +161,10 @@ const PurchaseOrders = () => {
       }
       if (profile?.organization_id) {
         query = query.eq("organization_id", profile.organization_id);
+      }
+      // Filter by current store if available
+      if (storeId) {
+        query = query.eq("store_id", storeId);
       }
 
       const { data, error } = await query;
@@ -175,13 +179,18 @@ const PurchaseOrders = () => {
 
   // ─── Fetch suppliers for form ────────────────────────────────
   const { data: suppliers } = useQuery({
-    queryKey: ["suppliers", user?.id],
+    queryKey: ["suppliers", user?.id, storeId ?? "no-store"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("suppliers")
         .select("id, name")
         .eq("is_active", true)
         .order("name");
+      // Filter by current store if available
+      if (storeId) {
+        query = query.eq("store_id", storeId);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data as Pick<Supplier, "id" | "name">[];
     },
@@ -190,14 +199,19 @@ const PurchaseOrders = () => {
 
   // ─── Fetch products for form ─────────────────────────────────
   const { data: products } = useQuery({
-    queryKey: ["products-lookup", user?.id],
+    queryKey: ["products-lookup", user?.id, storeId ?? "no-store"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("products")
         .select("id, name, cost_price")
         .eq("is_active", true)
         .order("name")
         .limit(200);
+      // Filter by current store if available
+      if (storeId) {
+        query = query.eq("store_id", storeId);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data as Pick<Product, "id" | "name" | "cost_price">[];
     },

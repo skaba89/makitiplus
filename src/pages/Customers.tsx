@@ -54,6 +54,7 @@ import { CustomersPageSkeleton } from "@/components/skeletons/PageSkeletons";
 import { useCustomerStats } from "@/hooks/useCustomerStats";
 import { Customer, CustomerUpdateParams } from "@/types";
 import { FeatureGate } from "@/components/saas/PlanLimitGuard";
+import { useStoreId } from "@/contexts/StoreContext";
 
 const PAGE_SIZE = 20;
 
@@ -62,6 +63,7 @@ const Customers = () => {
   const { toast } = useToast();
   const { formatPrice, currency } = useCurrency();
   const queryClient = useQueryClient();
+  const storeId = useStoreId();
   const [searchInput, setSearchInput] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -107,6 +109,10 @@ const Customers = () => {
       };
       if (profile?.organization_id) {
         insertData.organization_id = profile.organization_id;
+      }
+      // Set store_id from current store context
+      if (storeId) {
+        insertData.store_id = storeId;
       }
       const { error } = await supabase.from("customers").insert(insertData as never);
       if (error) throw error;
@@ -203,10 +209,16 @@ const Customers = () => {
               onClick={async () => {
                 try {
                   // Fetch ALL customers for full export (not just current page)
+                  const exportFilters: Array<{ column: string; operator: "eq"; value: unknown }> = [];
+                  if (profile?.organization_id) {
+                    exportFilters.push({ column: "organization_id", operator: "eq" as const, value: profile.organization_id });
+                  }
+                  // Filter by current store if available
+                  if (storeId) {
+                    exportFilters.push({ column: "store_id", operator: "eq" as const, value: storeId });
+                  }
                   const allCustomers = await fetchAllRows<Customer>("customers", "*", {
-                    filters: profile?.organization_id
-                      ? [{ column: "organization_id", operator: "eq" as const, value: profile.organization_id }]
-                      : [],
+                    filters: exportFilters,
                   });
                   if (allCustomers && allCustomers.length > 0) {
                     exportCustomersToCSV(

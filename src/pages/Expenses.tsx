@@ -56,6 +56,7 @@ import { Database } from "@/integrations/supabase/types";
 import { useExpenseStats } from "@/hooks/useExpenseStats";
 import { useCurrency } from "@/hooks/useCurrency";
 import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
+import { useStoreId } from "@/contexts/StoreContext";
  
  type Expense = Database["public"]["Tables"]["expenses"]["Row"];
  type PaymentMethod = Database["public"]["Enums"]["payment_method"];
@@ -86,6 +87,7 @@ const Expenses = () => {
   const { toast } = useToast();
   const { formatPrice } = useCurrency();
   const queryClient = useQueryClient();
+  const storeId = useStoreId();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Expense | null>(null);
@@ -134,6 +136,10 @@ const Expenses = () => {
        };
        if (profile?.organization_id) {
          insertData.organization_id = profile.organization_id;
+       }
+       // Set store_id from current store context
+       if (storeId) {
+         insertData.store_id = storeId;
        }
        const { error } = await supabase.from("expenses").insert(insertData as never);
 

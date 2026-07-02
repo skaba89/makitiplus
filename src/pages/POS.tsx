@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect, useDeferredValue, lazy, Suspe
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useStoreId } from "@/contexts/StoreContext";
 import { usePOSCartStore, useCartTotal } from "@/contexts/POSCartContext";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { POSProductGrid } from "@/components/pos/POSProductGrid";
@@ -52,6 +53,7 @@ type PaymentMethod = Database["public"]["Enums"]["payment_method"];
 
 const POS = () => {
   const { user, profile } = useAuth();
+  const storeId = useStoreId();
   const { toast } = useToast();
   const { currency, formatPrice } = useCurrency();
   const orgTaxRate = useOrgTaxRate();
@@ -172,6 +174,7 @@ const POS = () => {
         p_customer_phone: customerPhone || null,
         p_seller_name: profile?.owner_name || null,
         p_items: saleItems,
+        p_store_id: storeId,
       });
 
       if (rpcError || !rpcSaleId) {
@@ -205,6 +208,10 @@ const POS = () => {
           };
           if (profile?.organization_id) {
             upsertData.organization_id = profile.organization_id;
+          }
+          // Set store_id from current store context
+          if (storeId) {
+            upsertData.store_id = storeId;
           }
           const { data: upsertedCustomer, error: custErr } = await supabase
             .from("customers")

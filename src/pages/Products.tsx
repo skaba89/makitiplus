@@ -38,6 +38,7 @@ import { useProductStats } from "@/hooks/useProductStats";
 import { fetchAllRows } from "@/lib/batchedFetch";
 import { ProductWithCategory, AdjustStockRpcRow } from "@/types";
 import { PlanLimitGuard, FeatureGate } from "@/components/saas/PlanLimitGuard";
+import { useStoreId } from "@/contexts/StoreContext";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
 type ProductInsert = Database["public"]["Tables"]["products"]["Insert"];
@@ -48,6 +49,7 @@ const Products = () => {
   const { currency } = useCurrency();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const storeId = useStoreId();
   const [searchInput, setSearchInput] = useState("");
   const searchQuery = useDeferredValue(searchInput);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -117,6 +119,11 @@ const Products = () => {
       // Explicitly set organization_id from profile to avoid relying solely on trigger
       if (profile?.organization_id) {
         insertData.organization_id = profile.organization_id;
+      }
+
+      // Set store_id from current store context
+      if (storeId) {
+        insertData.store_id = storeId;
       }
 
       const { data, error } = await supabase
@@ -315,6 +322,10 @@ const Products = () => {
       const filters: Array<{ column: string; operator: "eq"; value: unknown }> = [];
       if (profile?.organization_id) {
         filters.push({ column: "organization_id", operator: "eq", value: profile.organization_id });
+      }
+      // Filter by current store if available
+      if (storeId) {
+        filters.push({ column: "store_id", operator: "eq", value: storeId });
       }
       const data = await fetchAllRows<ProductWithCat>(
         "products",

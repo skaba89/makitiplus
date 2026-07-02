@@ -14,6 +14,7 @@ import {
   Wallet,
   ArrowUpRight,
   ArrowDownRight,
+  ArrowRight,
   AlertTriangle,
   Truck,
   DollarSign,
@@ -24,6 +25,7 @@ import { startOfDay, endOfDay, startOfMonth, endOfMonth } from "date-fns";
 import { format } from "date-fns";
 import { formatDateTime } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
+import { INVENTORY_ROLES } from "@/types";
 
 /** Product with optional category icon + supplier name for stock alerts */
 interface DashboardProduct {
@@ -169,12 +171,15 @@ const Dashboard = () => {
     enabled: !!user && !!profile?.organization_id,
   });
 
-  const totalSalesToday = todaySales?.reduce((s, sale) => s + sale.total_amount, 0) || 0;
-  const transactionsToday = todaySales?.length || 0;
+  // Utiliser les stats du RPC pour les agrégats (plus efficace que reduce client-side)
+  const totalSalesToday = dashboardStats?.todaySales ?? 0;
+  const transactionsToday = dashboardStats?.todayTransactions ?? 0;
+  const creditSalesMonth = dashboardStats?.monthCreditCount ?? 0;
+  const lowStockCount = dashboardStats?.lowStockProducts ?? 0;
+  const totalProducts = dashboardStats?.totalProducts ?? products?.length ?? 0;
   const totalSalesMonth = monthSales?.reduce((s, sale) => s + sale.total_amount, 0) || 0;
   const totalExpensesMonth = monthExpenses?.reduce((s, e) => s + e.amount, 0) || 0;
   const netProfit = totalSalesMonth - totalExpensesMonth;
-  const totalProducts = products?.length || 0;
   const lowStockProducts = products?.filter(
     (p) => p.stock_quantity <= (p.min_stock_alert || 5)
   ) || [];
@@ -206,7 +211,7 @@ const Dashboard = () => {
     {
       title: "Ventes du mois",
       value: formatPrice(totalSalesMonth),
-      change: creditSalesMonth > 0 ? `${creditSalesMonth} a credit` : "voir rapports",
+      change: creditSalesMonth > 0 ? `${creditSalesMonth} à crédit` : "voir rapports",
       trend: "up" as const,
       icon: BarChart3,
     },
@@ -521,8 +526,8 @@ const Dashboard = () => {
                     <BarChart3 className="h-4 w-4" />
                     <span className="text-sm font-medium">Resultat net</span>
                   </div>
-                  <span className={`font-bold ${netResult >= 0 ? "text-success" : "text-destructive"}`}>
-                    {formatPrice(netResult)}
+                  <span className={`font-bold ${netProfit >= 0 ? "text-success" : "text-destructive"}`}>
+                    {formatPrice(netProfit)}
                   </span>
                 </div>
               </div>

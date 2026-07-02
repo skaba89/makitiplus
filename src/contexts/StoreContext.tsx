@@ -117,6 +117,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       queryClient.invalidateQueries({ queryKey: ["stock-movements"] });
       queryClient.invalidateQueries({ queryKey: ["categories"] });
       queryClient.invalidateQueries({ queryKey: ["plan-limit"] });
+      queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["reports-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["reports-top-products"] });
+      queryClient.invalidateQueries({ queryKey: ["reports-suppliers"] });
+      queryClient.invalidateQueries({ queryKey: ["reports-orphan-products"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-top-products"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-sales-month"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-expenses-month"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-products"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-recent-sales"] });
+      queryClient.invalidateQueries({ queryKey: ["suppliers"] });
+      queryClient.invalidateQueries({ queryKey: ["products-lookup"] });
     },
   });
 

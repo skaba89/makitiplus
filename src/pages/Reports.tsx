@@ -57,6 +57,7 @@ import { ReportsPageSkeleton } from "@/components/skeletons/PageSkeletons";
 import { CHART_COLORS } from "@/constants/colors";
 import { FeatureGate } from "@/components/saas/PlanLimitGuard";
 import type { Database } from "@/integrations/supabase/types";
+import { useStoreId } from "@/contexts/StoreContext";
 
 type Sale = Database["public"]["Tables"]["sales"]["Row"];
 type Expense = Database["public"]["Tables"]["expenses"]["Row"];
@@ -77,6 +78,7 @@ const Reports = () => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const { formatPrice, currency } = useCurrency();
+  const storeId = useStoreId();
   const [period, setPeriod] = useState<"day" | "week" | "month">("day");
 
   const getDateRange = () => {
@@ -96,12 +98,13 @@ const Reports = () => {
   // ⚡ Stats via RPC — une seule requête au lieu de 3 fetchAllRows + 3 client-side reduce()
   // L'agrégation (SUM, COUNT, GROUP BY) se fait côté serveur, réduisant drastiquement le transfert.
   const { data: reportsStats, isLoading: isReportsLoading } = useQuery({
-    queryKey: ["reports-stats", user?.id, period],
+    queryKey: ["reports-stats", user?.id, period, storeId ?? "no-store"],
     queryFn: async () => {
       if (!profile?.organization_id) return null;
       const { data, error } = await supabase.rpc("get_reports_stats", {
         p_start: start.toISOString(),
         p_end: end.toISOString(),
+        p_store_id: storeId,
       });
       if (error) throw error;
       return data;
@@ -111,20 +114,26 @@ const Reports = () => {
 
   // Fetch top products — declared before any early returns to respect Rules of Hooks
   const { data: topProducts } = useQuery({
-    queryKey: ["reports-top-products", user?.id, period],
+    queryKey: ["reports-top-products", user?.id, period, storeId ?? "no-store"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("sale_items")
         .select(`
           product_name,
           quantity,
           total_price,
-          sales!inner(user_id, created_at)
+          sales!inner(user_id, created_at, store_id)
         `)
         .eq("sales.user_id", user!.id)
         .gte("sales.created_at", start.toISOString())
         .lte("sales.created_at", end.toISOString());
 
+      // Filter by store if available
+      if (storeId) {
+        query = query.eq("sales.store_id", storeId);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
 
       // Aggregate by product
@@ -150,13 +159,17 @@ const Reports = () => {
 
   // Fetch supplier analytics (products with supplier info)
   const { data: supplierReport } = useQuery({
-    queryKey: ["reports-suppliers", user?.id],
+    queryKey: ["reports-suppliers", user?.id, storeId ?? "no-store"],
     queryFn: async () => {
       // Get all active products with their supplier info
-      const { data: products, error: productsError } = await supabase
+      let productsQuery = supabase
         .from("products")
         .select("id, name, cost_price, price, stock_quantity, supplier_id, suppliers(id, name)")
         .eq("is_active", true);
+      if (storeId) {
+        productsQuery = productsQuery.eq("store_id", storeId);
+      }
+      const { data: products, error: productsError } = await productsQuery;
 
       if (productsError) throw productsError;
 
@@ -204,13 +217,17 @@ const Reports = () => {
 
   // Products without supplier
   const { data: orphanProducts } = useQuery({
-    queryKey: ["reports-orphan-products", user?.id],
+    queryKey: ["reports-orphan-products", user?.id, storeId ?? "no-store"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("products")
         .select("id, name, cost_price, price, stock_quantity")
         .eq("is_active", true)
         .is("supplier_id", null);
+      if (storeId) {
+        query = query.eq("store_id", storeId);
+      }
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -338,12 +355,14 @@ const Reports = () => {
                 <DropdownMenuItem
                   onClick={async () => {
                     try {
+                      const salesFilters = [
+                        ...(profile?.organization_id ? [{ column: "organization_id", operator: "eq" as const, value: profile.organization_id }] : []),
+                        { column: "created_at", operator: "gte", value: start.toISOString() },
+                        { column: "created_at", operator: "lte", value: end.toISOString() },
+                        ...(storeId ? [{ column: "store_id", operator: "eq" as const, value: storeId }] : []),
+                      ];
                       const sales = await fetchAllRows<Sale>("sales", "*, sale_items(*)", {
-                        filters: [
-                          ...(profile?.organization_id ? [{ column: "organization_id", operator: "eq" as const, value: profile.organization_id }] : []),
-                          { column: "created_at", operator: "gte", value: start.toISOString() },
-                          { column: "created_at", operator: "lte", value: end.toISOString() },
-                        ],
+                        filters: salesFilters,
                         orderBy: { column: "created_at", ascending: true },
                       });
                       if (sales && sales.length > 0) {
@@ -363,12 +382,14 @@ const Reports = () => {
                 <DropdownMenuItem
                   onClick={async () => {
                     try {
+                      const expenseFilters = [
+                        ...(profile?.organization_id ? [{ column: "organization_id", operator: "eq" as const, value: profile.organization_id }] : []),
+                        { column: "expense_date", operator: "gte", value: format(start, "yyyy-MM-dd") },
+                        { column: "expense_date", operator: "lte", value: format(end, "yyyy-MM-dd") },
+                        ...(storeId ? [{ column: "store_id", operator: "eq" as const, value: storeId }] : []),
+                      ];
                       const expenses = await fetchAllRows<Expense>("expenses", "*", {
-                        filters: [
-                          ...(profile?.organization_id ? [{ column: "organization_id", operator: "eq" as const, value: profile.organization_id }] : []),
-                          { column: "expense_date", operator: "gte", value: format(start, "yyyy-MM-dd") },
-                          { column: "expense_date", operator: "lte", value: format(end, "yyyy-MM-dd") },
-                        ],
+                        filters: expenseFilters,
                       });
                       if (expenses && expenses.length > 0) {
                         exportExpensesToCSV(expenses as Expense[], currency.displaySymbol || currency.symbol);

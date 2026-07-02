@@ -1283,6 +1283,7 @@ export type Database = {
           p_customer_name?: string | null
           p_customer_phone?: string | null
           p_seller_name?: string | null
+          p_store_id?: string | null
         }
         Returns: string
       }
@@ -1347,6 +1348,7 @@ export type Database = {
           p_day_end?: string | null
           p_month_start?: string | null
           p_month_end?: string | null
+          p_store_id?: string | null
         }
         Returns: {
           todaySales: number
@@ -1364,11 +1366,27 @@ export type Database = {
         Args: {
           p_since?: string | null
           p_limit?: number
+          p_store_id?: string | null
         }
         Returns: {
           product_name: string
           total_quantity: number
           total_revenue: number
+        }[]
+      }
+      get_reports_stats: {
+        Args: {
+          p_start: string
+          p_end: string
+          p_store_id?: string | null
+        }
+        Returns: {
+          totalSales: number
+          totalTransactions: number
+          totalExpenses: number
+          netProfit: number
+          paymentBreakdown: { method: string; value: number }[]
+          dailySales: { date: string; sales: number; transactions: number }[]
         }[]
       }
     }
