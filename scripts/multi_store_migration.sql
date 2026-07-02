@@ -6,6 +6,11 @@
 -- Each organization can have multiple stores (limited by plan).
 -- All data tables get a store_id FK for per-store scoping.
 --
+-- FIXES from original:
+--   1. CREATE OR REPLACE POLICY → DROP POLICY IF EXISTS + CREATE POLICY
+--   2. v_plan RECORD → v_plan_id TEXT in check_plan_limit
+--   3. RLS policies simplified for reliability
+--
 -- Run this in the Supabase SQL Editor.
 -- ============================================================
 
@@ -258,63 +263,56 @@ CREATE TRIGGER on_organization_created
 
 ALTER TABLE public.stores ENABLE ROW LEVEL SECURITY;
 
+-- FIX: DROP POLICY IF EXISTS before CREATE (CREATE OR REPLACE POLICY does NOT exist)
+
 -- Users can see stores in their organization
-CREATE OR REPLACE POLICY "stores_select_org_member"
+DROP POLICY IF EXISTS "stores_select_org_member" ON public.stores;
+CREATE POLICY "stores_select_org_member"
   ON public.stores FOR SELECT
   TO authenticated
   USING (
     organization_id IN (
-      SELECT o.id FROM public.organizations o
-      INNER JOIN public.profiles p ON p.organization_id = o.id
+      SELECT p.organization_id FROM public.profiles p
       WHERE p.user_id = auth.uid()
     )
   );
 
 -- Admins/managers can insert stores (subject to plan limits)
-CREATE OR REPLACE POLICY "stores_insert_admin"
+DROP POLICY IF EXISTS "stores_insert_admin" ON public.stores;
+CREATE POLICY "stores_insert_admin"
   ON public.stores FOR INSERT
   TO authenticated
   WITH CHECK (
     organization_id IN (
-      SELECT o.id FROM public.organizations o
-      INNER JOIN public.profiles p ON p.organization_id = o.id
+      SELECT p.organization_id FROM public.profiles p
       WHERE p.user_id = auth.uid()
-      AND p.id = ANY (
-        SELECT profile_id FROM public.profile_roles pr
-        WHERE pr.role IN ('admin', 'super_admin', 'manager')
-      )
+      AND p.role IN ('admin', 'super_admin', 'manager')
     )
   );
 
 -- Admins/managers can update stores
-CREATE OR REPLACE POLICY "stores_update_admin"
+DROP POLICY IF EXISTS "stores_update_admin" ON public.stores;
+CREATE POLICY "stores_update_admin"
   ON public.stores FOR UPDATE
   TO authenticated
   USING (
     organization_id IN (
-      SELECT o.id FROM public.organizations o
-      INNER JOIN public.profiles p ON p.organization_id = o.id
+      SELECT p.organization_id FROM public.profiles p
       WHERE p.user_id = auth.uid()
-      AND p.id = ANY (
-        SELECT profile_id FROM public.profile_roles pr
-        WHERE pr.role IN ('admin', 'super_admin', 'manager')
-      )
+      AND p.role IN ('admin', 'super_admin', 'manager')
     )
   );
 
 -- Only super_admin can delete stores
-CREATE OR REPLACE POLICY "stores_delete_super_admin"
+DROP POLICY IF EXISTS "stores_delete_super_admin" ON public.stores;
+CREATE POLICY "stores_delete_super_admin"
   ON public.stores FOR DELETE
   TO authenticated
   USING (
     organization_id IN (
-      SELECT o.id FROM public.organizations o
-      INNER JOIN public.profiles p ON p.organization_id = o.id
+      SELECT p.organization_id FROM public.profiles p
       WHERE p.user_id = auth.uid()
-      AND p.id = ANY (
-        SELECT profile_id FROM public.profile_roles pr
-        WHERE pr.role = 'super_admin'
-      )
+      AND p.role = 'super_admin'
     )
   );
 
@@ -429,14 +427,7 @@ $$;
 
 -- ─── 10. Update check_plan_limit to count stores ───────────────
 
--- The existing check_plan_limit should already handle 'stores' limit type
--- since we added it in the SaaS foundation. Let's verify the stores count
--- uses the new stores table instead of organizations.
-
--- We need a separate count function for stores (not organizations)
--- The existing check_plan_limit counts organizations for 'stores' type.
--- We update it to count from the stores table instead.
-
+-- FIX: Use v_plan_id TEXT instead of v_plan RECORD (avoids syntax error)
 CREATE OR REPLACE FUNCTION public.check_plan_limit(p_limit_type TEXT)
 RETURNS TABLE (
   allowed BOOLEAN,
@@ -450,7 +441,7 @@ SET search_path = public
 AS $$
 DECLARE
   v_org_id UUID;
-  v_plan RECORD;
+  v_plan_id TEXT;
   v_count BIGINT;
   v_limit BIGINT;
   v_allowed BOOLEAN;
@@ -465,20 +456,20 @@ BEGIN
   END IF;
 
   -- Get plan
-  SELECT plan_id INTO v_plan.plan_id
+  SELECT plan_id INTO v_plan_id
   FROM public.subscriptions
   WHERE organization_id = v_org_id AND status = 'active'
   ORDER BY created_at DESC LIMIT 1;
 
-  IF v_plan.plan_id IS NULL THEN
+  IF v_plan_id IS NULL THEN
     -- Default to starter
-    v_plan.plan_id := 'starter';
+    v_plan_id := 'starter';
   END IF;
 
   -- Get limit from plans table
   EXECUTE format('SELECT %I FROM public.plans WHERE id = $1', p_limit_type)
   INTO v_limit
-  USING v_plan.plan_id;
+  USING v_plan_id;
 
   -- Get current count
   CASE p_limit_type
@@ -499,7 +490,7 @@ BEGIN
   -- NULL limit = unlimited
   v_allowed := (v_limit IS NULL) OR (v_count < v_limit);
 
-  RETURN QUERY SELECT v_allowed, v_count, v_limit, v_plan.plan_id;
+  RETURN QUERY SELECT v_allowed, v_count, v_limit, v_plan_id;
 END;
 $$;
 
