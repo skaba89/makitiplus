@@ -262,4 +262,36 @@ Stage Summary:
 - Server-side plan enforcement prevents quota bypass via direct Supabase calls
 - Frontend now uses secure RPCs instead of direct inserts
 - Plan limit errors show user-friendly messages
+
+---
+Task ID: 14
+Agent: main
+Task: P0 Hotfix — Fix all critical SQL migration issues
+
+Work Log:
+- Fixed 20260702120000_multi_store_support.sql:
+  - Replaced all 4x CREATE OR REPLACE POLICY with DROP POLICY IF EXISTS + CREATE POLICY
+  - Replaced all profile_roles references with user_roles (EXISTS subquery pattern)
+  - Completely rewrote check_plan_limit: proper column mapping (stores→max_stores, users→max_users, products→max_products, sales_this_month→max_sales_per_month)
+  - Fixed get_store_stats: low_stock_threshold → COALESCE(min_stock_alert, 5)
+  - Updated get_organization_stores to use get_user_organization_id()
+  - Updated set_current_store to use get_user_organization_id()
+  - Updated get_store_stats to use get_user_organization_id()
+  - Added GRANT EXECUTE on get_organization_stores, set_current_store, get_store_stats, check_plan_limit
+- Fixed 20260702130000_purchase_orders.sql:
+  - Replaced all 8x CREATE OR REPLACE POLICY with DROP POLICY IF EXISTS + CREATE POLICY
+  - Replaced all profile_roles references with user_roles (EXISTS subquery pattern)
+  - Completely rewrote receive_purchase_order: movement_type→type, added previous_quantity/new_quantity/user_id/store_id, profile_roles→user_roles
+  - Added GRANT EXECUTE on generate_order_number, receive_purchase_order
+- Created SQL validation script: scripts/validate_sql_migrations.py
+  - Checks: CREATE OR REPLACE POLICY, profile_roles, movement_type in INSERT, low_stock_threshold, dynamic EXECUTE format
+  - Also checks missing GRANT EXECUTE on SECURITY DEFINER functions
+- Ran validation: 0 errors, 17 warnings (all are GRANT EXECUTE on trigger/helper functions — P1 concern)
+- Build passes successfully
+
+Stage Summary:
+- All P0 SQL migration issues are fixed in source files
+- Hotfix migration 20260703010000_p0_hotfix_migrations.sql remains as safety net for already-deployed databases
+- Validation script catches anti-patterns before deployment
+- 0 compilation errors, clean build
 - TypeScript: 0 errors, Vite build: OK

@@ -83,7 +83,8 @@ ALTER TABLE public.purchase_orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.purchase_order_items ENABLE ROW LEVEL SECURITY;
 
 -- Select: org members
-CREATE OR REPLACE POLICY "po_select_org"
+DROP POLICY IF EXISTS "po_select_org" ON public.purchase_orders;
+CREATE POLICY "po_select_org"
   ON public.purchase_orders FOR SELECT
   TO authenticated
   USING (
@@ -94,93 +95,131 @@ CREATE OR REPLACE POLICY "po_select_org"
   );
 
 -- Insert: admin/manager
-CREATE OR REPLACE POLICY "po_insert_admin"
+DROP POLICY IF EXISTS "po_insert_admin" ON public.purchase_orders;
+CREATE POLICY "po_insert_admin"
   ON public.purchase_orders FOR INSERT
   TO authenticated
   WITH CHECK (
     organization_id IN (
       SELECT p.organization_id FROM public.profiles p
-      INNER JOIN public.profile_roles pr ON pr.profile_id = p.id
       WHERE p.user_id = auth.uid()
-      AND pr.role IN ('admin', 'super_admin', 'manager')
       AND p.organization_id IS NOT NULL
+      AND EXISTS (
+        SELECT 1 FROM public.user_roles ur
+        WHERE ur.user_id = p.user_id
+        AND ur.role IN ('admin', 'super_admin', 'manager')
+      )
     )
   );
 
 -- Update: admin/manager
-CREATE OR REPLACE POLICY "po_update_admin"
+DROP POLICY IF EXISTS "po_update_admin" ON public.purchase_orders;
+CREATE POLICY "po_update_admin"
   ON public.purchase_orders FOR UPDATE
   TO authenticated
   USING (
     organization_id IN (
       SELECT p.organization_id FROM public.profiles p
-      INNER JOIN public.profile_roles pr ON pr.profile_id = p.id
       WHERE p.user_id = auth.uid()
-      AND pr.role IN ('admin', 'super_admin', 'manager')
+      AND p.organization_id IS NOT NULL
+      AND EXISTS (
+        SELECT 1 FROM public.user_roles ur
+        WHERE ur.user_id = p.user_id
+        AND ur.role IN ('admin', 'super_admin', 'manager')
+      )
     )
   );
 
 -- Delete: admin only
-CREATE OR REPLACE POLICY "po_delete_admin"
+DROP POLICY IF EXISTS "po_delete_admin" ON public.purchase_orders;
+CREATE POLICY "po_delete_admin"
   ON public.purchase_orders FOR DELETE
   TO authenticated
   USING (
     organization_id IN (
       SELECT p.organization_id FROM public.profiles p
-      INNER JOIN public.profile_roles pr ON pr.profile_id = p.id
       WHERE p.user_id = auth.uid()
-      AND pr.role IN ('admin', 'super_admin')
+      AND p.organization_id IS NOT NULL
+      AND EXISTS (
+        SELECT 1 FROM public.user_roles ur
+        WHERE ur.user_id = p.user_id
+        AND ur.role IN ('admin', 'super_admin')
+      )
     )
   );
 
 -- Items: same as parent order
-CREATE OR REPLACE POLICY "poi_select_org"
+DROP POLICY IF EXISTS "poi_select_org" ON public.purchase_order_items;
+CREATE POLICY "poi_select_org"
   ON public.purchase_order_items FOR SELECT
   TO authenticated
   USING (
     purchase_order_id IN (
       SELECT po.id FROM public.purchase_orders po
-      INNER JOIN public.profiles p ON p.organization_id = po.organization_id
-      WHERE p.user_id = auth.uid()
+      WHERE po.organization_id IN (
+        SELECT p.organization_id FROM public.profiles p
+        WHERE p.user_id = auth.uid() AND p.organization_id IS NOT NULL
+      )
     )
   );
 
-CREATE OR REPLACE POLICY "poi_insert_admin"
+DROP POLICY IF EXISTS "poi_insert_admin" ON public.purchase_order_items;
+CREATE POLICY "poi_insert_admin"
   ON public.purchase_order_items FOR INSERT
   TO authenticated
   WITH CHECK (
     purchase_order_id IN (
       SELECT po.id FROM public.purchase_orders po
-      INNER JOIN public.profiles p ON p.organization_id = po.organization_id
-      INNER JOIN public.profile_roles pr ON pr.profile_id = p.id
-      WHERE p.user_id = auth.uid()
-      AND pr.role IN ('admin', 'super_admin', 'manager')
+      WHERE po.organization_id IN (
+        SELECT p.organization_id FROM public.profiles p
+        WHERE p.user_id = auth.uid()
+        AND p.organization_id IS NOT NULL
+        AND EXISTS (
+          SELECT 1 FROM public.user_roles ur
+          WHERE ur.user_id = p.user_id
+          AND ur.role IN ('admin', 'super_admin', 'manager')
+        )
+      )
     )
   );
 
-CREATE OR REPLACE POLICY "poi_update_admin"
+DROP POLICY IF EXISTS "poi_update_admin" ON public.purchase_order_items;
+CREATE POLICY "poi_update_admin"
   ON public.purchase_order_items FOR UPDATE
   TO authenticated
   USING (
     purchase_order_id IN (
       SELECT po.id FROM public.purchase_orders po
-      INNER JOIN public.profiles p ON p.organization_id = po.organization_id
-      INNER JOIN public.profile_roles pr ON pr.profile_id = p.id
-      WHERE p.user_id = auth.uid()
-      AND pr.role IN ('admin', 'super_admin', 'manager')
+      WHERE po.organization_id IN (
+        SELECT p.organization_id FROM public.profiles p
+        WHERE p.user_id = auth.uid()
+        AND p.organization_id IS NOT NULL
+        AND EXISTS (
+          SELECT 1 FROM public.user_roles ur
+          WHERE ur.user_id = p.user_id
+          AND ur.role IN ('admin', 'super_admin', 'manager')
+        )
+      )
     )
   );
 
-CREATE OR REPLACE POLICY "poi_delete_admin"
+DROP POLICY IF EXISTS "poi_delete_admin" ON public.purchase_order_items;
+CREATE POLICY "poi_delete_admin"
   ON public.purchase_order_items FOR DELETE
   TO authenticated
   USING (
     purchase_order_id IN (
       SELECT po.id FROM public.purchase_orders po
-      INNER JOIN public.profiles p ON p.organization_id = po.organization_id
-      INNER JOIN public.profile_roles pr ON pr.profile_id = p.id
-      WHERE p.user_id = auth.uid()
-      AND pr.role IN ('admin', 'super_admin')
+      WHERE po.organization_id IN (
+        SELECT p.organization_id FROM public.profiles p
+        WHERE p.user_id = auth.uid()
+        AND p.organization_id IS NOT NULL
+        AND EXISTS (
+          SELECT 1 FROM public.user_roles ur
+          WHERE ur.user_id = p.user_id
+          AND ur.role IN ('admin', 'super_admin')
+        )
+      )
     )
   );
 
@@ -206,6 +245,8 @@ BEGIN
 END;
 $$;
 
+GRANT EXECUTE ON FUNCTION public.generate_order_number(UUID) TO authenticated;
+
 -- ─── 6. RPC: receive_purchase_order() ─────────────────────────
 -- When a PO is received, update stock quantities and mark items
 
@@ -220,12 +261,15 @@ SET search_path = public
 AS $$
 DECLARE
   v_org_id UUID;
+  v_store_id UUID;
   v_item RECORD;
   v_product_id UUID;
   v_qty_received INTEGER;
+  v_previous_qty INTEGER;
+  v_new_qty INTEGER;
 BEGIN
   -- Verify access
-  SELECT organization_id INTO v_org_id
+  SELECT organization_id, store_id INTO v_org_id, v_store_id
   FROM public.purchase_orders WHERE id = p_order_id;
 
   IF v_org_id IS NULL THEN
@@ -233,10 +277,17 @@ BEGIN
   END IF;
 
   IF NOT EXISTS (
+    SELECT 1 FROM public.user_roles ur
+    WHERE ur.user_id = auth.uid()
+    AND ur.role IN ('admin', 'super_admin', 'manager')
+  ) THEN
+    RAISE EXCEPTION 'Access denied';
+  END IF;
+
+  -- Verify org membership
+  IF NOT EXISTS (
     SELECT 1 FROM public.profiles p
-    INNER JOIN public.profile_roles pr ON pr.profile_id = p.id
     WHERE p.user_id = auth.uid() AND p.organization_id = v_org_id
-    AND pr.role IN ('admin', 'super_admin', 'manager')
   ) THEN
     RAISE EXCEPTION 'Access denied';
   END IF;
@@ -256,14 +307,27 @@ BEGIN
     IF v_product_id IS NOT NULL THEN
       v_qty_received := (v_item->>'quantity_received')::INTEGER;
 
+      -- Get previous quantity for stock_movements
+      SELECT stock_quantity INTO v_previous_qty
+      FROM public.products
+      WHERE id = v_product_id
+      FOR UPDATE;
+
+      -- Update product stock
       UPDATE public.products
       SET stock_quantity = stock_quantity + v_qty_received,
           updated_at = now()
-      WHERE id = v_product_id;
+      WHERE id = v_product_id
+      RETURNING stock_quantity INTO v_new_qty;
 
-      -- Log stock movement
-      INSERT INTO public.stock_movements (product_id, movement_type, quantity, reason, organization_id)
-      VALUES (v_product_id, 'in', v_qty_received, 'Réception commande fournisseur', v_org_id);
+      -- Log stock movement with correct column names
+      INSERT INTO public.stock_movements (
+        product_id, type, quantity, previous_quantity, new_quantity,
+        reason, user_id, organization_id, store_id
+      ) VALUES (
+        v_product_id, 'restock', v_qty_received, v_previous_qty, v_new_qty,
+        'Réception commande fournisseur', auth.uid(), v_org_id, v_store_id
+      );
     END IF;
   END LOOP;
 
@@ -277,5 +341,7 @@ BEGIN
   RETURN true;
 END;
 $$;
+
+GRANT EXECUTE ON FUNCTION public.receive_purchase_order(UUID, JSONB) TO authenticated;
 
 -- ─── Done ──────────────────────────────────────────────────────

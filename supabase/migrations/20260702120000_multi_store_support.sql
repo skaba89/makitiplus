@@ -259,61 +259,67 @@ CREATE TRIGGER on_organization_created
 ALTER TABLE public.stores ENABLE ROW LEVEL SECURITY;
 
 -- Users can see stores in their organization
-CREATE OR REPLACE POLICY "stores_select_org_member"
+DROP POLICY IF EXISTS "stores_select_org_member" ON public.stores;
+CREATE POLICY "stores_select_org_member"
   ON public.stores FOR SELECT
   TO authenticated
   USING (
     organization_id IN (
-      SELECT o.id FROM public.organizations o
-      INNER JOIN public.profiles p ON p.organization_id = o.id
-      WHERE p.user_id = auth.uid()
+      SELECT p.organization_id FROM public.profiles p
+      WHERE p.user_id = auth.uid() AND p.organization_id IS NOT NULL
     )
   );
 
 -- Admins/managers can insert stores (subject to plan limits)
-CREATE OR REPLACE POLICY "stores_insert_admin"
+DROP POLICY IF EXISTS "stores_insert_admin" ON public.stores;
+CREATE POLICY "stores_insert_admin"
   ON public.stores FOR INSERT
   TO authenticated
   WITH CHECK (
     organization_id IN (
-      SELECT o.id FROM public.organizations o
-      INNER JOIN public.profiles p ON p.organization_id = o.id
+      SELECT p.organization_id FROM public.profiles p
       WHERE p.user_id = auth.uid()
-      AND p.id = ANY (
-        SELECT profile_id FROM public.profile_roles pr
-        WHERE pr.role IN ('admin', 'super_admin', 'manager')
+      AND p.organization_id IS NOT NULL
+      AND EXISTS (
+        SELECT 1 FROM public.user_roles ur
+        WHERE ur.user_id = p.user_id
+        AND ur.role IN ('admin', 'super_admin', 'manager')
       )
     )
   );
 
 -- Admins/managers can update stores
-CREATE OR REPLACE POLICY "stores_update_admin"
+DROP POLICY IF EXISTS "stores_update_admin" ON public.stores;
+CREATE POLICY "stores_update_admin"
   ON public.stores FOR UPDATE
   TO authenticated
   USING (
     organization_id IN (
-      SELECT o.id FROM public.organizations o
-      INNER JOIN public.profiles p ON p.organization_id = o.id
+      SELECT p.organization_id FROM public.profiles p
       WHERE p.user_id = auth.uid()
-      AND p.id = ANY (
-        SELECT profile_id FROM public.profile_roles pr
-        WHERE pr.role IN ('admin', 'super_admin', 'manager')
+      AND p.organization_id IS NOT NULL
+      AND EXISTS (
+        SELECT 1 FROM public.user_roles ur
+        WHERE ur.user_id = p.user_id
+        AND ur.role IN ('admin', 'super_admin', 'manager')
       )
     )
   );
 
 -- Only super_admin can delete stores
-CREATE OR REPLACE POLICY "stores_delete_super_admin"
+DROP POLICY IF EXISTS "stores_delete_super_admin" ON public.stores;
+CREATE POLICY "stores_delete_super_admin"
   ON public.stores FOR DELETE
   TO authenticated
   USING (
     organization_id IN (
-      SELECT o.id FROM public.organizations o
-      INNER JOIN public.profiles p ON p.organization_id = o.id
+      SELECT p.organization_id FROM public.profiles p
       WHERE p.user_id = auth.uid()
-      AND p.id = ANY (
-        SELECT profile_id FROM public.profile_roles pr
-        WHERE pr.role = 'super_admin'
+      AND p.organization_id IS NOT NULL
+      AND EXISTS (
+        SELECT 1 FROM public.user_roles ur
+        WHERE ur.user_id = p.user_id
+        AND ur.role = 'super_admin'
       )
     )
   );
@@ -346,11 +352,7 @@ AS $$
 DECLARE
   v_org_id UUID;
 BEGIN
-  -- Get the caller's organization
-  SELECT organization_id INTO v_org_id
-  FROM public.profiles
-  WHERE user_id = auth.uid()
-  LIMIT 1;
+  v_org_id := public.get_user_organization_id();
 
   IF v_org_id IS NULL THEN
     RAISE EXCEPTION 'No organization found for current user';
@@ -388,6 +390,8 @@ BEGIN
 END;
 $$;
 
+GRANT EXECUTE ON FUNCTION public.get_organization_stores() TO authenticated;
+
 -- ─── 9. RPC: set_current_store(p_store_id) ─────────────────────
 
 CREATE OR REPLACE FUNCTION public.set_current_store(p_store_id UUID)
@@ -399,11 +403,7 @@ AS $$
 DECLARE
   v_org_id UUID;
 BEGIN
-  -- Verify the store belongs to the user's organization
-  SELECT organization_id INTO v_org_id
-  FROM public.profiles
-  WHERE user_id = auth.uid()
-  LIMIT 1;
+  v_org_id := public.get_user_organization_id();
 
   IF v_org_id IS NULL THEN
     RAISE EXCEPTION 'No organization found for current user';
@@ -427,6 +427,8 @@ BEGIN
 END;
 $$;
 
+GRANT EXECUTE ON FUNCTION public.set_current_store(UUID) TO authenticated;
+
 -- ─── 10. Update check_plan_limit to count stores ───────────────
 
 -- The existing check_plan_limit should already handle 'stores' limit type
@@ -440,8 +442,8 @@ $$;
 CREATE OR REPLACE FUNCTION public.check_plan_limit(p_limit_type TEXT)
 RETURNS TABLE (
   allowed BOOLEAN,
-  current_count BIGINT,
-  limit_value BIGINT,
+  current_count INTEGER,
+  limit_value INTEGER,
   plan_id TEXT
 )
 LANGUAGE plpgsql
@@ -450,58 +452,65 @@ SET search_path = public
 AS $$
 DECLARE
   v_org_id UUID;
-  v_plan RECORD;
-  v_count BIGINT;
-  v_limit BIGINT;
-  v_allowed BOOLEAN;
+  v_sub record;
+  v_current INTEGER;
+  v_limit INTEGER;
 BEGIN
-  -- Get org
-  SELECT organization_id INTO v_org_id
-  FROM public.profiles WHERE user_id = auth.uid() LIMIT 1;
-
+  v_org_id := public.get_user_organization_id();
   IF v_org_id IS NULL THEN
-    RETURN QUERY SELECT false, 0::BIGINT, 0::BIGINT, ''::TEXT;
-    RETURN;
+    RAISE EXCEPTION 'Organisation introuvable';
   END IF;
 
-  -- Get plan
-  SELECT plan_id INTO v_plan.plan_id
-  FROM public.subscriptions
-  WHERE organization_id = v_org_id AND status = 'active'
-  ORDER BY created_at DESC LIMIT 1;
+  -- Get active subscription with plan details
+  SELECT s.plan_id, p.max_stores, p.max_users, p.max_products, p.max_sales_per_month
+  INTO v_sub
+  FROM public.subscriptions s
+  JOIN public.plans p ON p.id = s.plan_id
+  WHERE s.organization_id = v_org_id
+    AND s.status IN ('active', 'past_due', 'grace_period')
+  ORDER BY s.created_at DESC
+  LIMIT 1;
 
-  IF v_plan.plan_id IS NULL THEN
-    -- Default to starter
-    v_plan.plan_id := 'starter';
+  -- If no subscription, default to starter limits
+  IF NOT FOUND THEN
+    SELECT 'starter'::text AS plan_id, max_stores, max_users, max_products, max_sales_per_month
+    INTO v_sub
+    FROM public.plans WHERE id = 'starter';
   END IF;
 
-  -- Get limit from plans table
-  EXECUTE format('SELECT %I FROM public.plans WHERE id = $1', p_limit_type)
-  INTO v_limit
-  USING v_plan.plan_id;
-
-  -- Get current count
+  -- Calculate current count + get limit based on limit type
   CASE p_limit_type
     WHEN 'stores' THEN
-      SELECT COUNT(*) INTO v_count FROM public.stores WHERE organization_id = v_org_id AND is_active = true;
+      SELECT COUNT(*) INTO v_current FROM public.stores WHERE organization_id = v_org_id;
+      v_limit := v_sub.max_stores;
     WHEN 'users' THEN
-      SELECT COUNT(*) INTO v_count FROM public.profiles WHERE organization_id = v_org_id AND is_active = true;
+      SELECT COUNT(DISTINCT ur.user_id) INTO v_current
+      FROM public.user_roles ur
+      JOIN public.profiles p ON p.user_id = ur.user_id
+      WHERE p.organization_id = v_org_id;
+      v_limit := v_sub.max_users;
     WHEN 'products' THEN
-      SELECT COUNT(*) INTO v_count FROM public.products WHERE organization_id = v_org_id AND is_active = true;
+      SELECT COUNT(*) INTO v_current FROM public.products WHERE organization_id = v_org_id;
+      v_limit := v_sub.max_products;
     WHEN 'sales_this_month' THEN
-      SELECT COUNT(*) INTO v_count FROM public.sales
+      SELECT COUNT(*) INTO v_current FROM public.sales
       WHERE organization_id = v_org_id
-        AND created_at >= date_trunc('month', now());
+        AND created_at >= date_trunc('month', NOW());
+      v_limit := v_sub.max_sales_per_month;
     ELSE
-      v_count := 0;
+      RAISE EXCEPTION 'Type de limite inconnu : %', p_limit_type;
   END CASE;
 
-  -- NULL limit = unlimited
-  v_allowed := (v_limit IS NULL) OR (v_count < v_limit);
-
-  RETURN QUERY SELECT v_allowed, v_count, v_limit, v_plan.plan_id;
+  -- NULL limit means unlimited
+  RETURN QUERY SELECT
+    (v_limit IS NULL OR v_current < v_limit)::BOOLEAN,
+    v_current,
+    v_limit,
+    v_sub.plan_id;
 END;
 $$;
+
+GRANT EXECUTE ON FUNCTION public.check_plan_limit(TEXT) TO authenticated;
 
 -- ─── 11. RPC: get_store_stats(p_store_id) ──────────────────────
 
@@ -522,8 +531,7 @@ AS $$
 DECLARE
   v_org_id UUID;
 BEGIN
-  SELECT organization_id INTO v_org_id
-  FROM public.profiles WHERE user_id = auth.uid() LIMIT 1;
+  v_org_id := public.get_user_organization_id();
 
   -- Verify store belongs to user's org
   IF NOT EXISTS (
@@ -547,7 +555,7 @@ BEGIN
     SELECT
       COUNT(*) AS total,
       COUNT(*) FILTER (WHERE is_active = true) AS active,
-      COUNT(*) FILTER (WHERE stock_quantity <= low_stock_threshold AND is_active = true) AS low
+      COUNT(*) FILTER (WHERE stock_quantity <= COALESCE(min_stock_alert, 5) AND is_active = true) AS low
     FROM public.products WHERE store_id = p_store_id
   ) pcnt ON true
   LEFT JOIN (
@@ -570,5 +578,7 @@ BEGIN
   ) cust ON true;
 END;
 $$;
+
+GRANT EXECUTE ON FUNCTION public.get_store_stats(UUID) TO authenticated;
 
 -- ─── Done ──────────────────────────────────────────────────────
