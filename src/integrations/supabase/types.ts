@@ -601,6 +601,9 @@ export type Database = {
             | Database["public"]["Enums"]["subscription_plan"]
             | null
           test_expires_at: string | null
+          onboarding_step: string | null
+          onboarding_completed: boolean
+          business_type: string | null
           theme_mode: string | null
           updated_at: string
           user_id: string
@@ -629,6 +632,9 @@ export type Database = {
             | Database["public"]["Enums"]["subscription_plan"]
             | null
           test_expires_at?: string | null
+          onboarding_step?: string | null
+          onboarding_completed?: boolean
+          business_type?: string | null
           theme_mode?: string | null
           updated_at?: string
           user_id: string
@@ -657,6 +663,9 @@ export type Database = {
             | Database["public"]["Enums"]["subscription_plan"]
             | null
           test_expires_at?: string | null
+          onboarding_step?: string | null
+          onboarding_completed?: boolean
+          business_type?: string | null
           theme_mode?: string | null
           updated_at?: string
           user_id?: string

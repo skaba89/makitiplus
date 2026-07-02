@@ -206,7 +206,7 @@ npm run e2e:ui
 - [x] Tests E2E Playwright
 - [x] Module abonnements et quotas (SaaS Foundation)
 - [x] Page Billing/Pricing
-- [ ] Onboarding premium
+- [x] Onboarding premium
 - [ ] Mode démo commercial
 - [ ] Multi-boutiques avancé (transfert stock)
 - [ ] Commandes fournisseurs intelligentes

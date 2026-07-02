@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 import { Database } from "@integrations/supabase/types";
@@ -22,7 +22,8 @@ const SessionGuards = ({ children }: { children: ReactNode }) => {
 };
 
 export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
-  const { user, userRole, loading, refreshUserData } = useAuth();
+  const { user, userRole, loading, refreshUserData, profile } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -64,6 +65,18 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
         </div>
       </div>
     );
+  }
+
+  // Onboarding redirect: if the user hasn't completed onboarding, send them to /onboarding
+  // (unless they're already there, on the pricing page, or in the auth flow)
+  if (
+    profile &&
+    !profile.onboarding_completed &&
+    location.pathname !== "/onboarding" &&
+    location.pathname !== "/pricing" &&
+    location.pathname !== "/auth"
+  ) {
+    return <Navigate to="/onboarding" replace />;
   }
 
   if (allowedRoles && !allowedRoles.includes(userRole)) {
