@@ -5,18 +5,25 @@
 --
 -- Bug 1: create_product uses p_buy_price / buy_price but
 --   the products table column is cost_price.
---   → Renomme le paramètre p_buy_price → p_cost_price
+--   → DROP puis recréer avec p_cost_price
 --   → Corrige l'INSERT pour utiliser cost_price
 --
 -- Bug 2: invite_user INSERT into user_roles (user_id, organization_id, role)
 --   but user_roles table has NO organization_id column.
 --   → Retire organization_id de l'INSERT
 --   → Corrige le ON CONFLICT pour (user_id, role)
+--
+-- NOTE: PostgreSQL interdit de renommer un paramètre via
+--   CREATE OR REPLACE FUNCTION. Il faut DROP d'abord.
 -- ============================================================
 
 -- ════════════════════════════════════════════════════════════════
--- Fix 1: create_product — p_buy_price → p_cost_price, buy_price → cost_price
+-- Fix 1: create_product — DROP + recreate with p_cost_price
 -- ════════════════════════════════════════════════════════════════
+
+DROP FUNCTION IF EXISTS public.create_product(
+  TEXT, NUMERIC, UUID, TEXT, TEXT, INTEGER, INTEGER, NUMERIC, UUID, UUID, TEXT, TEXT, BOOLEAN
+);
 
 CREATE OR REPLACE FUNCTION public.create_product(
   p_name TEXT,
@@ -52,7 +59,7 @@ BEGIN
   -- Enforce plan limit
   SELECT allowed INTO v_limit_ok FROM public.check_plan_limit('products') LIMIT 1;
   IF NOT v_limit_ok THEN
-    RAISE EXCEPTION 'Limite de produits atteinte pour votre plan. Upgradéz votre abonnement.';
+    RAISE EXCEPTION 'Limite de produits atteinte pour votre plan. Upgradez votre abonnement.';
   END IF;
 
   -- Determine store_id: use provided, or user's current store, or org headquarters
@@ -117,7 +124,7 @@ BEGIN
   -- Enforce plan limit
   SELECT allowed INTO v_limit_ok FROM public.check_plan_limit('users') LIMIT 1;
   IF NOT v_limit_ok THEN
-    RAISE EXCEPTION 'Limite d''utilisateurs atteinte pour votre plan. Upgradéz votre abonnement.';
+    RAISE EXCEPTION 'Limite d''utilisateurs atteinte pour votre plan. Upgradez votre abonnement.';
   END IF;
 
   -- Only admins can invite
