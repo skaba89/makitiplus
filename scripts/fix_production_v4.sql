@@ -1033,9 +1033,8 @@ GRANT EXECUTE ON FUNCTION public.receive_purchase_order(UUID, JSONB, TEXT) TO au
 DO $$
 DECLARE
   missing TEXT[] := '{}';
-  f record;
-BEGIN
-  FOR f IN SELECT unnest(ARRAY[
+  fn TEXT;
+  all_fns TEXT[] := ARRAY[
     'get_user_organization_id', 'is_member_of_organization', 'generate_sale_number',
     'create_full_sale', 'process_credit_payment', 'adjust_product_stock',
     'increment_customer_credit', 'register_user', 'get_customer_stats',
@@ -1049,10 +1048,12 @@ BEGIN
     'generate_order_number', 'receive_purchase_order',
     'get_admin_stores_summary', 'get_admin_article_ranking',
     'get_admin_stock_movements', 'get_admin_sales_trend', 'get_admin_payment_distribution'
-  ]) LOOP
+  ];
+BEGIN
+  FOREACH fn IN ARRAY all_fns LOOP
     IF NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-                   WHERE n.nspname = 'public' AND p.proname = f.unnest) THEN
-      missing := array_append(missing, f.unnest);
+                   WHERE n.nspname = 'public' AND p.proname = fn) THEN
+      missing := array_append(missing, fn);
     END IF;
   END LOOP;
   IF array_length(missing, 1) > 0 THEN
