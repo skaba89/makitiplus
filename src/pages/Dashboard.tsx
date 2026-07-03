@@ -94,11 +94,15 @@ const Dashboard = () => {
   const { data: monthSales } = useQuery({
     queryKey: ["dashboard-sales-month", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("sales")
         .select("total_amount")
         .gte("created_at", monthStart)
         .lte("created_at", monthEnd);
+      if (profile?.organization_id) {
+        query = query.eq("organization_id", profile.organization_id);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -109,11 +113,15 @@ const Dashboard = () => {
   const { data: monthExpenses } = useQuery({
     queryKey: ["dashboard-expenses-month", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("expenses")
         .select("amount")
         .gte("expense_date", format(startOfMonth(today), "yyyy-MM-dd"))
         .lte("expense_date", format(endOfMonth(today), "yyyy-MM-dd"));
+      if (profile?.organization_id) {
+        query = query.eq("organization_id", profile.organization_id);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -124,10 +132,14 @@ const Dashboard = () => {
   const { data: products } = useQuery({
     queryKey: ["dashboard-products", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("products")
         .select("id, name, stock_quantity, min_stock_alert, categories(icon), suppliers(name)")
         .eq("is_active", true);
+      if (profile?.organization_id) {
+        query = query.eq("organization_id", profile.organization_id);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data as DashboardProduct[];
     },
@@ -138,10 +150,14 @@ const Dashboard = () => {
   const { data: suppliersCount } = useQuery({
     queryKey: ["dashboard-suppliers-count", user?.id],
     queryFn: async () => {
-      const { count, error } = await supabase
+      let query = supabase
         .from("suppliers")
         .select("*", { count: "exact", head: true })
         .eq("is_active", true);
+      if (profile?.organization_id) {
+        query = query.eq("organization_id", profile.organization_id);
+      }
+      const { count, error } = await query;
       if (error) throw error;
       return count || 0;
     },

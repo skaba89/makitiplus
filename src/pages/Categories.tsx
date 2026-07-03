@@ -14,7 +14,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, FolderOpen, Pencil, Trash2, Loader2, Search, ArrowUpDown, Tag, Package } from "lucide-react";
-import { CategoryIcon, ICON_MAP } from "@/components/ui/category-icon";
+import { CategoryIcon } from "@/components/ui/category-icon";
+import { MANAGEMENT_ROLES } from "@/types";
 
 import {
   Dialog,
@@ -74,7 +75,7 @@ const Categories = () => {
     }
   }, [categories]);
 
-  const canModify = userRole === 'admin' || userRole === 'manager' || userRole === 'super_admin';
+  const canModify = userRole !== null && MANAGEMENT_ROLES.includes(userRole);
 
   const createMutation = useMutation({
     mutationFn: async (category: Omit<CategoryInsert, "user_id">) => {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useDeferredValue } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -36,9 +36,10 @@ import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import { useCategories } from "@/hooks/useCategories";
 import { useProductStats } from "@/hooks/useProductStats";
 import { fetchAllRows } from "@/lib/batchedFetch";
-import { ProductWithCategory, AdjustStockRpcRow } from "@/types";
+import { ProductWithCategory, AdjustStockRpcRow, MANAGEMENT_ROLES } from "@/types";
 import { PlanLimitGuard, FeatureGate } from "@/components/saas/PlanLimitGuard";
 import { useDemo } from "@/contexts/DemoContext";
+import { reportError } from "@/lib/sentry";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
 type ProductInsert = Database["public"]["Tables"]["products"]["Insert"];
@@ -107,7 +108,7 @@ const Products = () => {
 
   const { data: categories } = useCategories();
 
-  const canModify = userRole === 'admin' || userRole === 'manager' || userRole === 'super_admin';
+  const canModify = userRole !== null && MANAGEMENT_ROLES.includes(userRole);
 
   const createProductMutation = useMutation({
     mutationFn: async (product: Omit<ProductInsert, "user_id">) => {

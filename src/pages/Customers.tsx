@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDemo } from "@/contexts/DemoContext";
@@ -53,7 +53,7 @@ import { exportCustomersToCSV } from "@/utils/exportUtils";
 import { fetchAllRows } from "@/lib/batchedFetch";
 import { CustomersPageSkeleton } from "@/components/skeletons/PageSkeletons";
 import { useCustomerStats } from "@/hooks/useCustomerStats";
-import { Customer, CustomerUpdateParams } from "@/types";
+import { Customer, CustomerUpdateParams, MANAGEMENT_ROLES } from "@/types";
 import { FeatureGate } from "@/components/saas/PlanLimitGuard";
 
 const PAGE_SIZE = 20;
@@ -99,7 +99,7 @@ const Customers = () => {
   const totalCredit = customerStats?.totalCredit ?? 0;
   const customersWithCredit = customerStats?.customersWithCredit ?? 0;
 
-  const canModify = userRole === 'admin' || userRole === 'manager' || userRole === 'super_admin';
+  const canModify = userRole !== null && MANAGEMENT_ROLES.includes(userRole);
 
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
@@ -126,8 +126,7 @@ const Customers = () => {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, ...data }: CustomerUpdateParams) => {
-      const { id: _id, ...updateFields } = { id, ...data };
-      const { error } = await supabase.from("customers").update(updateFields).eq("id", id);
+      const { error } = await supabase.from("customers").update(data).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {

@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +19,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { useCategories } from "@/hooks/useCategories";
 import { CategoryIcon } from "@/components/ui/category-icon";
 import { useToast } from "@/hooks/use-toast";
+import { reportError } from "@/lib/sentry";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
 type ProductInsert = Database["public"]["Tables"]["products"]["Insert"];

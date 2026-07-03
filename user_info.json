@@ -1,0 +1,19 @@
+{
+  "code": 200,
+  "data": {
+    "description": "",
+    "html": "<html><head><meta name=\"color-scheme\" content=\"light dark\"></head><body><pre style=\"word-wrap: break-word; white-space: pre-wrap;\">{\n  \"login\": \"skaba89\",\n  \"id\": 64856267,\n  \"node_id\": \"MDQ6VXNlcjY0ODU2MjY3\",\n  \"avatar_url\": \"https://avatars.githubusercontent.com/u/64856267?v=4\",\n  \"gravatar_id\": \"\",\n  \"url\": \"https://api.github.com/users/skaba89\",\n  \"html_url\": \"https://github.com/skaba89\",\n  \"followers_url\": \"https://api.github.com/users/skaba89/followers\",\n  \"following_url\": \"https://api.github.com/users/skaba89/following{/other_user}\",\n  \"gists_url\": \"https://api.github.com/users/skaba89/gists{/gist_id}\",\n  \"starred_url\": \"https://api.github.com/users/skaba89/starred{/owner}{/repo}\",\n  \"subscriptions_url\": \"https://api.github.com/users/skaba89/subscriptions\",\n  \"organizations_url\": \"https://api.github.com/users/skaba89/orgs\",\n  \"repos_url\": \"https://api.github.com/users/skaba89/repos\",\n  \"events_url\": \"https://api.github.com/users/skaba89/events{/privacy}\",\n  \"received_events_url\": \"https://api.github.com/users/skaba89/received_events\",\n  \"type\": \"User\",\n  \"user_view_type\": \"public\",\n  \"site_admin\": false,\n  \"name\": \"SK_DATA_ENGINEER\",\n  \"company\": null,\n  \"blog\": \"\",\n  \"location\": null,\n  \"email\": null,\n  \"hireable\": null,\n  \"bio\": null,\n  \"twitter_username\": null,\n  \"public_repos\": 71,\n  \"public_gists\": 0,\n  \"followers\": 1,\n  \"following\": 2,\n  \"created_at\": \"2020-05-05T16:08:10Z\",\n  \"updated_at\": \"2026-05-14T16:05:48Z\"\n}\n</pre></body></html>",
+    "publishedTime": "Thu, 14 May 2026 16:05:48 GMT",
+    "title": "",
+    "url": "https://api.github.com/users/skaba89",
+    "usage": {
+      "tokens": 480
+    }
+  },
+  "meta": {
+    "usage": {
+      "tokens": 480
+    }
+  },
+  "status": 20000
+}

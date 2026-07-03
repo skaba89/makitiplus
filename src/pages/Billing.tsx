@@ -19,6 +19,10 @@ import { useSearchParams } from "react-router-dom";
 import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+import { ADMIN_ROLES } from "@/types";
+import { useCurrency } from "@/hooks/useCurrency";
+import { ADMIN_ROLES } from "@/types";
+import { useCurrency } from "@/hooks/useCurrency";
 
 const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   active: { label: "Actif", variant: "default" },
@@ -33,6 +37,7 @@ export default function Billing() {
   const { data: subscription, isLoading: subLoading } = useSubscription();
   const { data: plans } = usePlans();
   const { userRole } = useAuth();
+  const { formatPrice, currency } = useCurrency();
   const [searchParams, setSearchParams] = useSearchParams();
   const { checkout, isLoading: isCheckingOut, error: checkoutError, isStripeConfigured } = useStripeCheckout();
   const { openPortal, isLoading: isPortalLoading } = useStripePortal();
@@ -68,7 +73,7 @@ export default function Billing() {
 
   const planId = subscription?.plan_id || "";
   const currentPlan = plans?.find((p) => p.id === planId);
-  const currencySymbol = "€";
+  const currencySymbol = currency.displaySymbol || currency.symbol;
 
   return (
     <DashboardLayout>
