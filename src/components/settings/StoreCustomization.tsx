@@ -39,6 +39,8 @@ import {
   Tag,
 } from "lucide-react";
 import { BRAND_DEFAULTS } from "@/constants/brandDefaults";
+import { useDemo } from "@/contexts/DemoContext";
+import { reportError } from "@/lib/sentry";
 
 /* ------------------------------------------------------------------ */
 /*  Utilities                                                          */
@@ -111,6 +113,7 @@ const StoreCustomization = () => {
   const { settings, isLoading, updateSettings, resetTheme } = useThemeSettings();
   const { branding, updateBranding } = useBranding();
   const { toast } = useToast();
+  const { blockMutation } = useDemo();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -163,6 +166,7 @@ const StoreCustomization = () => {
   // Update color and apply in real-time
   const handleColorChange = useCallback(
     async (colorName: "primary_color" | "secondary_color" | "accent_color" | "success_color", hexValue: string) => {
+      if (blockMutation('Modifier les couleurs')) return;
       const hslValue = hexToHslString(hexValue);
       if (colorName === "primary_color") setPrimaryHex(hexValue);
       if (colorName === "secondary_color") setSecondaryHex(hexValue);
@@ -183,6 +187,7 @@ const StoreCustomization = () => {
   // Apply template preset
   const applyTemplate = useCallback(
     async (templateName: TemplateName) => {
+      if (blockMutation('Appliquer un template')) return;
       const preset = TEMPLATE_PRESETS[templateName];
       setSelectedTemplate(templateName);
       setPrimaryHex(hslStringToHex(preset.primary));
@@ -207,6 +212,7 @@ const StoreCustomization = () => {
   // Logo upload
   const handleLogoUpload = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (blockMutation('Télécharger un logo')) return;
       const file = e.target.files?.[0];
       if (!file) return;
 
@@ -226,7 +232,8 @@ const StoreCustomization = () => {
         const logoUrl = `${urlData.publicUrl}?t=${Date.now()}`;
         await updateSettings({ logo_url: logoUrl });
         toast({ title: "Logo mis à jour" });
-      } catch {
+      } catch (err) {
+        reportError(err instanceof Error ? err : new Error(String(err)));
         toast({ variant: "destructive", title: "Erreur d'upload", description: "Impossible de charger le logo" });
       } finally {
         setIsUploading(false);
@@ -236,11 +243,13 @@ const StoreCustomization = () => {
   );
 
   const handleSaveStoreName = useCallback(async () => {
+    if (blockMutation('Modifier le nom du magasin')) return;
     await updateSettings({ store_name: storeName });
     toast({ title: "Nom du magasin enregistré" });
   }, [storeName, updateSettings, toast]);
 
   const handleSaveReceiptSettings = useCallback(async () => {
+    if (blockMutation('Modifier les paramètres de ticket')) return;
     await updateSettings({
       receipt_footer: receiptFooter,
       receipt_show_logo: receiptShowLogo,
@@ -251,6 +260,7 @@ const StoreCustomization = () => {
   }, [receiptFooter, receiptShowLogo, receiptShowTax, updateSettings, toast]);
 
   const handleReset = useCallback(async () => {
+    if (blockMutation('Réinitialiser le thème')) return;
     resetTheme();
     await updateSettings({
       primary_color: DEFAULT_COLORS.primary,
@@ -269,6 +279,7 @@ const StoreCustomization = () => {
 
   // Branding (theme mode, font, language)
   const handleSaveBranding = useCallback(async (updates: Record<string, string>) => {
+    if (blockMutation('Modifier la marque')) return;
     await updateBranding(updates);
     toast({ title: "Paramètres enregistrés" });
   }, [updateBranding, toast]);

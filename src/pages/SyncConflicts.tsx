@@ -104,6 +104,7 @@ const SyncConflicts = () => {
       if (error) throw error;
       setRows((data ?? []) as ConflictRow[]);
     } catch {
+      reportError(new Error('[SyncConflicts] Failed to load conflicts'));
       toast({ variant: "destructive", title: "Erreur", description: "Chargement impossible" });
     } finally {
       setLoading(false);
@@ -125,6 +126,7 @@ const SyncConflicts = () => {
       load();
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : String(e);
+      reportError(e instanceof Error ? e : new Error(String(e)));
       toast({ variant: "destructive", title: "Erreur", description: message });
     }
   };
@@ -139,6 +141,7 @@ const SyncConflicts = () => {
       load();
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : String(e);
+      reportError(e instanceof Error ? e : new Error(String(e)));
       toast({ variant: "destructive", title: "Erreur", description: message });
     }
   };

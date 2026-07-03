@@ -1,5 +1,6 @@
 import QRCode from "qrcode";
 import { DEFAULT_CURRENCY } from "@/utils/currencies";
+import { ensurePdfFont, setPdfFont, isFontAvailable, sanitizeForPdfFallback } from "@/utils/pdfFont";
 
 interface ReceiptItem {
   product_name: string;
@@ -294,7 +295,7 @@ function generateClassicReceipt(data: ReceiptData, doc: jsPDF, config: typeof PA
   y += 5;
 
   // ── Metadata ──
-  doc.setFont("helvetica", "normal");
+  setPdfFont(doc, "normal");
   doc.setFontSize(config.baseFontSize);
   doc.text(`N° ${data.saleNumber}`, m, y);
   rightText(data.date.toLocaleDateString("fr-FR"), y);
@@ -315,7 +316,7 @@ function generateClassicReceipt(data: ReceiptData, doc: jsPDF, config: typeof PA
 
   // ── Column header ──
   const colQte = isSmall ? m + 26 : m + 38;
-  doc.setFont("helvetica", "bold");
+  setPdfFont(doc, "bold");
   doc.setFontSize(config.baseFontSize);
   doc.text("Article", m, y);
   doc.text("Qté", colQte, y);
@@ -326,7 +327,7 @@ function generateClassicReceipt(data: ReceiptData, doc: jsPDF, config: typeof PA
 
   // ── Items ──
   const maxChars = isSmall ? 16 : 22;
-  doc.setFont("helvetica", "normal");
+  setPdfFont(doc, "normal");
   doc.setFontSize(config.baseFontSize + 0.5);
   data.items.forEach((item) => {
     const lines = wrapText(item.product_name, maxChars);
@@ -351,7 +352,7 @@ function generateClassicReceipt(data: ReceiptData, doc: jsPDF, config: typeof PA
   y += 4;
 
   // ── Totals ──
-  doc.setFont("helvetica", "normal");
+  setPdfFont(doc, "normal");
   doc.setFontSize(config.baseFontSize + 1);
 
   // Tax detail
@@ -386,7 +387,7 @@ function generateClassicReceipt(data: ReceiptData, doc: jsPDF, config: typeof PA
   y += 5;
 
   // ── Payment ──
-  doc.setFont("helvetica", "normal");
+  setPdfFont(doc, "normal");
   doc.setFontSize(config.baseFontSize + 0.5);
   doc.text("Mode de paiement", m, y);
   rightText(paymentMethodLabels[data.paymentMethod] || data.paymentMethod, y);
@@ -397,10 +398,10 @@ function generateClassicReceipt(data: ReceiptData, doc: jsPDF, config: typeof PA
     rightText(fPrice(data.amountPaid), y);
     y += 4;
     if (data.change > 0) {
-      doc.setFont("helvetica", "bold");
+      setPdfFont(doc, "bold");
       doc.text("Monnaie rendue", m, y);
       rightText(fPrice(data.change), y);
-      doc.setFont("helvetica", "normal");
+      setPdfFont(doc, "normal");
       y += 4;
     }
   }
@@ -457,12 +458,12 @@ function generateMinimalReceipt(data: ReceiptData, doc: jsPDF, config: typeof PA
   };
 
   // ── Simple header ──
-  doc.setFont("helvetica", "bold");
+  setPdfFont(doc, "bold");
   doc.setFontSize(config.titleFontSize - 1);
   centerText(data.businessName.toUpperCase(), y);
   y += isSmall ? 4 : 5;
 
-  doc.setFont("helvetica", "normal");
+  setPdfFont(doc, "normal");
   doc.setFontSize(config.baseFontSize - 0.5);
   centerText(`${data.saleNumber} | ${data.date.toLocaleDateString("fr-FR")} ${data.date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`, y);
   y += 4;
@@ -477,7 +478,7 @@ function generateMinimalReceipt(data: ReceiptData, doc: jsPDF, config: typeof PA
     const name = item.product_name.length > maxChars
       ? item.product_name.substring(0, maxChars - 1) + "…"
       : item.product_name;
-    doc.setFont("helvetica", "normal");
+    setPdfFont(doc, "normal");
     doc.text(`${name} x${item.quantity}`, m, y);
     rightText(fPrice(item.total_price), y);
     y += isSmall ? 3 : 3.5;
@@ -488,14 +489,14 @@ function generateMinimalReceipt(data: ReceiptData, doc: jsPDF, config: typeof PA
   y += 4;
 
   // ── Total (clean) ──
-  doc.setFont("helvetica", "bold");
+  setPdfFont(doc, "bold");
   doc.setFontSize(config.headerFontSize + 1);
   doc.text("Total", m, y);
   rightText(fPrice(data.total), y);
   y += 5;
 
   // ── Payment ──
-  doc.setFont("helvetica", "normal");
+  setPdfFont(doc, "normal");
   doc.setFontSize(config.baseFontSize);
   doc.text(paymentMethodLabels[data.paymentMethod] || data.paymentMethod, m, y);
   if (data.paymentMethod === "cash" && data.change > 0) {
@@ -572,12 +573,12 @@ function generateDetailedReceipt(data: ReceiptData, doc: jsPDF, config: typeof P
     doc.roundedRect(m, y - 3, cw, isA4 ? 30 : 18, 1, 1);
   }
 
-  doc.setFont("helvetica", "bold");
+  setPdfFont(doc, "bold");
   doc.setFontSize(config.titleFontSize);
   centerText(data.businessName.toUpperCase(), y);
   y += isA4 ? 6 : 4;
 
-  doc.setFont("helvetica", "normal");
+  setPdfFont(doc, "normal");
   doc.setFontSize(config.baseFontSize);
   if (data.businessAddress) { centerText(data.businessAddress, y); y += isA4 ? 4 : 3; }
   if (data.businessPhone) { centerText(`Tél : ${data.businessPhone}`, y); y += isA4 ? 4 : 3; }
@@ -604,7 +605,7 @@ function generateDetailedReceipt(data: ReceiptData, doc: jsPDF, config: typeof P
   // ── Info block ──
   doc.setFontSize(config.baseFontSize);
   const infoY = y;
-  doc.setFont("helvetica", "bold");
+  setPdfFont(doc, "bold");
   leftText(`N° Facture : ${data.saleNumber}`, y);
   y += isA4 ? 5 : 3.5;
   leftText(`Date : ${data.date.toLocaleDateString("fr-FR")}`, y);
@@ -633,7 +634,7 @@ function generateDetailedReceipt(data: ReceiptData, doc: jsPDF, config: typeof P
   const colUnit = isA4 ? m + 130 : (isSmall ? m + 30 : m + 48);
   const colTotal = pw - m;
 
-  doc.setFont("helvetica", "bold");
+  setPdfFont(doc, "bold");
   doc.setFontSize(config.baseFontSize);
   leftText("Désignation", y, colDesc);
   leftText("Qté", y, colQty);
@@ -644,7 +645,7 @@ function generateDetailedReceipt(data: ReceiptData, doc: jsPDF, config: typeof P
   y += 3;
 
   // ── Items ──
-  doc.setFont("helvetica", "normal");
+  setPdfFont(doc, "normal");
   doc.setFontSize(config.baseFontSize);
   data.items.forEach((item) => {
     const maxLen = isA4 ? 40 : (isSmall ? 14 : 20);
@@ -663,7 +664,7 @@ function generateDetailedReceipt(data: ReceiptData, doc: jsPDF, config: typeof P
   y += 4;
 
   // ── Totals with full detail ──
-  doc.setFont("helvetica", "normal");
+  setPdfFont(doc, "normal");
   doc.setFontSize(config.baseFontSize);
 
   // Sous-total HT
@@ -690,7 +691,7 @@ function generateDetailedReceipt(data: ReceiptData, doc: jsPDF, config: typeof P
   }
   solidLine(y - 1, 0.5);
   y += 2;
-  doc.setFont("helvetica", "bold");
+  setPdfFont(doc, "bold");
   doc.setFontSize(config.headerFontSize + 2);
   leftText("TOTAL TTC", y);
   doc.text(fPrice(data.total), colTotal, y, { align: "right" });
@@ -699,7 +700,7 @@ function generateDetailedReceipt(data: ReceiptData, doc: jsPDF, config: typeof P
   y += 5;
 
   // ── Payment detail ──
-  doc.setFont("helvetica", "normal");
+  setPdfFont(doc, "normal");
   doc.setFontSize(config.baseFontSize);
   leftText(`Mode de règlement : ${paymentMethodLabels[data.paymentMethod] || data.paymentMethod}`, y);
   y += isA4 ? 5 : 3.5;
@@ -708,9 +709,9 @@ function generateDetailedReceipt(data: ReceiptData, doc: jsPDF, config: typeof P
     leftText(`Montant reçu : ${fPrice(data.amountPaid)}`, y);
     y += isA4 ? 5 : 3.5;
     if (data.change > 0) {
-      doc.setFont("helvetica", "bold");
+      setPdfFont(doc, "bold");
       leftText(`Monnaie rendue : ${fPrice(data.change)}`, y);
-      doc.setFont("helvetica", "normal");
+      setPdfFont(doc, "normal");
       y += isA4 ? 5 : 3.5;
     }
   }
@@ -814,7 +815,7 @@ function generateAfricanReceipt(data: ReceiptData, doc: jsPDF, config: typeof PA
   y += isSmall ? 5 : 7;
 
   // ── Business info ──
-  doc.setFont("helvetica", "normal");
+  setPdfFont(doc, "normal");
   doc.setFontSize(config.baseFontSize);
   if (data.businessAddress) { centerText(data.businessAddress, y); y += 3; }
   if (data.businessPhone) { centerText(`Tél : ${data.businessPhone}`, y); y += 3; }
@@ -851,7 +852,7 @@ function generateAfricanReceipt(data: ReceiptData, doc: jsPDF, config: typeof PA
 
   // ── Column header ──
   const colQte = isSmall ? m + 26 : m + 38;
-  doc.setFont("helvetica", "bold");
+  setPdfFont(doc, "bold");
   doc.setFontSize(config.baseFontSize);
   doc.text("Article", m, y);
   doc.text("Qté", colQte, y);
@@ -865,7 +866,7 @@ function generateAfricanReceipt(data: ReceiptData, doc: jsPDF, config: typeof PA
 
   // ── Items ──
   const maxChars = isSmall ? 16 : 22;
-  doc.setFont("helvetica", "normal");
+  setPdfFont(doc, "normal");
   doc.setFontSize(config.baseFontSize + 0.5);
   data.items.forEach((item) => {
     const lines = wrapText(item.product_name, maxChars);
@@ -890,7 +891,7 @@ function generateAfricanReceipt(data: ReceiptData, doc: jsPDF, config: typeof PA
   y += 4;
 
   // ── Totals ──
-  doc.setFont("helvetica", "normal");
+  setPdfFont(doc, "normal");
   doc.setFontSize(config.baseFontSize + 1);
   if (data.subtotal !== data.total) {
     doc.text("Sous-total", m, y);
@@ -921,7 +922,7 @@ function generateAfricanReceipt(data: ReceiptData, doc: jsPDF, config: typeof PA
   y += 5;
 
   // ── Payment ──
-  doc.setFont("helvetica", "normal");
+  setPdfFont(doc, "normal");
   doc.setFontSize(config.baseFontSize + 0.5);
   doc.text("Mode de paiement", m, y);
   rightText(paymentMethodLabels[data.paymentMethod] || data.paymentMethod, y);
@@ -932,10 +933,10 @@ function generateAfricanReceipt(data: ReceiptData, doc: jsPDF, config: typeof PA
     rightText(fPrice(data.amountPaid), y);
     y += 4;
     if (data.change > 0) {
-      doc.setFont("helvetica", "bold");
+      setPdfFont(doc, "bold");
       doc.text("Monnaie rendue", m, y);
       rightText(fPrice(data.change), y);
-      doc.setFont("helvetica", "normal");
+      setPdfFont(doc, "normal");
       y += 4;
     }
   }
@@ -953,9 +954,9 @@ function generateAfricanReceipt(data: ReceiptData, doc: jsPDF, config: typeof PA
   const proverb = proverbs[Math.floor(data.date.getTime() / 86400000) % proverbs.length];
   doc.setTextColor(34, 120, 60);
   doc.setFontSize(config.baseFontSize - 0.5);
-  doc.setFont("helvetica", "italic");
+  setPdfFont(doc, "normal");
   centerText(`"${proverb}"`, y);
-  doc.setFont("helvetica", "normal");
+  setPdfFont(doc, "normal");
   doc.setTextColor(0);
   y += 4;
 
@@ -999,6 +1000,9 @@ export const generateReceiptPDF = async (data: ReceiptData) => {
     unit: "mm",
     format: [config.width, template === "detailed" && paperSize === "A4" ? 297 : estimatedHeight],
   });
+
+  // Load Unicode font for French/African character support
+  await ensurePdfFont(doc);
 
   // Dispatch to template
   let finalY: number;

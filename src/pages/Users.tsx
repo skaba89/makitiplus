@@ -228,6 +228,7 @@ const Users = () => {
       });
       setUsers(merged);
     } catch (err) {
+      reportError(err instanceof Error ? err : new Error(String(err)));
       toast({
         variant: "destructive",
         title: "Erreur",
@@ -249,6 +250,7 @@ const Users = () => {
       if (error) throw error;
       setAudit((data ?? []) as AuditRow[]);
     } catch {
+      reportError(new Error('[Users] Failed to load audit log'));
       // silent
     } finally {
       setAuditLoading(false);
@@ -302,6 +304,7 @@ const Users = () => {
       loadAudit();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
+      reportError(err instanceof Error ? err : new Error(String(err)));
       toast({
         variant: "destructive",
         title: "Erreur",
@@ -335,6 +338,7 @@ const Users = () => {
       loadAudit();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
+      reportError(err instanceof Error ? err : new Error(String(err)));
       toast({
         variant: "destructive",
         title: "Erreur",
@@ -386,6 +390,7 @@ const Users = () => {
         loadAudit();
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
+        reportError(err instanceof Error ? err : new Error(String(err)));
         toast({ variant: "destructive", title: "Erreur", description: message });
       } finally {
         setResetting(false);
@@ -418,6 +423,7 @@ const Users = () => {
       loadAudit();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
+      reportError(err instanceof Error ? err : new Error(String(err)));
       toast({ variant: "destructive", title: "Erreur", description: message });
     } finally {
       setResetting(false);
@@ -461,6 +467,7 @@ const Users = () => {
       loadAudit();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
+      reportError(err instanceof Error ? err : new Error(String(err)));
       toast({
         variant: "destructive",
         title: "Export refusé",

@@ -266,6 +266,7 @@ const Stores = () => {
       queryClient.invalidateQueries({ queryKey: ["stores"] });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      reportError(error instanceof Error ? error : new Error(String(error)));
       const isPlanLimit = message.includes('Limite') || message.includes('plan') || message.includes('Upgrad') || message.includes('Upgradez');
       toast({
         variant: "destructive",
@@ -328,6 +329,7 @@ const Stores = () => {
       queryClient.invalidateQueries({ queryKey: ["stores"] });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      reportError(error instanceof Error ? error : new Error(String(error)));
       toast({ variant: "destructive", title: "Erreur", description: message });
     } finally {
       setCreatingAdmin(false);
@@ -349,6 +351,7 @@ const Stores = () => {
       queryClient.invalidateQueries({ queryKey: ["stores"] });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      reportError(error instanceof Error ? error : new Error(String(error)));
       toast({ variant: "destructive", title: "Erreur", description: message });
     } finally {
       setDeleteDialogOpen(false);

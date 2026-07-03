@@ -216,6 +216,7 @@ const BackupRestore = () => {
       });
     },
     onError: (error) => {
+      reportError(error);
       toast({
         variant: "destructive",
         title: "Erreur",
@@ -246,6 +247,7 @@ const BackupRestore = () => {
       });
     },
     onError: (error) => {
+      reportError(error);
       toast({
         variant: "destructive",
         title: "Erreur de restauration",
@@ -271,6 +273,7 @@ const BackupRestore = () => {
       });
     },
     onError: (error) => {
+      reportError(error);
       toast({
         variant: "destructive",
         title: "Erreur",
@@ -302,6 +305,7 @@ const BackupRestore = () => {
 
       toast({ title: "Téléchargement", description: "Fichier de sauvegarde téléchargé" });
     } catch (error) {
+      reportError(error instanceof Error ? error : new Error(String(error)));
       toast({
         variant: "destructive",
         title: "Erreur",

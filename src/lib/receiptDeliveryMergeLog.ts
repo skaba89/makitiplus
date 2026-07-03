@@ -17,6 +17,7 @@
 import { logger } from "./logger";
 import type { ConflictLogEntry } from "./receiptDeliveryConflict";
 import type { DeliveryStatus } from "./receiptDeliveryQueue";
+import { ensurePdfFont, setPdfFont } from "@/utils/pdfFont";
 import {
   STORES,
   isIndexedDBAvailable,
@@ -327,6 +328,7 @@ export const exportMergeLogJSON = (entries: MergeLogEntry[]): void => {
 export const exportMergeLogPDF = async (entries: MergeLogEntry[]): Promise<void> => {
   const { default: jsPDF } = await import("jspdf");
   const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
+  await ensurePdfFont(doc);
   const generatedAt = new Date().toISOString();
   doc.setFontSize(13);
   doc.text(`Merge log — ${entries.length} entry(ies)`, 10, 12);
@@ -338,12 +340,12 @@ export const exportMergeLogPDF = async (entries: MergeLogEntry[]): Promise<void>
   const headerY = 20;
 
   const drawHeader = () => {
-    doc.setFont("helvetica", "bold");
+    setPdfFont(doc, "bold");
     doc.setFontSize(9);
     headers.forEach((h, i) => doc.text(h, colX[i], headerY));
     doc.setDrawColor(180);
     doc.line(10, headerY + 1.5, 287, headerY + 1.5);
-    doc.setFont("helvetica", "normal");
+    setPdfFont(doc, "normal");
   };
 
   drawHeader();

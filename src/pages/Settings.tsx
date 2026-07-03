@@ -119,6 +119,7 @@ const Settings = () => {
         const ndef = new NDEFReaderCtor();
         await ndef.scan();
       } catch (error) {
+        reportError(error instanceof Error ? error : new Error(String(error)));
         toast({
           variant: "destructive",
           title: "Erreur NFC",
@@ -144,6 +145,7 @@ const Settings = () => {
           : "Le paiement sans contact a été désactivé",
       });
     } catch (error) {
+      reportError(error instanceof Error ? error : new Error(String(error)));
       toast({
         variant: "destructive",
         title: "Erreur",

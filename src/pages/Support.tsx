@@ -306,6 +306,7 @@ const Support = () => {
       });
     },
     onError: (error) => {
+      reportError(error);
       toast({
         variant: "destructive",
         title: "Erreur",
@@ -330,6 +331,7 @@ const Support = () => {
       setNewMessage("");
     },
     onError: (error) => {
+      reportError(error);
       toast({
         variant: "destructive",
         title: "Erreur",
@@ -353,6 +355,14 @@ const Support = () => {
       toast({
         title: "Ticket résolu",
         description: "Le ticket a été marqué comme résolu",
+      });
+    },
+    onError: (error) => {
+      reportError(error);
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "Impossible de fermer le ticket",
       });
     },
   });

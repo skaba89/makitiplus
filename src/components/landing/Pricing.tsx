@@ -1,7 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Check, CreditCard, Smartphone, Lock, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { reportError } from "@/lib/sentry";
 
 const plans = [
   {
@@ -48,12 +51,13 @@ const plans = [
 
 export const Pricing = () => {
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   const handleSubscribe = async (planKey: string) => {
     setLoadingPlan(planKey);
 
     try {
-  const navigate = useNavigate();
       const { data, error } = await supabase.functions.invoke('stripe-checkout', {
         body: { planKey },
       });
@@ -65,7 +69,7 @@ export const Pricing = () => {
           navigate('/auth?redirect=pricing');
           return;
         }
-        alert('Erreur lors de la création du checkout. Veuillez réessayer.');
+        toast({ variant: "destructive", title: "Erreur", description: "Erreur lors de la création du checkout. Veuillez réessayer." });
         return;
       }
 
@@ -74,8 +78,8 @@ export const Pricing = () => {
         window.location.href = data.url;
       }
     } catch (err) {
-      console.error('Subscribe error:', err);
-      alert('Erreur de connexion. Veuillez réessayer.');
+      reportError(err instanceof Error ? err : new Error(String(err)));
+      toast({ variant: "destructive", title: "Erreur", description: "Erreur de connexion. Veuillez réessayer." });
     } finally {
       setLoadingPlan(null);
     }

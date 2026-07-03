@@ -1,6 +1,7 @@
 import { format } from "date-fns";
 import type { QueuedDelivery } from "./receiptDeliveryQueue";
 import type { DeliveryDict } from "./receiptDeliveryI18n";
+import { ensurePdfFont, setPdfFont } from "@/utils/pdfFont";
 
 const escapeCSV = (v: string | number | null | undefined): string => {
   if (v === null || v === undefined) return "";
@@ -45,8 +46,11 @@ export const exportDeliveryLogCSV = (rows: QueuedDelivery[], dict: DeliveryDict)
 export const exportDeliveryLogPDF = async (rows: QueuedDelivery[], dict: DeliveryDict) => {
   const { default: jsPDF } = await import("jspdf");
   const doc = new jsPDF({ unit: "mm", format: "a4" });
+  await ensurePdfFont(doc);
+  setPdfFont(doc, "bold");
   doc.setFontSize(14);
   doc.text(dict.title, 10, 14);
+  setPdfFont(doc, "normal");
   doc.setFontSize(9);
   doc.text(`${rows.length} ${dict.ticket}`, 10, 20);
   doc.text(format(new Date(), "yyyy-MM-dd HH:mm"), 180, 20, { align: "right" });

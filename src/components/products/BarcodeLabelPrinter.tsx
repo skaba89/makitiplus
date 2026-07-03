@@ -2,6 +2,7 @@ import type { jsPDF } from "jspdf";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ensurePdfFont, setPdfFont } from "@/utils/pdfFont";
 import {
   Dialog,
   DialogContent,
@@ -121,7 +122,7 @@ function drawLabel(
 
   /* ── Product name ── */
   doc.setFontSize(FONT.name);
-  doc.setFont("helvetica", "bold");
+  setPdfFont(doc, "bold");
   const rawName =
     product.name.length > FONT.maxNameChars
       ? product.name.substring(0, FONT.maxNameChars - 1) + "..."
@@ -174,7 +175,7 @@ function drawLabel(
 
   /* ── Price (bold, red) ── */
   doc.setFontSize(FONT.price);
-  doc.setFont("helvetica", "bold");
+  setPdfFont(doc, "bold");
   doc.setTextColor(220, 38, 38); // red-600
   const priceText = sanitizeForPdf(formatPrice(product.price));
   doc.text(priceText, x + cellW / 2, curY + FONT.price * 0.38, {
@@ -197,6 +198,7 @@ async function buildLabelPDF(
     import("jsbarcode"),
   ]);
   const doc = new jsPDF({ unit: "mm", format: "a4" });
+  await ensurePdfFont(doc);
 
   // Pre-render barcode image once
   const barcodeImageData = product.barcode
@@ -306,7 +308,7 @@ export const BarcodeLabelPrinter = ({
                           if (el && product.barcode) {
                             import("jsbarcode").then(({ default: JsBarcode }) => {
                               try {
-                                JsBarcode(el, product.barcode!, {
+                                JsBarcode(el, product.barcode ?? "0000", {
                                   format: "CODE128",
                                   width: 1,
                                   height: 18,

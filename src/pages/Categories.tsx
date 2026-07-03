@@ -123,6 +123,7 @@ const Categories = () => {
       handleCloseForm();
     },
     onError: (error) => {
+      reportError(error);
       const msg = error instanceof Error ? error.message : String(error);
       const isRlsError = msg.includes('policy') || msg.includes('row-level') || msg.includes('violates');
       toast({
@@ -153,6 +154,7 @@ const Categories = () => {
       handleCloseForm();
     },
     onError: (error) => {
+      reportError(error);
       const msg = error instanceof Error ? error.message : String(error);
       const isRlsError = msg.includes('policy') || msg.includes('row-level') || msg.includes('violates');
       toast({
@@ -176,6 +178,7 @@ const Categories = () => {
       setDeleteId(null);
     },
     onError: (error) => {
+      reportError(error);
       const msg = error instanceof Error ? error.message : String(error);
       const isRlsError = msg.includes('policy') || msg.includes('row-level') || msg.includes('violates');
       toast({

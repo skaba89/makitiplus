@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { ensurePdfFont, setPdfFont } from "@/utils/pdfFont";
 import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -185,16 +186,17 @@ function downloadBlob(content: BlobPart, mime: string, filename: string) {
 async function exportPDF(results: SimResult[]) {
   const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({ unit: "pt", format: "a4" });
+  await ensurePdfFont(doc);
   const margin = 40;
   let y = margin;
 
   // Titre + résumé lisible
   doc.setFontSize(16);
-  doc.setFont("helvetica", "bold");
+  setPdfFont(doc, "bold");
   doc.text("Rapport — Simulation de conflits offline", margin, y);
   y += 22;
   doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
+  setPdfFont(doc, "normal");
   doc.setTextColor(100);
   doc.text(`Généré le ${new Date().toLocaleString("fr-FR")} · ${results.length} scénario(s)`, margin, y);
   y += 18;
@@ -202,10 +204,10 @@ async function exportPDF(results: SimResult[]) {
 
   // Bloc résumé
   doc.setFontSize(11);
-  doc.setFont("helvetica", "bold");
+  setPdfFont(doc, "bold");
   doc.text("Résumé exécutif", margin, y); y += 14;
   doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
+  setPdfFont(doc, "normal");
   for (const line of summarize(results).split("\n")) {
     if (y > 780) { doc.addPage(); y = margin; }
     doc.text(line, margin, y); y += 12;
@@ -214,29 +216,29 @@ async function exportPDF(results: SimResult[]) {
 
   // Détail par scénario
   doc.setFontSize(11);
-  doc.setFont("helvetica", "bold");
+  setPdfFont(doc, "bold");
   doc.text("Détail par scénario", margin, y); y += 16;
 
   results.forEach((r, idx) => {
     if (y > 760) { doc.addPage(); y = margin; }
     doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
+    setPdfFont(doc, "bold");
     doc.text(`${idx + 1}. ${r.label}`, margin, y);
     y += 13;
-    doc.setFont("helvetica", "normal");
+    setPdfFont(doc, "normal");
     doc.setFontSize(8.5);
     doc.text(`Stratégie : ${r.strategy} · Zéro perte : ${r.noLoss ? "OUI" : "NON (borne 0)"}`, margin, y); y += 11;
     doc.text(`Paramètres : ${JSON.stringify(r.params)}`, margin, y); y += 11;
     doc.text(`Avant — Local  : ${JSON.stringify(r.local)}`, margin, y); y += 11;
     doc.text(`Avant — Remote : ${JSON.stringify(r.remote)}`, margin, y); y += 11;
     doc.text(`Après — Fusionné : ${JSON.stringify(r.resolved)}`, margin, y); y += 11;
-    doc.setTextColor(60); doc.setFont("helvetica", "italic");
+    doc.setTextColor(60); setPdfFont(doc, "normal");
     const diff = buildDiff(r);
     // wrap simple ~95 chars
     for (let i = 0; i < diff.length; i += 95) {
       doc.text(`Diff : ${diff.slice(i, i + 95)}`, margin, y); y += 11;
     }
-    doc.setTextColor(0); doc.setFont("helvetica", "normal");
+    doc.setTextColor(0); setPdfFont(doc, "normal");
     y += 6;
   });
 

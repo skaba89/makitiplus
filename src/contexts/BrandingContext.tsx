@@ -180,7 +180,7 @@ export const BrandingProvider = ({ children }: { children: ReactNode }) => {
           });
         }
       } catch (err) {
-        // Échec du chargement branding org — silencieux
+        reportError(err instanceof Error ? err : new Error('[Branding] Load failed: ' + String(err)));
       } finally {
         setIsLoading(false);
       }

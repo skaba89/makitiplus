@@ -928,7 +928,7 @@ const StockTransfers = () => {
                                     onChange={(e) =>
                                       setReceiveItems((prev) => ({
                                         ...prev,
-                                        [item.product_id!]: Math.min(
+                                        [item.product_id ?? "unknown"]: Math.min(
                                           parseInt(e.target.value) || 0,
                                           item.quantity
                                         ),

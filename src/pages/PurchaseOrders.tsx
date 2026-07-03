@@ -214,7 +214,7 @@ const PurchaseOrders = () => {
     mutationFn: async () => {
       // Generate order number
       const { data: orderNumber } = await supabase.rpc("generate_order_number", {
-        p_org_id: profile!.organization_id,
+        p_org_id: profile?.organization_id ?? "",
       });
 
       const subtotal = formItems.reduce((s, i) => s + i.line_total, 0);
@@ -226,7 +226,7 @@ const PurchaseOrders = () => {
       const { data: order, error: orderError } = await supabase
         .from("purchase_orders")
         .insert({
-          organization_id: profile!.organization_id,
+          organization_id: profile?.organization_id ?? "",
           store_id: storeId,
           supplier_id: formSupplier,
           order_number: orderNumber || `BC-${Date.now()}`,
@@ -295,7 +295,8 @@ const PurchaseOrders = () => {
       queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
       toast({ title: "Statut mis à jour" });
     },
-    onError: () => {
+    onError: (error: unknown) => {
+      reportError(error);
       toast({
         variant: "destructive",
         title: "Erreur",
@@ -319,7 +320,8 @@ const PurchaseOrders = () => {
       setIsDeleteOpen(false);
       setSelectedOrder(null);
     },
-    onError: () => {
+    onError: (error: unknown) => {
+      reportError(error);
       toast({
         variant: "destructive",
         title: "Erreur",
