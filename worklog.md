@@ -581,3 +581,34 @@ Stage Summary:
 - All HIGH security issues from edge function audit now resolved
 - 5 MEDIUM issues resolved (M1, M3, M5, M6, M7)
 - Remaining: 4 LOW issues (XSS in email templates, reason field, error message reflection, CORS fallback)
+
+---
+Task ID: 7
+Agent: main
+Task: Vague 7 audit — LOW security fixes, accessibility, email XSS prevention
+
+Work Log:
+- Added escapeHtml() and sanitizeUrl() helpers to email-templates.ts
+- Applied escapeHtml to all user-supplied params in 6 email templates (L1)
+- Applied sanitizeUrl to all CTA button URLs in email templates (L1)
+- Sanitized reason field in admin-manage-user: strip HTML tags, truncate to 500 chars (L2)
+- Removed reflected role from error message in admin-create-user (L3)
+- Added email format validation in admin-create-user (M4)
+- Fixed CORS strict origin check: don't set ACAO for unknown origins (L4)
+- Added skip-to-content link in DashboardLayout (WCAG 2.4.1)
+- Added id="main-content" to <main> element
+- Added aria-hidden="true" to sidebar overlay div
+- Added aria-label on user menu dropdown trigger
+- Fixed demo banner link contrast (amber-100 → amber-900)
+- Translated all sr-only strings to French: Close→Fermer, Previous/Next slide→Diapositive précédente/suivante, More pages→Plus de pages, More→Plus, Toggle Sidebar→Basculer le menu latéral
+- Added role="status" and aria-live="polite" to OfflineIndicator
+- Added role="alert" and aria-live="assertive" to OfflineBanner
+- Build verification: 0 TypeScript errors, Vite build OK, 213/213 tests pass
+
+Stage Summary:
+- Commit 76bb3ea pushed to main
+- 12 files changed, 81 insertions, 42 deletions
+- All 4 LOW security issues resolved (L1-L4)
+- Plus 1 MEDIUM (M4 - email validation)
+- Key accessibility fixes: skip-to-content, sr-only French, aria-live, contrast
+- Full audit score: CRITICAL 5/5, HIGH 7/7, MEDIUM 8/8, LOW 4/4 — all resolved
