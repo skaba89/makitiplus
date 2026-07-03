@@ -13,6 +13,7 @@
 //   - The Edge Function is needed because pg_cron cannot send emails
 
 import { getCorsHeaders, corsOptionsResponse } from '../_shared/cors.ts';
+import { timingSafeEqual } from '../_shared/timingSafeEqual.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return corsOptionsResponse(req);
@@ -32,7 +33,7 @@ Deno.serve(async (req) => {
   if (!cronSecret) {
     return new Response(JSON.stringify({ error: 'CRON_SECRET not configured' }), { status: 500, headers });
   }
-  if (providedKey !== cronSecret && providedKey !== serviceKey) {
+  if (!timingSafeEqual(providedKey ?? '', cronSecret) && !timingSafeEqual(providedKey ?? '', serviceKey)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers });
   }
 
@@ -211,7 +212,7 @@ Deno.serve(async (req) => {
   } catch (err) {
     console.error('[subscription-lifecycle] Fatal error:', err);
     return new Response(
-      JSON.stringify({ error: 'Lifecycle processing failed', details: String(err) }),
+      JSON.stringify({ error: 'Lifecycle processing failed' }),
       { status: 500, headers }
     );
   }

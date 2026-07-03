@@ -1,5 +1,6 @@
 import { createContext, useContext, ReactNode, useMemo } from "react";
 import { toast } from "sonner";
+import { reportError } from "@/lib/sentry";
 
 /**
  * DemoContext — Global demo mode for MakitiPlus
@@ -45,8 +46,8 @@ function detectDemoMode(): boolean {
     if (stored === "true") {
       return true;
     }
-  } catch {
-    // localStorage may be unavailable
+  } catch (e) {
+    reportError(e);
   }
 
   return false;
@@ -92,8 +93,8 @@ export const setDemoMode = (enabled: boolean) => {
     } else {
       localStorage.removeItem("makitiplus_demo_mode");
     }
-  } catch {
-    // localStorage may be unavailable
+  } catch (e) {
+    reportError(e);
   }
 };
 

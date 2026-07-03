@@ -230,7 +230,7 @@ function generateClassicReceipt(data: ReceiptData, doc: jsPDF, config: typeof PA
   // Helpers
   const centerText = (text: string, yPos: number, fontSize = config.baseFontSize, bold = false) => {
     doc.setFontSize(fontSize);
-    doc.setFont("helvetica", bold ? "bold" : "normal");
+    setPdfFont(doc, bold ? "bold" : "normal");
     const tw = doc.getTextWidth(text);
     doc.text(text, (pw - tw) / 2, yPos);
   };
@@ -444,7 +444,7 @@ function generateMinimalReceipt(data: ReceiptData, doc: jsPDF, config: typeof PA
 
   const centerText = (text: string, yPos: number, fontSize = config.baseFontSize, bold = false) => {
     doc.setFontSize(fontSize);
-    doc.setFont("helvetica", bold ? "bold" : "normal");
+    setPdfFont(doc, bold ? "bold" : "normal");
     const tw = doc.getTextWidth(text);
     doc.text(text, (pw - tw) / 2, yPos);
   };
@@ -533,7 +533,7 @@ function generateDetailedReceipt(data: ReceiptData, doc: jsPDF, config: typeof P
 
   const centerText = (text: string, yPos: number, fontSize = config.baseFontSize, bold = false) => {
     doc.setFontSize(fontSize);
-    doc.setFont("helvetica", bold ? "bold" : "normal");
+    setPdfFont(doc, bold ? "bold" : "normal");
     const tw = doc.getTextWidth(text);
     doc.text(text, (pw - tw) / 2, yPos);
   };
@@ -760,7 +760,7 @@ function generateAfricanReceipt(data: ReceiptData, doc: jsPDF, config: typeof PA
 
   const centerText = (text: string, yPos: number, fontSize = config.baseFontSize, bold = false) => {
     doc.setFontSize(fontSize);
-    doc.setFont("helvetica", bold ? "bold" : "normal");
+    setPdfFont(doc, bold ? "bold" : "normal");
     const tw = doc.getTextWidth(text);
     doc.text(text, (pw - tw) / 2, yPos);
   };

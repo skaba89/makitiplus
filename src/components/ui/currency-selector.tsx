@@ -13,6 +13,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { UNIQUE_CURRENCIES, DEFAULT_CURRENCY, getCurrencyByCode } from "@/utils/currencies";
 import { useToast } from "@/hooks/use-toast";
 import { Coins } from "lucide-react";
+import { reportError } from "@/lib/sentry";
 
 interface CurrencySelectorProps {
   /** "compact" = just the symbol badge with dropdown; "full" = label + dropdown */
@@ -51,7 +52,8 @@ export const CurrencySelector = ({
         title: "Devise mise à jour",
         description: `La devise est maintenant ${newCurrency?.name || code} (${newCurrency?.symbol || code})`,
       });
-    } catch {
+    } catch (e) {
+      reportError(e);
       toast({
         variant: "destructive",
         title: "Erreur",

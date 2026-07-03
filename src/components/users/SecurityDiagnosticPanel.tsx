@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ShieldCheck, Loader2, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { reportError } from "@/lib/sentry";
 
 type CheckResult = {
   name: string;
@@ -37,6 +38,7 @@ export const SecurityDiagnosticPanel = () => {
         detail: error?.message,
       });
     } catch (e: unknown) {
+      reportError(e);
       const message = e instanceof Error ? e.message : String(e);
       out.push({ name: "Lecture audit (admin)", description: "", status: "fail", detail: message });
     }
@@ -53,6 +55,7 @@ export const SecurityDiagnosticPanel = () => {
         detail: error?.message,
       });
     } catch (e: unknown) {
+      reportError(e);
       const message = e instanceof Error ? e.message : String(e);
       out.push({ name: "Lecture conflits (admin)", description: "", status: "fail", detail: message });
     }
@@ -68,6 +71,7 @@ export const SecurityDiagnosticPanel = () => {
         detail: error?.message ?? `is_active=${row?.is_active}`,
       });
     } catch (e: unknown) {
+      reportError(e);
       const message = e instanceof Error ? e.message : String(e);
       out.push({ name: "RPC check_account_status", description: "", status: "fail", detail: message });
     }
@@ -93,6 +97,7 @@ export const SecurityDiagnosticPanel = () => {
         detail: `role=${roleRow?.role ?? "aucun"}`,
       });
     } catch (e: unknown) {
+      reportError(e);
       const message = e instanceof Error ? e.message : String(e);
       out.push({ name: "Rôle admin confirmé", description: "", status: "fail", detail: message });
     }
@@ -124,6 +129,7 @@ export const SecurityDiagnosticPanel = () => {
         });
       }
     } catch (e: unknown) {
+      reportError(e);
       const message = e instanceof Error ? e.message : String(e);
       out.push({ name: "Audit immuable", description: "", status: "warn", detail: message });
     }

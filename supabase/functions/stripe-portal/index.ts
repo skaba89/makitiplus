@@ -1,7 +1,7 @@
 // stripe-portal — Creates a Stripe Customer Portal session
 // Allows users to manage their subscription (upgrade, cancel, update payment method)
 
-import { getCorsHeaders, corsOptionsResponse } from '../_shared/cors.ts';
+import { getCorsHeaders, corsOptionsResponse, validateOrigin } from '../_shared/cors.ts';
 
 const STRIPE_API = 'https://api.stripe.com/v1';
 
@@ -117,7 +117,7 @@ Deno.serve(async (req) => {
     }
 
     // 3. Create Customer Portal session
-    const origin = req.headers.get('origin') ?? 'https://makitiplus.onrender.com';
+    const origin = validateOrigin(req);
     const returnUrl = `${origin}/dashboard/billing`;
 
     const session = await stripeRequest('/billing_portal/sessions', 'POST', {

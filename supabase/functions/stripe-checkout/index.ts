@@ -1,7 +1,7 @@
 // stripe-checkout — Creates a Stripe Checkout session for subscription
 // Called from frontend when user clicks "Subscribe" on pricing page
 
-import { getCorsHeaders, corsOptionsResponse } from '../_shared/cors.ts';
+import { getCorsHeaders, corsOptionsResponse, validateOrigin } from '../_shared/cors.ts';
 
 const STRIPE_API = 'https://api.stripe.com/v1';
 
@@ -161,9 +161,9 @@ Deno.serve(async (req) => {
     }
 
     // 6. Create Checkout Session
-    const origin = req.headers.get('origin') ?? 'https://makitiplus.onrender.com';
-    const successUrl = body.successUrl ?? `${origin}/dashboard/billing?checkout=success`;
-    const cancelUrl = body.cancelUrl ?? `${origin}/dashboard/billing?checkout=canceled`;
+    const origin = validateOrigin(req);
+    const successUrl = body.successUrl?.startsWith(origin) ? body.successUrl : `${origin}/dashboard/billing?checkout=success`;
+    const cancelUrl = body.cancelUrl?.startsWith(origin) ? body.cancelUrl : `${origin}/dashboard/billing?checkout=canceled`;
 
     const session = await stripeRequest('/checkout/sessions', 'POST', {
       customer: customerId,
@@ -190,7 +190,7 @@ Deno.serve(async (req) => {
 
   } catch (err) {
     console.error('[stripe-checkout] Error:', (err as Error).message);
-    return new Response(JSON.stringify({ error: (err as Error).message }), {
+    return new Response(JSON.stringify({ error: 'Erreur lors de la création de la session de paiement' }), {
       status: 500,
       headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
     });

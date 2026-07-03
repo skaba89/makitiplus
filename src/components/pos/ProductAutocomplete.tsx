@@ -9,6 +9,7 @@ import { useOrgTaxRate } from "@/hooks/useOrgTaxRate";
 import { computeTax } from "@/lib/taxUtils";
 import { cn } from "@/lib/utils";
 import { useProductSearch, lookupBarcode } from "@/hooks/useProductSearch";
+import { reportError } from "@/lib/sentry";
 
 type Product = Database["public"]["Tables"]["products"]["Row"] & {
   categories?: { name: string; color: string | null; icon: string | null } | null;
@@ -100,8 +101,9 @@ export const ProductAutocomplete = ({
           if (found && found.stock_quantity > 0) {
             handleAdd(found as Product, true);
           }
-        } catch {
-          // Barcode not found — silently ignore
+        } catch (e) {
+          // Barcode not found — report but don't disrupt UX
+          reportError(e);
         }
       }
       return;

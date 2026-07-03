@@ -22,6 +22,7 @@ import {
 } from "@/utils/receiptGenerator";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
+import { reportError } from "@/lib/sentry";
 import {
   enqueueOrSendReceipt,
   isOnline,
@@ -159,7 +160,8 @@ export const ReceiptActionsDialog = ({
         description: "Le ticket a été copié dans le presse-papiers",
       });
       setTimeout(() => setCopied(false), 2000);
-    } catch {
+    } catch (e) {
+      reportError(e);
       toast({
         variant: "destructive",
         title: "Échec de la copie",

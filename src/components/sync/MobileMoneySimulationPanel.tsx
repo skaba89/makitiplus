@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
+import { reportError } from "@/lib/sentry";
 
 const STORAGE_KEY = "malikiplus:mobile_money_sim";
 
@@ -58,7 +59,7 @@ const load = (): MMTransaction[] => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
+  } catch (e) { reportError(e); return []; }
 };
 const save = (tx: MMTransaction[]) => localStorage.setItem(STORAGE_KEY, JSON.stringify(tx));
 

@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, serviceKey);
 
-    // Get user's org
+    // Get user's org + role
     const { data: profile } = await adminClient
       .from('profiles')
       .select('organization_id')
@@ -83,6 +83,17 @@ Deno.serve(async (req) => {
 
     if (!profile?.organization_id) {
       return new Response(JSON.stringify({ error: 'No organization found' }), { status: 403, headers: jsonHeaders });
+    }
+
+    // Verify user has a role that can send WhatsApp messages
+    const { data: roleRow } = await adminClient
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    const allowedRoles = ['super_admin', 'admin', 'manager', 'vendeur'];
+    if (!roleRow || !allowedRoles.includes(roleRow.role)) {
+      return new Response(JSON.stringify({ error: 'Rôle insuffisant pour envoyer des messages WhatsApp' }), { status: 403, headers: jsonHeaders });
     }
 
     // ── Load WhatsApp config ──────────────────────────────────────

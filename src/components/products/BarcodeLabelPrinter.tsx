@@ -12,6 +12,7 @@ import {
 import { Printer, Download } from "lucide-react";
 import { useState, useCallback } from "react";
 import { useCurrency } from "@/hooks/useCurrency";
+import { reportError } from "@/lib/sentry";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -76,7 +77,8 @@ async function renderBarcodeToCanvas(barcodeValue: string): Promise<string | nul
     });
     if (canvas.width === 0 || canvas.height === 0) return null;
     return canvas.toDataURL("image/png");
-  } catch {
+  } catch (e) {
+    reportError(e);
     return null;
   }
 }
@@ -317,8 +319,8 @@ export const BarcodeLabelPrinter = ({
                                   margin: 1,
                                   textMargin: 0,
                                 });
-                              } catch {
-                                // Invalid barcode — ignore
+                              } catch (e) {
+                                reportError(e);
                               }
                             });
                           }

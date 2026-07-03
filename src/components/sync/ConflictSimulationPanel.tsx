@@ -184,7 +184,7 @@ function downloadBlob(content: BlobPart, mime: string, filename: string) {
 }
 
 async function exportPDF(results: SimResult[]) {
-  const { jsPDF } = await import("jspdf");
+  const { default: jsPDF } = await import("jspdf");
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   await ensurePdfFont(doc);
   const margin = 40;

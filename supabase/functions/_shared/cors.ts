@@ -29,3 +29,14 @@ export function getCorsHeaders(req: Request): Record<string, string> {
 export function corsOptionsResponse(req: Request): Response {
   return new Response(null, { status: 204, headers: getCorsHeaders(req) });
 }
+
+/**
+ * Validate that an origin or URL belongs to an allowed domain.
+ * Returns the validated origin or the default production URL.
+ * Prevents open redirect attacks on Stripe checkout/portal callbacks.
+ */
+export function validateOrigin(req: Request): string {
+  const origin = req.headers.get("Origin") ?? "";
+  if (origin && ALLOWED_ORIGINS.includes(origin)) return origin;
+  return "https://makitiplus.onrender.com";
+}
