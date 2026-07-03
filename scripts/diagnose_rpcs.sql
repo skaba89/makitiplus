@@ -4,11 +4,11 @@
 -- ═══════════════════════════════════════════════════════════════════════════════
 
 -- 1. Lister TOUTES les fonctions dans le schéma public
-SELECT proname, oid::regprocedure AS signature
+SELECT p.proname, p.oid::regprocedure AS signature
 FROM pg_proc p
 JOIN pg_namespace n ON n.oid = p.pronamespace
 WHERE n.nspname = 'public'
-ORDER BY proname;
+ORDER BY p.proname;
 
 -- 2. Vérification des 39 RPCs attendues
 SELECT
