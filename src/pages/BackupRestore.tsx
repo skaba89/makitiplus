@@ -12,9 +12,11 @@
  */
 
 import { useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDemo } from "@/contexts/DemoContext";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { FeatureGate } from "@/components/saas/PlanLimitGuard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -75,6 +77,7 @@ import {
   Database,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { reportError } from "@/lib/sentry";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 
@@ -154,7 +157,9 @@ function typeBadge(type: BackupType) {
 // ─── Component ──────────────────────────────────────────────
 
 const BackupRestore = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
+  const { blockMutation } = useDemo();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -365,7 +370,7 @@ const BackupRestore = () => {
               La sauvegarde et restauration de données est disponible à partir du plan Enterprise.
               Protégez vos données contre les pertes accidentelles.
             </p>
-            <Button onClick={() => (window.location.hash = "/dashboard/billing")}>
+            <Button onClick={() => (navigate("/dashboard/billing"))}>
               Voir les abonnements
             </Button>
           </div>
@@ -699,7 +704,7 @@ const BackupRestore = () => {
                 Annuler
               </Button>
               <Button
-                onClick={() => createBackupMutation.mutate()}
+                onClick={() => { if (blockMutation("Créer une sauvegarde")) return; createBackupMutation.mutate(); }}
                 disabled={createBackupMutation.isPending}
                 className="gap-2"
               >
@@ -765,6 +770,7 @@ const BackupRestore = () => {
               <AlertDialogAction
                 onClick={() => {
                   if (selectedBackup) {
+                    if (blockMutation("Restaurer la sauvegarde")) return;
                     restoreBackupMutation.mutate(selectedBackup.id);
                   }
                 }}
@@ -805,6 +811,7 @@ const BackupRestore = () => {
               <AlertDialogAction
                 onClick={() => {
                   if (selectedBackup) {
+                    if (blockMutation("Supprimer la sauvegarde")) return;
                     deleteBackupMutation.mutate(selectedBackup.id);
                   }
                 }}

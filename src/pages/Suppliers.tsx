@@ -135,7 +135,7 @@ const Suppliers = () => {
     mutationFn: async (data: typeof formData) => {
       const insertData: Record<string, unknown> = {
         ...data,
-        user_id: user!.id,
+        user_id: user?.id ?? "",
       };
       if (profile?.organization_id) {
         insertData.organization_id = profile.organization_id;

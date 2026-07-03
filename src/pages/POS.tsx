@@ -237,7 +237,7 @@ const POS = () => {
 
         if (customerId) {
           const creditInsert: Record<string, unknown> = {
-            user_id: user!.id,
+            user_id: user?.id ?? "",
             customer_id: customerId,
             sale_id: sale.id,
             amount: totalAmount,

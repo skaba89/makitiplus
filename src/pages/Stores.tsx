@@ -50,6 +50,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { reportError } from "@/lib/sentry";
 import { StoresPageSkeleton } from "@/components/skeletons/PageSkeletons";
 import {
   Store,

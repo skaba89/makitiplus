@@ -14,6 +14,7 @@ export function requireMethod(req: Request, allowed: string | string[]): Respons
     status: 405,
     headers: {
       'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': req.headers.get('Origin') ?? '*',
       Allow: methods.join(', '),
     },
   });

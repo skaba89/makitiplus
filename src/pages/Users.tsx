@@ -66,6 +66,7 @@ import { ResetTokensPanel } from "@/components/users/ResetTokensPanel";
 import { PasswordStrengthMeter } from "@/components/users/PasswordStrengthMeter";
 import { UsersPageSkeleton } from "@/components/skeletons/PageSkeletons";
 import { checkPassword } from "@/lib/passwordPolicy";
+import { reportError } from "@/lib/sentry";
 import { AdminActionResponse, ResetLinkResponse, isAdminRole } from "@/types";
 import {
   Loader2,

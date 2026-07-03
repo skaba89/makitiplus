@@ -1,4 +1,4 @@
- import { useState, useMemo } from "react";
+ import { useState } from "react";
  import { useMutation, useQueryClient } from "@tanstack/react-query";
  import { supabase } from "@/integrations/supabase/client";
  import { useAuth } from "@/contexts/AuthContext";
@@ -123,7 +123,7 @@ const Expenses = () => {
   // Stats via RPC hook
   const { data: expenseStats } = useExpenseStats();
  
-   const canModify = userRole === 'admin' || userRole === 'manager' || userRole === 'super_admin' || userRole === 'comptable';
+   const canModify = userRole !== null && FINANCIAL_ROLES.includes(userRole);
 
    const createExpenseMutation = useMutation({
      mutationFn: async () => {
@@ -132,7 +132,7 @@ const Expenses = () => {
          throw new Error("Montant invalide");
        }
        const insertData: Record<string, unknown> = {
-         user_id: user!.id,
+         user_id: user?.id ?? "",
          amount: numAmount,
          category,
          payment_method: paymentMethod,

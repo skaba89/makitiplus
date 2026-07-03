@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { BRAND_DEFAULTS } from "@/constants/brandDefaults";
+import { reportError } from "@/lib/sentry";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -71,6 +72,7 @@ export const BrandingSettings = () => {
       await updateBranding(updates);
       toast({ title: "Personnalisation enregistrée" });
     } catch (err) {
+      reportError(err instanceof Error ? err : new Error(String(err)));
       toast({
         variant: "destructive",
         title: "Erreur",
@@ -99,6 +101,7 @@ export const BrandingSettings = () => {
       await uploadLogo(file);
       toast({ title: "Logo mis à jour" });
     } catch (err) {
+      reportError(err instanceof Error ? err : new Error(String(err)));
       toast({
         variant: "destructive",
         title: "Erreur",
@@ -114,6 +117,7 @@ export const BrandingSettings = () => {
       await removeLogo();
       toast({ title: "Logo supprimé" });
     } catch (err) {
+      reportError(err instanceof Error ? err : new Error(String(err)));
       toast({
         variant: "destructive",
         title: "Erreur",

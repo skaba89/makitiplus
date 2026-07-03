@@ -3,7 +3,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Loader2, CreditCard, Crown, AlertTriangle } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { reportError } from "@/lib/sentry";
+import { useToast } from "@/hooks/use-toast";
 
 interface SubscriptionInfo {
   plan: string;
@@ -21,6 +24,8 @@ export const SubscriptionCard = () => {
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [portalLoading, setPortalLoading] = useState(false);
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchSubscription();
@@ -31,19 +36,19 @@ export const SubscriptionCard = () => {
       const { data, error } = await supabase.rpc("get_organization_subscription");
 
       if (error) {
-        console.error("Failed to fetch subscription:", error);
+        reportError(error);
         return;
       }
 
       if (data) {
         setSubscription({
           plan: data.plan ?? "starter",
-          expiresAt: data.expires_at ?? null,
-          stripeCustomerId: data.stripe_customer_id ?? null,
+          expiresAt: data.expiresAt ?? null,
+          stripeCustomerId: data.stripeCustomerId ?? null,
         });
       }
     } catch (err) {
-      console.error("Subscription fetch error:", err);
+      reportError(err instanceof Error ? err : new Error(String(err)));
     } finally {
       setLoading(false);
     }
@@ -55,7 +60,8 @@ export const SubscriptionCard = () => {
       const { data, error } = await supabase.functions.invoke("stripe-portal");
 
       if (error) {
-        alert("Erreur lors de l'ouverture du portail. Veuillez réessayer.");
+        reportError(error);
+        toast({ title: "Erreur", description: "Erreur lors de l'ouverture du portail. Veuillez réessayer.", variant: "destructive" });
         return;
       }
 
@@ -63,8 +69,8 @@ export const SubscriptionCard = () => {
         window.location.href = data.url;
       }
     } catch (err) {
-      console.error("Portal error:", err);
-      alert("Erreur de connexion. Veuillez réessayer.");
+      reportError(err instanceof Error ? err : new Error(String(err)));
+      toast({ title: "Erreur", description: "Erreur de connexion. Veuillez réessayer.", variant: "destructive" });
     } finally {
       setPortalLoading(false);
     }
@@ -146,7 +152,7 @@ export const SubscriptionCard = () => {
             <Button
               variant="default"
               className="w-full"
-              onClick={() => (window.location.href = "/pricing")}
+              onClick={() => navigate("/pricing")}
             >
               <Crown className="w-4 h-4 mr-2" />
               Voir les offres

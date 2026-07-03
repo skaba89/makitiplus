@@ -59,6 +59,7 @@ import {
   Eye,
 } from "lucide-react";
 import { useCurrency } from "@/hooks/useCurrency";
+import { reportError } from "@/lib/sentry";
 import { FeatureGate } from "@/components/saas/PlanLimitGuard";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";

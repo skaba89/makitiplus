@@ -15,7 +15,7 @@
 import { logger } from "./logger";
 
 const DB_NAME = "malikiplus_offline";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 /** Store names — each maps to an IndexedDB object store */
 export const STORES = {

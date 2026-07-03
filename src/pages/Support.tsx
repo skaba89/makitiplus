@@ -14,6 +14,7 @@ import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDemo } from "@/contexts/DemoContext";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -58,6 +59,7 @@ import {
   Headphones,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { reportError } from "@/lib/sentry";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import type { TicketStatus, TicketPriority, TicketCategory } from "@/types";
@@ -189,6 +191,7 @@ function categoryLabel(category: TicketCategory): string {
 
 const Support = () => {
   const { user } = useAuth();
+  const { blockMutation } = useDemo();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -589,7 +592,7 @@ const Support = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => closeTicketMutation.mutate(selectedTicket.id)}
+                        onClick={() => { if (blockMutation("Fermer le ticket")) return; closeTicketMutation.mutate(selectedTicket.id); }}
                         disabled={closeTicketMutation.isPending}
                         className="gap-1 shrink-0"
                       >
@@ -683,6 +686,7 @@ const Support = () => {
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && !e.shiftKey && newMessage.trim()) {
                             e.preventDefault();
+                            if (blockMutation("Envoyer un message")) return;
                             sendMessageMutation.mutate();
                           }
                         }}
@@ -690,7 +694,7 @@ const Support = () => {
                         className="flex-1"
                       />
                       <Button
-                        onClick={() => sendMessageMutation.mutate()}
+                        onClick={() => { if (blockMutation("Envoyer un message")) return; sendMessageMutation.mutate(); }}
                         disabled={!newMessage.trim() || sendMessageMutation.isPending}
                         size="icon"
                       >
@@ -845,7 +849,7 @@ const Support = () => {
               Annuler
             </Button>
             <Button
-              onClick={() => createTicketMutation.mutate()}
+              onClick={() => { if (blockMutation("Créer un ticket")) return; createTicketMutation.mutate(); }}
               disabled={!newSubject.trim() || !newDescription.trim() || createTicketMutation.isPending}
               className="gap-2"
             >

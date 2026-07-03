@@ -77,10 +77,14 @@ export const SecurityDiagnosticPanel = () => {
       // On vérifie qu'on a bien le rôle admin via has_role
       const { data: userData } = await supabase.auth.getUser();
       const uid = userData.user?.id;
+      if (!uid) {
+        out.push({ name: "Rôle admin confirmé", description: "Impossible de vérifier — utilisateur non connecté", status: "fail" });
+        return out;
+      }
       const { data: roleRow } = await supabase
         .from("user_roles")
         .select("role")
-        .eq("user_id", uid!)
+        .eq("user_id", uid)
         .maybeSingle();
       out.push({
         name: "Rôle admin confirmé",

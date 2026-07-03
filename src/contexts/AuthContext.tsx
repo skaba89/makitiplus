@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
-import { setSentryUserContext, clearSentryUserContext } from "@/lib/sentry";
+import { setSentryUserContext, clearSentryUserContext, reportError } from "@/lib/sentry";
 import { isAdminRole } from "@/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];

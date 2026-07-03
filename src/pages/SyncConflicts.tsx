@@ -10,6 +10,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { reportError } from "@/lib/sentry";
 import {
   Loader2, GitMerge, CheckCircle2, AlertTriangle, RefreshCw, Smartphone,
   ShieldCheck, ChevronDown, ChevronRight, WifiOff, Database as DbIcon,
@@ -21,7 +22,6 @@ import { OfflinePOSSimulationPanel } from "@/components/sync/OfflinePOSSimulatio
 import { MobileMoneySimulationPanel } from "@/components/sync/MobileMoneySimulationPanel";
 import { ReceiptDeliveryTrackingPanel } from "@/components/sync/ReceiptDeliveryTrackingPanel";
 import { ReceiptDeliveryMergeLogPanel } from "@/components/sync/ReceiptDeliveryMergeLogPanel";
-import { SyncConflictRow } from "@/types";
 
 interface ConflictRow {
   id: string;
@@ -66,7 +66,7 @@ const SyncConflicts = () => {
   const { toast } = useToast();
 
   // Only super_admin and admin should access this page
-  if (userRole !== 'super_admin' && userRole !== 'admin') {
+  if (!userRole || !ADMIN_ROLES.includes(userRole)) {
     return (
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">

@@ -238,7 +238,7 @@ const PurchaseOrders = () => {
           tax_amount: taxAmount,
           total_amount: subtotal + taxAmount,
           currency: "GNF",
-          created_by: user!.id,
+          created_by: user?.id ?? "",
         })
         .select()
         .single();

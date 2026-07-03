@@ -38,6 +38,7 @@ import {
   Languages,
   Tag,
 } from "lucide-react";
+import { BRAND_DEFAULTS } from "@/constants/brandDefaults";
 
 /* ------------------------------------------------------------------ */
 /*  Utilities                                                          */

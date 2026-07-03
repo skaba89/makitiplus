@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { FeatureGate } from "@/components/saas/PlanLimitGuard";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDemo } from "@/contexts/DemoContext";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -60,6 +61,7 @@ const TIER_CONFIG: Record<LoyaltyTier, { label: string; color: string; icon: typ
 
 const Loyalty = () => {
   const { user } = useAuth();
+  const { blockMutation } = useDemo();
   const { formatPrice } = useCurrency();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -198,8 +200,9 @@ const Loyalty = () => {
 
   const redeemMutation = useMutation({
     mutationFn: async () => {
+      if (!selectedMember?.customer_id) throw new Error("Aucun membre sélectionné");
       const { error } = await supabase.rpc("redeem_loyalty_points", {
-        p_customer_id: selectedMember!.customer_id,
+        p_customer_id: selectedMember.customer_id,
         p_points: redeemPoints,
         p_description: redeemDescription || null,
       });
@@ -535,10 +538,10 @@ const Loyalty = () => {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => toggleRewardMutation.mutate({
+                              onClick={() => { if (blockMutation("Modifier la récompense")) return; toggleRewardMutation.mutate({
                                 id: reward.id,
                                 isActive: reward.is_active,
-                              })}
+                              }); }}
                               className="gap-1"
                             >
                               {reward.is_active ? (
@@ -645,7 +648,7 @@ const Loyalty = () => {
                   Annuler
                 </Button>
                 <Button
-                  onClick={() => redeemMutation.mutate()}
+                  onClick={() => { if (blockMutation("Échanger des points")) return; redeemMutation.mutate(); }}
                   disabled={redeemMutation.isPending || redeemPoints <= 0 || redeemPoints > (selectedMember?.points_balance ?? 0)}
                 >
                   {redeemMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
@@ -716,7 +719,7 @@ const Loyalty = () => {
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsRewardFormOpen(false)}>Annuler</Button>
                 <Button
-                  onClick={() => saveRewardMutation.mutate()}
+                  onClick={() => { if (blockMutation("Sauvegarder la récompense")) return; saveRewardMutation.mutate(); }}
                   disabled={saveRewardMutation.isPending || !rewardName || rewardPoints <= 0}
                 >
                   {saveRewardMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}

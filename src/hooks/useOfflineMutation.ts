@@ -115,7 +115,7 @@ export function useOfflineMutation<TData = unknown>(
         case "INSERT":
           result = await supabase
             .from(table as never)
-            .insert({ ...mutationData.data, user_id: user!.id } as never)
+            .insert({ ...mutationData.data, user_id: user?.id ?? "" } as never)
             .select()
             .single();
           break;

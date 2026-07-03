@@ -29,7 +29,10 @@ Deno.serve(async (req) => {
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
   const providedKey = authHeader?.replace('Bearer ', '');
-  if (cronSecret && providedKey !== cronSecret && providedKey !== serviceKey) {
+  if (!cronSecret) {
+    return new Response(JSON.stringify({ error: 'CRON_SECRET not configured' }), { status: 500, headers });
+  }
+  if (providedKey !== cronSecret && providedKey !== serviceKey) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers });
   }
 
@@ -224,16 +227,23 @@ async function sendLifecycleEmail(
   eventType: string,
 ): Promise<void> {
   try {
-    // Get org admin email
+    // Get org admin profile
     const { data: profile } = await adminClient
       .from('profiles')
-      .select('email, owner_name, business_name, organization_id')
+      .select('user_id, owner_name, business_name, organization_id')
       .eq('organization_id', orgId)
       .limit(1)
       .maybeSingle();
 
-    if (!profile?.email) {
-      console.warn(`[subscription-lifecycle] No email found for org ${orgId}`);
+    if (!profile?.user_id) {
+      console.warn(`[subscription-lifecycle] No profile found for org ${orgId}`);
+      return;
+    }
+
+    // Get email from auth.users
+    const { data: { user } } = await adminClient.auth.admin.getUserById(profile.user_id);
+    if (!user?.email) {
+      console.warn(`[subscription-lifecycle] No email found for user ${profile.user_id}`);
       return;
     }
 
@@ -248,7 +258,7 @@ async function sendLifecycleEmail(
       },
       body: JSON.stringify({
         from: 'MakitiPlus <noreply@makitiplus.com>',
-        to: profile.email,
+        to: user.email,
         subject,
         html,
       }),

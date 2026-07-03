@@ -53,6 +53,7 @@ export const Pricing = () => {
     setLoadingPlan(planKey);
 
     try {
+  const navigate = useNavigate();
       const { data, error } = await supabase.functions.invoke('stripe-checkout', {
         body: { planKey },
       });
@@ -61,7 +62,7 @@ export const Pricing = () => {
         console.error('Checkout error:', error.message);
         // If not authenticated, redirect to sign up
         if (error.message.includes('authorization') || error.message.includes('session')) {
-          window.location.href = '/auth?redirect=pricing';
+          navigate('/auth?redirect=pricing');
           return;
         }
         alert('Erreur lors de la création du checkout. Veuillez réessayer.');

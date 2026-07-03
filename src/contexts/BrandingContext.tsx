@@ -237,7 +237,7 @@ export const BrandingProvider = ({ children }: { children: ReactNode }) => {
             ...(updates.themeMode !== undefined ? { theme_mode: updates.themeMode } : {}),
             ...(updates.language !== undefined ? { language: updates.language } : {}),
           })
-          .eq("user_id", user!.id);
+          .eq("user_id", user?.id ?? "");
       }
     } catch (err) {
       reportError(err instanceof Error ? err : new Error('[Branding] Failed to save: ' + String(err)));

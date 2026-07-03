@@ -716,7 +716,7 @@ export const archiveDuplicatesAsync = async (): Promise<number> => {
     }
     seen.set(key, winner);
   }
-  const updated = Array.from(seen.values());
+  const updated = [...queue];  // Keep all entries (including duplicates marked as "duplicate")
   await idbSave(updated);
   lsSave(updated);
   return archived;

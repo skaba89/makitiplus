@@ -145,7 +145,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       name: "Analyse Multi-Magasins",
       href: "/dashboard/admin-analytics",
       icon: AnalyticsIcon,
-      roles: ["super_admin"],
+      roles: STORE_ROLES,
     },
     {
       name: "Abonnement",

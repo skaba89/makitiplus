@@ -314,7 +314,7 @@ const App = () => {
             <Route
               path="/dashboard/admin-analytics"
               element={
-                <ProtectedRoute allowedRoles={STORE_ROLES}>
+                <ProtectedRoute allowedRoles={ADMIN_ROLES}>
                   <Suspense fallback={<PageLoader />}>
                     <AdminAnalytics />
                   </Suspense>

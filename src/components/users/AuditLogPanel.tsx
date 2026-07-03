@@ -15,7 +15,6 @@ import { Loader2, Search, X, History, Download } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Database } from "@/integrations/supabase/types";
-import { AuditLogEntry } from "@/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 

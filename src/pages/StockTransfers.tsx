@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useStore } from "@/contexts/StoreContext";
+import { useDemo } from "@/contexts/DemoContext";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useToast } from "@/hooks/use-toast";
 import { FeatureGate } from "@/components/saas/PlanLimitGuard";
@@ -121,6 +122,7 @@ interface TransferItem {
 
 const StockTransfers = () => {
   const { user, userRole } = useAuth();
+  const { blockMutation } = useDemo();
   const { stores, currentStore } = useStore();
   const { formatPrice } = useCurrency();
   const { toast } = useToast();
@@ -554,7 +556,7 @@ const StockTransfers = () => {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    onClick={() => sendMutation.mutate(transfer.id)}
+                                    onClick={() => { if (blockMutation("Envoyer le transfert")) return; sendMutation.mutate(transfer.id); }}
                                     disabled={sendMutation.isPending}
                                     title="Envoyer"
                                     className="text-amber-600 hover:text-amber-700"
@@ -783,7 +785,7 @@ const StockTransfers = () => {
                   Annuler
                 </Button>
                 <Button
-                  onClick={() => createMutation.mutate()}
+                  onClick={() => { if (blockMutation("Créer un transfert")) return; createMutation.mutate(); }}
                   disabled={
                     createMutation.isPending ||
                     !fromStoreId ||
@@ -958,7 +960,7 @@ const StockTransfers = () => {
                     <div className="flex items-center gap-2 pt-2">
                       {selectedTransfer.status === "draft" && canSend && (
                         <Button
-                          onClick={() => sendMutation.mutate(selectedTransfer.id)}
+                          onClick={() => { if (blockMutation("Envoyer le transfert")) return; sendMutation.mutate(selectedTransfer.id); }}
                           disabled={sendMutation.isPending}
                           className="gap-2"
                         >
@@ -985,7 +987,7 @@ const StockTransfers = () => {
                         )}
                       {receiveMode && (
                         <Button
-                          onClick={() => receiveMutation.mutate(selectedTransfer.id)}
+                          onClick={() => { if (blockMutation("Recevoir le transfert")) return; receiveMutation.mutate(selectedTransfer.id); }}
                           disabled={receiveMutation.isPending}
                           className="gap-2"
                         >
@@ -1049,7 +1051,7 @@ const StockTransfers = () => {
                   Non, garder
                 </AlertDialogCancel>
                 <AlertDialogAction
-                  onClick={() => cancelId && cancelMutation.mutate(cancelId)}
+                  onClick={() => { if (cancelId && !blockMutation("Annuler le transfert")) cancelMutation.mutate(cancelId); }}
                   disabled={cancelMutation.isPending}
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >

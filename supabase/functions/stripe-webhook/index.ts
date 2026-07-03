@@ -87,7 +87,11 @@ Deno.serve(async (req) => {
         headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     } else {
-      console.warn('[stripe-webhook] STRIPE_WEBHOOK_SECRET not set — skipping verification');
+      console.error('[stripe-webhook] STRIPE_WEBHOOK_SECRET not set — rejecting request');
+      return new Response(JSON.stringify({ error: 'Webhook not configured' }), {
+        status: 500,
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+      });
     }
 
     const event = JSON.parse(payload);

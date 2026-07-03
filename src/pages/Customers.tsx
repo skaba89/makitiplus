@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDemo } from "@/contexts/DemoContext";
+import { reportError } from "@/lib/sentry";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -105,7 +106,7 @@ const Customers = () => {
     mutationFn: async (data: typeof formData) => {
       const insertData: Record<string, unknown> = {
         ...data,
-        user_id: user!.id,
+        user_id: user?.id ?? "",
       };
       if (profile?.organization_id) {
         insertData.organization_id = profile.organization_id;
@@ -119,7 +120,8 @@ const Customers = () => {
       setIsFormOpen(false);
       resetForm();
     },
-    onError: () => {
+    onError: (error) => {
+      reportError(error);
       toast({ variant: "destructive", title: "Erreur", description: "Impossible d'ajouter le client" });
     },
   });
@@ -136,7 +138,8 @@ const Customers = () => {
       setSelectedCustomer(null);
       resetForm();
     },
-    onError: () => {
+    onError: (error) => {
+      reportError(error);
       toast({ variant: "destructive", title: "Erreur", description: "Impossible de modifier le client" });
     },
   });
@@ -150,7 +153,8 @@ const Customers = () => {
       queryClient.invalidateQueries({ queryKey: ["customers"] });
       toast({ title: "Client supprimé" });
     },
-    onError: () => {
+    onError: (error) => {
+      reportError(error);
       toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer le client" });
     },
   });
@@ -236,6 +240,7 @@ const Customers = () => {
                     });
                   }
                 } catch (err) {
+                  reportError(err instanceof Error ? err : new Error(String(err)));
                   toast({
                     variant: "destructive",
                     title: "Erreur d'export",

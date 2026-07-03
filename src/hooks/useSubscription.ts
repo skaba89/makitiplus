@@ -96,7 +96,7 @@ export function useSubscription() {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ["subscription"],
+    queryKey: ["subscription", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_organization_subscription");
       if (error) {

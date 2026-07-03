@@ -37,12 +37,12 @@ import {
 // ─── Types ────────────────────────────────────────────────────
 
 interface ChecklistData {
-  has_account: boolean;
-  has_store_configured: boolean;
-  has_products: boolean;
-  has_categories: boolean;
-  has_sales: boolean;
-  completion_pct: number;
+  hasAccount: boolean;
+  hasStoreConfigured: boolean;
+  hasProducts: boolean;
+  hasCategories: boolean;
+  hasSales: boolean;
+  completionPct: number;
 }
 
 interface ChecklistItem {
@@ -82,7 +82,7 @@ export function OnboardingChecklist() {
   });
 
   // Hide if dismissed or all complete
-  if (dismissed || !checklist || checklist.completion_pct >= 100) {
+  if (dismissed || !checklist || checklist.completionPct >= 100) {
     return null;
   }
 
@@ -91,7 +91,7 @@ export function OnboardingChecklist() {
       id: "account",
       label: "Compte créé",
       description: "Votre compte est prêt",
-      completed: checklist.has_account,
+      completed: checklist.hasAccount,
       icon: UserCheck,
       action: "",
       path: "",
@@ -100,7 +100,7 @@ export function OnboardingChecklist() {
       id: "store",
       label: "Boutique configurée",
       description: "Ajoutez le nom, la ville et la devise",
-      completed: checklist.has_store_configured,
+      completed: checklist.hasStoreConfigured,
       icon: Store,
       action: "Configurer",
       path: "/dashboard/settings",
@@ -109,7 +109,7 @@ export function OnboardingChecklist() {
       id: "products",
       label: "Produits ajoutés",
       description: "Ajoutez au moins un produit",
-      completed: checklist.has_products,
+      completed: checklist.hasProducts,
       icon: Package,
       action: "Ajouter",
       path: "/dashboard/products",
@@ -118,7 +118,7 @@ export function OnboardingChecklist() {
       id: "categories",
       label: "Catégories créées",
       description: "Organisez vos produits par catégorie",
-      completed: checklist.has_categories,
+      completed: checklist.hasCategories,
       icon: FolderOpen,
       action: "Créer",
       path: "/dashboard/categories",
@@ -127,7 +127,7 @@ export function OnboardingChecklist() {
       id: "first_sale",
       label: "Première vente",
       description: "Réalisez votre première vente au POS",
-      completed: checklist.has_sales,
+      completed: checklist.hasSales,
       icon: ShoppingCart,
       action: "Vendre",
       path: "/dashboard/pos",
@@ -178,7 +178,7 @@ export function OnboardingChecklist() {
           </Button>
         </div>
         <div className="flex items-center gap-3 mt-2">
-          <Progress value={checklist.completion_pct} className="flex-1 h-2" />
+          <Progress value={checklist.completionPct} className="flex-1 h-2" />
           <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">
             {completedCount}/5
           </span>
