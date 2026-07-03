@@ -1,96 +1,123 @@
-/**
- * Stripe Checkout Edge Function — Creates Stripe Checkout Sessions for MakitiPlus
- *
- * Called by the frontend when a user clicks "Upgrader" or selects a paid plan.
- * Creates a Stripe Checkout Session and returns the URL for redirect.
- *
- * Required metadata on the Checkout Session:
- *   - organization_id: To link the payment back to the org
- *   - plan_id: To know which plan was purchased
- *
- * The Stripe webhook (stripe-webhook) handles the checkout.session.completed
- * event and activates the subscription.
- */
+// stripe-checkout — Creates a Stripe Checkout session for subscription
+// Called from frontend when user clicks "Subscribe" on pricing page
 
 import { getCorsHeaders, corsOptionsResponse } from '../_shared/cors.ts';
-import { requireMethod } from '../_shared/httpMethodGuard.ts';
-import { createRateLimiter } from '../_shared/rateLimiter.ts';
-import { requireAdminContext } from '../_shared/orgScope.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.93.3';
 
-const limiter = createRateLimiter('stripe-checkout', { maxRequests: 10, windowMs: 300_000 });
+const STRIPE_API = 'https://api.stripe.com/v1';
 
-// Stripe Price IDs — set in Supabase Edge Function environment variables
-// Format: STRIPE_PRICE_<PLAN_ID>_MONTHLY / STRIPE_PRICE_<PLAN_ID>_YEARLY
-function getPriceId(planId: string, billing: 'monthly' | 'yearly'): string | null {
-  const key = `STRIPE_PRICE_${planId.toUpperCase()}_${billing.toUpperCase()}`;
-  return Deno.env.get(key) || null;
+// Price IDs (set in Supabase Edge Function secrets)
+// These map to your Stripe product prices
+const PRICE_IDS: Record<string, string> = {
+  croissance: Deno.env.get('STRIPE_PRICE_ID_CROISSANCE') ?? '',
+  enterprise: Deno.env.get('STRIPE_PRICE_ID_ENTERPRISE') ?? '',
+};
+
+interface CheckoutRequest {
+  priceId?: string;       // Direct Stripe price ID (alternative to planKey)
+  planKey: string;        // 'croissance' or 'enterprise'
+  successUrl?: string;
+  cancelUrl?: string;
+}
+
+async function stripeRequest(
+  path: string,
+  method: string = 'POST',
+  body?: Record<string, string>,
+) {
+  const secretKey = Deno.env.get('STRIPE_SECRET_KEY');
+  if (!secretKey) throw new Error('STRIPE_SECRET_KEY not configured');
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${secretKey}`,
+  };
+
+  let fetchOptions: RequestInit = { method };
+
+  if (body) {
+    headers['Content-Type'] = 'application/x-www-form-urlencoded';
+    fetchOptions.body = new URLSearchParams(body).toString();
+  }
+
+  fetchOptions.headers = headers;
+
+  const res = await fetch(`${STRIPE_API}${path}`, fetchOptions);
+  const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(data.error?.message ?? `Stripe API error: ${res.status}`);
+  }
+
+  return data;
 }
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return corsOptionsResponse(req);
 
-  const methodErr = requireMethod(req, 'POST');
-  if (methodErr) return methodErr;
-
-  const corsHeaders = getCorsHeaders(req);
-
-  // Rate limiting
-  const rateResult = await limiter.check(req);
-  if (!rateResult.allowed) {
-    return limiter.addHeaders(
-      new Response(JSON.stringify({ error: rateResult.error }), {
-        status: 429,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }),
-      rateResult,
-    );
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+    });
   }
 
   try {
-    // Require admin context — only admins can initiate checkout
-    const ctx = await requireAdminContext(req);
-    if (!ctx.ok) {
-      return new Response(JSON.stringify({ error: ctx.error }), {
-        status: ctx.status,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    // 1. Authenticate user via Supabase
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Missing authorization' }), {
+        status: 401,
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
 
-    const { adminClient, actorProfile, user } = ctx;
-    const orgId = actorProfile.organization_id;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const anonKey = Deno.env.get('SUPABASE_PUBLISHABLE_KEY') ?? Deno.env.get('SUPABASE_ANON_KEY')!;
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    if (!orgId) {
-      return new Response(JSON.stringify({ error: 'Organisation introuvable' }), {
+    // Verify user session
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2.93.3');
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: 'Invalid session' }), {
+        status: 401,
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+      });
+    }
+
+    // 2. Get organization
+    const adminClient = createClient(supabaseUrl, serviceKey);
+
+    const { data: profile } = await adminClient
+      .from('profiles')
+      .select('organization_id, business_name')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (!profile?.organization_id) {
+      return new Response(JSON.stringify({ error: 'Aucune organisation associée. Créez d\'abord votre boutique.' }), {
         status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
 
-    // Parse request body
-    const body = await req.json();
-    const planId = body.plan_id as string;
-    const billing = (body.billing as 'monthly' | 'yearly') || 'monthly';
+    const orgId = profile.organization_id;
 
-    if (!planId || !['croissance', 'enterprise'].includes(planId)) {
-      return new Response(JSON.stringify({ error: 'Plan invalide. Seuls les plans payants nécessitent un checkout.' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    // 3. Parse request body
+    const body: CheckoutRequest = await req.json();
+    const priceId = body.priceId ?? PRICE_IDS[body.planKey];
 
-    // Get Stripe price ID
-    const priceId = getPriceId(planId, billing);
     if (!priceId) {
-      return new Response(JSON.stringify({
-        error: `Configuration Stripe manquante pour le plan ${planId} (${billing}). Contactez le support.`,
-      }), {
-        status: 503,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      return new Response(JSON.stringify({ error: 'Plan invalide ou price ID manquant' }), {
+        status: 400,
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
 
-    // Get or create Stripe customer
+    // 4. Check if org already has a Stripe customer ID
     const { data: org } = await adminClient
       .from('organizations')
       .select('stripe_customer_id, name')
@@ -99,104 +126,61 @@ Deno.serve(async (req) => {
 
     let customerId = org?.stripe_customer_id;
 
+    // 5. Create Stripe customer if needed
     if (!customerId) {
-      // Create Stripe customer via API
-      const stripeKey = Deno.env.get('STRIPE_SECRET_KEY')!;
-      const customerRes = await fetch('https://api.stripe.com/v1/customers', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${stripeKey}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          email: user.email || '',
-          name: org?.name || actorProfile.business_name || '',
-          metadata: JSON.stringify({ organization_id: orgId }),
-        } as Record<string, string>),
+      const customer = await stripeRequest('/customers', 'POST', {
+        email: user.email ?? '',
+        name: org?.name ?? profile.business_name ?? 'MakitiPlus Client',
+        metadata: JSON.stringify({
+          organization_id: orgId,
+          user_id: user.id,
+        }).replace(/"/g, ''),  // Stripe metadata values must be strings
+        'metadata[organization_id]': orgId,
+        'metadata[user_id]': user.id,
       });
 
-      if (!customerRes.ok) {
-        const errBody = await customerRes.text();
-        console.error('[Stripe] Failed to create customer:', errBody);
-        return new Response(JSON.stringify({ error: 'Erreur lors de la création du client Stripe' }), {
-          status: 502,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      const customer = await customerRes.json();
       customerId = customer.id;
 
-      // Save customer ID to org
+      // Save customer ID to organization
       await adminClient
         .from('organizations')
         .update({ stripe_customer_id: customerId })
         .eq('id', orgId);
     }
 
-    // Create Checkout Session
-    const stripeKey = Deno.env.get('STRIPE_SECRET_KEY')!;
-    const appUrl = Deno.env.get('APP_URL') || 'https://makitiplus.onrender.com';
+    // 6. Create Checkout Session
+    const origin = req.headers.get('origin') ?? 'https://makitiplus.onrender.com';
+    const successUrl = body.successUrl ?? `${origin}/settings?checkout=success`;
+    const cancelUrl = body.cancelUrl ?? `${origin}/pricing?checkout=canceled`;
 
-    const sessionParams = new URLSearchParams({
+    const session = await stripeRequest('/checkout/sessions', 'POST', {
       customer: customerId,
       mode: 'subscription',
       'line_items[0][price]': priceId,
       'line_items[0][quantity]': '1',
-      success_url: `${appUrl}/dashboard/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${appUrl}/dashboard/billing?checkout=cancelled`,
-      'metadata[organization_id]': orgId,
-      'metadata[plan_id]': planId,
-      'metadata[billing]': billing,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
       'subscription_data[metadata][organization_id]': orgId,
-      'subscription_data[metadata][plan_id]': planId,
-      'subscription_data[metadata][billing]': billing,
-    } as Record<string, string>);
-
-    const sessionRes = await fetch('https://api.stripe.com/v1/checkout/sessions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${stripeKey}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: sessionParams,
+      'subscription_data[metadata][user_id]': user.id,
+      'subscription_data[trial_period_days]': '14', // 14-day free trial
+      allow_promotion_codes: 'true',
+      billing_address_collection: 'auto',
+      'payment_method_types[0]': 'card',
     });
 
-    if (!sessionRes.ok) {
-      const errBody = await sessionRes.text();
-      console.error('[Stripe] Failed to create checkout session:', errBody);
-      return new Response(JSON.stringify({ error: 'Erreur lors de la création de la session de paiement' }), {
-        status: 502,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const session = await sessionRes.json();
-
-    // Audit
-    await adminClient.from('subscription_events').insert({
-      organization_id: orgId,
-      event_type: 'created',
-      to_plan: planId,
-      performed_by: user.id,
-      metadata: { stripe_session_id: session.id, billing, price_id: priceId },
+    return new Response(JSON.stringify({
+      sessionId: session.id,
+      url: session.url,
+    }), {
+      status: 200,
+      headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
     });
 
-    return limiter.addHeaders(
-      new Response(JSON.stringify({
-        url: session.url,
-        session_id: session.id,
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }),
-      rateResult,
-    );
   } catch (err) {
-    console.error('[Stripe] Checkout error:', (err as Error).message);
-    return new Response(JSON.stringify({ error: 'Erreur interne du serveur' }), {
+    console.error('[stripe-checkout] Error:', (err as Error).message);
+    return new Response(JSON.stringify({ error: (err as Error).message }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
     });
   }
 });

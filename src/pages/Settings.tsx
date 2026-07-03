@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Store, MapPin, Phone, Globe, Smartphone, Nfc, Palette } from "lucide-react";
+import { Loader2, Store, MapPin, Phone, Globe, Smartphone, Nfc, Palette, CreditCard } from "lucide-react";
 import { CountryFlag } from "@/components/ui/country-flag";
 import StoreCustomization from "@/components/settings/StoreCustomization";
 import {
@@ -26,6 +26,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { TaxSettingsCard } from "@/components/settings/TaxSettingsCard";
 import { BrandingSettings } from "@/components/settings/BrandingSettings";
 import { FeatureGate } from "@/components/saas/PlanLimitGuard";
+import { SubscriptionCard } from "@/components/settings/SubscriptionCard";
 
 const Settings = () => {
   const { user, profile, refreshProfile } = useAuth();
@@ -45,7 +46,7 @@ const Settings = () => {
 
   const [nfcEnabled, setNfcEnabled] = useState(profile?.nfc_enabled ?? false);
   const [nfcSupported, setNfcSupported] = useState(false);
-  const [activeTab, setActiveTab] = useState<"general" | "branding">("general");
+  const [activeTab, setActiveTab] = useState<"general" | "branding" | "subscription">("general");
 
   useEffect(() => {
     if (profile) {
@@ -192,6 +193,18 @@ const Settings = () => {
             <FeatureGate feature="custom_branding" fallback={<span className="text-xs">(Pro)</span>}>
               <span />
             </FeatureGate>
+          </button>
+          <button
+            onClick={() => setActiveTab("subscription")}
+            className={`flex items-center justify-center gap-2 flex-1 px-3 sm:px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              activeTab === "subscription"
+                ? "bg-card text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <CreditCard className="h-4 w-4" />
+            <span className="hidden sm:inline">Abonnement</span>
+            <span className="sm:hidden">Abo</span>
           </button>
         </div>
 
@@ -410,7 +423,7 @@ const Settings = () => {
 
             <TaxSettingsCard />
           </div>
-        ) : (
+        ) : activeTab === "branding" ? (
           <FeatureGate
             feature="custom_branding"
             fallback={
@@ -419,9 +432,9 @@ const Settings = () => {
                 <h2 className="text-xl font-bold mb-2">Personnalisation</h2>
                 <p className="text-muted-foreground max-w-md mb-6">
                   La personnalisation de marque est disponible à partir du plan Croissance.
-                  Upgradéz pour personnaliser votre expérience.
+                  Upgradez pour personnaliser votre expérience.
                 </p>
-                <Button onClick={() => window.location.hash = "/dashboard/billing"}>
+                <Button onClick={() => setActiveTab("subscription")}>
                   Voir les abonnements
                 </Button>
               </div>
@@ -429,6 +442,10 @@ const Settings = () => {
           >
             <StoreCustomization />
           </FeatureGate>
+        ) : (
+          <div className="space-y-6">
+            <SubscriptionCard />
+          </div>
         )}
       </div>
     </DashboardLayout>

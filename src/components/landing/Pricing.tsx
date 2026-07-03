@@ -1,29 +1,15 @@
 import { Button } from "@/components/ui/button";
-import { Check, CreditCard, Smartphone, Lock } from "lucide-react";
-import { DEFAULT_CURRENCY } from "@/utils/currencies";
+import { Check, CreditCard, Smartphone, Lock, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 const plans = [
   {
-    name: "Starter",
-    description: "Pour les petits commerces",
-    price: "5 000",
-    currency: DEFAULT_CURRENCY.symbol,
-    period: "/mois",
-    features: [
-      "1 caisse",
-      "Gestion de stock basique",
-      "Mode hors ligne",
-      "Rapports journaliers",
-      "Support par email",
-    ],
-    cta: "Commencer gratuitement",
-    popular: false,
-  },
-  {
+    key: "croissance",
     name: "Croissance",
     description: "Pour les commerces en expansion",
-    price: "15 000",
-    currency: DEFAULT_CURRENCY.symbol,
+    price: "39,90",
+    currency: "€",
     period: "/mois",
     features: [
       "3 caisses",
@@ -36,12 +22,14 @@ const plans = [
     ],
     cta: "Essai gratuit 14 jours",
     popular: true,
+    trialDays: 14,
   },
   {
+    key: "enterprise",
     name: "Enterprise",
     description: "Pour les grandes structures",
-    price: "40 000",
-    currency: DEFAULT_CURRENCY.symbol,
+    price: "99,90",
+    currency: "€",
     period: "/mois",
     features: [
       "Caisses illimitées",
@@ -50,14 +38,48 @@ const plans = [
       "Formations sur site",
       "Support dédié 24/7",
       "Conformité fiscale",
-      "Personnalisation",
+      "Personnalisation complète",
     ],
-    cta: "Contactez-nous",
+    cta: "Essai gratuit 14 jours",
     popular: false,
+    trialDays: 14,
   },
 ];
 
 export const Pricing = () => {
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+
+  const handleSubscribe = async (planKey: string) => {
+    setLoadingPlan(planKey);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('stripe-checkout', {
+        body: { planKey },
+      });
+
+      if (error) {
+        console.error('Checkout error:', error.message);
+        // If not authenticated, redirect to sign up
+        if (error.message.includes('authorization') || error.message.includes('session')) {
+          window.location.href = '/auth?redirect=pricing';
+          return;
+        }
+        alert('Erreur lors de la création du checkout. Veuillez réessayer.');
+        return;
+      }
+
+      if (data?.url) {
+        // Redirect to Stripe Checkout
+        window.location.href = data.url;
+      }
+    } catch (err) {
+      console.error('Subscribe error:', err);
+      alert('Erreur de connexion. Veuillez réessayer.');
+    } finally {
+      setLoadingPlan(null);
+    }
+  };
+
   return (
     <section className="py-20">
       <div className="container-app">
@@ -67,19 +89,19 @@ export const Pricing = () => {
             Tarifs <span className="text-gradient">simples et transparents</span>
           </h2>
           <p className="text-lg text-muted-foreground">
-            Pas de frais cachés. Payez via Mobile Money ou carte bancaire.
+            Pas de frais cachés. 14 jours d'essai gratuit inclus.
             Annulez à tout moment.
           </p>
         </div>
 
         {/* Pricing cards */}
-        <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
           {plans.map((plan, index) => (
             <div
-              key={plan.name}
+              key={plan.key}
               className={`relative card-elevated p-8 flex flex-col animate-fade-in ${
-                plan.popular 
-                  ? "border-2 border-primary shadow-glow" 
+                plan.popular
+                  ? "border-2 border-primary shadow-glow"
                   : ""
               }`}
               style={{ animationDelay: `${index * 0.1}s` }}
@@ -103,6 +125,11 @@ export const Pricing = () => {
                   <span className="text-lg text-muted-foreground">{plan.currency}</span>
                 </div>
                 <span className="text-sm text-muted-foreground">{plan.period}</span>
+                {plan.trialDays && (
+                  <p className="text-xs text-primary mt-1 font-medium">
+                    {plan.trialDays} jours d'essai gratuit
+                  </p>
+                )}
               </div>
 
               <ul className="space-y-3 mb-8 flex-grow">
@@ -114,12 +141,21 @@ export const Pricing = () => {
                 ))}
               </ul>
 
-              <Button 
-                variant={plan.popular ? "hero" : "outline"} 
-                size="lg" 
+              <Button
+                variant={plan.popular ? "hero" : "outline"}
+                size="lg"
                 className="w-full"
+                onClick={() => handleSubscribe(plan.key)}
+                disabled={loadingPlan !== null}
               >
-                {plan.cta}
+                {loadingPlan === plan.key ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Redirection...
+                  </>
+                ) : (
+                  plan.cta
+                )}
               </Button>
             </div>
           ))}
@@ -127,7 +163,17 @@ export const Pricing = () => {
 
         {/* Trust note */}
         <p className="text-center text-sm text-muted-foreground mt-12">
-          <span className="flex items-center justify-center gap-4 flex-wrap"><span className="flex items-center gap-1.5"><CreditCard className="h-4 w-4" /> Paiement sécurisé via Flutterwave</span> <span className="flex items-center gap-1.5"><Smartphone className="h-4 w-4" /> Mobile Money accepté</span> <span className="flex items-center gap-1.5"><Lock className="h-4 w-4" /> Données chiffrées</span></span>
+          <span className="flex items-center justify-center gap-4 flex-wrap">
+            <span className="flex items-center gap-1.5">
+              <CreditCard className="h-4 w-4" /> Paiement sécurisé via Stripe
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Smartphone className="h-4 w-4" /> Mobile Money accepté
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Lock className="h-4 w-4" /> Données chiffrées
+            </span>
+          </span>
         </p>
       </div>
     </section>
