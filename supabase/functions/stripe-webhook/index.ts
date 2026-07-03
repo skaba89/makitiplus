@@ -95,6 +95,31 @@ Deno.serve(async (req) => {
     }
 
     const event = JSON.parse(payload);
+    const eventId = event.id;
+
+    // Idempotency: skip already-processed events (Stripe retries on failure)
+    // Store event IDs in Deno KV with 24h TTL to prevent duplicate processing
+    if (eventId) {
+      try {
+        const kv = await Deno.openKv();
+        const existing = await kv.get(['stripe_events', eventId]);
+        if (existing.value) {
+          console.log(`[stripe-webhook] Duplicate event ${eventId} — skipping`);
+          kv.close();
+          return new Response(JSON.stringify({ received: true, duplicate: true }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+        // Mark as processed with 24h expiry (86400 seconds)
+        await kv.set(['stripe_events', eventId], { type: event.type, processedAt: Date.now() }, { expireIn: 86_400_000 });
+        kv.close();
+      } catch (kvErr) {
+        // KV unavailable — log but continue (non-critical, idempotency is best-effort)
+        console.warn('[stripe-webhook] KV unavailable for idempotency check:', (kvErr as Error).message);
+      }
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 

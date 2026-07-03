@@ -2,8 +2,11 @@
 // Called from frontend when user clicks "Subscribe" on pricing page
 
 import { getCorsHeaders, corsOptionsResponse, validateOrigin } from '../_shared/cors.ts';
+import { createRateLimiter } from '../_shared/rateLimiter.ts';
+import { requireAdminContext } from '../_shared/orgScope.ts';
 
 const STRIPE_API = 'https://api.stripe.com/v1';
+const limiter = createRateLimiter('stripe-checkout', { maxRequests: 10, windowMs: 60_000 });
 
 // Price IDs (set in Supabase Edge Function secrets)
 // These map to your Stripe product prices
@@ -12,8 +15,10 @@ const PRICE_IDS: Record<string, string> = {
   enterprise: Deno.env.get('STRIPE_PRICE_ID_ENTERPRISE') ?? '',
 };
 
+// Collect all valid price IDs for server-side validation
+const VALID_PRICE_IDS = new Set(Object.values(PRICE_IDS).filter(Boolean));
+
 interface CheckoutRequest {
-  priceId?: string;       // Direct Stripe price ID (alternative to planKey)
   planKey?: string;       // 'croissance' or 'enterprise'
   plan_id?: string;       // Alias for planKey (retro-compat frontend)
   successUrl?: string;
@@ -61,79 +66,52 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Rate limit check
+  const rateResult = await limiter.check(req);
+  if (!rateResult.allowed) {
+    return limiter.addHeaders(
+      new Response(JSON.stringify({ error: rateResult.error }), {
+        status: 429,
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+      }),
+      rateResult,
+    );
+  }
+
   try {
-    // 1. Authenticate user via Supabase
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Missing authorization' }), {
-        status: 401,
+    // 1. Authenticate + authorize via shared admin context
+    const ctx = await requireAdminContext(req);
+    if (!ctx.ok) {
+      return new Response(JSON.stringify({ error: ctx.error }), {
+        status: ctx.status,
         headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const anonKey = Deno.env.get('SUPABASE_PUBLISHABLE_KEY') ?? Deno.env.get('SUPABASE_ANON_KEY')!;
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const { adminClient, user, actorProfile } = ctx;
 
-    // Verify user session
-    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2.93.3');
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: 'Invalid session' }), {
-        status: 401,
-        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
-      });
-    }
-
-    // 2. Get organization + verify admin role
-    const adminClient = createClient(supabaseUrl, serviceKey);
-
-    const { data: profile } = await adminClient
-      .from('profiles')
-      .select('organization_id, business_name')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    // Verify the user has admin role
-    const { data: roleRow } = await adminClient
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    if (!roleRow || !['admin', 'super_admin'].includes(roleRow.role)) {
-      return new Response(JSON.stringify({ error: 'Accès refusé : seuls les administrateurs peuvent gérer l\'abonnement' }), {
-        status: 403,
-        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
-      });
-    }
-
-    if (!profile?.organization_id) {
+    if (!actorProfile.organization_id) {
       return new Response(JSON.stringify({ error: 'Aucune organisation associée. Créez d\'abord votre boutique.' }), {
         status: 400,
         headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
 
-    const orgId = profile.organization_id;
+    const orgId = actorProfile.organization_id;
 
-    // 3. Parse request body
+    // 2. Parse request body — only accept planKey, reject arbitrary priceId
     const body: CheckoutRequest = await req.json();
     const resolvedPlanKey = body.planKey ?? body.plan_id ?? '';
-    const priceId = body.priceId ?? PRICE_IDS[resolvedPlanKey];
+    const priceId = PRICE_IDS[resolvedPlanKey];
 
     if (!priceId) {
-      return new Response(JSON.stringify({ error: 'Plan invalide ou price ID manquant' }), {
+      return new Response(JSON.stringify({ error: 'Plan invalide. Plans disponibles : croissance, enterprise' }), {
         status: 400,
         headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
 
-    // 4. Check if org already has a Stripe customer ID
+    // 3. Check if org already has a Stripe customer ID
     const { data: org } = await adminClient
       .from('organizations')
       .select('stripe_customer_id, name')
@@ -142,11 +120,11 @@ Deno.serve(async (req) => {
 
     let customerId = org?.stripe_customer_id;
 
-    // 5. Create Stripe customer if needed
+    // 4. Create Stripe customer if needed
     if (!customerId) {
       const customer = await stripeRequest('/customers', 'POST', {
         email: user.email ?? '',
-        name: org?.name ?? profile.business_name ?? 'MakitiPlus Client',
+        name: org?.name ?? actorProfile.business_name ?? 'MakitiPlus Client',
         'metadata[organization_id]': orgId,
         'metadata[user_id]': user.id,
       });
@@ -160,7 +138,7 @@ Deno.serve(async (req) => {
         .eq('id', orgId);
     }
 
-    // 6. Create Checkout Session
+    // 5. Create Checkout Session
     const origin = validateOrigin(req);
     const successUrl = body.successUrl?.startsWith(origin) ? body.successUrl : `${origin}/dashboard/billing?checkout=success`;
     const cancelUrl = body.cancelUrl?.startsWith(origin) ? body.cancelUrl : `${origin}/dashboard/billing?checkout=canceled`;
@@ -180,13 +158,16 @@ Deno.serve(async (req) => {
       'payment_method_types[0]': 'card',
     });
 
-    return new Response(JSON.stringify({
-      sessionId: session.id,
-      url: session.url,
-    }), {
-      status: 200,
-      headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
-    });
+    return limiter.addHeaders(
+      new Response(JSON.stringify({
+        sessionId: session.id,
+        url: session.url,
+      }), {
+        status: 200,
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+      }),
+      rateResult,
+    );
 
   } catch (err) {
     console.error('[stripe-checkout] Error:', (err as Error).message);

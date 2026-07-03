@@ -2,8 +2,11 @@
 // Allows users to manage their subscription (upgrade, cancel, update payment method)
 
 import { getCorsHeaders, corsOptionsResponse, validateOrigin } from '../_shared/cors.ts';
+import { createRateLimiter } from '../_shared/rateLimiter.ts';
+import { requireAdminContext } from '../_shared/orgScope.ts';
 
 const STRIPE_API = 'https://api.stripe.com/v1';
+const limiter = createRateLimiter('stripe-portal', { maxRequests: 10, windowMs: 60_000 });
 
 async function stripeRequest(
   path: string,
@@ -46,67 +49,42 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Rate limit check
+  const rateResult = await limiter.check(req);
+  if (!rateResult.allowed) {
+    return limiter.addHeaders(
+      new Response(JSON.stringify({ error: rateResult.error }), {
+        status: 429,
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+      }),
+      rateResult,
+    );
+  }
+
   try {
-    // 1. Authenticate user
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Missing authorization' }), {
-        status: 401,
+    // 1. Authenticate + authorize via shared admin context
+    const ctx = await requireAdminContext(req);
+    if (!ctx.ok) {
+      return new Response(JSON.stringify({ error: ctx.error }), {
+        status: ctx.status,
         headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const anonKey = Deno.env.get('SUPABASE_PUBLISHABLE_KEY') ?? Deno.env.get('SUPABASE_ANON_KEY')!;
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const { adminClient, user, actorProfile } = ctx;
 
-    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2.93.3');
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: 'Invalid session' }), {
-        status: 401,
-        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
-      });
-    }
-
-    // 2. Get organization with Stripe customer ID + verify admin role
-    const adminClient = createClient(supabaseUrl, serviceKey);
-
-    // Verify the user has admin role
-    const { data: roleRow } = await adminClient
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    if (!roleRow || !['admin', 'super_admin'].includes(roleRow.role)) {
-      return new Response(JSON.stringify({ error: 'Accès refusé : seuls les administrateurs peuvent gérer l\'abonnement' }), {
-        status: 403,
-        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
-      });
-    }
-
-    const { data: profile } = await adminClient
-      .from('profiles')
-      .select('organization_id')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    if (!profile?.organization_id) {
+    if (!actorProfile.organization_id) {
       return new Response(JSON.stringify({ error: 'Aucune organisation associée' }), {
         status: 400,
         headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
 
+    // 2. Get organization with Stripe customer ID
     const { data: org } = await adminClient
       .from('organizations')
       .select('stripe_customer_id, subscription_plan')
-      .eq('id', profile.organization_id)
+      .eq('id', actorProfile.organization_id)
       .maybeSingle();
 
     if (!org?.stripe_customer_id) {
@@ -125,12 +103,15 @@ Deno.serve(async (req) => {
       return_url: returnUrl,
     });
 
-    return new Response(JSON.stringify({
-      url: session.url,
-    }), {
-      status: 200,
-      headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
-    });
+    return limiter.addHeaders(
+      new Response(JSON.stringify({
+        url: session.url,
+      }), {
+        status: 200,
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+      }),
+      rateResult,
+    );
 
   } catch (err) {
     console.error('[stripe-portal] Error:', (err as Error).message);
