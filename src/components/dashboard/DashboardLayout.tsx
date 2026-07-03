@@ -187,13 +187,19 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Skip to content — accessibility */}
+
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:top-2 focus:left-2 focus:bg-primary focus:text-primary-foreground focus:px-4 focus:py-2 focus:rounded-md focus:text-sm focus:font-medium">
+        Aller au contenu principal
+      </a>
+
       {/* Offline Banner */}
       <OfflineBanner />
       {/* Demo Mode Banner */}
       {isDemo && (
         <div className="fixed top-0 left-0 right-0 z-[60] bg-amber-500 text-white text-center py-1.5 text-sm font-medium">
           Mode démo — les modifications ne sont pas enregistrées.{" "}
-          <a href="/auth" className="underline font-bold hover:text-amber-100">Créer mon compte</a>
+          <a href="/auth" className="underline font-bold hover:text-amber-900">Créer mon compte</a>
         </div>
       )}
 
@@ -317,7 +323,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-sidebar-border">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-sidebar-accent transition-colors">
+              <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-sidebar-accent transition-colors" aria-label={`Menu utilisateur — ${profile?.owner_name || 'Utilisateur'}`}>
                 <Avatar className="h-10 w-10">
                   <AvatarFallback className="bg-primary text-primary-foreground">
                     {initials}
@@ -357,11 +363,12 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             setIsSidebarOpen(false);
             menuButtonRef.current?.focus();
           }}
+          aria-hidden="true"
         />
       )}
 
       {/* Main content */}
-      <main className={cn(
+      <main id="main-content" className={cn(
         "lg:ml-64 min-h-screen pt-14 sm:pt-16 lg:pt-0",
         isDemo && "pt-[5.5rem] sm:pt-24 lg:pt-8"
       )}>

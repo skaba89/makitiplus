@@ -28,6 +28,8 @@ export const OfflineIndicator = () => {
       <Tooltip>
         <TooltipTrigger asChild>
           <div
+            role="status"
+            aria-live="polite"
             className={cn(
               "flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all",
               isOnline
@@ -84,7 +86,7 @@ export const OfflineBanner = () => {
   if (isOnline) return null;
 
   return (
-    <div className="bg-yellow-500/10 border-b border-yellow-500/20 px-4 py-2 flex items-center justify-center gap-2 text-sm">
+    <div role="alert" aria-live="assertive" className="bg-yellow-500/10 border-b border-yellow-500/20 px-4 py-2 flex items-center justify-center gap-2 text-sm">
       <CloudOff className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
       <span className="text-yellow-700 dark:text-yellow-300 font-medium">
         Mode hors-ligne

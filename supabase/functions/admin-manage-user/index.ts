@@ -35,6 +35,10 @@ Deno.serve(async (req) => {
     const { user, adminClient, actorProfile, ipAddress } = ctx;
 
     const { userId, action, reason, newPassword } = await req.json();
+    // Sanitize reason: strip HTML tags to prevent stored XSS
+    const safeReason = typeof reason === 'string'
+      ? reason.replace(/<[^>]*>/g, '').slice(0, 500)
+      : null;
     if (!userId || !action) {
       return new Response(JSON.stringify({ error: 'Missing userId or action' }), {
         status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
@@ -74,7 +78,7 @@ Deno.serve(async (req) => {
       const { error } = await adminClient.from('profiles').update({
         is_active: false,
         deactivated_at: new Date().toISOString(),
-        deactivation_reason: reason ?? null,
+        deactivation_reason: safeReason,
       }).eq('user_id', userId);
       if (error) throw error;
 
@@ -83,7 +87,7 @@ Deno.serve(async (req) => {
       await adminClient.from('user_audit_log').insert({
         actor_id: user.id, actor_name: actorProfile.owner_name ?? 'Admin',
         target_user_id: userId, target_user_name: targetProfile.owner_name ?? '—',
-        action: 'user_deactivated', details: { reason: reason ?? null },
+        action: 'user_deactivated', details: { reason: safeReason },
       });
 
       return limiter.addHeaders(
@@ -148,7 +152,7 @@ Deno.serve(async (req) => {
       await adminClient.from('user_audit_log').insert({
         actor_id: user.id, actor_name: actorProfile.owner_name ?? 'Admin',
         target_user_id: userId, target_user_name: targetProfile.owner_name ?? '—',
-        action: 'user_deleted_permanently', details: { reason: reason ?? null },
+        action: 'user_deleted_permanently', details: { reason: safeReason },
       });
 
       return limiter.addHeaders(

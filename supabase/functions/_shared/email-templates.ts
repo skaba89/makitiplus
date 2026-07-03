@@ -30,8 +30,26 @@ function footer(): string {
     </div>`;
 }
 
+/** Sanitize a URL to prevent javascript: scheme injection in email templates */
+function sanitizeUrl(url: string): string {
+  const trimmed = url.trim();
+  if (trimmed.startsWith('https://') || trimmed.startsWith('http://')) return trimmed;
+  // Reject javascript:, data:, vbscript: etc.
+  return '#invalid-url';
+}
+
+/** Escape HTML entities in user-supplied strings to prevent XSS in email templates */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function ctaButton(text: string, url: string, color: string = BRAND.primary): string {
-  return `<a href="${url}" style="display: inline-block; background: ${color}; color: white; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin: 16px 0;">${text}</a>`;
+  return `<a href="${sanitizeUrl(url)}" style="display: inline-block; background: ${color}; color: white; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin: 16px 0;">${escapeHtml(text)}</a>`;
 }
 
 // ─── Template: Welcome Email ─────────────────────────────────────────────
@@ -44,8 +62,8 @@ export function welcomeEmail(params: {
   return `
     <div style="${BASE_STYLES}">
       ${header('Bienvenue !')}
-      <h2>Bienvenue sur ${BRAND.name}, ${params.name} ! 🎉</h2>
-      <p>Votre compte a été créé avec succès sur le plan <strong>${params.planName}</strong>.</p>
+      <h2>Bienvenue sur ${BRAND.name}, ${escapeHtml(params.name)} ! 🎉</h2>
+      <p>Votre compte a été créé avec succès sur le plan <strong>${escapeHtml(params.planName)}</strong>.</p>
       <p>Vous pouvez dès maintenant :</p>
       <ul>
         <li>✅ Gérer votre stock et vos ventes</li>
@@ -53,7 +71,7 @@ export function welcomeEmail(params: {
         <li>✅ Imprimer des reçus et factures</li>
         <li>✅ Travailler hors ligne — vos données se synchronisent automatiquement</li>
       </ul>
-      ${ctaButton('Accéder à mon tableau de bord', params.dashboardUrl)}
+      ${ctaButton('Accéder à mon tableau de bord', sanitizeUrl(params.dashboardUrl))}
       <p style="color: ${BRAND.muted}; font-size: 14px;">Besoin d'aide ? Consultez notre guide de démarrage rapide ou contactez notre support.</p>
       ${footer()}
     </div>`;
@@ -73,15 +91,15 @@ export function paymentSuccessEmail(params: {
     <div style="${BASE_STYLES}">
       ${header('Paiement confirmé', BRAND.success)}
       <h2 style="color: ${BRAND.success};">✅ Paiement réussi !</h2>
-      <p>Bonjour ${params.name},</p>
+      <p>Bonjour ${escapeHtml(params.name)},</p>
       <p>Votre paiement a été traité avec succès.</p>
       <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
-        <tr style="background: ${BRAND.bg};"><td style="padding: 8px 12px; border: 1px solid #e5e7eb;">Plan</td><td style="padding: 8px 12px; border: 1px solid #e5e7eb; font-weight: 600;">${params.planName}</td></tr>
-        <tr><td style="padding: 8px 12px; border: 1px solid #e5e7eb;">Montant</td><td style="padding: 8px 12px; border: 1px solid #e5e7eb; font-weight: 600;">${params.amount}</td></tr>
-        <tr style="background: ${BRAND.bg};"><td style="padding: 8px 12px; border: 1px solid #e5e7eb;">Période</td><td style="padding: 8px 12px; border: 1px solid #e5e7eb;">${params.period}</td></tr>
-        <tr><td style="padding: 8px 12px; border: 1px solid #e5e7eb;">Prochaine facturation</td><td style="padding: 8px 12px; border: 1px solid #e5e7eb;">${params.nextBillingDate}</td></tr>
+        <tr style="background: ${BRAND.bg};"><td style="padding: 8px 12px; border: 1px solid #e5e7eb;">Plan</td><td style="padding: 8px 12px; border: 1px solid #e5e7eb; font-weight: 600;">${escapeHtml(params.planName)}</td></tr>
+        <tr><td style="padding: 8px 12px; border: 1px solid #e5e7eb;">Montant</td><td style="padding: 8px 12px; border: 1px solid #e5e7eb; font-weight: 600;">${escapeHtml(params.amount)}</td></tr>
+        <tr style="background: ${BRAND.bg};"><td style="padding: 8px 12px; border: 1px solid #e5e7eb;">Période</td><td style="padding: 8px 12px; border: 1px solid #e5e7eb;">${escapeHtml(params.period)}</td></tr>
+        <tr><td style="padding: 8px 12px; border: 1px solid #e5e7eb;">Prochaine facturation</td><td style="padding: 8px 12px; border: 1px solid #e5e7eb;">${escapeHtml(params.nextBillingDate)}</td></tr>
       </table>
-      ${ctaButton('Gérer mon abonnement', params.billingUrl)}
+      ${ctaButton('Gérer mon abonnement', sanitizeUrl(params.billingUrl))}
       ${footer()}
     </div>`;
 }
@@ -99,8 +117,8 @@ export function paymentFailedEmail(params: {
     <div style="${BASE_STYLES}">
       ${header('Problème de paiement', BRAND.danger)}
       <h2 style="color: ${BRAND.danger};">⚠️ Échec du paiement</h2>
-      <p>Bonjour ${params.name},</p>
-      <p>Nous n'avons pas pu traiter votre paiement de <strong>${params.amount}</strong> pour le plan <strong>${params.planName}</strong>.</p>
+      <p>Bonjour ${escapeHtml(params.name)},</p>
+      <p>Nous n'avons pas pu traiter votre paiement de <strong>${escapeHtml(params.amount)}</strong> pour le plan <strong>${escapeHtml(params.planName)}</strong>.</p>
       <p>Cela peut être dû à :</p>
       <ul>
         <li>Carte bancaire expirée ou refusée</li>
@@ -108,8 +126,8 @@ export function paymentFailedEmail(params: {
         <li>Problème temporaire avec votre banque</li>
       </ul>
       <p><strong>Vous disposez de 7 jours</strong> pour mettre à jour votre méthode de paiement. Passé ce délai, votre accès sera restreint.</p>
-      ${ctaButton('Mettre à jour mon paiement', params.billingUrl, BRAND.danger)}
-      <p style="color: ${BRAND.muted}; font-size: 14px;">Nouvelle tentative automatique le ${params.retryDate}.</p>
+      ${ctaButton('Mettre à jour mon paiement', sanitizeUrl(params.billingUrl), BRAND.danger)}
+      <p style="color: ${BRAND.muted}; font-size: 14px;">Nouvelle tentative automatique le ${escapeHtml(params.retryDate)}.</p>
       ${footer()}
     </div>`;
 }
@@ -127,13 +145,13 @@ export function planUpgradeEmail(params: {
     <div style="${BASE_STYLES}">
       ${header('Plan mis à jour', BRAND.accent)}
       <h2 style="color: ${BRAND.accent};">🚀 Plan mis à jour !</h2>
-      <p>Bonjour ${params.name},</p>
-      <p>Votre abonnement a été mis à jour de <strong>${params.fromPlan}</strong> à <strong>${params.toPlan}</strong>.</p>
+      <p>Bonjour ${escapeHtml(params.name)},</p>
+      <p>Votre abonnement a été mis à jour de <strong>${escapeHtml(params.fromPlan)}</strong> à <strong>${escapeHtml(params.toPlan)}</strong>.</p>
       <p>Vous avez maintenant accès à :</p>
       <ul>
-        ${params.newFeatures.map(f => `<li>✨ ${f}</li>`).join('\n        ')}
+        ${params.newFeatures.map(f => `<li>✨ ${escapeHtml(f)}</li>`).join('\n        ')}
       </ul>
-      ${ctaButton('Explorer les nouvelles fonctionnalités', params.billingUrl)}
+      ${ctaButton('Explorer les nouvelles fonctionnalités', sanitizeUrl(params.billingUrl))}
       ${footer()}
     </div>`;
 }
@@ -150,12 +168,12 @@ export function subscriptionCancelledEmail(params: {
     <div style="${BASE_STYLES}">
       ${header('Abonnement annulé', BRAND.muted)}
       <h2>Abonnement annulé</h2>
-      <p>Bonjour ${params.name},</p>
-      <p>Votre abonnement au plan <strong>${params.planName}</strong> a été annulé.</p>
-      <p>Vous conservez l'accès à vos fonctionnalités jusqu'au <strong>${params.endDate}</strong>.</p>
+      <p>Bonjour ${escapeHtml(params.name)},</p>
+      <p>Votre abonnement au plan <strong>${escapeHtml(params.planName)}</strong> a été annulé.</p>
+      <p>Vous conservez l'accès à vos fonctionnalités jusqu'au <strong>${escapeHtml(params.endDate)}</strong>.</p>
       <p>Après cette date, votre compte sera automatiquement réinitialisé au plan Starter (gratuit). Vos données seront conservées.</p>
       <p>Changez d'avis ? Vous pouvez réactiver votre abonnement à tout moment :</p>
-      ${ctaButton('Réactiver mon abonnement', params.billingUrl)}
+      ${ctaButton('Réactiver mon abonnement', sanitizeUrl(params.billingUrl))}
       <p style="color: ${BRAND.muted}; font-size: 14px;">Nous sommes désolés de vous voir partir. N'hésitez pas à nous contacter si vous avez des questions.</p>
       ${footer()}
     </div>`;
@@ -173,10 +191,10 @@ export function trialEndingEmail(params: {
     <div style="${BASE_STYLES}">
       ${header('Essai bientôt terminé', BRAND.accent)}
       <h2 style="color: ${BRAND.accent};">⏰ Votre période d'essai se termine bientôt</h2>
-      <p>Bonjour ${params.name},</p>
-      <p>Votre essai gratuit du plan <strong>${params.planName}</strong> se termine le <strong>${params.trialEndDate}</strong>.</p>
+      <p>Bonjour ${escapeHtml(params.name)},</p>
+      <p>Votre essai gratuit du plan <strong>${escapeHtml(params.planName)}</strong> se termine le <strong>${escapeHtml(params.trialEndDate)}</strong>.</p>
       <p>Pour continuer à profiter de toutes les fonctionnalités après cette date, assurez-vous que votre méthode de paiement est à jour :</p>
-      ${ctaButton('Vérifier mon paiement', params.billingUrl, BRAND.accent)}
+      ${ctaButton('Vérifier mon paiement', sanitizeUrl(params.billingUrl), BRAND.accent)}
       <p style="color: ${BRAND.muted}; font-size: 14px;">Si aucune méthode de paiement n'est enregistrée, votre compte sera automatiquement repassé au plan Starter à la fin de l'essai.</p>
       ${footer()}
     </div>`;
