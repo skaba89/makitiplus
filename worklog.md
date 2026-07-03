@@ -547,3 +547,37 @@ Stage Summary:
 - 4 HIGH security issues fixed (CORS bypass, open redirects)
 - 15 files now properly report errors to Sentry instead of silently swallowing them
 - French accent rendering fixed in all PDF receipt templates via setPdfFont()
+
+---
+Task ID: 6
+Agent: main
+Task: Vague 6 audit — rate limiters, requireAdminContext refactor, webhook idempotency, KV atomic ops, input validation
+
+Work Log:
+- Added rate limiter to stripe-portal: 10 req/min (H5)
+- Added rate limiter to stripe-checkout: 10 req/min (H6)
+- Refactored stripe-portal to use requireAdminContext instead of inline auth (M7)
+  - Eliminated ~40 lines of duplicated auth+role logic
+  - Now benefits from is_active check in shared orgScope
+- Refactored stripe-checkout to use requireAdminContext (M7)
+  - Same benefits: shared auth, role check, is_active verification
+- Removed arbitrary priceId from stripe-checkout (M3)
+  - Now only accepts planKey/plan_id resolved against PRICE_IDS map server-side
+  - Prevents unauthorized price references
+- Added webhook idempotency via Deno KV event_id dedup with 24h TTL (M5)
+  - Prevents duplicate processing on Stripe retries
+  - Best-effort: continues if KV unavailable
+- Fixed race condition in rate limiter KV operations (M6)
+  - Replaced read-then-write with kv.atomic() compare-and-set
+  - Up to 3 CAS retries before fail-open
+- Validated userIds array in admin-list-user-emails (M1)
+  - Max 100 entries to prevent DoS
+  - UUID format validation to prevent injection
+- Build verification: 0 TypeScript errors, Vite build OK, 213/213 tests pass
+
+Stage Summary:
+- Commit d8df84a pushed to main
+- 5 files changed, 173 insertions, 140 deletions
+- All HIGH security issues from edge function audit now resolved
+- 5 MEDIUM issues resolved (M1, M3, M5, M6, M7)
+- Remaining: 4 LOW issues (XSS in email templates, reason field, error message reflection, CORS fallback)
