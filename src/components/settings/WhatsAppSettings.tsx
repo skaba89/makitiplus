@@ -32,12 +32,9 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
-import {
-  useWhatsAppConfig,
-  useWhatsAppStats,
-  useSaveWhatsAppConfig,
-  useSendWhatsApp,
-} from "@/hooks/useWhatsApp";
+import { useWhatsAppConfig, useWhatsAppStats, useSaveWhatsAppConfig, useSendWhatsApp } from "@/hooks/useWhatsApp";
+import { useDemo } from "@/contexts/DemoContext";
+import { reportError } from "@/lib/sentry";
 
 export function WhatsAppSettingsCard() {
   const { toast } = useToast();
@@ -46,6 +43,7 @@ export function WhatsAppSettingsCard() {
   const { data: stats } = useWhatsAppStats();
   const saveConfig = useSaveWhatsAppConfig();
   const sendMessage = useSendWhatsApp();
+  const { blockMutation } = useDemo();
 
   const [formData, setFormData] = useState({
     phone_number_id: "",
@@ -84,11 +82,13 @@ export function WhatsAppSettingsCard() {
       });
       return;
     }
+    if (blockMutation("Sauvegarder la configuration WhatsApp")) return;
     saveConfig.mutate(formData, {
       onSuccess: () => {
         toast({ title: "Configuration WhatsApp enregistrée" });
       },
       onError: (error) => {
+        reportError(error);
         toast({
           variant: "destructive",
           title: "Erreur",
@@ -103,6 +103,7 @@ export function WhatsAppSettingsCard() {
       toast({ variant: "destructive", title: "Numéro requis", description: "Entrez un numéro pour le test." });
       return;
     }
+    if (blockMutation("Envoyer un message WhatsApp")) return;
     sendMessage.mutate(
       {
         phone: testPhone,

@@ -50,6 +50,9 @@ export function useDemoMutation<TData = unknown, TError = unknown, TVariables = 
       }
 
       // Execute the real mutation
+      if (!options.mutationFn) {
+        throw new Error("useDemoMutation requires a mutationFn");
+      }
       return options.mutationFn(variables);
     },
   });

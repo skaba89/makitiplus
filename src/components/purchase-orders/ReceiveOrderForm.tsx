@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { reportError } from "@/lib/sentry";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -83,6 +84,7 @@ export const ReceiveOrderForm = ({
       if (error) throw error;
       onSuccess();
     } catch (err: unknown) {
+      reportError(err instanceof Error ? err : new Error(String(err)));
       const message = err instanceof Error ? err.message : "Erreur lors de la réception";
       onError(message);
     } finally {

@@ -3,6 +3,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useDemo } from "@/contexts/DemoContext";
+import { reportError } from "@/lib/sentry";
 import {
   Dialog,
   DialogContent,
@@ -81,10 +83,13 @@ export const CreditPaymentDialog = ({ customer, isOpen, onClose, onViewHistory }
       onClose();
     },
     onError: (error: unknown) => {
+      reportError(error);
       const msg = error instanceof Error ? error.message : "Impossible d'enregistrer le paiement";
       toast({ variant: "destructive", title: "Erreur", description: msg });
     },
   });
+
+  const { blockMutation } = useDemo();
 
   if (!customer) return null;
 
@@ -147,7 +152,7 @@ export const CreditPaymentDialog = ({ customer, isOpen, onClose, onViewHistory }
             />
           </div>
           <Button
-            onClick={() => paymentMutation.mutate()}
+            onClick={() => { if (blockMutation("Enregistrer un paiement de crédit")) return; paymentMutation.mutate(); }}
             className="w-full"
             disabled={paymentMutation.isPending || !amount}
           >

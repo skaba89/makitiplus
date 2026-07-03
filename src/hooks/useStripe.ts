@@ -14,6 +14,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { isStripeConfigured } from "@/integrations/stripe/config";
+import { reportError } from "@/lib/sentry";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -77,6 +78,10 @@ export function usePaymentHistory(limit = 20) {
 
 // ─── Hook: useStripeCheckout ───────────────────────────────────────────────
 
+/**
+ * @deprecated Use useStripeCheckout from @/hooks/useStripeCheckout instead.
+ * This hook lacks proper error reporting and loading state management.
+ */
 export function useStripeCheckout() {
   const queryClient = useQueryClient();
 
@@ -109,13 +114,17 @@ export function useStripeCheckout() {
       }
     },
     onError: (error: Error) => {
-      console.error("[useStripeCheckout] Checkout failed:", error.message);
+      reportError(error, { action: "stripe_checkout" });
     },
   });
 }
 
 // ─── Hook: useStripePortal ─────────────────────────────────────────────────
 
+/**
+ * @deprecated Use useStripePortal from @/hooks/useStripePortal instead.
+ * This hook lacks proper error reporting and loading state management.
+ */
 export function useStripePortal() {
   return useMutation({
     mutationFn: async () => {
@@ -145,7 +154,7 @@ export function useStripePortal() {
       }
     },
     onError: (error: Error) => {
-      console.error("[useStripePortal] Portal failed:", error.message);
+      reportError(error, { action: "stripe_portal" });
     },
   });
 }

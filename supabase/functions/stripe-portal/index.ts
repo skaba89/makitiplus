@@ -73,8 +73,22 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 2. Get organization with Stripe customer ID
+    // 2. Get organization with Stripe customer ID + verify admin role
     const adminClient = createClient(supabaseUrl, serviceKey);
+
+    // Verify the user has admin role
+    const { data: roleRow } = await adminClient
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (!roleRow || !['admin', 'super_admin'].includes(roleRow.role)) {
+      return new Response(JSON.stringify({ error: 'Accès refusé : seuls les administrateurs peuvent gérer l\'abonnement' }), {
+        status: 403,
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+      });
+    }
 
     const { data: profile } = await adminClient
       .from('profiles')

@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useStoreId } from "@/contexts/StoreContext";
+import { reportError } from "@/lib/sentry";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -180,6 +181,9 @@ export function useSaveWhatsAppConfig() {
       queryClient.invalidateQueries({ queryKey: ["whatsapp-config"] });
       queryClient.invalidateQueries({ queryKey: ["whatsapp-stats"] });
     },
+    onError: (error: unknown) => {
+      reportError(error);
+    },
   });
 }
 
@@ -200,6 +204,9 @@ export function useSendWhatsApp() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["whatsapp-logs"] });
       queryClient.invalidateQueries({ queryKey: ["whatsapp-stats"] });
+    },
+    onError: (error: unknown) => {
+      reportError(error);
     },
   });
 }

@@ -59,7 +59,10 @@ export function initSentry(): void {
     logger.info("[Sentry] VITE_SENTRY_DSN not set — monitoring disabled");
     return;
   }
-  if (!IS_PROD && !SENTRY_DSN) return;
+  // In dev mode, only init if DSN is explicitly provided
+  if (!IS_PROD) {
+    logger.info("[Sentry] Running in development mode — monitoring limited");
+  }
 
   initialized = true;
 

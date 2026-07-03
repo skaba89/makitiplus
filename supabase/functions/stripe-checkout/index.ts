@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 2. Get organization
+    // 2. Get organization + verify admin role
     const adminClient = createClient(supabaseUrl, serviceKey);
 
     const { data: profile } = await adminClient
@@ -97,6 +97,20 @@ Deno.serve(async (req) => {
       .select('organization_id, business_name')
       .eq('user_id', user.id)
       .maybeSingle();
+
+    // Verify the user has admin role
+    const { data: roleRow } = await adminClient
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (!roleRow || !['admin', 'super_admin'].includes(roleRow.role)) {
+      return new Response(JSON.stringify({ error: 'Accès refusé : seuls les administrateurs peuvent gérer l\'abonnement' }), {
+        status: 403,
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+      });
+    }
 
     if (!profile?.organization_id) {
       return new Response(JSON.stringify({ error: 'Aucune organisation associée. Créez d\'abord votre boutique.' }), {

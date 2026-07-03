@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDemo } from "@/contexts/DemoContext";
+import { reportError } from "@/lib/sentry";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +15,7 @@ export const TaxSettingsCard = () => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { blockMutation } = useDemo();
   const orgId = profile?.organization_id ?? null;
   const [rate, setRate] = useState<string>("0");
 
@@ -52,6 +55,7 @@ export const TaxSettingsCard = () => {
       toast({ title: "Taux de TVA mis à jour" });
     },
     onError: (err: unknown) => {
+      reportError(err);
       const message = err instanceof Error ? err.message : String(err);
       toast({
         variant: "destructive",
@@ -72,6 +76,7 @@ export const TaxSettingsCard = () => {
       });
       return;
     }
+    if (blockMutation("Modifier la TVA")) return;
     mutation.mutate(num);
   };
 

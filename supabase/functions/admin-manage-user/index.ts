@@ -57,7 +57,12 @@ Deno.serve(async (req) => {
     }
 
     // STRICT ORG SCOPE: target must belong to actor's organization
-    const scope = await loadTargetInSameOrg(adminClient, userId, actorProfile.organization_id!);
+    if (!actorProfile.organization_id) {
+      return new Response(JSON.stringify({ error: 'Admin sans boutique associée' }), {
+        status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+      });
+    }
+    const scope = await loadTargetInSameOrg(adminClient, userId, actorProfile.organization_id);
     if (!scope.ok) {
       return new Response(JSON.stringify({ error: scope.error }), {
         status: scope.status, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
