@@ -1049,7 +1049,7 @@ BEGIN
     'generate_order_number', 'receive_purchase_order',
     'get_admin_stores_summary', 'get_admin_article_ranking',
     'get_admin_stock_movements', 'get_admin_sales_trend', 'get_admin_payment_distribution'
-  ]) AS fname LOOP
+  ]) LOOP
     IF NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
                    WHERE n.nspname = 'public' AND p.proname = f.unnest) THEN
       missing := array_append(missing, f.unnest);
