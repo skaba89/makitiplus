@@ -103,6 +103,9 @@ GRANT EXECUTE ON FUNCTION public.create_product(
 -- The user_roles table only has (id, user_id, role, created_at)
 -- ════════════════════════════════════════════════════════════════
 
+-- DROP d'abord au cas où la signature aurait changé
+DROP FUNCTION IF EXISTS public.invite_user(TEXT, public.app_role);
+
 CREATE OR REPLACE FUNCTION public.invite_user(
   p_email TEXT,
   p_role public.app_role DEFAULT 'vendeur'
