@@ -13,10 +13,9 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Badge } from "@/components/ui/badge";
 import { Check, X, Loader2 } from "lucide-react";
 
-const PRICING_CURRENCY = "USD";
+const PRICING_CURRENCY = "EUR";
 
 const PLAN_HIGHLIGHTS: Record<string, string> = {
-  starter: "Idéal pour démarrer",
   croissance: "Pour les boutiques qui grandissent",
   enterprise: "Pour les chaînes et grossistes",
 };
@@ -60,13 +59,13 @@ export default function Pricing() {
         </h1>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
           La caisse intelligente et offline-first pour les boutiques, grossistes
-          et chaînes de magasins en Afrique. Commencez gratuitement.
+          et chaînes de magasins en Afrique.
         </p>
       </div>
 
       {/* Plans Grid */}
       <div className="max-w-6xl mx-auto px-4 pb-16">
-        <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
+        <div className="grid md:grid-cols-2 gap-6 lg:gap-8 max-w-4xl mx-auto">
           {plans?.map((plan) => (
             <PlanCard
               key={plan.id}
@@ -131,6 +130,7 @@ interface PlanCardProps {
 function PlanCard({ plan, highlight, isCurrent, onSelect }: PlanCardProps) {
   const isPopular = plan.id === "croissance";
   const isEnterprise = plan.id === "enterprise";
+  const currencySymbol = PRICING_CURRENCY === "EUR" ? "€" : "$";
 
   const features = [
     { label: `${plan.max_stores === null ? "Illimitées" : plan.max_stores} boutique${plan.max_stores !== 1 ? "s" : ""}`, included: true },
@@ -175,11 +175,11 @@ function PlanCard({ plan, highlight, isCurrent, onSelect }: PlanCardProps) {
             </div>
           ) : (
             <div>
-              <span className="text-4xl font-bold">${plan.price_monthly}</span>
+              <span className="text-4xl font-bold">{plan.price_monthly.toFixed(2).replace('.00', '')}{currencySymbol}</span>
               <span className="text-muted-foreground">/mois</span>
               {plan.price_yearly && (
                 <p className="text-sm text-muted-foreground mt-1">
-                  ${plan.price_yearly}/an — économisez 2 mois
+                  {plan.price_yearly.toFixed(2).replace('.00', '')}{currencySymbol}/an — économisez 2 mois
                 </p>
               )}
             </div>
@@ -207,10 +207,6 @@ function PlanCard({ plan, highlight, isCurrent, onSelect }: PlanCardProps) {
         {isCurrent ? (
           <Button className="w-full" variant="outline" disabled>
             Plan actuel
-          </Button>
-        ) : plan.price_monthly === 0 ? (
-          <Button className="w-full" variant="outline" onClick={onSelect}>
-            Commencer gratuitement
           </Button>
         ) : (
           <Button className="w-full" onClick={onSelect}>

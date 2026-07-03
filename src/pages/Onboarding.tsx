@@ -14,11 +14,10 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePlans, useSubscription } from "@/hooks/useSubscription";
 import { useStripeCheckout } from "@/hooks/useStripeCheckout";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, X, ArrowRight, ArrowLeft, Loader2, Sparkles, Store, Rocket, Crown } from "lucide-react";
+import { Check, X, ArrowRight, ArrowLeft, Loader2, Sparkles, Rocket, Crown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { reportError } from "@/lib/sentry";
 
@@ -26,15 +25,13 @@ const STEPS = ["welcome", "plan", "confirm"] as const;
 type Step = (typeof STEPS)[number];
 
 const PLAN_ICONS: Record<string, React.ReactNode> = {
-  starter: <Store className="h-8 w-8 text-primary" />,
   croissance: <Rocket className="h-8 w-8 text-amber-500" />,
   enterprise: <Crown className="h-8 w-8 text-purple-500" />,
 };
 
 const PLAN_DESCRIPTIONS: Record<string, string> = {
-  starter: "Idéal pour démarrer votre activité avec les essentiels du POS et de la gestion de stock.",
   croissance: "Pour les boutiques qui grandissent — fournisseurs, rapports avancés, exports et multi-devises.",
-  enterprise: "Pour les chaînes et grossistes — tout illimité, API, support prioritaire et assistant IA.",
+  enterprise: "Pour les chaînes et grossistes — boutiques illimitées, API, support prioritaire et assistant IA.",
 };
 
 const FEATURE_LABELS: Record<string, string> = {
@@ -62,7 +59,7 @@ export default function Onboarding() {
   const { checkout: stripeCheckout, isLoading: isStripeLoading, isStripeConfigured } = useStripeCheckout();
 
   const [step, setStep] = useState<Step>("welcome");
-  const [selectedPlan, setSelectedPlan] = useState<string>("starter");
+  const [selectedPlan, setSelectedPlan] = useState<string>("croissance");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // If user already has a subscription, redirect to dashboard
@@ -84,23 +81,12 @@ export default function Onboarding() {
     setIsSubmitting(true);
 
     try {
-      // Use the secure select_plan RPC instead of direct upsert
-      // This bypasses RLS issues and validates the plan_id server-side
-      if (selectedPlan === "starter") {
-        const { error } = await supabase.rpc("select_plan", {
-          p_plan_id: "starter",
-        });
-
-        if (error) throw error;
-        setStep("confirm");
-      } else {
-        // Paid plan → redirect to Stripe Checkout
-        await stripeCheckout(selectedPlan);
-        // If Stripe is not configured, the hook will show an error.
-        // The user will be redirected to Stripe, so we don't need to do more here.
-        // If Stripe redirect doesn't happen (error), stop loading.
-        setIsSubmitting(false);
-      }
+      // Paid plan → redirect to Stripe Checkout
+      await stripeCheckout(selectedPlan);
+      // If Stripe is not configured, the hook will show an error.
+      // The user will be redirected to Stripe, so we don't need to do more here.
+      // If Stripe redirect doesn't happen (error), stop loading.
+      setIsSubmitting(false);
     } catch (error) {
       reportError(error, { action: "onboarding_select_plan", planId: selectedPlan });
       toast({
@@ -195,7 +181,7 @@ export default function Onboarding() {
             <div className="text-center">
               <h2 className="text-2xl font-bold">Choisissez votre plan</h2>
               <p className="text-muted-foreground mt-1">
-                Commencez gratuitement, upgradéz quand vous êtes prêt
+                Sélectionnez le plan adapté à votre activité
               </p>
             </div>
 
@@ -204,7 +190,7 @@ export default function Onboarding() {
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : (
-              <div className="grid md:grid-cols-3 gap-4 lg:gap-6">
+              <div className="grid md:grid-cols-2 gap-4 lg:gap-6">
                 {plans?.map((plan) => {
                   const isSelected = selectedPlan === plan.id;
                   const isPopular = plan.id === "croissance";
@@ -255,11 +241,11 @@ export default function Onboarding() {
                             <span className="text-3xl font-bold">Gratuit</span>
                           ) : (
                             <div>
-                              <span className="text-3xl font-bold">${plan.price_monthly}</span>
+                              <span className="text-3xl font-bold">{plan.price_monthly.toFixed(2).replace('.00', '')}€</span>
                               <span className="text-muted-foreground">/mois</span>
                               {plan.price_yearly && (
                                 <p className="text-xs text-muted-foreground mt-1">
-                                  ${plan.price_yearly}/an — économisez 2 mois
+                                  {plan.price_yearly.toFixed(2).replace('.00', '')}€/an — économisez 2 mois
                                 </p>
                               )}
                             </div>
@@ -341,32 +327,13 @@ export default function Onboarding() {
                 <strong>
                   {plans?.find((p) => p.id === selectedPlan)?.name || selectedPlan}
                 </strong>{" "}
-                a été activé avec succès. Vous pouvez maintenant commencer à
-                utiliser MakitiPlus pour gérer votre activité.
+                a été sélectionné. Vous allez être redirigé vers Stripe pour finaliser le paiement.
+                Votre abonnement sera activé dès la confirmation du paiement.
               </p>
-              {selectedPlan === "starter" && (
-                <div className="p-4 rounded-lg bg-muted/50 text-left space-y-2">
-                  <p className="font-medium text-sm">Pour commencer :</p>
-                  <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>1. Ajoutez vos premiers produits</li>
-                    <li>2. Configurez votre boutique dans les paramètres</li>
-                    <li>3. Réalisez votre première vente au POS</li>
-                  </ul>
-                </div>
-              )}
-              {selectedPlan !== "starter" && (
-                <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-950/20 text-left">
-                  <p className="text-sm text-amber-700 dark:text-amber-400">
-                    <strong>Note :</strong> Vous allez être redirigé vers Stripe pour finaliser le paiement
-                    du plan {plans?.find((p) => p.id === selectedPlan)?.name}.
-                    Votre abonnement sera activé dès la confirmation du paiement.
-                  </p>
-                </div>
-              )}
             </CardContent>
             <CardFooter className="justify-center">
-              <Button size="lg" onClick={handleFinish} className="gap-2">
-                Accéder au tableau de bord
+              <Button size="lg" onClick={handleSelectPlan} className="gap-2">
+                Continuer vers le paiement
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </CardFooter>
