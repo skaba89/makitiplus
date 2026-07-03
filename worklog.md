@@ -466,3 +466,24 @@ Stage Summary:
 - Customer Portal: users can now self-manage payment methods, view invoices, cancel subscriptions
 - Supabase types now include all SaaS tables and RPCs (previously stale)
 - All 3 Stripe Edge Functions ready for deployment
+---
+Task ID: frontend-audit-wave4
+Agent: main
+Task: Frontend audit wave 4 — comprehensive scan + fix 60+ bugs
+
+Work Log:
+- Launched 4 parallel subagents to scan all pages, components, hooks/lib, and edge functions
+- Identified 88 bugs total across all areas (30 pages, 20 components, 17 hooks/lib, 21 edge functions/tests)
+- Fixed CRITICAL bugs: AuthContext missing reportError (4 call sites), NotFound missing reportError, ProtectedRoute wrong path alias, StoreCustomization missing BRAND_DEFAULTS, SubscriptionCard wrong RPC props, OnboardingChecklist wrong RPC props, stripe-webhook skipping verification without secret, subscription-lifecycle using non-existent profiles.email column, CRON_SECRET not mandatory
+- Fixed HIGH bugs: added reportError to 14 pages + 3 components, added demo guards to 5 pages, replaced user!.id in 9 files, fixed admin-analytics route (STORE_ROLES→ADMIN_ROLES), added CORS headers to httpMethodGuard 405, fixed useSubscription query key, fixed IndexedDB version conflict, fixed receiptDeliveryQueue data loss
+- Fixed MEDIUM bugs: Billing duplicate imports, hardcoded role arrays→constants in 4 files, unused imports in 3 files, window.location→useNavigate in 4 components, alert()→toast() in SubscriptionCard, reportError in BrandingSettings
+- TypeScript: 0 errors, Vite build: OK, 195/195 tests pass
+- Commit: 459f48f pushed to main
+
+Stage Summary:
+- 60+ bugs fixed across 42 files without regression
+- All critical runtime crashes eliminated (reportError ReferenceErrors, wrong RPC props, missing imports)
+- All Stripe edge functions hardened (mandatory webhook secret, proper email lookup, CORS on 405)
+- Demo mode now guards all mutation pages (5 pages added)
+- All unsafe non-null assertions replaced with safe alternatives
+- Build: 0 errors, 195/195 tests pass
