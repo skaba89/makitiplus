@@ -45,7 +45,7 @@ export const POSProductList = memo(({ products, onAddToCart, hasMore, isLoadingM
   return (
     <div>
       {/* Table header */}
-      <div className="hidden md:grid md:grid-cols-[1fr_90px_80px_60px_120px] lg:grid-cols-[1fr_100px_100px_60px_130px] gap-2 px-3 py-2 text-xs font-medium text-muted-foreground border-b bg-muted/30 rounded-t-lg">
+      <div className="hidden md:grid md:grid-cols-[1fr_90px_80px_90px_120px] lg:grid-cols-[1fr_100px_100px_90px_130px] gap-2 px-3 py-2 text-xs font-medium text-muted-foreground border-b bg-muted/30 rounded-t-lg">
         <span>Produit</span>
         <span className="text-right">Prix</span>
         <span className="text-right">Stock</span>
@@ -62,7 +62,7 @@ export const POSProductList = memo(({ products, onAddToCart, hasMore, isLoadingM
           return (
             <div
               key={product.id}
-              className={`grid grid-cols-[1fr_auto] md:grid-cols-[1fr_90px_80px_60px_120px] lg:grid-cols-[1fr_100px_100px_60px_130px] gap-2 items-center px-2 sm:px-3 py-2 sm:py-2.5 hover:bg-muted/30 transition-colors ${
+              className={`grid grid-cols-[1fr_auto] md:grid-cols-[1fr_90px_80px_90px_120px] lg:grid-cols-[1fr_100px_100px_90px_130px] gap-2 items-center px-2 sm:px-3 py-2 sm:py-2.5 hover:bg-muted/30 transition-colors ${
                 outOfStock ? "opacity-50" : ""
               }`}
             >
@@ -119,16 +119,16 @@ export const POSProductList = memo(({ products, onAddToCart, hasMore, isLoadingM
               {/* Quantity selector — visible on md+ */}
               <div className="hidden md:flex md:justify-center">
                 {!outOfStock && (
-                  <div className="flex items-center gap-0.5">
+                  <div className="flex items-center gap-1">
                     <Button
                       variant="outline"
                       size="icon"
-                      className="h-6 w-6"
+                      className="h-7 w-7"
                       onClick={() => setQty(product.id, qty - 1)}
                       disabled={qty <= 1}
                       aria-label={`Diminuer quantité ${product.name}`}
                     >
-                      <Minus className="h-3 w-3" />
+                      <Minus className="h-3.5 w-3.5" />
                     </Button>
                     <Input
                       type="number"
@@ -141,17 +141,17 @@ export const POSProductList = memo(({ products, onAddToCart, hasMore, isLoadingM
                           setQty(product.id, v);
                         }
                       }}
-                      className="h-6 w-10 text-center text-xs p-0 border-0"
+                      className="h-7 w-12 text-center text-sm font-semibold p-0 border rounded"
                     />
                     <Button
                       variant="outline"
                       size="icon"
-                      className="h-6 w-6"
+                      className="h-7 w-7"
                       onClick={() => setQty(product.id, qty + 1)}
                       disabled={qty >= product.stock_quantity}
                       aria-label={`Augmenter quantité ${product.name}`}
                     >
-                      <Plus className="h-3 w-3" />
+                      <Plus className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 )}
