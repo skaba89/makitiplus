@@ -518,3 +518,32 @@ Stage Summary:
 - admin-create-user now validates roles against whitelist
 - All organization_id! replaced with null guards
 - 18 new security tests added (213 total)
+
+---
+Task ID: 5
+Agent: main
+Task: Vague 5 audit frontend — reportError, jsPDF, timing-safe secrets, edge function security
+
+Work Log:
+- Verified CreditPaymentDialog, TaxSettingsCard, WhatsAppSettings already have useDemo + blockMutation (fixed in prior wave)
+- Fixed jsPDF named import in ConflictSimulationPanel: `{ jsPDF }` → `{ default: jsPDF }` (runtime crash fix)
+- Fixed font mixing in receiptGenerator: replaced 4x `doc.setFont("helvetica", bold ? "bold" : "normal")` with `setPdfFont(doc, bold ? "bold" : "normal")` for proper French accent rendering
+- Added reportError import + catch block calls to 15 files: SecurityDiagnosticPanel (5 catches), DemoContext (2), MobileMoneySimulationPanel, ReceiptDeliveryMergeLogPanel (3), ReceiptDeliveryTrackingPanel (3), ResetTokensPanel, BarcodeGenerator, BarcodeLabelPrinter (2), ReceiptActionsDialog, ProductAutocomplete, OfflinePOSSimulationPanel, currency-selector, main.tsx (2)
+- Created timingSafeEqual.ts utility in supabase/functions/_shared/ for constant-time secret comparison
+- Fixed timing-unsafe CRON_SECRET comparison in rotate-test-accounts (C1) and subscription-lifecycle (C2)
+- Removed leaked error details from subscription-lifecycle response (C3) and stripe-checkout response (C4)
+- Added role check to send-whatsapp: restrict to super_admin/admin/manager/vendeur (C5)
+- Fixed CORS reflection in httpMethodGuard 405 responses: use getCorsHeaders instead of raw Origin reflection (H1)
+- Added validateOrigin utility to cors.ts for origin validation against ALLOWED_ORIGINS
+- Fixed open redirect in stripe-checkout: validate successUrl/cancelUrl against allowed origins (H3)
+- Fixed open redirect in stripe-portal: validate origin header against allowed origins (H4)
+- Fixed import placement bugs caused by batch script (3 files had reportError inserted mid-import-block)
+- Build verification: 0 TypeScript errors, Vite build OK, 213/213 tests pass
+
+Stage Summary:
+- Commit d85da5c pushed to main
+- 24 files changed, 255 insertions, 40 deletions
+- 5 CRITICAL security issues fixed (timing-unsafe secrets, leaked errors, missing role check)
+- 4 HIGH security issues fixed (CORS bypass, open redirects)
+- 15 files now properly report errors to Sentry instead of silently swallowing them
+- French accent rendering fixed in all PDF receipt templates via setPdfFont()
