@@ -3,20 +3,12 @@
 -- Execute dans : Supabase Dashboard -> SQL Editor -> New Query
 -- ═══════════════════════════════════════════════════════════════════════════════
 
--- 1. Lister TOUTES les fonctions dans le schéma public
-SELECT p.proname, p.oid::regprocedure AS signature
-FROM pg_proc p
-JOIN pg_namespace n ON n.oid = p.pronamespace
-WHERE n.nspname = 'public'
-ORDER BY p.proname;
-
--- 2. Vérification des 39 RPCs attendues
+-- Vérification des 39 RPCs attendues
 SELECT
   fn AS expected_rpc,
   CASE WHEN EXISTS (
-    SELECT 1 FROM pg_proc p
-    JOIN pg_namespace n ON n.oid = p.pronamespace
-    WHERE n.nspname = 'public' AND p.proname = fn
+    SELECT 1 FROM pg_proc
+    WHERE proname = fn AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
   ) THEN 'OK' ELSE 'MANQUANTE' END AS status
 FROM unnest(ARRAY[
   'get_user_organization_id', 'is_member_of_organization', 'generate_sale_number',
