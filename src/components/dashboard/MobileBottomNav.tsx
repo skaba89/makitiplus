@@ -26,6 +26,10 @@ import {
   Shield,
   Store,
   GitMerge,
+  Package as PackageIcon,
+  CreditCard,
+  Sparkles,
+  BarChart3 as AnalyticsIcon,
 } from "lucide-react";
 
 interface BottomNavItem {
@@ -98,6 +102,30 @@ const moreNavItems: BottomNavItem[] = [
     name: "Magasins",
     href: "/dashboard/stores",
     icon: Store,
+    roles: ["super_admin"],
+  },
+  {
+    name: "Commandes",
+    href: "/dashboard/purchase-orders",
+    icon: PackageIcon,
+    roles: ["super_admin", "admin", "manager"],
+  },
+  {
+    name: "Abonnement",
+    href: "/dashboard/billing",
+    icon: CreditCard,
+    roles: ["super_admin", "admin"],
+  },
+  {
+    name: "Assistant IA",
+    href: "/dashboard/ai-assistant",
+    icon: Sparkles,
+    roles: ["super_admin", "admin", "manager"],
+  },
+  {
+    name: "Analyse Multi-Magasins",
+    href: "/dashboard/admin-analytics",
+    icon: AnalyticsIcon,
     roles: ["super_admin"],
   },
   {

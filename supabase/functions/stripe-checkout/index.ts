@@ -14,7 +14,8 @@ const PRICE_IDS: Record<string, string> = {
 
 interface CheckoutRequest {
   priceId?: string;       // Direct Stripe price ID (alternative to planKey)
-  planKey: string;        // 'croissance' or 'enterprise'
+  planKey?: string;       // 'croissance' or 'enterprise'
+  plan_id?: string;       // Alias for planKey (retro-compat frontend)
   successUrl?: string;
   cancelUrl?: string;
 }
@@ -108,7 +109,8 @@ Deno.serve(async (req) => {
 
     // 3. Parse request body
     const body: CheckoutRequest = await req.json();
-    const priceId = body.priceId ?? PRICE_IDS[body.planKey];
+    const resolvedPlanKey = body.planKey ?? body.plan_id ?? '';
+    const priceId = body.priceId ?? PRICE_IDS[resolvedPlanKey];
 
     if (!priceId) {
       return new Response(JSON.stringify({ error: 'Plan invalide ou price ID manquant' }), {

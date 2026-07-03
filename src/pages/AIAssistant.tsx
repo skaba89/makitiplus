@@ -30,7 +30,6 @@ import {
   BarChart3,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useFeatureAccess } from "@/hooks/useSubscription";
 
 // ─── Types ────────────────────────────────────────────────────
 

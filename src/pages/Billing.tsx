@@ -15,9 +15,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Loader2, CheckCircle, AlertTriangle, CreditCard, Calendar, TrendingUp } from "lucide-react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 
 const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   active: { label: "Actif", variant: "default" },
@@ -32,7 +33,6 @@ export default function Billing() {
   const { data: subscription, isLoading: subLoading } = useSubscription();
   const { data: plans } = usePlans();
   const { userRole } = useAuth();
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { checkout, isLoading: isCheckingOut, error: checkoutError, isStripeConfigured } = useStripeCheckout();
   const { openPortal, isLoading: isPortalLoading } = useStripePortal();
@@ -71,7 +71,8 @@ export default function Billing() {
   const currencySymbol = "€";
 
   return (
-    <div className="space-y-6 p-6 max-w-4xl mx-auto">
+    <DashboardLayout>
+    <div className="space-y-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Abonnement & Facturation</h1>
@@ -258,6 +259,7 @@ export default function Billing() {
         </CardContent>
       </Card>
     </div>
+    </DashboardLayout>
   );
 }
 

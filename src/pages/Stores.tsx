@@ -159,15 +159,15 @@ const Stores = () => {
   // Formulaire nouveau magasin
   const [storeName, setStoreName] = useState("");
   const [storeCategory, setStoreCategory] = useState<StoreCategory>("epicerie");
-  const [storeCountry, setStoreCountry] = useState(COUNTRIES[0]?.name || "Guinée");
-  const [storeCurrency, setStoreCurrency] = useState(COUNTRIES[0]?.currency.symbol || DEFAULT_CURRENCY.symbol);
+  const [storeCountry, setStoreCountry] = useState(COUNTRIES[0]?.code || "GN");
+  const [storeCurrency, setStoreCurrency] = useState(COUNTRIES[0]?.currency.code || DEFAULT_CURRENCY.code);
 
   // Sélection auto de la devise selon le pays
-  const handleCountryChange = (countryName: string) => {
-    setStoreCountry(countryName);
-    const country = COUNTRIES.find((c) => c.name === countryName);
+  const handleCountryChange = (countryCode: string) => {
+    setStoreCountry(countryCode);
+    const country = COUNTRIES.find((c) => c.code === countryCode);
     if (country) {
-      setStoreCurrency(country.currency.symbol);
+      setStoreCurrency(country.currency.code);
     }
   };
   const [creating, setCreating] = useState(false);
@@ -265,12 +265,12 @@ const Stores = () => {
       queryClient.invalidateQueries({ queryKey: ["stores"] });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      const isPlanLimit = message.includes('Limite') || message.includes('plan') || message.includes('Upgradéz');
+      const isPlanLimit = message.includes('Limite') || message.includes('plan') || message.includes('Upgrad') || message.includes('Upgradez');
       toast({
         variant: "destructive",
         title: isPlanLimit ? "Limite atteinte" : "Erreur",
         description: isPlanLimit
-          ? "Limite de boutiques atteinte pour votre plan. Upgradéz votre abonnement."
+          ? "Limite de boutiques atteinte pour votre plan. Upgradez votre abonnement."
           : message,
       });
     } finally {
@@ -459,7 +459,7 @@ const Stores = () => {
                       </SelectTrigger>
                       <SelectContent>
                         {COUNTRIES.map((c) => (
-                          <SelectItem key={c.code} value={c.name}>{c.name}</SelectItem>
+                          <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -472,8 +472,8 @@ const Stores = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {Array.from(new Map(COUNTRIES.map((c) => [c.currency.symbol, c.currency])).values()).map((cur) => (
-                          <SelectItem key={cur.symbol} value={cur.symbol}>{cur.symbol} ({cur.name})</SelectItem>
+                        {Array.from(new Map(COUNTRIES.map((c) => [c.currency.code, c.currency])).values()).map((cur) => (
+                          <SelectItem key={cur.code} value={cur.code}>{cur.symbol} ({cur.name})</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

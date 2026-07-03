@@ -295,7 +295,7 @@ const Suppliers = () => {
             <h2 className="text-xl font-bold mb-2">Gestion des fournisseurs</h2>
             <p className="text-muted-foreground max-w-md mb-6">
               La gestion des fournisseurs est disponible à partir du plan Croissance.
-              Upgradéz votre abonnement pour accéder à cette fonctionnalité.
+              Upgradez votre abonnement pour accéder à cette fonctionnalité.
             </p>
             <Button onClick={() => window.location.hash = "/dashboard/billing"}>
               Voir les abonnements

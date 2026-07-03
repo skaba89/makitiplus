@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 import { Database } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -9,6 +9,16 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Minus, Plus, Trash2, ShoppingCart } from "lucide-react";
 import { useCurrency } from "@/hooks/useCurrency";
 
@@ -42,6 +52,7 @@ export const MobileCartDrawer = memo(({
 }: MobileCartDrawerProps) => {
   const { formatPrice } = useCurrency();
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
@@ -141,7 +152,7 @@ export const MobileCartDrawer = memo(({
                   variant="ghost"
                   size="sm"
                   className="text-muted-foreground hover:text-destructive"
-                  onClick={onClear}
+                  onClick={() => setShowClearConfirm(true)}
                 >
                   Vider le panier
                 </Button>
@@ -152,16 +163,37 @@ export const MobileCartDrawer = memo(({
               <Button
                 className="w-full"
                 size="lg"
-                onClick={() => {
-                  onCheckout();
-                  onClose();
-                }}
+                onClick={onCheckout}
               >
                 Payer {formatPrice(total)}
               </Button>
             </div>
           )}
         </div>
+
+        {/* Clear cart confirmation */}
+        <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Vider le panier ?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Cette action supprimera tous les articles du panier.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Annuler</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => {
+                  onClear();
+                  setShowClearConfirm(false);
+                }}
+              >
+                Vider
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </SheetContent>
     </Sheet>
   );

@@ -352,12 +352,12 @@ const POS = () => {
         message = String(error);
       }
       // Detect plan limit errors from create_sale_with_limit
-      const isPlanLimit = message.includes('Limite') || message.includes('plan') || message.includes('Upgradéz');
+      const isPlanLimit = message.includes('Limite') || message.includes('plan') || message.includes('Upgrad');
       toast({
         variant: "destructive",
         title: isPlanLimit ? "Limite atteinte" : "Erreur de vente",
         description: isPlanLimit
-          ? "Limite de ventes mensuelles atteinte pour votre plan. Upgradéz votre abonnement."
+          ? "Limite de ventes mensuelles atteinte pour votre plan. Upgradez votre abonnement."
           : message,
       });
       if (!isPlanLimit) {

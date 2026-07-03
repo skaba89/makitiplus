@@ -8,6 +8,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import {
   Loader2, GitMerge, CheckCircle2, AlertTriangle, RefreshCw, Smartphone,
@@ -61,7 +62,21 @@ const formatDate = (iso: string) => {
 };
 
 const SyncConflicts = () => {
+  const { userRole } = useAuth();
   const { toast } = useToast();
+
+  // Only super_admin and admin should access this page
+  if (userRole !== 'super_admin' && userRole !== 'admin') {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+          <ShieldCheck className="h-16 w-16 text-muted-foreground/40" />
+          <h2 className="text-xl font-semibold">Accès restreint</h2>
+          <p className="text-muted-foreground">Seuls les administrateurs peuvent gérer les conflits de synchronisation.</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
   const [rows, setRows] = useState<ConflictRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"unack" | "all" | "diagnostic">("unack");
