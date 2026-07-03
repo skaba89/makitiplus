@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
 
     // 3. Create Customer Portal session
     const origin = req.headers.get('origin') ?? 'https://makitiplus.onrender.com';
-    const returnUrl = `${origin}/settings`;
+    const returnUrl = `${origin}/dashboard/billing`;
 
     const session = await stripeRequest('/billing_portal/sessions', 'POST', {
       customer: org.stripe_customer_id,
@@ -120,7 +120,7 @@ Deno.serve(async (req) => {
 
   } catch (err) {
     console.error('[stripe-portal] Error:', (err as Error).message);
-    return new Response(JSON.stringify({ error: (err as Error).message }), {
+    return new Response(JSON.stringify({ error: 'Impossible de créer la session portail' }), {
       status: 500,
       headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
     });

@@ -8,6 +8,7 @@
  */
 
 import { type ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
 import { usePlanLimit, useFeatureAccess, type LimitType, type FeatureKey } from "@/hooks/useSubscription";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -65,6 +66,7 @@ interface UpgradePromptProps {
 
 function UpgradePrompt({ limitType, currentCount, limitValue, planId }: UpgradePromptProps) {
   const label = LIMIT_LABELS[limitType] || limitType;
+  const navigate = useNavigate();
 
   return (
     <Card className="border-dashed border-amber-300 bg-amber-50 dark:bg-amber-950/20">
@@ -82,7 +84,7 @@ function UpgradePrompt({ limitType, currentCount, limitValue, planId }: UpgradeP
           size="sm"
           variant="outline"
           className="shrink-0"
-          onClick={() => window.location.hash = "/dashboard/billing"}
+          onClick={() => navigate("/dashboard/billing")}
         >
           Upgrader
         </Button>

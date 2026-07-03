@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -61,6 +62,7 @@ import { Lock } from "lucide-react";
 
 const Suppliers = () => {
   const { user, profile, userRole } = useAuth();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const { blockMutation } = useDemo();
   const { formatPrice } = useCurrency();
@@ -297,7 +299,7 @@ const Suppliers = () => {
               La gestion des fournisseurs est disponible à partir du plan Croissance.
               Upgradez votre abonnement pour accéder à cette fonctionnalité.
             </p>
-            <Button onClick={() => window.location.hash = "/dashboard/billing"}>
+            <Button onClick={() => navigate("/dashboard/billing")}>
               Voir les abonnements
             </Button>
           </div>

@@ -58,6 +58,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDemo } from "@/contexts/DemoContext";
 import { Database } from "@/integrations/supabase/types";
 import { AuditLogPanel } from "@/components/users/AuditLogPanel";
 import { SecurityDiagnosticPanel } from "@/components/users/SecurityDiagnosticPanel";
@@ -65,7 +66,7 @@ import { ResetTokensPanel } from "@/components/users/ResetTokensPanel";
 import { PasswordStrengthMeter } from "@/components/users/PasswordStrengthMeter";
 import { UsersPageSkeleton } from "@/components/skeletons/PageSkeletons";
 import { checkPassword } from "@/lib/passwordPolicy";
-import { AdminActionResponse, ResetLinkResponse, Profile as ProfileType, isAdminRole } from "@/types";
+import { AdminActionResponse, ResetLinkResponse, isAdminRole } from "@/types";
 import {
   Loader2,
   UserPlus,
@@ -154,6 +155,7 @@ const formatDate = (iso: string | null) => {
 const Users = () => {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { blockMutation } = useDemo();
   const [users, setUsers] = useState<UserRow[]>([]);
   const [audit, setAudit] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -268,6 +270,7 @@ const Users = () => {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (blockMutation('Créer un utilisateur')) return;
     const pwdCheck = checkPassword(password);
     if (!pwdCheck.ok) {
       toast({
@@ -341,6 +344,7 @@ const Users = () => {
 
   const handleDeactivate = async () => {
     if (!deactivateTarget) return;
+    if (blockMutation('Désactiver un utilisateur')) return;
     await callManage(deactivateTarget, "deactivate", deactivationReason || undefined);
     setDeactivateTarget(null);
     setDeactivationReason("");
@@ -348,12 +352,14 @@ const Users = () => {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
+    if (blockMutation('Supprimer un utilisateur')) return;
     await callManage(deleteTarget, "delete");
     setDeleteTarget(null);
   };
 
   const handleResetPassword = async () => {
     if (!resetTarget) return;
+    if (blockMutation('Réinitialiser le mot de passe')) return;
 
     // Magic link mode (email or SMS)
     if (resetMode === "email" || resetMode === "sms") {
@@ -517,6 +523,8 @@ const Users = () => {
                   <Input
                     id="password"
                     type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     placeholder="Min 8 car. avec maj/min/chiffre/symbole"
                     required
                   />
@@ -826,6 +834,8 @@ const Users = () => {
                 <Input
                   id="newPwd"
                   type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Min 8 car. avec maj/min/chiffre/symbole"
                   autoComplete="off"
                 />

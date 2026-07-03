@@ -133,10 +133,6 @@ Deno.serve(async (req) => {
       const customer = await stripeRequest('/customers', 'POST', {
         email: user.email ?? '',
         name: org?.name ?? profile.business_name ?? 'MakitiPlus Client',
-        metadata: JSON.stringify({
-          organization_id: orgId,
-          user_id: user.id,
-        }).replace(/"/g, ''),  // Stripe metadata values must be strings
         'metadata[organization_id]': orgId,
         'metadata[user_id]': user.id,
       });
@@ -152,8 +148,8 @@ Deno.serve(async (req) => {
 
     // 6. Create Checkout Session
     const origin = req.headers.get('origin') ?? 'https://makitiplus.onrender.com';
-    const successUrl = body.successUrl ?? `${origin}/settings?checkout=success`;
-    const cancelUrl = body.cancelUrl ?? `${origin}/pricing?checkout=canceled`;
+    const successUrl = body.successUrl ?? `${origin}/dashboard/billing?checkout=success`;
+    const cancelUrl = body.cancelUrl ?? `${origin}/dashboard/billing?checkout=canceled`;
 
     const session = await stripeRequest('/checkout/sessions', 'POST', {
       customer: customerId,

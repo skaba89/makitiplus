@@ -1,5 +1,5 @@
  import { useState, useMemo } from "react";
- import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+ import { useMutation, useQueryClient } from "@tanstack/react-query";
  import { supabase } from "@/integrations/supabase/client";
  import { useAuth } from "@/contexts/AuthContext";
  import { useDemo } from "@/contexts/DemoContext";
@@ -57,6 +57,7 @@ import { Database } from "@/integrations/supabase/types";
 import { useExpenseStats } from "@/hooks/useExpenseStats";
 import { useCurrency } from "@/hooks/useCurrency";
 import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
+import { reportError } from "@/lib/sentry";
  
  type Expense = Database["public"]["Tables"]["expenses"]["Row"];
  type PaymentMethod = Database["public"]["Enums"]["payment_method"];
@@ -79,7 +80,11 @@ import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
    { value: "cash", label: "Espèces" },
    { value: "wave", label: "Wave" },
    { value: "orange_money", label: "Orange Money" },
+   { value: "mtn_money", label: "MTN Money" },
+   { value: "moov_money", label: "Moov Money" },
+   { value: "mpesa", label: "M-Pesa" },
    { value: "card", label: "Carte bancaire" },
+   { value: "credit", label: "Crédit" },
  ];
  
 const Expenses = () => {
@@ -239,7 +244,7 @@ const Expenses = () => {
      setCategory(expense.category);
      setPaymentMethod(expense.payment_method || "cash");
      setDescription(expense.description || "");
-     setExpenseDate(format(new Date(expense.expense_date), "yyyy-MM-dd"));
+     setExpenseDate(expense.expense_date);
      setIsDialogOpen(true);
    };
 

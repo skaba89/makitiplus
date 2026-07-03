@@ -10,6 +10,7 @@
  */
 
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -127,6 +128,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof
 
 const PurchaseOrders = () => {
   const { user, profile, userRole } = useAuth();
+  const navigate = useNavigate();
   const storeId = useStoreId();
   const { toast } = useToast();
   const { blockMutation } = useDemo();
@@ -395,7 +397,7 @@ const PurchaseOrders = () => {
               La gestion des commandes fournisseurs est disponible à partir du plan Croissance.
               Upgradez votre abonnement pour accéder à cette fonctionnalité.
             </p>
-            <Button onClick={() => (window.location.hash = "/dashboard/billing")}>
+            <Button onClick={() => navigate("/dashboard/billing")}>
               Voir les abonnements
             </Button>
           </div>

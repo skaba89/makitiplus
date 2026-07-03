@@ -24,7 +24,7 @@ import { startOfDay, endOfDay, startOfMonth, endOfMonth } from "date-fns";
 import { format } from "date-fns";
 import { formatDateTime } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
-import { INVENTORY_ROLES } from "@/types";
+import { INVENTORY_ROLES, POS_ROLES, MANAGEMENT_ROLES, FINANCIAL_ROLES } from "@/types";
 
 /** Product with optional category icon + supplier name for stock alerts */
 interface DashboardProduct {
@@ -169,12 +169,12 @@ const Dashboard = () => {
   });
 
   // Dérivés depuis dashboardStats RPC (agrégation serveur) + fallback client-side
-  const totalSalesToday = dashboardStats?.sales_today ?? monthSales?.filter(
+  const totalSalesToday = dashboardStats?.todaySales ?? monthSales?.filter(
     (s) => s.created_at >= dayStart && s.created_at <= dayEnd
   ).reduce((s, sale) => s + sale.total_amount, 0) ?? 0;
-  const transactionsToday = dashboardStats?.transactions_today ?? 0;
-  const totalSalesMonth = monthSales?.reduce((s, sale) => s + sale.total_amount, 0) || 0;
-  const totalExpensesMonth = monthExpenses?.reduce((s, e) => s + e.amount, 0) || 0;
+  const transactionsToday = dashboardStats?.todayTransactions ?? 0;
+  const totalSalesMonth = monthSales?.reduce((s, sale) => s + sale.total_amount, 0) ?? 0;
+  const totalExpensesMonth = monthExpenses?.reduce((s, e) => s + e.amount, 0) ?? 0;
   const netProfit = totalSalesMonth - totalExpensesMonth;
   const totalProducts = products?.length || 0;
   const lowStockProducts = products?.filter(
@@ -208,7 +208,7 @@ const Dashboard = () => {
     {
       title: "Ventes du mois",
       value: formatPrice(totalSalesMonth),
-      change: dashboardStats?.credit_sales_month > 0 ? `${dashboardStats.credit_sales_month} a credit` : "voir rapports",
+      change: (dashboardStats?.monthCreditCount ?? 0) > 0 ? `${dashboardStats.monthCreditCount} à crédit` : "voir rapports",
       trend: "up" as const,
       icon: BarChart3,
     },
@@ -373,7 +373,7 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
             )}
-            {userRole && ["admin", "manager", "vendeur"].includes(userRole) && (
+            {userRole && POS_ROLES.includes(userRole) && (
               <Card
                 className="card-elevated hover:shadow-medium transition-shadow cursor-pointer group"
                 role="button"
@@ -407,7 +407,7 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
             )}
-            {userRole && ["admin", "manager"].includes(userRole) && (
+            {userRole && MANAGEMENT_ROLES.includes(userRole) && (
               <Card
                 className="card-elevated hover:shadow-medium transition-shadow cursor-pointer group"
                 role="button"
@@ -423,7 +423,7 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
             )}
-            {userRole && ["admin", "manager", "comptable"].includes(userRole) && (
+            {userRole && FINANCIAL_ROLES.includes(userRole) && (
               <Card
                 className="card-elevated hover:shadow-medium transition-shadow cursor-pointer group"
                 role="button"

@@ -58,7 +58,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const { isDemo } = useDemo();
 
   // Use theme settings (store_settings) with fallback to branding context
-  const displayName = settings?.store_name || branding.appName || "MalikiPlus";
+  const displayName = settings?.store_name || branding.appName || "MakitiPlus";
   const displayLogo = settings?.logo_url || branding.logoUrl;
 
   const handleSignOut = async () => {
@@ -289,7 +289,11 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         {/* Navigation */}
         <nav className="p-4 space-y-1 overflow-y-auto" style={{ maxHeight: "calc(100vh - 140px)" }}>
           {filteredMenuItems.map((item) => {
-            const isActive = location.pathname === item.href;
+            const isActive = (href: string) => {
+              if (href === "/dashboard") return location.pathname === "/dashboard";
+              return location.pathname.startsWith(href);
+            };
+            const active = isActive(item.href);
             return (
               <Link
                 key={item.href}
@@ -297,7 +301,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 onClick={() => setIsSidebarOpen(false)}
                 className={cn(
                   "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all",
-                  isActive
+                  active
                     ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-soft"
                     : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                 )}
@@ -359,7 +363,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       {/* Main content */}
       <main className={cn(
         "lg:ml-64 min-h-screen pt-14 sm:pt-16 lg:pt-0",
-        isDemo && "pt-22 sm:pt-24 lg:pt-8"
+        isDemo && "pt-[5.5rem] sm:pt-24 lg:pt-8"
       )}>
         <div className="p-3 sm:p-4 lg:p-8 pb-28 sm:pb-24 lg:pb-8">{children}</div>
       </main>

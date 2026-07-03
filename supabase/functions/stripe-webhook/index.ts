@@ -45,7 +45,14 @@ async function verifyStripeSignature(
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
 
-  return computedSig === signaturePart;
+  // Timing-safe comparison to prevent timing attacks
+  if (computedSig.length !== signaturePart.length) return false;
+  const a = new TextEncoder().encode(computedSig);
+  const b = new TextEncoder().encode(signaturePart);
+  if (a.byteLength !== b.byteLength) return false;
+  const diff = new Uint8Array(a.byteLength);
+  for (let i = 0; i < a.byteLength; i++) diff[i] = a[i] ^ b[i];
+  return diff.every(v => v === 0);
 }
 
 Deno.serve(async (req) => {
@@ -70,14 +77,14 @@ Deno.serve(async (req) => {
         console.error('[stripe-webhook] Invalid signature');
         return new Response(JSON.stringify({ error: 'Invalid signature' }), {
           status: 401,
-          headers: { 'Content-Type': 'application/json' },
+          headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
         });
       }
     } else if (webhookSecret) {
       console.error('[stripe-webhook] Missing stripe-signature header');
       return new Response(JSON.stringify({ error: 'Missing signature' }), {
         status: 401,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     } else {
       console.warn('[stripe-webhook] STRIPE_WEBHOOK_SECRET not set — skipping verification');
@@ -117,6 +124,11 @@ Deno.serve(async (req) => {
         const subRes = await fetch(`https://api.stripe.com/v1/subscriptions/${subscriptionId}`, {
           headers: { Authorization: `Bearer ${secretKey}` },
         });
+        if (!subRes.ok) {
+          const errData = await subRes.json().catch(() => ({}));
+          console.error(`[stripe-webhook] Failed to retrieve subscription: ${errData.error?.message ?? subRes.status}`);
+          break;
+        }
         const subscription = await subRes.json();
 
         // Determine plan from price ID
