@@ -12,7 +12,9 @@
 -- ══════════════════════════════════════════════════════════════════════════════
 
 -- On crée une fonction utilitaire pour dropper toutes les signatures
--- d'une fonction donnée, évitant l'erreur 42P13
+-- d'une fonction donnée, évitant l'erreur 42P13.
+-- Si la fonction a des dépendances (RLS policies), on skip le DROP
+-- et on laisse CREATE OR REPLACE faire le travail (marche si même type de retour).
 CREATE OR REPLACE FUNCTION pg_temp.drop_all_signatures(p_func_name TEXT)
 RETURNS VOID LANGUAGE plpgsql AS $$
 DECLARE f record;
@@ -21,8 +23,12 @@ BEGIN
     SELECT oid::regprocedure AS func_sig FROM pg_proc
     WHERE proname = p_func_name AND pronamespace = 'public'::regnamespace
   LOOP
-    EXECUTE 'DROP FUNCTION IF EXISTS ' || f.func_sig;
-    RAISE NOTICE 'Dropped %', f.func_sig;
+    BEGIN
+      EXECUTE 'DROP FUNCTION IF EXISTS ' || f.func_sig;
+      RAISE NOTICE 'Dropped %', f.func_sig;
+    EXCEPTION WHEN dependent_objects_still_exist THEN
+      RAISE NOTICE 'Skipping drop of % (has dependent objects), using CREATE OR REPLACE instead', f.func_sig;
+    END;
   END LOOP;
 END $$;
 
