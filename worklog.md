@@ -487,3 +487,34 @@ Stage Summary:
 - Demo mode now guards all mutation pages (5 pages added)
 - All unsafe non-null assertions replaced with safe alternatives
 - Build: 0 errors, 195/195 tests pass
+---
+Task ID: frontend-audit-wave5
+Agent: main
+Task: Frontend audit wave 5 — remaining components, hooks, edge functions + tests
+
+Work Log:
+- Fixed CreditPaymentDialog: added useDemo + blockMutation + reportError
+- Fixed TaxSettingsCard: added useDemo + blockMutation + reportError
+- Fixed WhatsAppSettings: added useDemo + blockMutation guards + reportError
+- Fixed ReceiveOrderForm: added reportError in catch block
+- Fixed useStripe.ts: added reportError + @deprecated annotations on duplicate hooks
+- Fixed useWhatsApp.ts: added reportError to both mutation onError callbacks
+- Fixed use-toast.ts: useEffect dependency [state] → [] (was re-subscribing on every toast)
+- Fixed useDemoMutation.ts: added guard for missing mutationFn
+- Fixed useAccountStatusGuard.ts: added reportError for unexpected RPC errors
+- Fixed sentry.ts: removed redundant !SENTRY_DSN check (dead code after early return)
+- Fixed stripe-checkout: added admin role check (was open to any authenticated user)
+- Fixed stripe-portal: added admin role check (was open to any authenticated user)
+- Fixed admin-create-user: added role whitelist validation (rejects arbitrary roles)
+- Fixed admin-export-users-csv: replaced organization_id! with null guard
+- Fixed admin-manage-user: replaced organization_id! with null guard
+- Created 18 edge function security tests covering all critical patterns
+- All 213/213 tests pass, 0 TypeScript errors, Vite build OK
+- Commits: 07c504b (wave 5 fixes) + 9497cc2 (tests) pushed to main
+
+Stage Summary:
+- All components now have demo guards
+- All Stripe edge functions now require admin role
+- admin-create-user now validates roles against whitelist
+- All organization_id! replaced with null guards
+- 18 new security tests added (213 total)
