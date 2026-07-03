@@ -64,10 +64,11 @@ export default function Billing() {
 
   const statusInfo = subscription
     ? STATUS_LABELS[subscription.status] || { label: subscription.status, variant: "outline" as const }
-    : { label: "Starter (défaut)", variant: "secondary" as const };
+    : { label: "Aucun plan actif", variant: "destructive" as const };
 
-  const planId = subscription?.plan_id || "starter";
+  const planId = subscription?.plan_id || "";
   const currentPlan = plans?.find((p) => p.id === planId);
+  const currencySymbol = "€";
 
   return (
     <div className="space-y-6 p-6 max-w-4xl mx-auto">
@@ -84,7 +85,7 @@ export default function Billing() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CreditCard className="h-5 w-5" />
-            Plan actuel : {subscription?.plan_name || "Starter"}
+            Plan actuel : {subscription?.plan_name || "Aucun"}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -150,8 +151,8 @@ export default function Billing() {
         </CardContent>
       </Card>
 
-      {/* Manage Subscription — only for paid plans */}
-      {planId !== "starter" && subscription?.status === "active" && isStripeConfigured && (
+      {/* Manage Subscription — for paid plans */}
+      {subscription?.status === "active" && isStripeConfigured && (
         <Card>
           <CardContent className="flex items-center justify-between p-6">
             <div>
@@ -169,22 +170,36 @@ export default function Billing() {
       )}
 
       {/* Upgrade CTA */}
-      {planId !== "enterprise" && (
+      {!subscription && (
         <Card className="border-primary/50 bg-primary/5">
           <CardContent className="flex items-center justify-between p-6">
             <div>
               <h3 className="font-semibold text-lg">
-                {planId === "starter"
-                  ? "Passez à Croissance pour débloquer fournisseurs, rapports et exports"
-                  : "Passez à Enterprise pour analytics, API et support prioritaire"}
+                Choisissez un plan pour commencer
               </h3>
               <p className="text-sm text-muted-foreground mt-1">
-                {planId === "starter"
-                  ? "$29/mois — 3 boutiques, 10 utilisateurs, produits illimités"
-                  : "$79/mois — Boutiques et utilisateurs illimités, assistant IA, programme fidélité"}
+                À partir de 39,90€/mois — POS, gestion stock, clients à crédit
               </p>
             </div>
-            <Button size="lg" onClick={() => checkout(planId === "starter" ? "croissance" : "enterprise")} disabled={isCheckingOut}>
+            <Button size="lg" onClick={() => checkout("croissance")} disabled={isCheckingOut}>
+              {isCheckingOut ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Commencer
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+      {planId === "croissance" && (
+        <Card className="border-primary/50 bg-primary/5">
+          <CardContent className="flex items-center justify-between p-6">
+            <div>
+              <h3 className="font-semibold text-lg">
+                Passez à Enterprise pour boutiques illimitées, API et support prioritaire
+              </h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                99,90€/mois — Boutiques et utilisateurs illimités, assistant IA, programme fidélité
+              </p>
+            </div>
+            <Button size="lg" onClick={() => checkout("enterprise")} disabled={isCheckingOut}>
               {isCheckingOut ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Upgrader
             </Button>
@@ -217,7 +232,7 @@ export default function Billing() {
                     <th key={plan.id} className="text-center py-2 px-2">
                       <div className="font-semibold">{plan.name}</div>
                       <div className="text-muted-foreground text-xs">
-                        {plan.price_monthly === 0 ? "Gratuit" : `$${plan.price_monthly}/mois`}
+                        {plan.price_monthly === 0 ? "Gratuit" : `${plan.price_monthly.toFixed(2).replace('.00', '')}€/mois`}
                       </div>
                     </th>
                   ))}
