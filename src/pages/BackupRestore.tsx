@@ -1,6 +1,9 @@
 /**
  * Backup & Restore Page — Data protection for organizations
  *
+ * ⚠️ EXPERIMENTAL / NOT ROUTED YET
+ * This module has not been commercially validated.
+ *
  * Features:
  * - List backups with status filtering
  * - Create manual backups (full org snapshot)

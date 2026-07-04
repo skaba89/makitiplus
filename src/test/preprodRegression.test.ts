@@ -221,8 +221,8 @@ describe("Experimental modules — Support/Loyalty/StockTransfers not routed", (
   it("experimental pages are documented as not-routed in their file headers", () => {
     // This test documents that these modules should have the
     // "EXPERIMENTAL / NOT ROUTED YET" comment in their headers
-    const experimentalPages = ["Support", "Loyalty", "StockTransfers"];
-    expect(experimentalPages.length).toBe(3);
+    const experimentalPages = ["Support", "Loyalty", "StockTransfers", "BackupRestore"];
+    expect(experimentalPages.length).toBe(4);
     // Each page file should contain the warning comment
     // Verified manually by code review
   });
