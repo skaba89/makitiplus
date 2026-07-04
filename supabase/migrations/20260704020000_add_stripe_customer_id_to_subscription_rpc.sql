@@ -1,12 +1,13 @@
 -- ============================================================
 -- Add stripe_customer_id to get_organization_subscription RPC
--- Date: 2026-07-04
+-- Date: 2026-07-04 (v2 — fixed: DROP first for return type change)
 --
--- The SubscriptionCard component previously guessed whether
--- the org has a Stripe customer by checking plan_id + current_period_end.
--- This is unreliable. Instead, return stripe_customer_id from the
--- organizations table so the frontend can check definitively.
+-- PostgreSQL does not allow CREATE OR REPLACE FUNCTION when the
+-- return type changes (42P13). We must DROP and recreate.
 -- ============================================================
+
+-- Drop old signature first (return type differs — cannot use OR REPLACE)
+DROP FUNCTION IF EXISTS public.get_organization_subscription();
 
 CREATE OR REPLACE FUNCTION public.get_organization_subscription()
 RETURNS TABLE (
