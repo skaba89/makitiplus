@@ -709,3 +709,26 @@ Stage Summary:
 - CI pipeline fully green on main branch
 - 0 npm vulnerabilities (was 2 before vite upgrade)
 - docs/production/ now has 3 complete guides: PREPROD_CHECKLIST.md, SUPABASE_CRON_SETUP.md, MANUAL_TEST_PLAN.md
+
+---
+Task ID: 17
+Agent: Main
+Task: Prochaines étapes — health-check, PII hardening, code quality audit
+
+Work Log:
+- Verified Render site live: HTTP 200, 45ms response time
+- Deep code quality audit: 0 TODO/FIXME in src/, found PII leaks in edge function logs
+- Fixed subscription-lifecycle: removed user_id from console.warn, fixed error logging to use .message
+- Fixed send-whatsapp: error logging to use .message instead of raw object
+- Fixed email-templates.ts: truncated error response JSON, error.message for catch blocks
+- Created scripts/health-check.sh: automated production health check (13 checks)
+- Health check results: 7 pass, 0 fail, 6 warn — ALL CRITICAL GREEN
+- Noted: subscription-lifecycle returns 404 (not yet deployed via CLI)
+- Noted: CSP/X-Frame-Options headers served by Render CDN, not visible in HEAD
+- Deployed bundle hash differs from local (Render deploy pending)
+
+Stage Summary:
+- All edge function PII leaks fixed
+- Automated health check script working
+- Production site accessible and fast (45ms)
+- subscription-lifecycle needs manual deploy via `./deploy-functions.sh`
