@@ -225,12 +225,12 @@ export async function sendEmail(params: {
 
     if (!res.ok) {
       const err = await res.json();
-      console.error('[email] Send failed:', err);
+      console.error('[email] Send failed:', JSON.stringify(err).substring(0, 200));
       return false;
     }
     return true;
   } catch (err) {
-    console.error('[email] Send error:', err);
+    console.error('[email] Send error:', (err as Error).message);
     return false;
   }
 }

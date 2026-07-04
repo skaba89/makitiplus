@@ -246,7 +246,7 @@ Deno.serve(async (req) => {
       { status: 200, headers: jsonHeaders }
     );
   } catch (err) {
-    console.error('[send-whatsapp] Unexpected error:', err);
+    console.error('[send-whatsapp] Unexpected error:', (err as Error).message);
     return new Response(
       JSON.stringify({ error: 'Erreur interne du serveur' }),
       { status: 500, headers: jsonHeaders }
