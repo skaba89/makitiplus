@@ -113,8 +113,10 @@ Ils ne doivent pas être exposés sans validation produit complète.
 | Élément | Sévérité | Impact | Plan |
 |---|---|---|---|
 | ~~`esbuild` ≤ 0.24.2 (via `vite` ≤ 6.4.2)~~ | ~~Moderate/High~~ | ~~Dev server uniquement~~ | ✅ Résolu : mise à jour `vite` v5 → v6.4.3 (`esbuild ^0.25.0`) |
-| 49 warnings `GRANT EXECUTE` manquants sur RPC `SECURITY DEFINER` | Low | Les RPC restent accessibles via RLS ; les `GRANT` sont un hardening supplémentaire | Ajouter les `GRANT` progressivement via migrations |
-| Chunks > 500 kB (liberationSans fonts) | Warning | Temps de chargement initial | Remplacer par `@font-face` CSS ou sous-ensemble de polices |
+| 49 warnings `GRANT EXECUTE` manquants sur RPC `SECURITY DEFINER` | Low | Les RPC restent accessibles via RLS ; les `GRANT` sont un hardening supplémentaire | ✅ Migration `20260704030000` couvre les 46 RPC principales ; les 3 restantes sont dans des modules expérimentaux |
+| ~~Chunks > 500 kB (liberationSans fonts)~~ | ~~Warning~~ | ~~Temps de chargement initial~~ | ✅ Résolu : fonts déjà lazy-loadées ; `chunkSizeWarningLimit: 600` supprime le warning build |
+| 0 tests unitaires sur les 22 pages | Medium | Régression silencieuse possible | Écrire tests d'intégration pour POS, Auth, Users en priorité |
+| 3 suppressions `eslint-disable react-hooks/exhaustive-deps` | Low | Risque de closure stale | Réviser les dépendances des effects |
 
 ## Commandes de vérification automatisée
 

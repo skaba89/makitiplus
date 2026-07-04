@@ -44,8 +44,10 @@ export function useQueryErrorGuard() {
                 description: "Votre compte a été désactivé.",
               });
               navigate("/auth", { replace: true });
-            });
+            }).catch(() => {});
           }
+        }).catch(() => {
+          // RPC indisponible (réseau, etc.) — ne pas déconnecter sur erreur réseau
         });
       }
     });

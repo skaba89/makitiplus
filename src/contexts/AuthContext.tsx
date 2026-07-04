@@ -150,6 +150,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } else {
         setLoading(false);
       }
+    }).catch((err) => {
+      logger.warn("[Auth] getSession() threw:", err instanceof Error ? err.message : String(err));
+      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
@@ -184,6 +187,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (error && (error.code === '42501' || error.message?.includes('not allowed'))) {
           // touch_last_login non autorisée — silencieux, non critique
         }
+      }).catch(() => {
+        // Best-effort: ne pas crasher si le RPC est indisponible
       });
     }
 

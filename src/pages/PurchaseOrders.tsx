@@ -725,6 +725,7 @@ const PurchaseOrders = () => {
                           className="h-9 w-9"
                           onClick={() => removeItem(index)}
                           disabled={formItems.length <= 1}
+                          aria-label="Supprimer l'article"
                         >
                           <Trash2 className="h-3.5 w-3.5 text-destructive" />
                         </Button>
