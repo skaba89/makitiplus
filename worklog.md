@@ -612,3 +612,32 @@ Stage Summary:
 - Plus 1 MEDIUM (M4 - email validation)
 - Key accessibility fixes: skip-to-content, sr-only French, aria-live, contrast
 - Full audit score: CRITICAL 5/5, HIGH 7/7, MEDIUM 8/8, LOW 4/4 — all resolved
+
+---
+Task ID: fix-missing-rpcs
+Agent: main
+Task: Fix 6 missing RPC functions causing 404 errors in production
+
+Work Log:
+- Diagnosed root cause: 6 RPC functions missing from Supabase database (404 errors)
+- Identified signature mismatch between fix_production_v4.sql and frontend code
+- Original migration SQL matches frontend; fix script had incompatible signatures
+- Created comprehensive migration: fix_missing_rpcs_v5.sql
+- Restored all 6 RPCs with correct signatures matching frontend expectations:
+  - check_feature_access(p_feature_key TEXT) → {allowed, plan_id}
+  - get_admin_stores_summary(p_period, p_start_date, p_end_date) → 16-field TABLE
+  - get_admin_article_ranking(p_organization_id, p_period, p_limit, p_start_date, p_end_date) → 12-field TABLE
+  - get_admin_stock_movements(p_organization_id, p_period, p_limit, p_start_date, p_end_date) → 11-field TABLE
+  - get_admin_sales_trend(p_organization_id, p_period, p_start_date, p_end_date) → 6-field TABLE
+  - get_admin_payment_distribution(p_organization_id, p_period, p_start_date, p_end_date) → 4-field TABLE
+- Included prerequisite table creation (plans, subscriptions, feature_flags) with seed data
+- Backfilled starter subscriptions for existing organizations
+- Fixed feature_flags TypeScript types (allowed_plans TEXT[] instead of plan_id)
+- TypeScript compile ✅, Vite build ✅, SQL validation ✅
+- Pushed to both main and hotfix/final-prod-alignment-no-regression
+
+Stage Summary:
+- Migration file: supabase/migrations/20260704010000_fix_missing_rpcs_v5.sql
+- Script file: scripts/fix_missing_rpcs_v5.sql
+- TypeScript fix: src/integrations/supabase/types.ts (feature_flags Row/Insert/Update)
+- Commit: 95abb98 on both main and hotfix branches
