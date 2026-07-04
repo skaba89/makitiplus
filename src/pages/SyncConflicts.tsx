@@ -68,18 +68,6 @@ const SyncConflicts = () => {
   const { blockMutation } = useDemo();
   const { toast } = useToast();
 
-  // Only super_admin and admin should access this page
-  if (!userRole || !ADMIN_ROLES.includes(userRole)) {
-    return (
-      <DashboardLayout>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-          <ShieldCheck className="h-16 w-16 text-muted-foreground/40" />
-          <h2 className="text-xl font-semibold">Accès restreint</h2>
-          <p className="text-muted-foreground">Seuls les administrateurs peuvent gérer les conflits de synchronisation.</p>
-        </div>
-      </DashboardLayout>
-    );
-  }
   const [rows, setRows] = useState<ConflictRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"unack" | "all" | "diagnostic">("unack");
@@ -114,7 +102,20 @@ const SyncConflicts = () => {
     }
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [tab]);
+  useEffect(() => { load(); }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Only super_admin and admin should access this page
+  if (!userRole || !ADMIN_ROLES.includes(userRole)) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+          <ShieldCheck className="h-16 w-16 text-muted-foreground/40" />
+          <h2 className="text-xl font-semibold">Accès restreint</h2>
+          <p className="text-muted-foreground">Seuls les administrateurs peuvent gérer les conflits de synchronisation.</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   const acknowledgeAll = async () => {
     if (blockMutation()) return;
