@@ -128,6 +128,8 @@ Deno.serve(async (req) => {
 
     console.log(`[stripe-webhook] Event: ${event.type}`);
 
+    let processingError = false;
+
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object;
@@ -142,8 +144,6 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (!org) {
-          // Try to find org from subscription metadata
-          // Retrieve subscription from Stripe to get metadata
           console.error(`[stripe-webhook] No organization found for customer ${customerId}`);
           break;
         }
@@ -177,6 +177,23 @@ Deno.serve(async (req) => {
           ? new Date(subscription.current_period_end * 1000).toISOString()
           : null;
 
+        // Upsert subscription record
+        const { error: subUpsertError } = await adminClient
+          .from('subscriptions')
+          .upsert({
+            organization_id: org.id,
+            plan_id: plan,
+            status: 'active',
+            stripe_subscription_id: subscriptionId,
+            stripe_customer_id: customerId,
+            current_period_end: currentPeriodEnd,
+          }, { onConflict: 'organization_id' });
+
+        if (subUpsertError) {
+          console.error(`Failed to upsert subscription: ${subUpsertError.message}`);
+          processingError = true;
+        }
+
         // Update organization with subscription details
         const { error: updateError } = await adminClient
           .from('organizations')
@@ -188,7 +205,8 @@ Deno.serve(async (req) => {
           .eq('id', org.id);
 
         if (updateError) {
-          console.error(`[stripe-webhook] Failed to update org: ${updateError.message}`);
+          console.error(`Failed to update org: ${updateError.message}`);
+          processingError = true;
         } else {
           console.log(`[stripe-webhook] Updated org ${org.id} to plan: ${plan}`);
         }
@@ -231,7 +249,24 @@ Deno.serve(async (req) => {
         // Handle cancellation at period end
         const isCanceled = subscription.cancel_at_period_end === true;
 
-        await adminClient
+        // Upsert subscription record
+        const { error: subUpsertError } = await adminClient
+          .from('subscriptions')
+          .upsert({
+            organization_id: org.id,
+            plan_id: isCanceled ? 'starter' : plan,
+            status: isCanceled ? 'canceling' : 'active',
+            stripe_subscription_id: subscriptionId,
+            stripe_customer_id: customerId,
+            current_period_end: currentPeriodEnd,
+          }, { onConflict: 'organization_id' });
+
+        if (subUpsertError) {
+          console.error(`Failed to upsert subscription update: ${subUpsertError.message}`);
+          processingError = true;
+        }
+
+        const { error: updateError } = await adminClient
           .from('organizations')
           .update({
             subscription_plan: isCanceled ? 'starter' : plan,
@@ -239,7 +274,13 @@ Deno.serve(async (req) => {
           })
           .eq('id', org.id);
 
-        console.log(`[stripe-webhook] Updated org ${org.id} — plan: ${isCanceled ? 'starter (canceled)' : plan}`);
+        if (updateError) {
+          console.error(`Failed to update org on subscription update: ${updateError.message}`);
+          processingError = true;
+        } else {
+          console.log(`[stripe-webhook] Updated org ${org.id} — plan: ${isCanceled ? 'starter (canceled)' : plan}`);
+        }
+
         break;
       }
 
@@ -255,8 +296,22 @@ Deno.serve(async (req) => {
 
         if (!org) break;
 
+        // Update subscription record
+        const { error: subUpdateError } = await adminClient
+          .from('subscriptions')
+          .update({
+            status: 'cancelled',
+            plan_id: 'starter',
+          })
+          .eq('organization_id', org.id);
+
+        if (subUpdateError) {
+          console.error(`Failed to update subscription: ${subUpdateError.message}`);
+          processingError = true;
+        }
+
         // Downgrade to starter when subscription is deleted
-        await adminClient
+        const { error: updateError } = await adminClient
           .from('organizations')
           .update({
             subscription_plan: 'starter',
@@ -264,7 +319,13 @@ Deno.serve(async (req) => {
           })
           .eq('id', org.id);
 
-        console.log(`[stripe-webhook] Subscription deleted for org ${org.id} — downgraded to starter`);
+        if (updateError) {
+          console.error(`Failed to update org on deletion: ${updateError.message}`);
+          processingError = true;
+        } else {
+          console.log(`[stripe-webhook] Subscription deleted for org ${org.id} — downgraded to starter`);
+        }
+
         break;
       }
 
@@ -279,6 +340,15 @@ Deno.serve(async (req) => {
 
       default:
         console.log(`[stripe-webhook] Unhandled event type: ${event.type}`);
+    }
+
+    // Return 500 if any DB mutation failed so Stripe retries the event
+    if (processingError) {
+      console.error(`[stripe-webhook] processingError = true — returning 500 for retry`);
+      return new Response(JSON.stringify({ error: 'Processing error', retry: true }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     return new Response(JSON.stringify({ received: true }), {
