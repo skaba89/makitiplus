@@ -90,13 +90,15 @@ CREATE TABLE IF NOT EXISTS public.plans (
   has_multi_currency BOOLEAN NOT NULL DEFAULT FALSE,
   has_ai_assistant BOOLEAN NOT NULL DEFAULT FALSE,
   has_loyalty_program BOOLEAN NOT NULL DEFAULT FALSE,
-  has_backup_restore BOOLEAN NOT NULL DEFAULT FALSE,
-  has_admin_analytics BOOLEAN NOT NULL DEFAULT FALSE,
   sort_order INTEGER NOT NULL DEFAULT 0,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Add missing columns if they don't exist yet
+ALTER TABLE public.plans ADD COLUMN IF NOT EXISTS has_admin_analytics BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE public.plans ADD COLUMN IF NOT EXISTS has_backup_restore BOOLEAN NOT NULL DEFAULT FALSE;
 
 -- Seed plans (UPSERT pour idempotence)
 INSERT INTO public.plans (id, name, description, price_monthly, price_yearly, max_stores, max_users, max_products, has_advanced_reports, has_exports, has_supplier_management, has_offline_advanced, has_admin_analytics, has_backup_restore, sort_order) VALUES
