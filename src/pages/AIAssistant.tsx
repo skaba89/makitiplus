@@ -326,6 +326,7 @@ const AIAssistant = () => {
                   onClick={() => sendMessage()}
                   disabled={isTyping || !input.trim()}
                   size="icon"
+                  aria-label="Envoyer le message"
                 >
                   <Send className="h-4 w-4" />
                 </Button>

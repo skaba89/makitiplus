@@ -231,6 +231,7 @@ const SidebarTrigger = React.forwardRef<React.ElementRef<typeof Button>, React.C
           onClick?.(event);
           toggleSidebar();
         }}
+        aria-label="Basculer le menu latéral"
         {...props}
       >
         <PanelLeft />

@@ -1,6 +1,11 @@
 /**
  * Loyalty Program — Customer rewards & points management
  *
+ * ⚠️ EXPERIMENTAL / NOT ROUTED YET
+ * This module has not been commercially validated.
+ * It is NOT added to App.tsx routes, DashboardLayout sidebar, or MobileBottomNav.
+ * Do NOT expose until product/UX sign-off.
+ *
  * Features:
  * - Loyalty dashboard with stats (members, points, tiers)
  * - Member list with tier badges and point balances
@@ -423,6 +428,7 @@ const Loyalty = () => {
                                       setIsMemberDetailOpen(true);
                                     }}
                                     title="Voir détails"
+                                    aria-label="Voir les détails"
                                   >
                                     <Eye className="h-4 w-4" />
                                   </Button>
@@ -435,6 +441,7 @@ const Loyalty = () => {
                                         setIsRedeemOpen(true);
                                       }}
                                       title="Échanger des points"
+                                      aria-label="Échanger les points"
                                       className="text-purple-600"
                                     >
                                       <Gift className="h-4 w-4" />

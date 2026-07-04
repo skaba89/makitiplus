@@ -1452,31 +1452,29 @@ export type Database = {
       feature_flags: {
         Row: {
           id: string
-          plan_id: string
           feature_key: string
-          is_enabled: boolean
+          description: string | null
+          allowed_plans: string[]
+          is_active: boolean
           created_at: string
-          updated_at: string
         }
         Insert: {
           id?: string
-          plan_id: string
           feature_key: string
-          is_enabled?: boolean
+          description?: string | null
+          allowed_plans?: string[]
+          is_active?: boolean
           created_at?: string
-          updated_at?: string
         }
         Update: {
           id?: string
-          plan_id?: string
           feature_key?: string
-          is_enabled?: boolean
+          description?: string | null
+          allowed_plans?: string[]
+          is_active?: boolean
           created_at?: string
-          updated_at?: string
         }
-        Relationships: [
-          { foreignKeyName: "feature_flags_plan_id_fkey"; columns: ["plan_id"]; isOneToOne: false; referencedRelation: "plans"; referencedColumns: ["id"] }
-        ]
+        Relationships: []
       }
     }
     Views: {

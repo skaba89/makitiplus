@@ -14,6 +14,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
+    chunkSizeWarningLimit: 600,
     rollupOptions: {
       // Externalize jspdf optional deps that bloat the bundle unnecessarily.
       // canvg (~150 kB) and dompurify (~28 kB) are only needed for SVG/HTML

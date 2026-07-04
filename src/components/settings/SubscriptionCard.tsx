@@ -65,9 +65,9 @@ export const SubscriptionCard = () => {
       })
     : null;
 
-  // Determine if Stripe customer exists — check organizations table for stripe_customer_id
-  // For now, if subscription has a current_period_end and plan is not starter, assume Stripe customer exists
-  const hasStripeCustomer = planId !== "starter" && !!subscription?.current_period_end;
+  // Determine if Stripe customer exists — rely on stripe_customer_id from the RPC response
+  // rather than guessing from plan_id + current_period_end (unreliable heuristic)
+  const hasStripeCustomer = !!subscription?.stripe_customer_id;
 
   return (
     <Card>

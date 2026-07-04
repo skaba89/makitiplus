@@ -513,7 +513,7 @@ export const BrandingSettings = () => {
                   style={{ background: `linear-gradient(135deg, hsl(${branding.brandColor}), hsl(${branding.accentColor}))` }}
                 >
                   {branding.logoUrl ? (
-                    <img src={branding.logoUrl} alt="" className="w-6 h-6 rounded object-cover" />
+                    <img src={branding.logoUrl} alt="Logo" className="w-6 h-6 rounded object-cover" />
                   ) : (
                     <span className="text-xs font-bold text-white">
                       {branding.appName.charAt(0)}

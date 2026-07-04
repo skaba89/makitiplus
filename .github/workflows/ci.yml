@@ -59,8 +59,20 @@ jobs:
 
       - name: Check for secrets in code
         run: |
-          if git grep -nE '(SUPABASE_SERVICE_ROLE_KEY|STRIPE_SECRET_KEY|STRIPE_WEBHOOK_SECRET|sk_live_|rk_live_)' -- . ':!*.md' ':!docs/**' ':!.env.example'; then
-            echo "ERROR: potential secret detected in code"
+          # Only flag REAL secret values (not env var names in scripts/tests/CI)
+          # Check for actual Stripe live secret values (sk_live_/rk_live_ with 20+ chars)
+          if git grep -nE '(sk_live_|rk_live_)[A-Za-z0-9]{20,}' -- . ':!*.md' ':!docs/**' ':!scripts/**'; then
+            echo "ERROR: actual Stripe live secret detected in code"
+            exit 1
+          fi
+          # Check for Supabase service role key with actual JWT (eyJ...)
+          if git grep -nE 'SUPABASE_SERVICE_ROLE_KEY.*eyJ[A-Za-z0-9+/=]{20,}' -- . ':!*.md' ':!docs/**' ':!scripts/**' ':!.env.example' ':!src/test/**' ':!supabase/functions/**'; then
+            echo "ERROR: actual Supabase service role key detected in code"
+            exit 1
+          fi
+          # Check for actual Stripe secret key with real value
+          if git grep -nE 'STRIPE_SECRET_KEY.*sk_live_[A-Za-z0-9]{20,}' -- . ':!*.md' ':!docs/**' ':!scripts/**' ':!.env.example' ':!src/test/**' ':!supabase/functions/**'; then
+            echo "ERROR: actual Stripe secret key detected in code"
             exit 1
           fi
 

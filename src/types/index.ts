@@ -205,3 +205,74 @@ export const INVENTORY_ROLES: AppRole[] = ["super_admin", "admin", "manager", "v
 export const FINANCIAL_ROLES: AppRole[] = ["super_admin", "admin", "manager", "comptable"];
 export const POS_ROLES: AppRole[] = ["super_admin", "admin", "manager", "vendeur"];
 export const STORE_ROLES: AppRole[] = ["super_admin"];
+
+// ─── Transfer roles & types ────────────────────────────────────────────────────
+
+export const TRANSFER_ROLES: AppRole[] = ["super_admin", "admin", "manager"];
+
+export type TransferStatus = "draft" | "pending" | "in_transit" | "received" | "partial" | "cancelled";
+
+export interface StockTransferRpcRow {
+  id: string;
+  transfer_number: string;
+  from_store_id: string;
+  from_store_name: string;
+  to_store_id: string;
+  to_store_name: string;
+  status: TransferStatus;
+  total_items: number;
+  total_quantity: number;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface StockTransferItemRpcRow {
+  product_id: string;
+  product_name: string;
+  quantity: number;
+  unit_cost: number;
+  received_quantity: number | null;
+}
+
+export interface StockTransferDetailRpcRow extends StockTransferRpcRow {
+  items: StockTransferItemRpcRow[];
+}
+
+// ─── Support ticket types ──────────────────────────────────────────────────────
+
+export type TicketStatus = "open" | "in_progress" | "waiting" | "resolved" | "closed";
+export type TicketPriority = "low" | "medium" | "high" | "urgent";
+export type TicketCategory = "technical" | "billing" | "feature_request" | "bug" | "other";
+
+// ─── Loyalty types ─────────────────────────────────────────────────────────────
+
+export type LoyaltyTier = "bronze" | "silver" | "gold" | "platinum";
+
+export interface LoyaltyStatsRpcRow {
+  total_members: number;
+  active_members: number;
+  total_points_issued: number;
+  total_points_redeemed: number;
+  total_rewards_claimed: number;
+}
+
+export interface LoyaltyAccountRow {
+  id: string;
+  customer_id: string;
+  customer_name: string;
+  customer_phone: string | null;
+  points_balance: number;
+  lifetime_points: number;
+  tier: LoyaltyTier;
+  created_at: string;
+}
+
+export interface LoyaltyRewardRow {
+  id: string;
+  name: string;
+  description: string | null;
+  points_cost: number;
+  is_active: boolean;
+  created_at: string;
+}

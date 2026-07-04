@@ -50,6 +50,15 @@ const PageLoader = () => (
   </div>
 );
 
+/** Safe page wrapper: error boundary + suspense — prevents full-app crash on page errors */
+const SafePage = ({ children }: { children: ReactNode }) => (
+  <PageErrorBoundary>
+    <Suspense fallback={<PageLoader />}>
+      {children}
+    </Suspense>
+  </PageErrorBoundary>
+);
+
 /** Error fallback shown when the app crashes — user can reload */
 const ErrorFallback = () => (
   <div className="flex flex-col items-center justify-center min-h-screen bg-background p-8 text-center">
@@ -219,11 +228,7 @@ const App = () => {
               path="/dashboard/products"
               element={
                 <ProtectedRoute allowedRoles={INVENTORY_ROLES}>
-                  <PageErrorBoundary>
-                    <Suspense fallback={<PageLoader />}>
-                      <Products />
-                    </Suspense>
-                  </PageErrorBoundary>
+                  <SafePage><Products /></SafePage>
                 </ProtectedRoute>
               }
             />
@@ -231,11 +236,7 @@ const App = () => {
               path="/dashboard/pos"
               element={
                 <ProtectedRoute allowedRoles={POS_ROLES}>
-                  <PageErrorBoundary>
-                    <Suspense fallback={<PageLoader />}>
-                      <POS />
-                    </Suspense>
-                  </PageErrorBoundary>
+                  <SafePage><POS /></SafePage>
                 </ProtectedRoute>
               }
             />
@@ -243,9 +244,7 @@ const App = () => {
               path="/dashboard/categories"
               element={
                 <ProtectedRoute allowedRoles={MANAGEMENT_ROLES}>
-                  <Suspense fallback={<PageLoader />}>
-                    <Categories />
-                  </Suspense>
+                  <SafePage><Categories /></SafePage>
                 </ProtectedRoute>
               }
             />
@@ -253,11 +252,7 @@ const App = () => {
               path="/dashboard/reports"
               element={
                 <ProtectedRoute allowedRoles={FINANCIAL_ROLES}>
-                  <PageErrorBoundary>
-                    <Suspense fallback={<PageLoader />}>
-                      <Reports />
-                    </Suspense>
-                  </PageErrorBoundary>
+                  <SafePage><Reports /></SafePage>
                 </ProtectedRoute>
               }
             />
@@ -265,9 +260,7 @@ const App = () => {
               path="/dashboard/expenses"
               element={
                 <ProtectedRoute allowedRoles={FINANCIAL_ROLES}>
-                  <Suspense fallback={<PageLoader />}>
-                    <Expenses />
-                  </Suspense>
+                  <SafePage><Expenses /></SafePage>
                 </ProtectedRoute>
               }
             />
@@ -275,9 +268,7 @@ const App = () => {
               path="/dashboard/customers"
               element={
                 <ProtectedRoute allowedRoles={POS_ROLES}>
-                  <Suspense fallback={<PageLoader />}>
-                    <Customers />
-                  </Suspense>
+                  <SafePage><Customers /></SafePage>
                 </ProtectedRoute>
               }
             />
@@ -285,9 +276,7 @@ const App = () => {
               path="/dashboard/suppliers"
               element={
                 <ProtectedRoute allowedRoles={MANAGEMENT_ROLES}>
-                  <Suspense fallback={<PageLoader />}>
-                    <Suppliers />
-                  </Suspense>
+                  <SafePage><Suppliers /></SafePage>
                 </ProtectedRoute>
               }
             />
@@ -295,9 +284,7 @@ const App = () => {
               path="/dashboard/users"
               element={
                 <ProtectedRoute allowedRoles={ADMIN_ROLES}>
-                  <Suspense fallback={<PageLoader />}>
-                    <Users />
-                  </Suspense>
+                  <SafePage><Users /></SafePage>
                 </ProtectedRoute>
               }
             />
@@ -305,19 +292,15 @@ const App = () => {
               path="/dashboard/stores"
               element={
                 <ProtectedRoute allowedRoles={STORE_ROLES}>
-                  <Suspense fallback={<PageLoader />}>
-                    <Stores />
-                  </Suspense>
+                  <SafePage><Stores /></SafePage>
                 </ProtectedRoute>
               }
             />
             <Route
               path="/dashboard/admin-analytics"
               element={
-                <ProtectedRoute allowedRoles={ADMIN_ROLES}>
-                  <Suspense fallback={<PageLoader />}>
-                    <AdminAnalytics />
-                  </Suspense>
+                <ProtectedRoute allowedRoles={STORE_ROLES}>
+                  <SafePage><AdminAnalytics /></SafePage>
                 </ProtectedRoute>
               }
             />
@@ -325,9 +308,7 @@ const App = () => {
               path="/dashboard/sync-conflicts"
               element={
                 <ProtectedRoute allowedRoles={ADMIN_ROLES}>
-                  <Suspense fallback={<PageLoader />}>
-                    <SyncConflicts />
-                  </Suspense>
+                  <SafePage><SyncConflicts /></SafePage>
                 </ProtectedRoute>
               }
             />
@@ -335,9 +316,7 @@ const App = () => {
               path="/dashboard/settings"
               element={
                 <ProtectedRoute allowedRoles={MANAGEMENT_ROLES}>
-                  <Suspense fallback={<PageLoader />}>
-                    <Settings />
-                  </Suspense>
+                  <SafePage><Settings /></SafePage>
                 </ProtectedRoute>
               }
             />
@@ -345,9 +324,7 @@ const App = () => {
               path="/dashboard/billing"
               element={
                 <ProtectedRoute allowedRoles={ADMIN_ROLES}>
-                  <Suspense fallback={<PageLoader />}>
-                    <Billing />
-                  </Suspense>
+                  <SafePage><Billing /></SafePage>
                 </ProtectedRoute>
               }
             />
@@ -355,9 +332,7 @@ const App = () => {
               path="/dashboard/ai-assistant"
               element={
                 <ProtectedRoute allowedRoles={MANAGEMENT_ROLES}>
-                  <Suspense fallback={<PageLoader />}>
-                    <AIAssistant />
-                  </Suspense>
+                  <SafePage><AIAssistant /></SafePage>
                 </ProtectedRoute>
               }
             />
@@ -365,9 +340,7 @@ const App = () => {
               path="/dashboard/purchase-orders"
               element={
                 <ProtectedRoute allowedRoles={MANAGEMENT_ROLES}>
-                  <Suspense fallback={<PageLoader />}>
-                    <PurchaseOrders />
-                  </Suspense>
+                  <SafePage><PurchaseOrders /></SafePage>
                 </ProtectedRoute>
               }
             />
@@ -375,18 +348,14 @@ const App = () => {
               path="/onboarding"
               element={
                 <ProtectedRoute>
-                  <Suspense fallback={<PageLoader />}>
-                    <Onboarding />
-                  </Suspense>
+                  <SafePage><Onboarding /></SafePage>
                 </ProtectedRoute>
               }
             />
             <Route
               path="/pricing"
               element={
-                <Suspense fallback={<PageLoader />}>
-                  <Pricing />
-                </Suspense>
+                <SafePage><Pricing /></SafePage>
               }
             />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

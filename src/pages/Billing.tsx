@@ -8,7 +8,6 @@
 import { useSubscription, usePlanLimit, usePlans, formatLimit, type LimitType } from "@/hooks/useSubscription";
 import { useStripeCheckout } from "@/hooks/useStripeCheckout";
 import { useStripePortal } from "@/hooks/useStripePortal";
-import { useAuth } from "@/contexts/AuthContext";
 import { useDemo } from "@/contexts/DemoContext";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,7 +19,6 @@ import { useSearchParams } from "react-router-dom";
 import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
-import { ADMIN_ROLES } from "@/types";
 import { useCurrency } from "@/hooks/useCurrency";
 
 const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -35,7 +33,6 @@ const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secon
 export default function Billing() {
   const { data: subscription, isLoading: subLoading } = useSubscription();
   const { data: plans } = usePlans();
-  const { userRole } = useAuth();
   const { blockMutation } = useDemo();
   const { currency } = useCurrency();
   const [searchParams, setSearchParams] = useSearchParams();

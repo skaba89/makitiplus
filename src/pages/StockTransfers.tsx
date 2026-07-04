@@ -1,6 +1,11 @@
 /**
  * StockTransfers — Multi-store stock transfer management
  *
+ * ⚠️ EXPERIMENTAL / NOT ROUTED YET
+ * This module has not been commercially validated.
+ * It is NOT added to App.tsx routes, DashboardLayout sidebar, or MobileBottomNav.
+ * Do NOT expose until product/UX sign-off.
+ *
  * Features:
  * - List all transfers with status filters
  * - Create new transfer (select source/target store + products)
@@ -549,6 +554,7 @@ const StockTransfers = () => {
                                   size="icon"
                                   onClick={() => openDetail(transfer.id)}
                                   title="Voir détails"
+                                  aria-label="Voir les détails"
                                 >
                                   <Eye className="h-4 w-4" />
                                 </Button>
@@ -559,6 +565,7 @@ const StockTransfers = () => {
                                     onClick={() => { if (blockMutation("Envoyer le transfert")) return; sendMutation.mutate(transfer.id); }}
                                     disabled={sendMutation.isPending}
                                     title="Envoyer"
+                                    aria-label="Envoyer le transfert"
                                     className="text-amber-600 hover:text-amber-700"
                                   >
                                     <Send className="h-4 w-4" />
@@ -573,6 +580,7 @@ const StockTransfers = () => {
                                         await openDetail(transfer.id);
                                       }}
                                       title="Réceptionner"
+                                      aria-label="Recevoir le transfert"
                                       className="text-green-600 hover:text-green-700"
                                     >
                                       <PackageCheck className="h-4 w-4" />
@@ -588,6 +596,7 @@ const StockTransfers = () => {
                                         setIsCancelOpen(true);
                                       }}
                                       title="Annuler"
+                                      aria-label="Annuler le transfert"
                                       className="text-red-600 hover:text-red-700"
                                     >
                                       <XCircle className="h-4 w-4" />
@@ -763,6 +772,7 @@ const StockTransfers = () => {
                                     size="icon"
                                     onClick={() => removeItem(item.product_id)}
                                     className="h-8 w-8 text-destructive"
+                                    aria-label="Supprimer l'article"
                                   >
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
