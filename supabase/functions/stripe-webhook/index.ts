@@ -407,9 +407,16 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Return 200 to Stripe even on processing error — we've already cleared the
-    // idempotency key so Stripe will retry. Returning 500 would cause immediate
-    // retry which may not help if the issue is transient.
+    // Return 500 on processing error so Stripe knows the event was NOT handled
+    // and will retry according to its own backoff schedule. We've already cleared
+    // the idempotency key above to allow the retry to re-process from scratch.
+    if (processingError) {
+      return new Response(JSON.stringify({ error: "Webhook processing failed" }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     return new Response(JSON.stringify({ received: true }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },

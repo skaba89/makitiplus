@@ -1,6 +1,11 @@
 /**
  * Loyalty Program — Customer rewards & points management
  *
+ * ⚠️ EXPERIMENTAL / NOT ROUTED YET
+ * This module has not been commercially validated.
+ * It is NOT added to App.tsx routes, DashboardLayout sidebar, or MobileBottomNav.
+ * Do NOT expose until product/UX sign-off.
+ *
  * Features:
  * - Loyalty dashboard with stats (members, points, tiers)
  * - Member list with tier badges and point balances

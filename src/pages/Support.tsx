@@ -1,6 +1,11 @@
 /**
  * Support Page — Integrated customer support & ticketing
  *
+ * ⚠️ EXPERIMENTAL / NOT ROUTED YET
+ * This module has not been commercially validated.
+ * It is NOT added to App.tsx routes, DashboardLayout sidebar, or MobileBottomNav.
+ * Do NOT expose until product/UX sign-off.
+ *
  * Features:
  * - Create support tickets (bug, technical, billing, feature request)
  * - Chat-like messaging interface for each ticket

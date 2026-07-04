@@ -48,6 +48,7 @@ export interface Subscription {
   current_period_end: string;
   trial_ends_at: string | null;
   grace_period_ends_at: string | null;
+  stripe_customer_id?: string | null;
   max_stores: number | null; // NULL = unlimited
   max_users: number | null; // NULL = unlimited
   max_products: number | null; // NULL = unlimited
@@ -133,6 +134,7 @@ export function normalizeSubscriptionResponse(data: unknown): Subscription | nul
       current_period_end: (sub.current_period_end ?? "") as string,
       trial_ends_at: (sub.trial_ends_at ?? null) as string | null,
       grace_period_ends_at: (sub.grace_period_ends_at ?? null) as string | null,
+      stripe_customer_id: (sub.stripe_customer_id ?? null) as string | null,
       max_stores: (plan.max_stores ?? null) as number | null,
       max_users: (plan.max_users ?? null) as number | null,
       max_products: (plan.max_products ?? null) as number | null,
@@ -159,6 +161,7 @@ export function normalizeSubscriptionResponse(data: unknown): Subscription | nul
     current_period_end: (get("current_period_end") ?? get("expiresAt") ?? "") as string,
     trial_ends_at: (get("trial_ends_at") ?? null) as string | null,
     grace_period_ends_at: (get("grace_period_ends_at") ?? null) as string | null,
+    stripe_customer_id: (get("stripe_customer_id") ?? get("stripeCustomerId") ?? null) as string | null,
     max_stores: (get("max_stores") ?? null) as number | null,
     max_users: (get("max_users") ?? null) as number | null,
     max_products: (get("max_products") ?? null) as number | null,

@@ -1,6 +1,11 @@
 /**
  * StockTransfers — Multi-store stock transfer management
  *
+ * ⚠️ EXPERIMENTAL / NOT ROUTED YET
+ * This module has not been commercially validated.
+ * It is NOT added to App.tsx routes, DashboardLayout sidebar, or MobileBottomNav.
+ * Do NOT expose until product/UX sign-off.
+ *
  * Features:
  * - List all transfers with status filters
  * - Create new transfer (select source/target store + products)
