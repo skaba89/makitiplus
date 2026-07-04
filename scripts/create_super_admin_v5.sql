@@ -5,7 +5,10 @@
  *
  *  EXÉCUTER DANS : Supabase Dashboard -> SQL Editor -> New Query
  *
- * FIX v5 : - auto_create_starter_subscription utilise org_id au lieu de
+ * FIX v5 : - $$ imbriqués dans DO $$ causent un syntax error
+ *            → Utiliser $fn1$, $fn2$, $fn3$ au lieu de $$ pour les
+ *              fonctions internes CREATE OR REPLACE FUNCTION
+ *          - auto_create_starter_subscription utilise org_id au lieu de
  *            organization_id → ON CONFLICT (org_id) échoue
  *            → Corriger la fonction AVANT de créer l'organisation
  *          - Désactiver AUSSI trigger_auto_create_subscription pendant
@@ -26,7 +29,7 @@
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-DO $$
+DO $outer$
 DECLARE
   v_admin_email    text := 'admin@makitiplus.com';
   v_admin_password text := 'MakitiPlus2026!';
@@ -44,9 +47,10 @@ BEGIN
   -- 0a. CORRIGER la fonction auto_create_starter_subscription
   --     La migration 2026070501 utilise org_id au lieu de organization_id
   --     ON CONFLICT (org_id) → ERROR 42P10
+  --     ⚠️ Utiliser $fn1$ au lieu de $$ (sinon conflit avec DO $outer$)
   -- ================================================================
   CREATE OR REPLACE FUNCTION public.auto_create_starter_subscription()
-  RETURNS TRIGGER AS $$
+  RETURNS TRIGGER AS $fn1$
   DECLARE
     v_trial_end TIMESTAMPTZ;
   BEGIN
@@ -56,13 +60,14 @@ BEGIN
     ON CONFLICT (organization_id) DO NOTHING;
     RETURN NEW;
   END;
-  $$ LANGUAGE plpgsql SECURITY DEFINER;
+  $fn1$ LANGUAGE plpgsql SECURITY DEFINER;
 
   RAISE NOTICE 'Fonction auto_create_starter_subscription corrigee (organization_id)';
 
   -- ================================================================
   -- 0a2. CORRIGER la fonction check_plan_limit
   --      Inclure 'trialing' dans les statuts actifs
+  --      ⚠️ Utiliser $fn2$ au lieu de $$
   -- ================================================================
   CREATE OR REPLACE FUNCTION public.check_plan_limit(
     p_limit_type TEXT
@@ -74,7 +79,7 @@ BEGIN
     plan_id TEXT
   )
   LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
-  AS $$
+  AS $fn2$
   DECLARE
     v_org_id UUID;
     v_sub record;
@@ -129,13 +134,14 @@ BEGIN
       v_limit,
       v_sub.plan_id;
   END;
-  $$;
+  $fn2$;
 
   RAISE NOTICE 'Fonction check_plan_limit corrigee (trialing inclus)';
 
   -- ================================================================
   -- 0a3. CORRIGER la fonction check_feature_access
   --      Inclure 'trialing' dans les statuts actifs
+  --      ⚠️ Utiliser $fn3$ au lieu de $$
   -- ================================================================
   CREATE OR REPLACE FUNCTION public.check_feature_access(
     p_feature_key TEXT
@@ -145,7 +151,7 @@ BEGIN
     plan_id TEXT
   )
   LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
-  AS $$
+  AS $fn3$
   DECLARE
     v_org_id UUID;
     v_plan_id TEXT;
@@ -181,7 +187,7 @@ BEGIN
 
     RETURN QUERY SELECT (v_plan_id = ANY(v_allowed_plans))::BOOLEAN, v_plan_id;
   END;
-  $$;
+  $fn3$;
 
   RAISE NOTICE 'Fonction check_feature_access corrigee (trialing inclus)';
 
@@ -235,12 +241,12 @@ BEGIN
     );
   END IF;
 
-  -- S'assurer que le plan enterprise existe (prix à jour : 99.90)
+  -- S'assurer que le plan enterprise existe (prix a jour : 99.90)
   INSERT INTO public.plans (id, name, description, price_monthly, price_yearly, currency, max_stores, max_users, max_products, max_sales_per_month,
     has_advanced_reports, has_exports, has_supplier_management, has_offline_advanced,
     has_api_access, has_priority_support, has_custom_branding, has_multi_currency, has_ai_assistant, has_loyalty_program,
     sort_order, is_active)
-  VALUES ('enterprise', 'Enterprise', 'Pour les chaînes et grossistes — analytics, API, support prioritaire',
+  VALUES ('enterprise', 'Enterprise', 'Pour les chaines et grossistes — analytics, API, support prioritaire',
     99.90, 999.00, 'EUR', NULL, NULL, NULL, NULL,
     TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, 3, TRUE)
   ON CONFLICT (id) DO UPDATE SET
@@ -249,7 +255,7 @@ BEGIN
     has_api_access=TRUE, has_priority_support=TRUE, has_custom_branding=TRUE,
     has_multi_currency=TRUE, has_ai_assistant=TRUE, has_loyalty_program=TRUE;
 
-  -- S'assurer que le plan croissance existe (prix à jour : 39.90)
+  -- S'assurer que le plan croissance existe (prix a jour : 39.90)
   INSERT INTO public.plans (id, name, description, price_monthly, price_yearly, currency, max_stores, max_users, max_products,
     has_advanced_reports, has_exports, has_supplier_management, has_offline_advanced,
     has_custom_branding, has_multi_currency, sort_order, is_active)
@@ -262,7 +268,7 @@ BEGIN
   -- S'assurer que le plan starter existe (essai gratuit 14 jours)
   INSERT INTO public.plans (id, name, description, price_monthly, max_stores, max_users, max_products,
     has_advanced_reports, has_exports, has_supplier_management, has_offline_advanced, sort_order, is_active)
-  VALUES ('starter', 'Essai gratuit', 'Période d''essai de 14 jours — caisse et stock de base',
+  VALUES ('starter', 'Essai gratuit', 'Periode d''essai de 14 jours — caisse et stock de base',
     0.00, 1, 2, 500, FALSE, FALSE, FALSE, FALSE, 1, TRUE)
   ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, description=EXCLUDED.description;
 
@@ -307,30 +313,25 @@ BEGIN
     );
   END IF;
 
-  -- Ajouter trialing au status check si nécessaire
-  DO $$
-  BEGIN
-    -- Vérifier si la contrainte existe et si trialing n'y est pas
-    IF EXISTS (
-      SELECT 1 FROM pg_constraint
-      WHERE conname = 'subscriptions_status_check'
-      AND conrelid = 'public.subscriptions'::regclass
+  -- Ajouter trialing au status check si necessaire
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'subscriptions_status_check'
+    AND conrelid = 'public.subscriptions'::regclass
+  ) THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint c
+      JOIN pg_catalog.pg_get_constraintdef(c.oid) AS def ON TRUE
+      WHERE c.conname = 'subscriptions_status_check'
+      AND def LIKE '%trialing%'
     ) THEN
-      -- Vérifier si trialing est déjà inclus
-      IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint c
-        JOIN pg_catalog.pg_get_constraintdef(c.oid) AS def ON TRUE
-        WHERE c.conname = 'subscriptions_status_check'
-        AND def LIKE '%trialing%'
-      ) THEN
-        ALTER TABLE public.subscriptions DROP CONSTRAINT subscriptions_status_check;
-        ALTER TABLE public.subscriptions ADD CONSTRAINT subscriptions_status_check
-          CHECK (status IN ('active', 'trialing', 'past_due', 'grace_period', 'read_only', 'cancelled', 'expired'));
-      END IF;
+      ALTER TABLE public.subscriptions DROP CONSTRAINT subscriptions_status_check;
+      ALTER TABLE public.subscriptions ADD CONSTRAINT subscriptions_status_check
+        CHECK (status IN ('active', 'trialing', 'past_due', 'grace_period', 'read_only', 'cancelled', 'expired'));
     END IF;
-  END $$;
+  END IF;
 
-  RAISE NOTICE 'Colonnes et tables vérifiées/ajoutées';
+  RAISE NOTICE 'Colonnes et tables verifiees/ajoutees';
 
   -- ================================================================
   -- NETTOYAGE IDEMPOTENT
@@ -338,7 +339,7 @@ BEGIN
   SELECT id INTO v_user_id FROM auth.users WHERE email = v_admin_email;
 
   IF v_user_id IS NOT NULL THEN
-    RAISE NOTICE 'Utilisateur existant détecté (%), nettoyage...', v_admin_email;
+    RAISE NOTICE 'Utilisateur existant detecte (%), nettoyage...', v_admin_email;
 
     DELETE FROM public.user_roles WHERE user_id = v_user_id;
 
@@ -363,12 +364,12 @@ BEGIN
     DELETE FROM public.profiles WHERE user_id = v_user_id;
     DELETE FROM auth.users WHERE id = v_user_id;
 
-    RAISE NOTICE 'Nettoyage terminé';
+    RAISE NOTICE 'Nettoyage termine';
   END IF;
 
   -- ================================================================
-  -- 1. CRÉER L'UTILISATEUR AUTH
-  --    NOTE: confirmed_at est GENERATED, on NE l'insère PAS.
+  -- 1. CREER L'UTILISATEUR AUTH
+  --    NOTE: confirmed_at est GENERATED, on NE l'insere PAS.
   --    email_confirmed_at = NOW() suffit pour confirmer le compte.
   -- ================================================================
   v_user_id := gen_random_uuid();
@@ -384,13 +385,13 @@ BEGIN
     NOW(), NOW(), '', '', '', ''
   );
 
-  RAISE NOTICE 'Utilisateur auth créé : % (ID: %)', v_admin_email, v_user_id;
+  RAISE NOTICE 'Utilisateur auth cree : % (ID: %)', v_admin_email, v_user_id;
 
   -- ================================================================
-  -- 2. DÉSACTIVER LES TRIGGERS puis CRÉER L'ORGANISATION
+  -- 2. DESACTIVER LES TRIGGERS puis CREER L'ORGANISATION
   --    - trigger_auto_create_store_settings : appelle
-  --      insert_default_categories qui vérifie auth.uid() = NULL
-  --    - trigger_auto_create_subscription : on crée la subscription
+  --      insert_default_categories qui verifie auth.uid() = NULL
+  --    - trigger_auto_create_subscription : on cree la subscription
   --      Enterprise manuellement, pas besoin du starter auto
   -- ================================================================
   ALTER TABLE public.organizations DISABLE TRIGGER trigger_auto_create_store_settings;
@@ -400,37 +401,37 @@ BEGIN
   VALUES (v_org_name, v_user_id, 'Guinee', 'GNF', 'alimentation_generale', 'enterprise')
   RETURNING id INTO v_org_id;
 
-  RAISE NOTICE 'Organisation créée : % (ID: %)', v_org_name, v_org_id;
+  RAISE NOTICE 'Organisation creee : % (ID: %)', v_org_name, v_org_id;
 
   -- ================================================================
-  -- 3. CRÉER MANUELLEMENT STORE_SETTINGS + CATÉGORIES
-  --    (normalement faits par le trigger désactivé)
+  -- 3. CREER MANUELLEMENT STORE_SETTINGS + CATEGORIES
+  --    (normalement faits par le trigger desactive)
   -- ================================================================
   INSERT INTO public.store_settings (organization_id, store_name)
   VALUES (v_org_id, v_org_name) ON CONFLICT (organization_id) DO NOTHING;
 
   INSERT INTO public.categories (name, icon, color, description, is_default, sort_order, organization_id, user_id) VALUES
     ('Alimentaire','UtensilsCrossed','#F59E0B','Produits alimentaires et boissons',true,1,v_org_id,v_user_id),
-    ('Boissons','Wine','#3B82F6','Boissons et rafraîchissements',true,2,v_org_id,v_user_id),
-    ('Hygiène','Sparkles','#10B981','Produits d''hygiène et soins',true,3,v_org_id,v_user_id),
-    ('Électroménager','Plug','#8B5CF6','Appareils électroménagers',true,4,v_org_id,v_user_id),
-    ('Textile','Shirt','#EC4899','Vêtements et textiles',true,5,v_org_id,v_user_id),
+    ('Boissons','Wine','#3B82F6','Boissons et rafraichissements',true,2,v_org_id,v_user_id),
+    ('Hygiene','Sparkles','#10B981','Produits d''hygiene et soins',true,3,v_org_id,v_user_id),
+    ('Electromenager','Plug','#8B5CF6','Appareils electromenagers',true,4,v_org_id,v_user_id),
+    ('Textile','Shirt','#EC4899','Vetements et textiles',true,5,v_org_id,v_user_id),
     ('Quincaillerie','Wrench','#EF4444','Outils et quincaillerie',true,6,v_org_id,v_user_id),
-    ('Cosmétiques','Sparkles','#D946EF','Produits cosmétiques et beauté',true,7,v_org_id,v_user_id),
+    ('Cosmetiques','Sparkles','#D946EF','Produits cosmetiques et beaute',true,7,v_org_id,v_user_id),
     ('Papeterie','FileText','#14B8A6','Fournitures et papeterie',true,8,v_org_id,v_user_id),
-    ('Autres','Package','#6B7280','Autres produits non classés',true,99,v_org_id,v_user_id)
+    ('Autres','Package','#6B7280','Autres produits non classes',true,99,v_org_id,v_user_id)
   ON CONFLICT DO NOTHING;
 
-  RAISE NOTICE 'Store settings et catégories créés';
+  RAISE NOTICE 'Store settings et categories crees';
 
   -- ================================================================
-  -- 4. RÉACTIVER LES TRIGGERS
+  -- 4. REACTIVER LES TRIGGERS
   -- ================================================================
   ALTER TABLE public.organizations ENABLE TRIGGER trigger_auto_create_store_settings;
   ALTER TABLE public.organizations ENABLE TRIGGER trigger_auto_create_subscription;
 
   -- ================================================================
-  -- 5. SUBSCRIPTION ENTERPRISE (ILLIMITÉ, 100 ANS)
+  -- 5. SUBSCRIPTION ENTERPRISE (ILLIMITE, 100 ANS)
   --    Note: on utilise organization_id, PAS org_id
   -- ================================================================
   UPDATE public.subscriptions SET
@@ -446,9 +447,9 @@ BEGIN
   RAISE NOTICE 'Subscription Enterprise OK (ID: %)', v_sub_id;
 
   -- ================================================================
-  -- 6. CRÉER LE PROFIL (DELETE puis INSERT, pas ON CONFLICT)
+  -- 6. CREER LE PROFIL (DELETE puis INSERT, pas ON CONFLICT)
   --    La table profiles n'a pas de UNIQUE(user_id), donc ON CONFLICT
-  --    échoue. On delete d'abord puis on insère.
+  --    echoue. On delete d'abord puis on insere.
   -- ================================================================
   DELETE FROM public.profiles WHERE user_id = v_user_id;
 
@@ -460,15 +461,15 @@ BEGIN
     true, 'Guinee', 'GNF', 'enterprise', 'fr', 'system'
   );
 
-  RAISE NOTICE 'Profil créé pour %', v_owner_name;
+  RAISE NOTICE 'Profil cree pour %', v_owner_name;
 
   -- ================================================================
-  -- 7. RÔLE SUPER_ADMIN
+  -- 7. ROLE SUPER_ADMIN
   -- ================================================================
   DELETE FROM public.user_roles WHERE user_id = v_user_id;
   INSERT INTO public.user_roles (user_id, role) VALUES (v_user_id, 'super_admin');
 
-  RAISE NOTICE 'Rôle super_admin assigné';
+  RAISE NOTICE 'Role super_admin assigne';
 
   -- ================================================================
   -- 8. LIER MAGASIN PRINCIPAL
@@ -476,13 +477,13 @@ BEGIN
   SELECT id INTO v_store_id FROM public.stores WHERE organization_id=v_org_id AND is_headquarters=true LIMIT 1;
   IF v_store_id IS NOT NULL THEN
     UPDATE public.profiles SET current_store_id=v_store_id WHERE user_id=v_user_id;
-    RAISE NOTICE 'Magasin principal lié (ID: %)', v_store_id;
+    RAISE NOTICE 'Magasin principal lie (ID: %)', v_store_id;
   ELSE
-    RAISE NOTICE 'Aucun magasin principal trouvé — le trigger on_organization_created créera le store';
+    RAISE NOTICE 'Aucun magasin principal trouve — le trigger on_organization_created creera le store';
   END IF;
 
   -- ================================================================
-  -- 9. COMPTEURS (NULL = ILLIMITÉ)
+  -- 9. COMPTEURS (NULL = ILLIMITE)
   -- ================================================================
   INSERT INTO public.usage_counters (organization_id, counter_type, current_count, limit_value) VALUES
     (v_org_id,'stores',1,NULL),
@@ -492,29 +493,29 @@ BEGIN
     (v_org_id,'exports_this_month',0,NULL)
   ON CONFLICT (organization_id, counter_type) DO UPDATE SET limit_value=NULL, updated_at=NOW();
 
-  RAISE NOTICE 'Compteurs initialisés (illimité)';
+  RAISE NOTICE 'Compteurs initialises (illimite)';
 
   -- ================================================================
-  -- 10. ÉVÉNEMENT
+  -- 10. EVENEMENT
   -- ================================================================
   INSERT INTO public.subscription_events (organization_id, event_type, from_plan, to_plan, performed_by, metadata)
   VALUES (v_org_id, 'upgraded', 'starter', 'enterprise', v_user_id,
     jsonb_build_object('reason','Super admin setup','expires_at',(NOW()+INTERVAL '100 years')::text,'billing_period','yearly'));
 
-  RAISE NOTICE 'Événement enregistré';
+  RAISE NOTICE 'Evenement enregistre';
 
   -- ================================================================
-  -- RÉSUMÉ FINAL
+  -- RESUME FINAL
   -- ================================================================
   RAISE NOTICE '================================================================';
-  RAISE NOTICE '  SUPER ADMIN CRÉÉ AVEC SUCCÈS !';
+  RAISE NOTICE '  SUPER ADMIN CREE AVEC SUCCES !';
   RAISE NOTICE '================================================================';
   RAISE NOTICE '  Email      : %', v_admin_email;
   RAISE NOTICE '  Password   : %', v_admin_password;
   RAISE NOTICE '  Role       : super_admin';
-  RAISE NOTICE '  Plan       : Enterprise (illimité, 100 ans)';
+  RAISE NOTICE '  Plan       : Enterprise (illimite, 100 ans)';
   RAISE NOTICE '  Org        : % (ID: %)', v_org_name, v_org_id;
   RAISE NOTICE '  User ID    : %', v_user_id;
   RAISE NOTICE '  Store      : %', COALESCE(v_store_id::text, 'N/A');
   RAISE NOTICE '================================================================';
-END $$;
+END $outer$;
