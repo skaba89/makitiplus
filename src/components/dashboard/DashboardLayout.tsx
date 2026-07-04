@@ -97,7 +97,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       name: "Catégories",
       href: "/dashboard/categories",
       icon: FolderOpen,
-      roles: INVENTORY_ROLES,
+      roles: MANAGEMENT_ROLES,
     },
     {
       name: "Dépenses",
@@ -115,7 +115,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       name: "Clients",
       href: "/dashboard/customers",
       icon: Users,
-      roles: MANAGEMENT_ROLES,
+      roles: POS_ROLES,
     },
     {
       name: "Fournisseurs",
