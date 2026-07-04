@@ -664,3 +664,26 @@ Stage Summary:
 - All P1 and P2 issues resolved
 - Project is pre-production ready
 - Remaining items are operational: set env vars in Supabase Dashboard before deployment
+
+---
+Task ID: 15
+Agent: Main
+Task: Pre-production finalization — 9-task verification and completion
+
+Work Log:
+- Verified all 9 pre-production tasks status on branch hotfix/preprod-ops-finalization-no-regression
+- Tasks 1-7 already completed in commit ca84851 (cron docs, checklist, webhook hardening, CSP, non-regression tests)
+- Task 3 (CI): Verified .github/workflows/ci.yml triggers on push to [main, develop] and PR to [main]
+- Task 5 (experimental modules): Verified Support/Loyalty/StockTransfers have "EXPERIMENTAL / NOT ROUTED YET" headers, not in App.tsx routes
+- Fixed SyncConflicts.tsx conditional React hooks (5 ESLint errors) — moved hooks before early return
+- Added "Dette technique connue" section to PREPROD_CHECKLIST.md (esbuild/vite vuln, GRANT EXECUTE warnings, large chunks)
+- Added "Commandes de vérification automatisée" section to checklist
+- Ran all mandatory commands: npm ci ✅, tsc ✅, vite build ✅, vitest (45 files/297 tests) ✅, SQL validation ✅, eslint (0 errors) ✅
+- Pushed to hotfix/preprod-ops-finalization-no-regression and main
+
+Stage Summary:
+- All 9 pre-production tasks COMPLETED
+- Branch: hotfix/preprod-ops-finalization-no-regression pushed to origin
+- All CI checks green locally: typecheck, build, tests, lint, SQL validation
+- Known tech debt documented in PREPROD_CHECKLIST.md
+- 2 npm audit vulnerabilities (dev-only esbuild/vite) — deferred to future sprint
