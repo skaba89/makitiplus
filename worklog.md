@@ -732,3 +732,25 @@ Stage Summary:
 - Automated health check script working
 - Production site accessible and fast (45ms)
 - subscription-lifecycle needs manual deploy via `./deploy-functions.sh`
+
+---
+Task ID: 18
+Agent: Main
+Task: Prochaines étapes — code hardening, accessibilité, optimisation bundle
+
+Work Log:
+- Pushed commit en attente (fb3207f — worklog only) vers origin
+- Audit complet du code: unhandled rejections, accessibility, test coverage, ESLint suppressions, console.log, hardcoded URLs, error boundaries
+- Fix critique: 3 unhandled promise rejections dans AuthContext.tsx (getSession, touch_last_login) et useQueryErrorGuard.ts (check_account_status, signOut) — ajout .catch() sur toutes les chaînes .then()
+- Fix bundle: BarcodeGenerator.tsx — import statique → dynamique de jsbarcode (-67 KB du bundle initial)
+- Ajout chunkSizeWarningLimit: 600 dans vite.config.ts (supprime le bruit build pour les chunks de polices)
+- Ajout aria-label à 16 boutons icon-only sur 7 fichiers (Support, StockTransfers, BackupRestore, Loyalty, AIAssistant, PurchaseOrders, sidebar)
+- Mise à jour PREPROD_CHECKLIST.md: marquage tech debt résolue (GRANT EXECUTE, chunks), ajout nouvelles entrées (tests manquants, ESLint suppressions)
+- Vérification: typecheck ✅, build ✅ (0 warnings), 297 tests ✅, lint ✅ (0 errors)
+- Commit 3c5d37b poussé sur main
+
+Stage Summary:
+- 3 crash silencieux potentiels éliminés (unhandled rejections)
+- 67 KB retirés du bundle initial (jsbarcode lazy-load)
+- 16 boutons accessibles aux lecteurs d'écran
+- CI pipeline verte, 0 vulnérabilités, 0 erreurs lint
