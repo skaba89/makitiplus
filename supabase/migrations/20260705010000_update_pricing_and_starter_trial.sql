@@ -41,9 +41,9 @@ DECLARE
 BEGIN
   v_trial_end := NOW() + INTERVAL '14 days';
 
-  INSERT INTO public.subscriptions (org_id, plan_id, status, current_period_start, current_period_end)
+  INSERT INTO public.subscriptions (organization_id, plan_id, status, current_period_start, current_period_end)
   VALUES (NEW.id, 'starter', 'trialing', NOW(), v_trial_end)
-  ON CONFLICT (org_id) DO NOTHING;
+  ON CONFLICT (organization_id) DO NOTHING;
 
   RETURN NEW;
 END;
