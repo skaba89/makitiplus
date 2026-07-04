@@ -10,6 +10,8 @@
 import { type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePlanLimit, useFeatureAccess, type LimitType, type FeatureKey } from "@/hooks/useSubscription";
+import { useAuth } from "@/contexts/AuthContext";
+import { isAdminRole } from "@/types";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -34,7 +36,13 @@ export function PlanLimitGuard({
   fallback,
   showUpgrade = true,
 }: PlanLimitGuardProps) {
+  const { userRole } = useAuth();
   const { data: limitCheck, isLoading } = usePlanLimit(limitType);
+
+  // Super_admin and admin bypass plan limits (they can always add more)
+  if (userRole && isAdminRole(userRole)) {
+    return <>{children}</>;
+  }
 
   // While loading, render children (optimistic)
   if (isLoading || !limitCheck) return <>{children}</>;
@@ -102,10 +110,21 @@ interface FeatureGateProps {
 }
 
 export function FeatureGate({ feature, children, fallback }: FeatureGateProps) {
+  const { userRole } = useAuth();
   const { data: allowed, isLoading } = useFeatureAccess(feature);
 
+  // Super_admin and admin always have access to all features
+  if (userRole && isAdminRole(userRole)) {
+    return <>{children}</>;
+  }
+
+  // While loading, show nothing (brief flash prevention)
   if (isLoading) return null;
+
+  // Feature check passed
   if (allowed) return <>{children}</>;
+
+  // Feature not available — show fallback or nothing
   if (fallback) return <>{fallback}</>;
   return null;
 }
