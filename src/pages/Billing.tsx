@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, CheckCircle, AlertTriangle, CreditCard, Calendar, TrendingUp } from "lucide-react";
+import { Loader2, CheckCircle, AlertTriangle, CreditCard, Calendar, TrendingUp, Clock } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -23,6 +23,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 
 const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   active: { label: "Actif", variant: "default" },
+  trialing: { label: "Essai gratuit", variant: "secondary" },
   past_due: { label: "En retard", variant: "destructive" },
   grace_period: { label: "Période de grâce", variant: "secondary" },
   read_only: { label: "Lecture seule", variant: "destructive" },
@@ -108,6 +109,24 @@ export default function Billing() {
           )}
 
           {/* Subscription Status Warning */}
+          {subscription?.status === "trialing" && (
+            <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200">
+              <Clock className="h-5 w-5 text-blue-500 shrink-0" />
+              <div className="text-sm">
+                <p className="font-medium">Période d'essai en cours</p>
+                <p className="text-muted-foreground">
+                  Votre essai gratuit se termine le{" "}
+                  {subscription.trial_ends_at
+                    ? new Date(subscription.trial_ends_at).toLocaleDateString("fr-FR")
+                    : subscription.current_period_end
+                    ? new Date(subscription.current_period_end).toLocaleDateString("fr-FR")
+                    : "bientôt"}{" "}
+                  . Choisissez un plan pour continuer à utiliser MakitiPlus.
+                </p>
+              </div>
+            </div>
+          )}
+
           {subscription?.status === "grace_period" && (
             <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200">
               <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />
@@ -155,7 +174,7 @@ export default function Billing() {
       </Card>
 
       {/* Manage Subscription — for paid plans */}
-      {subscription?.status === "active" && isStripeConfigured && (
+      {(subscription?.status === "active" || subscription?.status === "trialing") && isStripeConfigured && (
         <Card>
           <CardContent className="flex items-center justify-between p-6">
             <div>

@@ -44,7 +44,7 @@ export interface Subscription {
   subscription_id: string;
   plan_id: string;
   plan_name: string;
-  status: "active" | "past_due" | "grace_period" | "read_only" | "cancelled" | "expired";
+  status: "active" | "trialing" | "past_due" | "grace_period" | "read_only" | "cancelled" | "expired";
   current_period_end: string;
   trial_ends_at: string | null;
   grace_period_ends_at: string | null;

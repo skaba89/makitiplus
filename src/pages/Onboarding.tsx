@@ -64,7 +64,7 @@ export default function Onboarding() {
 
   // If user already has a subscription, redirect to dashboard
   useEffect(() => {
-    if (subscription?.status === "active") {
+    if (subscription?.status === "active" || subscription?.status === "trialing") {
       navigate("/dashboard", { replace: true });
     }
   }, [subscription, navigate]);
