@@ -24,24 +24,46 @@ import Dashboard from "./pages/Dashboard";
 import Products from "./pages/Products";
 import NotFound from "./pages/NotFound";
 
-// Lazy-loaded routes — reduces initial bundle size significantly
-// Each page is loaded on demand when the user navigates to it
-const POS = lazy(() => import("./pages/POS"));
-const Reports = lazy(() => import("./pages/Reports"));
-const Categories = lazy(() => import("./pages/Categories"));
-const Expenses = lazy(() => import("./pages/Expenses"));
-const Customers = lazy(() => import("./pages/Customers"));
-const Suppliers = lazy(() => import("./pages/Suppliers"));
-const Users = lazy(() => import("./pages/Users"));
-const SyncConflicts = lazy(() => import("./pages/SyncConflicts"));
-const Stores = lazy(() => import("./pages/Stores"));
-const AdminAnalytics = lazy(() => import("./pages/AdminAnalytics"));
-const Settings = lazy(() => import("./pages/Settings"));
-const Billing = lazy(() => import("./pages/Billing"));
-const Pricing = lazy(() => import("./pages/Pricing"));
-const Onboarding = lazy(() => import("./pages/Onboarding"));
-const PurchaseOrders = lazy(() => import("./pages/PurchaseOrders"));
-const AIAssistant = lazy(() => import("./pages/AIAssistant"));
+/**
+ * Lazy-loaded routes with automatic recovery for stale chunks.
+ *
+ * When a new deployment replaces JS chunk files, users with a cached old
+ * index.html will get 404 errors on dynamic imports. This wrapper detects
+ * that and force-reloads once to pick up the new index.html.
+ */
+const STALE_CHUNK_KEY = "makitiplus_stale_reload";
+
+function lazyWithRecovery<T extends React.ComponentType<unknown>>(
+  factory: () => Promise<{ default: T }>
+) {
+  return lazy(() =>
+    factory().catch((err) => {
+      // Chunk failed to load (likely 404 after new deployment)
+      if (!sessionStorage.getItem(STALE_CHUNK_KEY)) {
+        sessionStorage.setItem(STALE_CHUNK_KEY, "1");
+        window.location.reload();
+      }
+      throw err;
+    })
+  );
+}
+
+const POS = lazyWithRecovery(() => import("./pages/POS"));
+const Reports = lazyWithRecovery(() => import("./pages/Reports"));
+const Categories = lazyWithRecovery(() => import("./pages/Categories"));
+const Expenses = lazyWithRecovery(() => import("./pages/Expenses"));
+const Customers = lazyWithRecovery(() => import("./pages/Customers"));
+const Suppliers = lazyWithRecovery(() => import("./pages/Suppliers"));
+const Users = lazyWithRecovery(() => import("./pages/Users"));
+const SyncConflicts = lazyWithRecovery(() => import("./pages/SyncConflicts"));
+const Stores = lazyWithRecovery(() => import("./pages/Stores"));
+const AdminAnalytics = lazyWithRecovery(() => import("./pages/AdminAnalytics"));
+const Settings = lazyWithRecovery(() => import("./pages/Settings"));
+const Billing = lazyWithRecovery(() => import("./pages/Billing"));
+const Pricing = lazyWithRecovery(() => import("./pages/Pricing"));
+const Onboarding = lazyWithRecovery(() => import("./pages/Onboarding"));
+const PurchaseOrders = lazyWithRecovery(() => import("./pages/PurchaseOrders"));
+const AIAssistant = lazyWithRecovery(() => import("./pages/AIAssistant"));
 
 /** Minimal loading spinner for lazy-loaded routes */
 const PageLoader = () => (
