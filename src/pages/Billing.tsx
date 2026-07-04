@@ -142,8 +142,9 @@ export default function Billing() {
     }
   };
 
-  // Extend subscription handler
-  const handleExtendSubscription = async () => {
+  // Extend subscription handler — accepts optional duration override to avoid race condition
+  const handleExtendSubscription = async (durationOverride?: "1month" | "1year") => {
+    const duration = durationOverride || selectedDuration;
     setIsChangingPlan(true);
     try {
       const { data: orgData } = await supabase
@@ -156,7 +157,7 @@ export default function Billing() {
         const { error } = await supabase
           .from("subscriptions")
           .update({
-            current_period_end: selectedDuration === "1year"
+            current_period_end: duration === "1year"
               ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
               : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
             status: "active",
@@ -166,7 +167,7 @@ export default function Billing() {
         if (error) throw error;
       }
 
-      toast({ title: "Abonnement prolonge", description: `Votre abonnement a ete prolonge de ${selectedDuration === "1year" ? "1 an" : "1 mois"}.` });
+      toast({ title: "Abonnement prolonge", description: `Votre abonnement a ete prolonge de ${duration === "1year" ? "1 an" : "1 mois"}.` });
       queryClient.invalidateQueries({ queryKey: ["subscription"] });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Erreur lors de la prolongation.";
@@ -314,8 +315,8 @@ export default function Billing() {
         </CardContent>
       </Card>
 
-      {/* Manage Subscription — Admin Manual Management (no Stripe) */}
-      {isAdmin && !isStripeConfigured && (
+      {/* Manage Subscription — Admin Manual Management (always available for admins as fallback) */}
+      {isAdmin && (
         <Card className="border-primary/30">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -408,11 +409,11 @@ export default function Billing() {
                 </p>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => { setSelectedDuration("1month"); handleExtendSubscription(); }} disabled={isChangingPlan}>
+                <Button variant="outline" size="sm" onClick={() => handleExtendSubscription("1month")} disabled={isChangingPlan}>
                   {isChangingPlan ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
                   +1 mois
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => { setSelectedDuration("1year"); handleExtendSubscription(); }} disabled={isChangingPlan}>
+                <Button variant="outline" size="sm" onClick={() => handleExtendSubscription("1year")} disabled={isChangingPlan}>
                   +1 an
                 </Button>
               </div>
