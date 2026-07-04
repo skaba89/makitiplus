@@ -11,6 +11,7 @@ const limiter = createRateLimiter('stripe-checkout', { maxRequests: 10, windowMs
 interface CheckoutRequest {
   planKey?: string;       // 'croissance' or 'enterprise'
   plan_id?: string;       // Alias for planKey (retro-compat frontend)
+  billing?: string;       // 'monthly' or 'yearly' (defaults to 'monthly')
   successUrl?: string;
   cancelUrl?: string;
 }
@@ -58,10 +59,12 @@ Deno.serve(async (req) => {
 
     const orgId = actorProfile.organization_id;
 
-    // 2. Parse request body — only accept planKey, reject arbitrary priceId
+    // 2. Parse request body — resolve plan key + billing period to price ID
     const body: CheckoutRequest = await req.json();
     const resolvedPlanKey = body.planKey ?? body.plan_id ?? '';
-    const priceId = PRICE_IDS[resolvedPlanKey];
+    const billing = body.billing === 'yearly' ? 'yearly' : 'monthly'; // default to monthly
+    const compositeKey = `${resolvedPlanKey}_${billing}`;
+    const priceId = PRICE_IDS[compositeKey] ?? PRICE_IDS[resolvedPlanKey];
 
     if (!priceId) {
       return new Response(JSON.stringify({ error: 'Plan invalide. Plans disponibles : croissance, enterprise' }), {

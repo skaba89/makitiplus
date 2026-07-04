@@ -11,8 +11,13 @@ const STRIPE_API = 'https://api.stripe.com/v1';
 
 // Price IDs (set in Supabase Edge Function secrets)
 export const PRICE_IDS: Record<string, string> = {
-  croissance: Deno.env.get('STRIPE_PRICE_ID_CROISSANCE') ?? '',
-  enterprise: Deno.env.get('STRIPE_PRICE_ID_ENTERPRISE') ?? '',
+  croissance_monthly: Deno.env.get('STRIPE_PRICE_ID_CROISSANCE_MONTHLY') ?? Deno.env.get('STRIPE_PRICE_ID_CROISSANCE') ?? '',
+  croissance_yearly: Deno.env.get('STRIPE_PRICE_ID_CROISSANCE_YEARLY') ?? '',
+  enterprise_monthly: Deno.env.get('STRIPE_PRICE_ID_ENTERPRISE_MONTHLY') ?? Deno.env.get('STRIPE_PRICE_ID_ENTERPRISE') ?? '',
+  enterprise_yearly: Deno.env.get('STRIPE_PRICE_ID_ENTERPRISE_YEARLY') ?? '',
+  // Legacy aliases — map "croissance"/"enterprise" to monthly price
+  croissance: Deno.env.get('STRIPE_PRICE_ID_CROISSANCE_MONTHLY') ?? Deno.env.get('STRIPE_PRICE_ID_CROISSANCE') ?? '',
+  enterprise: Deno.env.get('STRIPE_PRICE_ID_ENTERPRISE_MONTHLY') ?? Deno.env.get('STRIPE_PRICE_ID_ENTERPRISE') ?? '',
 };
 
 // Collect all valid price IDs for server-side validation

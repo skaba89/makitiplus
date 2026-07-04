@@ -13,12 +13,20 @@ services:
         sync: false
       - key: VITE_SUPABASE_PUBLISHABLE_KEY
         sync: false
+      - key: VITE_STRIPE_PUBLISHABLE_KEY
+        sync: false
       - key: VITE_SENTRY_DSN
         sync: false
       - key: VITE_SENTRY_ENVIRONMENT
         value: production
       - key: VITE_SENTRY_TRACES_SAMPLE_RATE
         value: "0.1"
+      - key: VITE_SENTRY_REPLAY_SAMPLE_RATE
+        value: "0.05"
+      - key: VITE_DEMO_MODE
+        value: "false"
+      - key: VITE_APP_VERSION
+        sync: false
     headers:
       # --- Security headers (applied to all routes) ---
       - path: /*
