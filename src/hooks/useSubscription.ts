@@ -223,7 +223,9 @@ export function usePlanLimit(limitType: LimitType, enabled = true) {
           plan_id: "starter",
         } as PlanLimitCheck;
       }
-      return data as PlanLimitCheck | null;
+      // Supabase RPC RETURNS TABLE returns an array — unwrap first element
+      const raw = Array.isArray(data) ? data[0] : data;
+      return (raw as PlanLimitCheck | null) ?? null;
     },
     enabled: !!user && enabled,
     staleTime: 2 * 60 * 1000,
@@ -249,7 +251,9 @@ export function useFeatureAccess(featureKey: FeatureKey, enabled = true) {
         const coreFeatures: FeatureKey[] = ["pos", "stock_management", "customer_credit", "basic_reports"];
         return coreFeatures.includes(featureKey);
       }
-      return (data as { allowed: boolean; plan_id: string } | null)?.allowed ?? false;
+      // Supabase RPC RETURNS TABLE returns an array — unwrap first element
+      const raw = Array.isArray(data) ? data[0] : data;
+      return (raw as { allowed: boolean; plan_id: string } | null)?.allowed ?? false;
     },
     enabled: !!user && enabled,
     staleTime: 10 * 60 * 1000,
