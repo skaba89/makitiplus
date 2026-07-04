@@ -67,7 +67,6 @@ const SyncConflicts = () => {
   const { userRole } = useAuth();
   const { blockMutation } = useDemo();
   const { toast } = useToast();
-
   const [rows, setRows] = useState<ConflictRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"unack" | "all" | "diagnostic">("unack");

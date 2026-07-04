@@ -69,6 +69,12 @@ const formatDate = (iso: string | null) => {
 
 interface UserOption { user_id: string; name: string; }
 
+const CATEGORY_MAP: Record<string, string[]> = {
+  reset: ["user_password_reset", "user_password_reset_link_sent", "user_password_reset_completed"],
+  export: ["users_exported_csv", "audit_exported_csv"],
+  lifecycle: ["user_created", "user_deactivated", "user_reactivated", "user_deleted_permanently"],
+};
+
 export const AuditLogPanel = ({ users }: { users: UserOption[] }) => {
   const { blockMutation } = useDemo();
   const [rows, setRows] = useState<AuditRow[]>([]);
@@ -90,7 +96,7 @@ export const AuditLogPanel = ({ users }: { users: UserOption[] }) => {
         .order("created_at", { ascending: false })
         .limit(500);
       if (actionFilter !== "all") q = q.eq("action", actionFilter);
-      else if (categoryFilter !== "all") q = q.in("action", categoryMap[categoryFilter]);
+      else if (categoryFilter !== "all") q = q.in("action", CATEGORY_MAP[categoryFilter]);
       if (userFilter !== "all") q = q.eq("target_user_id", userFilter);
       if (from) q = q.gte("created_at", new Date(from).toISOString());
       if (to) {
