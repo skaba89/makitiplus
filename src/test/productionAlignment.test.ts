@@ -33,6 +33,30 @@ describe("No buy_price regression", () => {
     expect(violations, `Found buy_price references:\n${violations.join("\n")}`).toEqual([]);
   });
 
+  it("should NOT contain buy_price in active SQL migrations", async () => {
+    const fs = await import("fs").then((fs) => fs.promises);
+    const migrationFiles = [
+      "supabase/migrations/_deploy_combined.sql",
+      "supabase/migrations/20260703020000_p1_server_side_plan_enforcement.sql",
+    ];
+    const violations: string[] = [];
+    for (const file of migrationFiles) {
+      try {
+        const content = await fs.readFile(file, "utf-8");
+        const lines = content.split("\n");
+        for (let i = 0; i < lines.length; i++) {
+          if (lines[i].trimStart().startsWith("--")) continue;
+          if (/\bbuy_price\b/.test(lines[i]) || /\bp_buy_price\b/.test(lines[i])) {
+            violations.push(`${file}:Line ${i + 1}: ${lines[i].trim()}`);
+          }
+        }
+      } catch {
+        // File may not exist in all environments
+      }
+    }
+    expect(violations, `Found buy_price in migrations:\n${violations.join("\n")}`).toEqual([]);
+  });
+
   it("should NOT contain buy_price in frontend TypeScript source files", async () => {
     const fs = await import("fs").then((fs) => fs.promises);
     const files = await walkDir("src", fs);

@@ -29,6 +29,7 @@
  */
 
 import type { jsPDF } from "jspdf";
+import { logger } from "@/lib/logger";
 
 // ─── Public constants ───────────────────────────────────────────────────────
 
@@ -101,7 +102,7 @@ export async function ensurePdfFont(doc: jsPDF): Promise<boolean> {
 
     return true;
   } catch (error) {
-    console.warn(
+    logger.warn(
       "[pdfFont] Failed to load Unicode font, falling back to Helvetica:",
       error
     );

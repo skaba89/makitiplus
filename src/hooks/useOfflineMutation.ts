@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import type { DynamicSupabaseQuery } from "@/lib/supabaseDynamicQuery";
+import { logger } from "@/lib/logger";
 
 /**
  * Offline-aware query: fetches from Supabase when online,
@@ -57,7 +58,7 @@ export function useOfflineQuery<T extends { id: string }>(
       if (data && data.length > 0) {
         await cacheData(cacheStore as OfflineStoreName, data as T[]).catch((e) => {
           // Cache failure shouldn't break the query
-          console.warn("[MalikiPlus] Cache offline échoué :", e);
+          logger.warn("[MalikiPlus] Cache offline échoué :", e);
         });
       }
 

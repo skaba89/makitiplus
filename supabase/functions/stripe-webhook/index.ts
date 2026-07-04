@@ -105,8 +105,17 @@ Deno.serve(async (req) => {
       });
     }
 
-    const event = JSON.parse(payload);
-    const eventId = event.id;
+    let event: Record<string, unknown>;
+    try {
+      event = JSON.parse(payload);
+    } catch {
+      console.error('[stripe-webhook] Invalid JSON payload');
+      return new Response(JSON.stringify({ error: 'Invalid payload' }), {
+        status: 400,
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+      });
+    }
+    const eventId = event.id as string | undefined;
 
     // ── Idempotency: processing → succeeded pattern ─────────────
     // 1. Check if already succeeded → skip (duplicate)

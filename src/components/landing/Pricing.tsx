@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { reportError } from "@/lib/sentry";
+import { logger } from "@/lib/logger";
 
 const plans = [
   {
@@ -63,7 +64,7 @@ export const Pricing = () => {
       });
 
       if (error) {
-        console.error('Checkout error:', error.message);
+        logger.error('Checkout error:', error.message);
         // If not authenticated, redirect to sign up
         if (error.message.includes('authorization') || error.message.includes('session')) {
           navigate('/auth?redirect=pricing');

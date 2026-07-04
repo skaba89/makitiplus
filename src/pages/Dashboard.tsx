@@ -26,6 +26,7 @@ import { formatDateTime } from "@/lib/utils";
 import { reportError } from "@/lib/sentry";
 import { useNavigate } from "react-router-dom";
 import { INVENTORY_ROLES, POS_ROLES, MANAGEMENT_ROLES, FINANCIAL_ROLES } from "@/types";
+import { logger } from "@/lib/logger";
 
 /** Product with optional category icon + supplier name for stock alerts */
 interface DashboardProduct {
@@ -61,7 +62,7 @@ const Dashboard = () => {
       });
       if (error) {
         // Graceful fallback: RPC not deployed yet — return zeros so the dashboard renders
-        console.warn("[Dashboard] get_dashboard_stats RPC failed:", error.message);
+        logger.warn("[Dashboard] get_dashboard_stats RPC failed:", error.message);
         return null;
       }
       // RPC returns array with single object
@@ -82,7 +83,7 @@ const Dashboard = () => {
         p_limit: 5,
       });
       if (error) {
-        console.warn("[Dashboard] get_top_products RPC failed:", error.message);
+        logger.warn("[Dashboard] get_top_products RPC failed:", error.message);
         return [];
       }
       return data;
