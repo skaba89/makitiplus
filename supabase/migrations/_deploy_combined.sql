@@ -8443,10 +8443,10 @@ BEGIN
     RAISE EXCEPTION 'Utilisateur non trouvé. Utilisez l''invitation par email.';
   END IF;
 
-  -- Add role for existing user
-  INSERT INTO public.user_roles (user_id, organization_id, role)
-  VALUES (v_user_id, v_org_id, p_role)
-  ON CONFLICT (user_id, organization_id, role) DO NOTHING;
+  -- Add role for existing user (organization_id is on profiles, not user_roles)
+  INSERT INTO public.user_roles (user_id, role)
+  VALUES (v_user_id, p_role)
+  ON CONFLICT DO NOTHING;
 
   -- Create profile if missing
   INSERT INTO public.profiles (user_id, organization_id, owner_name)

@@ -549,7 +549,7 @@ CREATE OR REPLACE FUNCTION public.create_product(
   p_name TEXT, p_price NUMERIC, p_category_id UUID DEFAULT NULL,
   p_barcode TEXT DEFAULT NULL, p_unit TEXT DEFAULT 'unité',
   p_stock_quantity INTEGER DEFAULT 0, p_min_stock_alert INTEGER DEFAULT 5,
-  p_buy_price NUMERIC DEFAULT NULL, p_supplier_id UUID DEFAULT NULL,
+  p_cost_price NUMERIC DEFAULT NULL, p_supplier_id UUID DEFAULT NULL,
   p_store_id UUID DEFAULT NULL, p_description TEXT DEFAULT NULL,
   p_image_url TEXT DEFAULT NULL, p_is_active BOOLEAN DEFAULT true
 )
@@ -568,9 +568,9 @@ BEGIN
   END IF;
   IF p_store_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.stores WHERE id = p_store_id AND organization_id = v_org_id) THEN RAISE EXCEPTION 'Magasin invalide'; END IF;
   INSERT INTO public.products (organization_id, name, price, category_id, barcode, unit,
-    stock_quantity, min_stock_alert, buy_price, supplier_id, store_id, description, image_url, is_active, user_id
+    stock_quantity, min_stock_alert, cost_price, supplier_id, store_id, description, image_url, is_active, user_id
   ) VALUES (v_org_id, p_name, p_price, p_category_id, p_barcode, p_unit,
-    p_stock_quantity, p_min_stock_alert, p_buy_price, p_supplier_id, p_store_id, p_description, p_image_url, p_is_active, v_user_id
+    p_stock_quantity, p_min_stock_alert, p_cost_price, p_supplier_id, p_store_id, p_description, p_image_url, p_is_active, v_user_id
   ) RETURNING id INTO v_product_id;
   RETURN v_product_id;
 END;
@@ -620,7 +620,7 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role IN ('admin', 'super_admin')) THEN RAISE EXCEPTION 'Seuls les administrateurs peuvent inviter'; END IF;
   SELECT id INTO v_user_id FROM auth.users WHERE email = p_email LIMIT 1;
   IF v_user_id IS NULL THEN RAISE EXCEPTION 'Utilisateur non trouvé'; END IF;
-  INSERT INTO public.user_roles (user_id, organization_id, role) VALUES (v_user_id, v_org_id, p_role) ON CONFLICT DO NOTHING;
+  INSERT INTO public.user_roles (user_id, role) VALUES (v_user_id, p_role) ON CONFLICT DO NOTHING;
   INSERT INTO public.profiles (user_id, organization_id, owner_name) VALUES (v_user_id, v_org_id, p_email) ON CONFLICT (user_id) DO NOTHING;
   RETURN v_user_id;
 END;

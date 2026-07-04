@@ -3,6 +3,17 @@
 // Must verify Stripe signature for security
 
 import { getCorsHeaders, corsOptionsResponse } from '../_shared/cors.ts';
+import { requireMethod } from '../_shared/httpMethodGuard.ts';
+import { createRateLimiter } from '../_shared/rateLimiter.ts';
+import { resolvePlanFromPriceId } from '../_shared/stripeApi.ts';
+import { timingSafeEqual } from '../_shared/timingSafeEqual.ts';
+
+// Rate limit: 100 req/min — Stripe webhooks can retry aggressively, but we
+// still need protection against brute-force signature attempts.
+const limiter = createRateLimiter('stripe-webhook', { maxRequests: 100, windowMs: 60_000 });
+
+// Idempotency states
+type EventStatus = 'processing' | 'succeeded' | 'failed';
 
 // Simple HMAC-SHA256 verification using Web Crypto API
 async function verifyStripeSignature(
@@ -46,23 +57,23 @@ async function verifyStripeSignature(
     .join('');
 
   // Timing-safe comparison to prevent timing attacks
-  if (computedSig.length !== signaturePart.length) return false;
-  const a = new TextEncoder().encode(computedSig);
-  const b = new TextEncoder().encode(signaturePart);
-  if (a.byteLength !== b.byteLength) return false;
-  const diff = new Uint8Array(a.byteLength);
-  for (let i = 0; i < a.byteLength; i++) diff[i] = a[i] ^ b[i];
-  return diff.every(v => v === 0);
+  return timingSafeEqual(computedSig, signaturePart);
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return corsOptionsResponse(req);
+  const methodErr = requireMethod(req, 'POST');
+  if (methodErr) return methodErr;
 
-  if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
-    });
+  // Rate limit check — defense-in-depth even for Stripe-initiated calls
+  const rateResult = await limiter.check(req);
+  if (!rateResult.allowed) {
+    return limiter.addHeaders(
+      new Response(JSON.stringify({ error: rateResult.error }), {
+        status: 429,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+      rateResult,
+    );
   }
 
   try {
@@ -97,26 +108,47 @@ Deno.serve(async (req) => {
     const event = JSON.parse(payload);
     const eventId = event.id;
 
-    // Idempotency: skip already-processed events (Stripe retries on failure)
-    // Store event IDs in Deno KV with 24h TTL to prevent duplicate processing
+    // ── Idempotency: processing → succeeded pattern ─────────────
+    // 1. Check if already succeeded → skip (duplicate)
+    // 2. If currently processing and recent → return accepted (Stripe will retry)
+    // 3. Otherwise mark as processing, do work, then mark succeeded
+    // 4. On failure, delete key to allow Stripe retry
     if (eventId) {
+      let kv: Deno.Kv | null = null;
       try {
-        const kv = await Deno.openKv();
-        const existing = await kv.get(['stripe_events', eventId]);
+        kv = await Deno.openKv();
+        const existing = await kv.get<{ status: EventStatus; type: string; processedAt: number }>(['stripe_events', eventId]);
+
         if (existing.value) {
-          console.log(`[stripe-webhook] Duplicate event ${eventId} — skipping`);
-          kv.close();
-          return new Response(JSON.stringify({ received: true, duplicate: true }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-          });
+          if (existing.value.status === 'succeeded') {
+            console.log(`[stripe-webhook] Duplicate event ${eventId} — already succeeded, skipping`);
+            return new Response(JSON.stringify({ received: true, duplicate: true }), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            });
+          }
+          if (existing.value.status === 'processing') {
+            // Still being processed — return accepted so Stripe retries later
+            const age = Date.now() - existing.value.processedAt;
+            if (age < 60_000) {
+              console.log(`[stripe-webhook] Event ${eventId} still processing (${age}ms ago) — returning accepted`);
+              return new Response(JSON.stringify({ received: true, processing: true }), {
+                status: 202,
+                headers: { 'Content-Type': 'application/json' },
+              });
+            }
+            // Processing for over 1 minute — likely stuck, allow retry by clearing
+            console.warn(`[stripe-webhook] Event ${eventId} stuck in processing for ${age}ms — allowing retry`);
+          }
         }
-        // Mark as processed with 24h expiry (86400 seconds)
-        await kv.set(['stripe_events', eventId], { type: event.type, processedAt: Date.now() }, { expireIn: 86_400_000 });
-        kv.close();
+
+        // Mark as processing with 24h expiry
+        await kv.set(['stripe_events', eventId], { status: 'processing' as EventStatus, type: event.type, processedAt: Date.now() }, { expireIn: 86_400_000 });
       } catch (kvErr) {
         // KV unavailable — log but continue (non-critical, idempotency is best-effort)
         console.warn('[stripe-webhook] KV unavailable for idempotency check:', (kvErr as Error).message);
+      } finally {
+        kv?.close();
       }
     }
 
@@ -128,159 +160,247 @@ Deno.serve(async (req) => {
 
     console.log(`[stripe-webhook] Event: ${event.type}`);
 
-    switch (event.type) {
-      case 'checkout.session.completed': {
-        const session = event.data.object;
-        const customerId = session.customer;
-        const subscriptionId = session.subscription;
+    // ── Process event ────────────────────────────────────────────
+    let processingError = false;
 
-        // Get organization from customer metadata or lookup
-        const { data: org } = await adminClient
-          .from('organizations')
-          .select('id, stripe_customer_id')
-          .eq('stripe_customer_id', customerId)
-          .maybeSingle();
+    try {
+      switch (event.type) {
+        case 'checkout.session.completed': {
+          const session = event.data.object;
+          const customerId = session.customer;
+          const subscriptionId = session.subscription;
 
-        if (!org) {
-          // Try to find org from subscription metadata
-          // Retrieve subscription from Stripe to get metadata
-          console.error(`[stripe-webhook] No organization found for customer ${customerId}`);
+          // Get organization from customer lookup
+          const { data: org } = await adminClient
+            .from('organizations')
+            .select('id, stripe_customer_id')
+            .eq('stripe_customer_id', customerId)
+            .maybeSingle();
+
+          if (!org) {
+            console.error(`[stripe-webhook] No organization found for customer ${customerId}`);
+            processingError = true;
+            break;
+          }
+
+          // Retrieve subscription details from Stripe to get plan info
+          const secretKey = Deno.env.get('STRIPE_SECRET_KEY')!;
+          const subRes = await fetch(`https://api.stripe.com/v1/subscriptions/${subscriptionId}`, {
+            headers: { Authorization: `Bearer ${secretKey}` },
+          });
+          if (!subRes.ok) {
+            const errData = await subRes.json().catch(() => ({}));
+            console.error(`[stripe-webhook] Failed to retrieve subscription: ${errData.error?.message ?? subRes.status}`);
+            processingError = true;
+            break;
+          }
+          const subscription = await subRes.json();
+
+          // Determine plan from price ID — reject unknown price IDs
+          const priceId = subscription.items?.data?.[0]?.price?.id;
+          const plan = resolvePlanFromPriceId(priceId);
+
+          if (!plan) {
+            console.error(`[stripe-webhook] Unknown price ID: ${priceId} — skipping event`);
+            processingError = true;
+            break;
+          }
+
+          // Calculate subscription dates from Stripe
+          const currentPeriodStart = subscription.current_period_start
+            ? new Date(subscription.current_period_start * 1000).toISOString()
+            : new Date().toISOString();
+          const currentPeriodEnd = subscription.current_period_end
+            ? new Date(subscription.current_period_end * 1000).toISOString()
+            : null;
+
+          // 1. Upsert into subscriptions table (source of truth)
+          const { error: subUpsertError } = await adminClient
+            .from('subscriptions')
+            .upsert({
+              organization_id: org.id,
+              plan_id: plan,
+              status: 'active',
+              billing_period: 'monthly',
+              current_period_start: currentPeriodStart,
+              current_period_end: currentPeriodEnd,
+              stripe_subscription_id: subscriptionId,
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'organization_id' });
+
+          if (subUpsertError) {
+            console.error(`[stripe-webhook] Failed to upsert subscription: ${subUpsertError.message}`);
+          }
+
+          // 2. Update organization cache (retrocompat)
+          const { error: updateError } = await adminClient
+            .from('organizations')
+            .update({
+              subscription_plan: plan,
+              subscription_expires_at: currentPeriodEnd,
+              stripe_customer_id: customerId,
+            })
+            .eq('id', org.id);
+
+          if (updateError) {
+            console.error(`[stripe-webhook] Failed to update org: ${updateError.message}`);
+          } else {
+            console.log(`[stripe-webhook] Updated org ${org.id} to plan: ${plan}`);
+          }
+
           break;
         }
 
-        // Retrieve subscription details from Stripe to get plan info
-        const secretKey = Deno.env.get('STRIPE_SECRET_KEY')!;
-        const subRes = await fetch(`https://api.stripe.com/v1/subscriptions/${subscriptionId}`, {
-          headers: { Authorization: `Bearer ${secretKey}` },
-        });
-        if (!subRes.ok) {
-          const errData = await subRes.json().catch(() => ({}));
-          console.error(`[stripe-webhook] Failed to retrieve subscription: ${errData.error?.message ?? subRes.status}`);
+        case 'customer.subscription.updated': {
+          const subscription = event.data.object;
+          const customerId = subscription.customer;
+          const subscriptionId = subscription.id;
+
+          const { data: org } = await adminClient
+            .from('organizations')
+            .select('id')
+            .eq('stripe_customer_id', customerId)
+            .maybeSingle();
+
+          if (!org) {
+            console.error(`[stripe-webhook] No organization found for customer ${customerId}`);
+            processingError = true;
+            break;
+          }
+
+          // Determine plan from price ID — reject unknown price IDs
+          const priceId = subscription.items?.data?.[0]?.price?.id;
+          const plan = resolvePlanFromPriceId(priceId);
+
+          // Handle cancellation at period end — always valid regardless of price ID
+          const isCanceled = subscription.cancel_at_period_end === true;
+
+          if (!plan && !isCanceled) {
+            console.error(`[stripe-webhook] Unknown price ID: ${priceId} for subscription update — skipping`);
+            processingError = true;
+            break;
+          }
+
+          const currentPeriodStart = subscription.current_period_start
+            ? new Date(subscription.current_period_start * 1000).toISOString()
+            : new Date().toISOString();
+          const currentPeriodEnd = subscription.current_period_end
+            ? new Date(subscription.current_period_end * 1000).toISOString()
+            : null;
+
+          const effectiveStatus = isCanceled ? 'cancelled' : 'active';
+          const effectivePlan = isCanceled ? 'starter' : plan!;
+
+          // 1. Upsert into subscriptions table
+          await adminClient
+            .from('subscriptions')
+            .upsert({
+              organization_id: org.id,
+              plan_id: effectivePlan,
+              status: effectiveStatus,
+              billing_period: 'monthly',
+              current_period_start: currentPeriodStart,
+              current_period_end: currentPeriodEnd,
+              stripe_subscription_id: subscriptionId,
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'organization_id' });
+
+          // 2. Update organization cache
+          await adminClient
+            .from('organizations')
+            .update({
+              subscription_plan: effectivePlan,
+              subscription_expires_at: currentPeriodEnd,
+            })
+            .eq('id', org.id);
+
+          console.log(`[stripe-webhook] Updated org ${org.id} — plan: ${isCanceled ? 'starter (canceled)' : plan}`);
           break;
         }
-        const subscription = await subRes.json();
 
-        // Determine plan from price ID
-        const priceId = subscription.items?.data?.[0]?.price?.id;
-        const croissancePriceId = Deno.env.get('STRIPE_PRICE_ID_CROISSANCE') ?? '';
-        const enterprisePriceId = Deno.env.get('STRIPE_PRICE_ID_ENTERPRISE') ?? '';
+        case 'customer.subscription.deleted': {
+          const subscription = event.data.object;
+          const customerId = subscription.customer;
 
-        let plan: string = 'croissance'; // default
-        if (priceId === enterprisePriceId) {
-          plan = 'enterprise';
-        } else if (priceId === croissancePriceId) {
-          plan = 'croissance';
-        }
+          const { data: org } = await adminClient
+            .from('organizations')
+            .select('id')
+            .eq('stripe_customer_id', customerId)
+            .maybeSingle();
 
-        // Calculate subscription end date from Stripe
-        const currentPeriodEnd = subscription.current_period_end
-          ? new Date(subscription.current_period_end * 1000).toISOString()
-          : null;
+          if (!org) {
+            processingError = true;
+            break;
+          }
 
-        // Update organization with subscription details
-        const { error: updateError } = await adminClient
-          .from('organizations')
-          .update({
-            subscription_plan: plan,
-            subscription_expires_at: currentPeriodEnd,
-            stripe_customer_id: customerId,
-          })
-          .eq('id', org.id);
+          // 1. Update subscriptions table — mark as cancelled / downgrade to starter
+          const { error: subUpdateError } = await adminClient
+            .from('subscriptions')
+            .update({
+              plan_id: 'starter',
+              status: 'cancelled',
+              stripe_subscription_id: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('organization_id', org.id);
 
-        if (updateError) {
-          console.error(`[stripe-webhook] Failed to update org: ${updateError.message}`);
-        } else {
-          console.log(`[stripe-webhook] Updated org ${org.id} to plan: ${plan}`);
-        }
+          if (subUpdateError) {
+            console.error(`[stripe-webhook] Failed to update subscription: ${subUpdateError.message}`);
+          }
 
-        break;
-      }
+          // 2. Update organization cache
+          await adminClient
+            .from('organizations')
+            .update({
+              subscription_plan: 'starter',
+              subscription_expires_at: null,
+            })
+            .eq('id', org.id);
 
-      case 'customer.subscription.updated': {
-        const subscription = event.data.object;
-        const customerId = subscription.customer;
-        const subscriptionId = subscription.id;
-
-        const { data: org } = await adminClient
-          .from('organizations')
-          .select('id')
-          .eq('stripe_customer_id', customerId)
-          .maybeSingle();
-
-        if (!org) {
-          console.error(`[stripe-webhook] No organization found for customer ${customerId}`);
+          console.log(`[stripe-webhook] Subscription deleted for org ${org.id} — downgraded to starter`);
           break;
         }
 
-        // Determine plan from price ID
-        const priceId = subscription.items?.data?.[0]?.price?.id;
-        const croissancePriceId = Deno.env.get('STRIPE_PRICE_ID_CROISSANCE') ?? '';
-        const enterprisePriceId = Deno.env.get('STRIPE_PRICE_ID_ENTERPRISE') ?? '';
+        case 'invoice.payment_failed': {
+          const invoice = event.data.object;
+          const customerId = invoice.customer;
 
-        let plan: string = 'croissance';
-        if (priceId === enterprisePriceId) {
-          plan = 'enterprise';
-        } else if (priceId === croissancePriceId) {
-          plan = 'croissance';
+          console.warn(`[stripe-webhook] Payment failed for customer ${customerId}`);
+          // Could send email notification or create alert
+          break;
         }
 
-        const currentPeriodEnd = subscription.current_period_end
-          ? new Date(subscription.current_period_end * 1000).toISOString()
-          : null;
-
-        // Handle cancellation at period end
-        const isCanceled = subscription.cancel_at_period_end === true;
-
-        await adminClient
-          .from('organizations')
-          .update({
-            subscription_plan: isCanceled ? 'starter' : plan,
-            subscription_expires_at: currentPeriodEnd,
-          })
-          .eq('id', org.id);
-
-        console.log(`[stripe-webhook] Updated org ${org.id} — plan: ${isCanceled ? 'starter (canceled)' : plan}`);
-        break;
+        default:
+          console.log(`[stripe-webhook] Unhandled event type: ${event.type}`);
       }
-
-      case 'customer.subscription.deleted': {
-        const subscription = event.data.object;
-        const customerId = subscription.customer;
-
-        const { data: org } = await adminClient
-          .from('organizations')
-          .select('id')
-          .eq('stripe_customer_id', customerId)
-          .maybeSingle();
-
-        if (!org) break;
-
-        // Downgrade to starter when subscription is deleted
-        await adminClient
-          .from('organizations')
-          .update({
-            subscription_plan: 'starter',
-            subscription_expires_at: null,
-          })
-          .eq('id', org.id);
-
-        console.log(`[stripe-webhook] Subscription deleted for org ${org.id} — downgraded to starter`);
-        break;
-      }
-
-      case 'invoice.payment_failed': {
-        const invoice = event.data.object;
-        const customerId = invoice.customer;
-
-        console.warn(`[stripe-webhook] Payment failed for customer ${customerId}`);
-        // Could send email notification or create alert
-        break;
-      }
-
-      default:
-        console.log(`[stripe-webhook] Unhandled event type: ${event.type}`);
+    } catch (processingErr) {
+      console.error('[stripe-webhook] Processing error:', (processingErr as Error).message);
+      processingError = true;
     }
 
+    // ── Update idempotency status ────────────────────────────────
+    if (eventId) {
+      let kv: Deno.Kv | null = null;
+      try {
+        kv = await Deno.openKv();
+        if (processingError) {
+          // Delete key to allow Stripe retry
+          await kv.delete(['stripe_events', eventId]);
+          console.warn(`[stripe-webhook] Event ${eventId} failed — removed idempotency key for retry`);
+        } else {
+          // Mark as succeeded — only after all processing completed successfully
+          await kv.set(['stripe_events', eventId], { status: 'succeeded' as EventStatus, type: event.type, processedAt: Date.now() }, { expireIn: 86_400_000 });
+        }
+      } catch (kvErr) {
+        console.warn('[stripe-webhook] KV unavailable for idempotency update:', (kvErr as Error).message);
+      } finally {
+        kv?.close();
+      }
+    }
+
+    // Return 200 to Stripe even on processing error — we've already cleared the
+    // idempotency key so Stripe will retry. Returning 500 would cause immediate
+    // retry which may not help if the issue is transient.
     return new Response(JSON.stringify({ received: true }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
