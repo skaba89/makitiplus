@@ -44,6 +44,9 @@ download/
 /blob-report/
 /playwright/.cache/
 
+# Supabase CLI temp files
+supabase/.temp/
+
 # Capacitor
 android/app/build
 android/.gradle
