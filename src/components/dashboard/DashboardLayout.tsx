@@ -25,6 +25,7 @@ import {
   BarChart3 as AnalyticsIcon,
   CreditCard,
   Sparkles,
+  Building2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -145,6 +146,12 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       name: "Analyse Multi-Magasins",
       href: "/dashboard/admin-analytics",
       icon: AnalyticsIcon,
+      roles: STORE_ROLES,
+    },
+    {
+      name: "Organisations",
+      href: "/dashboard/admin/organizations",
+      icon: Building2,
       roles: STORE_ROLES,
     },
     {
