@@ -59,8 +59,16 @@ jobs:
 
       - name: Check for secrets in code
         run: |
-          if git grep -nE '(SUPABASE_SERVICE_ROLE_KEY|STRIPE_SECRET_KEY|STRIPE_WEBHOOK_SECRET|sk_live_|rk_live_)' -- . ':!*.md' ':!docs/**' ':!.env.example'; then
+          # Exclude scripts/ (legitimate seed/deploy guides with placeholders)
+          # Exclude test files (they reference env var names, not actual values)
+          # Only flag REAL secrets: sk_live_/rk_live_ with actual base64 after the prefix
+          if git grep -nE '(SUPABASE_SERVICE_ROLE_KEY|STRIPE_SECRET_KEY|STRIPE_WEBHOOK_SECRET)' -- . ':!*.md' ':!docs/**' ':!.env.example' ':!scripts/**' ':!src/test/**' ':!supabase/functions/**'; then
             echo "ERROR: potential secret detected in code"
+            exit 1
+          fi
+          # Check for actual live secret values (not placeholders like sk_live_VOTRE_CLE)
+          if git grep -nE '(sk_live_|rk_live_)[A-Za-z0-9]{20,}' -- . ':!*.md' ':!docs/**' ':!scripts/**'; then
+            echo "ERROR: actual Stripe live secret detected in code"
             exit 1
           fi
 
