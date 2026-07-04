@@ -8,10 +8,15 @@
 --   5. Update get_organization_subscription to include 'trialing' status
 
 
+-- 0. Drop functions that have changed return types (must DROP before CREATE)
+DROP FUNCTION IF EXISTS public.get_organization_subscription();
+DROP FUNCTION IF EXISTS public.check_feature_access(TEXT);
+DROP FUNCTION IF EXISTS public.check_plan_limit(TEXT);
+
+
 -- 1. Fix subscriptions CHECK constraint to include 'trialing'
 DO $body$
 BEGIN
-  -- Drop existing constraint if present
   IF EXISTS (
     SELECT 1 FROM pg_constraint
     WHERE conrelid = 'public.subscriptions'::regclass
@@ -20,14 +25,13 @@ BEGIN
     ALTER TABLE public.subscriptions DROP CONSTRAINT subscriptions_status_check;
   END IF;
 
-  -- Add updated constraint with 'trialing'
   ALTER TABLE public.subscriptions ADD CONSTRAINT subscriptions_status_check
     CHECK (status IN ('active', 'trialing', 'past_due', 'grace_period', 'read_only', 'cancelled', 'expired'));
 END;
 $body$;
 
 
--- 2. Update check_feature_access to include 'trialing' status
+-- 2. check_feature_access with 'trialing' status
 CREATE OR REPLACE FUNCTION public.check_feature_access(
   p_feature_key TEXT
 )
@@ -47,7 +51,6 @@ BEGIN
     RAISE EXCEPTION 'Organisation introuvable';
   END IF;
 
-  -- Get organization's plan (include 'trialing' as active status)
   SELECT s.plan_id INTO v_plan_id
   FROM public.subscriptions s
   WHERE s.organization_id = v_org_id
@@ -55,18 +58,15 @@ BEGIN
   ORDER BY s.created_at DESC
   LIMIT 1;
 
-  -- Default to starter if no subscription
   IF v_plan_id IS NULL THEN
     v_plan_id := 'starter';
   END IF;
 
-  -- Get feature's allowed plans from feature_flags table
   SELECT allowed_plans INTO v_allowed_plans
   FROM public.feature_flags
   WHERE feature_key = p_feature_key AND is_active = TRUE;
 
   IF NOT FOUND THEN
-    -- Feature not found = not allowed
     RETURN QUERY SELECT FALSE, v_plan_id;
     RETURN;
   END IF;
@@ -78,7 +78,7 @@ $$;
 GRANT EXECUTE ON FUNCTION public.check_feature_access(TEXT) TO authenticated;
 
 
--- 3. Update check_plan_limit to include 'trialing' status
+-- 3. check_plan_limit with 'trialing' status
 CREATE OR REPLACE FUNCTION public.check_plan_limit(
   p_limit_type TEXT
 )
@@ -101,7 +101,6 @@ BEGIN
     RAISE EXCEPTION 'Organisation introuvable';
   END IF;
 
-  -- Get active subscription (include 'trialing' as active status)
   SELECT * INTO v_sub
   FROM public.subscriptions s
   JOIN public.plans p ON p.id = s.plan_id
@@ -110,12 +109,10 @@ BEGIN
   ORDER BY s.created_at DESC
   LIMIT 1;
 
-  -- If no subscription, default to starter limits
   IF NOT FOUND THEN
     SELECT * INTO v_sub FROM public.plans WHERE id = 'starter';
   END IF;
 
-  -- Calculate current count based on limit type
   CASE p_limit_type
     WHEN 'stores' THEN
       SELECT COUNT(*) INTO v_current FROM public.stores WHERE organization_id = v_org_id;
@@ -137,7 +134,6 @@ BEGIN
       RAISE EXCEPTION 'Type de limite inconnu : %', p_limit_type;
   END CASE;
 
-  -- NULL limit means unlimited
   RETURN QUERY SELECT
     (v_limit IS NULL OR v_current < v_limit)::BOOLEAN,
     v_current,
@@ -152,7 +148,6 @@ GRANT EXECUTE ON FUNCTION public.check_plan_limit(TEXT) TO authenticated;
 -- 4. Ensure all feature_flags are active with correct allowed_plans
 UPDATE public.feature_flags SET is_active = TRUE WHERE is_active IS NOT TRUE;
 
--- Re-seed feature flags to ensure correct allowed_plans (idempotent upsert)
 INSERT INTO public.feature_flags (feature_key, description, allowed_plans) VALUES
   ('pos', 'Acces caisse enregistreuse', '{"starter","croissance","enterprise"}'),
   ('stock_management', 'Gestion du stock', '{"starter","croissance","enterprise"}'),
@@ -176,7 +171,7 @@ ON CONFLICT (feature_key) DO UPDATE SET
   is_active = TRUE;
 
 
--- 5. Update get_organization_subscription to include 'trialing' status
+-- 5. get_organization_subscription with 'trialing' status
 CREATE OR REPLACE FUNCTION public.get_organization_subscription()
 RETURNS TABLE (
   subscription_id UUID,
