@@ -96,15 +96,12 @@ CREATE TABLE IF NOT EXISTS public.plans (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Add missing columns if they don't exist yet
-ALTER TABLE public.plans ADD COLUMN IF NOT EXISTS has_admin_analytics BOOLEAN NOT NULL DEFAULT FALSE;
-ALTER TABLE public.plans ADD COLUMN IF NOT EXISTS has_backup_restore BOOLEAN NOT NULL DEFAULT FALSE;
-
--- Seed plans (UPSERT pour idempotence)
-INSERT INTO public.plans (id, name, description, price_monthly, price_yearly, max_stores, max_users, max_products, has_advanced_reports, has_exports, has_supplier_management, has_offline_advanced, has_admin_analytics, has_backup_restore, sort_order) VALUES
-  ('starter', 'Starter', 'Ideal pour demarrer — caisse et stock de base', 0.00, NULL, 1, 2, 500, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, 1),
-  ('croissance', 'Croissance', 'Pour les boutiques qui grandissent — fournisseurs, rapports, exports', 29.00, 290.00, 3, 10, 5000, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, 2),
-  ('enterprise', 'Enterprise', 'Pour les chaines et grossistes — analytics, API, support prioritaire', 79.00, 790.00, NULL, NULL, NULL, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, 3)
+-- Seed plans (UPSERT pour idempotence) — sans les colonnes has_admin_analytics/has_backup_restore
+-- qui peuvent ne pas encore exister (ajoutees plus bas)
+INSERT INTO public.plans (id, name, description, price_monthly, price_yearly, max_stores, max_users, max_products, has_advanced_reports, has_exports, has_supplier_management, has_offline_advanced, sort_order) VALUES
+  ('starter', 'Starter', 'Ideal pour demarrer — caisse et stock de base', 0.00, NULL, 1, 2, 500, FALSE, FALSE, FALSE, FALSE, 1),
+  ('croissance', 'Croissance', 'Pour les boutiques qui grandissent — fournisseurs, rapports, exports', 29.00, 290.00, 3, 10, 5000, TRUE, TRUE, TRUE, TRUE, 2),
+  ('enterprise', 'Enterprise', 'Pour les chaines et grossistes — analytics, API, support prioritaire', 79.00, 790.00, NULL, NULL, NULL, TRUE, TRUE, TRUE, TRUE, 3)
 ON CONFLICT (id) DO UPDATE SET
   name = EXCLUDED.name,
   description = EXCLUDED.description,
@@ -117,19 +114,23 @@ ON CONFLICT (id) DO UPDATE SET
   has_exports = EXCLUDED.has_exports,
   has_supplier_management = EXCLUDED.has_supplier_management,
   has_offline_advanced = EXCLUDED.has_offline_advanced,
-  has_admin_analytics = EXCLUDED.has_admin_analytics,
-  has_backup_restore = EXCLUDED.has_backup_restore,
   sort_order = EXCLUDED.sort_order,
   updated_at = NOW();
 
--- Update enterprise premium features
+-- Add missing columns AFTER the INSERT (idempotent)
+ALTER TABLE public.plans ADD COLUMN IF NOT EXISTS has_admin_analytics BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE public.plans ADD COLUMN IF NOT EXISTS has_backup_restore BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Update enterprise premium features (including new columns)
 UPDATE public.plans SET
   has_api_access = TRUE,
   has_priority_support = TRUE,
   has_custom_branding = TRUE,
   has_multi_currency = TRUE,
   has_ai_assistant = TRUE,
-  has_loyalty_program = TRUE
+  has_loyalty_program = TRUE,
+  has_admin_analytics = TRUE,
+  has_backup_restore = TRUE
 WHERE id = 'enterprise';
 
 -- Update croissance with some premium features
