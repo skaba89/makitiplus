@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -81,7 +81,7 @@ const SyncConflicts = () => {
     });
   };
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       let q = supabase
@@ -100,9 +100,9 @@ const SyncConflicts = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tab, toast]);
 
-  useEffect(() => { load(); }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [load]);
 
   // Only super_admin and admin should access this page
   if (!userRole || !ADMIN_ROLES.includes(userRole)) {

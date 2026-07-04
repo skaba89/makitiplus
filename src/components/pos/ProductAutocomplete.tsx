@@ -175,7 +175,7 @@ export const ProductAutocomplete = ({
                   <div className="flex items-center gap-2 sm:gap-3">
                     <div className="w-8 h-8 sm:w-10 sm:h-10 rounded bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
                       {product.image_url ? (
-                        <img src={product.image_url} alt="" className="w-full h-full object-cover" />
+                        <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
                       ) : (
                         <Package className="h-5 w-5 text-muted-foreground" />
                       )}

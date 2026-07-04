@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -52,6 +52,12 @@ const roleLabels: Record<AppRole, string> = {
   comptable: "Comptable",
 };
 
+const categoryMap: Record<string, string[]> = {
+  reset: ["user_password_reset", "user_password_reset_link_sent", "user_password_reset_completed"],
+  export: ["users_exported_csv", "audit_exported_csv"],
+  lifecycle: ["user_created", "user_deactivated", "user_reactivated", "user_deleted_permanently"],
+};
+
 const formatDate = (iso: string | null) => {
   if (!iso) return "—";
   try {
@@ -75,13 +81,7 @@ export const AuditLogPanel = ({ users }: { users: UserOption[] }) => {
   const [from, setFrom] = useState<string>("");
   const [to, setTo] = useState<string>("");
 
-  const categoryMap: Record<string, string[]> = {
-    reset: ["user_password_reset", "user_password_reset_link_sent", "user_password_reset_completed"],
-    export: ["users_exported_csv", "audit_exported_csv"],
-    lifecycle: ["user_created", "user_deactivated", "user_reactivated", "user_deleted_permanently"],
-  };
-
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       let q = supabase
@@ -107,9 +107,9 @@ export const AuditLogPanel = ({ users }: { users: UserOption[] }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [actionFilter, categoryFilter, userFilter, from, to]);
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [actionFilter, categoryFilter, userFilter, from, to]);
+  useEffect(() => { load(); }, [load]);
 
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
