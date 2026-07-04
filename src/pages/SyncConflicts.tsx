@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDemo } from "@/contexts/DemoContext";
 import { ADMIN_ROLES } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { reportError } from "@/lib/sentry";
@@ -64,6 +65,7 @@ const formatDate = (iso: string) => {
 
 const SyncConflicts = () => {
   const { userRole } = useAuth();
+  const { blockMutation } = useDemo();
   const { toast } = useToast();
 
   // Only super_admin and admin should access this page
@@ -115,6 +117,7 @@ const SyncConflicts = () => {
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [tab]);
 
   const acknowledgeAll = async () => {
+    if (blockMutation()) return;
     try {
       const ids = rows.filter((r) => !r.acknowledged).map((r) => r.id);
       if (!ids.length) return;
@@ -133,6 +136,7 @@ const SyncConflicts = () => {
   };
 
   const acknowledgeOne = async (id: string) => {
+    if (blockMutation()) return;
     try {
       const { error } = await supabase
         .from("sync_conflicts")

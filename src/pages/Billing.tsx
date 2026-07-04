@@ -8,7 +8,6 @@
 import { useSubscription, usePlanLimit, usePlans, formatLimit, type LimitType } from "@/hooks/useSubscription";
 import { useStripeCheckout } from "@/hooks/useStripeCheckout";
 import { useStripePortal } from "@/hooks/useStripePortal";
-import { useAuth } from "@/contexts/AuthContext";
 import { useDemo } from "@/contexts/DemoContext";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,7 +33,6 @@ const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secon
 export default function Billing() {
   const { data: subscription, isLoading: subLoading } = useSubscription();
   const { data: plans } = usePlans();
-  const { } = useAuth();
   const { blockMutation } = useDemo();
   const { currency } = useCurrency();
   const [searchParams, setSearchParams] = useSearchParams();
