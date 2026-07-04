@@ -23,7 +23,8 @@ describe("Stripe webhook — critical mutation error handling", () => {
   let webhookCode: string;
 
   beforeAll(() => {
-    webhookCode = fs.readFileSync(webhookPath, "utf-8");
+    // Normalize \r\n (Windows) to \n so regexes with \n work on all platforms
+    webhookCode = fs.readFileSync(webhookPath, "utf-8").replace(/\r\n/g, "\n");
   });
 
   it("checkout.session.completed: subUpsertError sets processingError = true", () => {
