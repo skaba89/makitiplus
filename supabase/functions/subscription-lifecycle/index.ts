@@ -210,7 +210,7 @@ Deno.serve(async (req) => {
     }), { status: 200, headers });
 
   } catch (err) {
-    console.error('[subscription-lifecycle] Fatal error:', err);
+    console.error('[subscription-lifecycle] Fatal error:', (err as Error).message);
     return new Response(
       JSON.stringify({ error: 'Lifecycle processing failed' }),
       { status: 500, headers }
@@ -244,7 +244,7 @@ async function sendLifecycleEmail(
     // Get email from auth.users
     const { data: { user } } = await adminClient.auth.admin.getUserById(profile.user_id);
     if (!user?.email) {
-      console.warn(`[subscription-lifecycle] No email found for user ${profile.user_id}`);
+      console.warn(`[subscription-lifecycle] No email found for org admin`);
       return;
     }
 
@@ -265,7 +265,7 @@ async function sendLifecycleEmail(
       }),
     });
   } catch (err) {
-    console.error(`[subscription-lifecycle] Email failed for org ${orgId}:`, err);
+    console.error(`[subscription-lifecycle] Email failed:`, (err as Error).message);
   }
 }
 

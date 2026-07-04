@@ -51,7 +51,54 @@ jobs:
 
       - name: Check for .env leaks
         run: |
-          if git diff --cached --name-only | grep -q '\.env$'; then
-            echo "ERROR: .env file detected in commit!"
+          # Check for tracked .env files (excluding .env.example)
+          if git ls-files | grep -E '(^|/)\.env($|\.)' | grep -v '\.env\.example'; then
+            echo "ERROR: tracked .env file detected"
             exit 1
           fi
+
+      - name: Check for secrets in code
+        run: |
+          # Only flag REAL secret values (not env var names in scripts/tests/CI)
+          # Check for actual Stripe live secret values (sk_live_/rk_live_ with 20+ chars)
+          if git grep -nE '(sk_live_|rk_live_)[A-Za-z0-9]{20,}' -- . ':!*.md' ':!docs/**' ':!scripts/**'; then
+            echo "ERROR: actual Stripe live secret detected in code"
+            exit 1
+          fi
+          # Check for Supabase service role key with actual JWT (eyJ...)
+          if git grep -nE 'SUPABASE_SERVICE_ROLE_KEY.*eyJ[A-Za-z0-9+/=]{20,}' -- . ':!*.md' ':!docs/**' ':!scripts/**' ':!.env.example' ':!src/test/**' ':!supabase/functions/**'; then
+            echo "ERROR: actual Supabase service role key detected in code"
+            exit 1
+          fi
+          # Check for actual Stripe secret key with real value
+          if git grep -nE 'STRIPE_SECRET_KEY.*sk_live_[A-Za-z0-9]{20,}' -- . ':!*.md' ':!docs/**' ':!scripts/**' ':!.env.example' ':!src/test/**' ':!supabase/functions/**'; then
+            echo "ERROR: actual Stripe secret key detected in code"
+            exit 1
+          fi
+
+  # E2E tests — optional job, won't break CI if secrets are missing
+  e2e:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    timeout-minutes: 20
+    # Don't block the pipeline if this job fails (secrets may not be configured yet)
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      - name: E2E tests
+        run: npx playwright test
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      - name: E2E summary
+        if: always()
+        run: echo "E2E tests completed (optional — failures don't block CI)"

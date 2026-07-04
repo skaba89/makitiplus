@@ -2,17 +2,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, CreditCard, Crown, AlertTriangle } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { useSubscription } from "@/hooks/useSubscription";
 import { reportError } from "@/lib/sentry";
 import { useToast } from "@/hooks/use-toast";
-
-interface SubscriptionInfo {
-  plan: string;
-  expiresAt: string | null;
-  stripeCustomerId: string | null;
-}
 
 const PLAN_LABELS: Record<string, { label: string; color: string }> = {
   starter: { label: "Starter", color: "bg-gray-100 text-gray-700" },
@@ -21,43 +15,15 @@ const PLAN_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 export const SubscriptionCard = () => {
-  const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: subscription, isLoading } = useSubscription();
   const [portalLoading, setPortalLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchSubscription();
-  }, []);
-
-  const fetchSubscription = async () => {
-    try {
-      const { data, error } = await supabase.rpc("get_organization_subscription");
-
-      if (error) {
-        reportError(error);
-        return;
-      }
-
-      if (data) {
-        setSubscription({
-          plan: data.plan ?? "starter",
-          expiresAt: data.expiresAt ?? null,
-          stripeCustomerId: data.stripeCustomerId ?? null,
-        });
-      }
-    } catch (err) {
-      reportError(err instanceof Error ? err : new Error(String(err)));
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleManageSubscription = async () => {
     setPortalLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("stripe-portal");
+      const { data, error } = await (await import("@/integrations/supabase/client")).supabase.functions.invoke("stripe-portal");
 
       if (error) {
         reportError(error);
@@ -76,7 +42,7 @@ export const SubscriptionCard = () => {
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Card>
         <CardContent className="p-6 flex items-center justify-center">
@@ -86,17 +52,22 @@ export const SubscriptionCard = () => {
     );
   }
 
-  const planInfo = PLAN_LABELS[subscription?.plan ?? "starter"] ?? PLAN_LABELS.starter;
-  const isExpired = subscription?.expiresAt
-    ? new Date(subscription.expiresAt) < new Date()
-    : subscription?.plan !== "starter";
-  const expiryDate = subscription?.expiresAt
-    ? new Date(subscription.expiresAt).toLocaleDateString("fr-FR", {
+  const planId = subscription?.plan_id ?? "starter";
+  const planInfo = PLAN_LABELS[planId] ?? PLAN_LABELS.starter;
+  const isExpired = subscription?.current_period_end
+    ? new Date(subscription.current_period_end) < new Date()
+    : planId !== "starter";
+  const expiryDate = subscription?.current_period_end
+    ? new Date(subscription.current_period_end).toLocaleDateString("fr-FR", {
         day: "numeric",
         month: "long",
         year: "numeric",
       })
     : null;
+
+  // Determine if Stripe customer exists — rely on stripe_customer_id from the RPC response
+  // rather than guessing from plan_id + current_period_end (unreliable heuristic)
+  const hasStripeCustomer = !!subscription?.stripe_customer_id;
 
   return (
     <Card>
@@ -129,7 +100,7 @@ export const SubscriptionCard = () => {
 
         {/* Actions */}
         <div className="flex flex-col gap-2 pt-2">
-          {subscription?.stripeCustomerId ? (
+          {hasStripeCustomer ? (
             <Button
               variant="outline"
               className="w-full"

@@ -4,40 +4,9 @@
 import { getCorsHeaders, corsOptionsResponse, validateOrigin } from '../_shared/cors.ts';
 import { createRateLimiter } from '../_shared/rateLimiter.ts';
 import { requireAdminContext } from '../_shared/orgScope.ts';
+import { stripeRequest } from '../_shared/stripeApi.ts';
 
-const STRIPE_API = 'https://api.stripe.com/v1';
 const limiter = createRateLimiter('stripe-portal', { maxRequests: 10, windowMs: 60_000 });
-
-async function stripeRequest(
-  path: string,
-  method: string = 'POST',
-  body?: Record<string, string>,
-) {
-  const secretKey = Deno.env.get('STRIPE_SECRET_KEY');
-  if (!secretKey) throw new Error('STRIPE_SECRET_KEY not configured');
-
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${secretKey}`,
-  };
-
-  let fetchOptions: RequestInit = { method };
-
-  if (body) {
-    headers['Content-Type'] = 'application/x-www-form-urlencoded';
-    fetchOptions.body = new URLSearchParams(body).toString();
-  }
-
-  fetchOptions.headers = headers;
-
-  const res = await fetch(`${STRIPE_API}${path}`, fetchOptions);
-  const data = await res.json();
-
-  if (!res.ok) {
-    throw new Error(data.error?.message ?? `Stripe API error: ${res.status}`);
-  }
-
-  return data;
-}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return corsOptionsResponse(req);

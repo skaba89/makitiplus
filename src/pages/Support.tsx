@@ -1,6 +1,11 @@
 /**
  * Support Page — Integrated customer support & ticketing
  *
+ * ⚠️ EXPERIMENTAL / NOT ROUTED YET
+ * This module has not been commercially validated.
+ * It is NOT added to App.tsx routes, DashboardLayout sidebar, or MobileBottomNav.
+ * Do NOT expose until product/UX sign-off.
+ *
  * Features:
  * - Create support tickets (bug, technical, billing, feature request)
  * - Chat-like messaging interface for each ticket
@@ -582,6 +587,7 @@ const Support = () => {
                         size="icon"
                         className="lg:hidden shrink-0 -ml-2"
                         onClick={() => setSelectedTicketId(null)}
+                        aria-label="Retour"
                       >
                         <ArrowLeft className="h-5 w-5" />
                       </Button>
@@ -707,6 +713,7 @@ const Support = () => {
                         onClick={() => { if (blockMutation("Envoyer un message")) return; sendMessageMutation.mutate(); }}
                         disabled={!newMessage.trim() || sendMessageMutation.isPending}
                         size="icon"
+                        aria-label="Envoyer le message"
                       >
                         {sendMessageMutation.isPending ? (
                           <Loader2 className="h-4 w-4 animate-spin" />

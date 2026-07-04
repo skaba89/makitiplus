@@ -5,7 +5,7 @@
 # PRÉREQUIS :
 #   1. Installer la CLI : npm install -g supabase
 #   2. Se connecter     : supabase login
-#   3. Lier le projet   : supabase link --project-ref eiquqawymbgfejwucvyt
+#   3. Lier le projet   : supabase link --project-ref exxntkuursgwhxvehekr
 #
 # UTILISATION :
 #   chmod +x deploy-functions.sh
@@ -29,6 +29,8 @@ ALL_FUNCTIONS=(
   "stripe-checkout"
   "stripe-webhook"
   "stripe-portal"
+  "subscription-lifecycle"
+  "send-whatsapp"
 )
 
 # Couleurs

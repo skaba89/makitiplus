@@ -8,6 +8,7 @@
  */
 
 import { loadStripe, type Stripe } from '@stripe/stripe-js';
+import { logger } from "@/lib/logger";
 
 const STRIPE_PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string | undefined;
 
@@ -29,7 +30,7 @@ let _stripePromise: Promise<Stripe | null> | null = null;
 export function getStripe(): Promise<Stripe | null> {
   if (!_stripePromise) {
     if (!STRIPE_PUBLISHABLE_KEY) {
-      console.warn('[Stripe] VITE_STRIPE_PUBLISHABLE_KEY is not set. Stripe features will be disabled.');
+      logger.warn('[Stripe] VITE_STRIPE_PUBLISHABLE_KEY is not set. Stripe features will be disabled.');
       _stripePromise = Promise.resolve(null);
     } else {
       _stripePromise = loadStripe(STRIPE_PUBLISHABLE_KEY);

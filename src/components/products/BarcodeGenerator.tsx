@@ -1,5 +1,4 @@
-import { useEffect, useRef } from "react";
-import JsBarcode from "jsbarcode";
+import { useEffect, useRef, useState } from "react";
 import { reportError } from "@/lib/sentry";
 
 interface Props {
@@ -10,11 +9,16 @@ interface Props {
 
 export const BarcodeGenerator = ({ value, width = 2, height = 50 }: Props) => {
   const svgRef = useRef<SVGSVGElement>(null);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    if (svgRef.current && value) {
+    if (!svgRef.current || !value) return;
+
+    let cancelled = false;
+    import("jsbarcode").then(({ default: JsBarcode }) => {
+      if (cancelled) return;
       try {
-        JsBarcode(svgRef.current, value, {
+        JsBarcode(svgRef.current!, value, {
           format: "CODE128",
           width,
           height,
@@ -22,15 +26,20 @@ export const BarcodeGenerator = ({ value, width = 2, height = 50 }: Props) => {
           fontSize: 12,
           margin: 5,
         });
+        setLoaded(true);
       } catch (e) {
         reportError(e);
       }
-    }
+    }).catch(() => {
+      // jsbarcode chunk load failure — non-critical
+    });
+
+    return () => { cancelled = true; };
   }, [value, width, height]);
 
   if (!value) return null;
 
-  return <svg ref={svgRef} />;
+  return <svg ref={svgRef} style={{ opacity: loaded ? 1 : 0, transition: "opacity 150ms" }} />;
 };
 
 export const generateBarcode = (): string => {

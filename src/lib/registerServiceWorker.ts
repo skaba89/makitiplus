@@ -4,6 +4,8 @@
  * Unregisters any matching SW in refused contexts to avoid stale caches.
  */
 
+import { logger } from "@/lib/logger";
+
 const SW_URL = "/sw.js";
 
 const isRefusedHost = (host: string): boolean => {
@@ -57,7 +59,7 @@ export const registerServiceWorker = () => {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register(SW_URL, { type: "classic" }).catch((e) => {
       /* registration failure — non-critical, PWA will just be unavailable */
-      console.warn("[MalikiPlus] Service Worker registration échouée :", e);
+      logger.warn("[MalikiPlus] Service Worker registration échouée :", e);
     });
   });
 };

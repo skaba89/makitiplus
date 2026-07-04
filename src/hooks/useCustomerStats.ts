@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { CustomerStatsRpc } from "@/types";
+import { logger } from "@/lib/logger";
 
 /**
  * Customer stats hook — single source of truth.
@@ -21,7 +22,7 @@ export function useCustomerStats() {
       }
       const { data, error } = await supabase.rpc("get_customer_stats");
       if (error) {
-        console.warn("[CustomerStats] get_customer_stats RPC failed:", error.message);
+        logger.warn("[CustomerStats] get_customer_stats RPC failed:", error.message);
         return { totalCustomers: 0, totalCredit: 0, customersWithCredit: 0 };
       }
       const typed = data as unknown as CustomerStatsRpc;

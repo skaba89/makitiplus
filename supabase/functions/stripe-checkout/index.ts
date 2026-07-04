@@ -4,56 +4,16 @@
 import { getCorsHeaders, corsOptionsResponse, validateOrigin } from '../_shared/cors.ts';
 import { createRateLimiter } from '../_shared/rateLimiter.ts';
 import { requireAdminContext } from '../_shared/orgScope.ts';
+import { stripeRequest, PRICE_IDS } from '../_shared/stripeApi.ts';
 
-const STRIPE_API = 'https://api.stripe.com/v1';
 const limiter = createRateLimiter('stripe-checkout', { maxRequests: 10, windowMs: 60_000 });
-
-// Price IDs (set in Supabase Edge Function secrets)
-// These map to your Stripe product prices
-const PRICE_IDS: Record<string, string> = {
-  croissance: Deno.env.get('STRIPE_PRICE_ID_CROISSANCE') ?? '',
-  enterprise: Deno.env.get('STRIPE_PRICE_ID_ENTERPRISE') ?? '',
-};
-
-// Collect all valid price IDs for server-side validation
-const VALID_PRICE_IDS = new Set(Object.values(PRICE_IDS).filter(Boolean));
 
 interface CheckoutRequest {
   planKey?: string;       // 'croissance' or 'enterprise'
   plan_id?: string;       // Alias for planKey (retro-compat frontend)
+  billing?: string;       // 'monthly' or 'yearly' (defaults to 'monthly')
   successUrl?: string;
   cancelUrl?: string;
-}
-
-async function stripeRequest(
-  path: string,
-  method: string = 'POST',
-  body?: Record<string, string>,
-) {
-  const secretKey = Deno.env.get('STRIPE_SECRET_KEY');
-  if (!secretKey) throw new Error('STRIPE_SECRET_KEY not configured');
-
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${secretKey}`,
-  };
-
-  let fetchOptions: RequestInit = { method };
-
-  if (body) {
-    headers['Content-Type'] = 'application/x-www-form-urlencoded';
-    fetchOptions.body = new URLSearchParams(body).toString();
-  }
-
-  fetchOptions.headers = headers;
-
-  const res = await fetch(`${STRIPE_API}${path}`, fetchOptions);
-  const data = await res.json();
-
-  if (!res.ok) {
-    throw new Error(data.error?.message ?? `Stripe API error: ${res.status}`);
-  }
-
-  return data;
 }
 
 Deno.serve(async (req) => {
@@ -99,10 +59,12 @@ Deno.serve(async (req) => {
 
     const orgId = actorProfile.organization_id;
 
-    // 2. Parse request body — only accept planKey, reject arbitrary priceId
+    // 2. Parse request body — resolve plan key + billing period to price ID
     const body: CheckoutRequest = await req.json();
     const resolvedPlanKey = body.planKey ?? body.plan_id ?? '';
-    const priceId = PRICE_IDS[resolvedPlanKey];
+    const billing = body.billing === 'yearly' ? 'yearly' : 'monthly'; // default to monthly
+    const compositeKey = `${resolvedPlanKey}_${billing}`;
+    const priceId = PRICE_IDS[compositeKey] ?? PRICE_IDS[resolvedPlanKey];
 
     if (!priceId) {
       return new Response(JSON.stringify({ error: 'Plan invalide. Plans disponibles : croissance, enterprise' }), {
@@ -129,7 +91,7 @@ Deno.serve(async (req) => {
         'metadata[user_id]': user.id,
       });
 
-      customerId = customer.id;
+      customerId = customer.id as string;
 
       // Save customer ID to organization
       await adminClient

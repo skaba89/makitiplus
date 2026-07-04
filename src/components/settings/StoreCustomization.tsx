@@ -370,7 +370,7 @@ const StoreCustomization = () => {
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-hero-gradient flex items-center justify-center">
                     {settings?.logo_url ? (
-                      <img src={settings.logo_url} alt="" className="w-8 h-8 rounded-lg object-contain" />
+                      <img src={settings.logo_url} alt="Logo" className="w-8 h-8 rounded-lg object-contain" />
                     ) : (
                       <span className="text-lg font-bold text-primary-foreground">{storeName?.[0]?.toUpperCase() || "S"}</span>
                     )}
@@ -556,7 +556,7 @@ const StoreCustomization = () => {
               <div className="p-4 bg-white text-black rounded-lg max-w-[280px] mx-auto border shadow-sm font-mono text-xs">
                 <div className="text-center">
                   {receiptShowLogo && settings?.logo_url && (
-                    <img src={settings.logo_url} alt="" className="w-12 h-12 mx-auto object-contain mb-2" />
+                    <img src={settings.logo_url} alt="Logo" className="w-12 h-12 mx-auto object-contain mb-2" />
                   )}
                   <p className="font-bold text-sm">{storeName || "Mon Magasin"}</p>
                   <p className="text-[10px] text-gray-500 mt-1">{profile?.address || "Conakry, Guinée"}</p>
@@ -716,7 +716,7 @@ const StoreCustomization = () => {
                   <div className="w-16 p-2 space-y-2 border-r" style={{ backgroundColor: `hsl(${branding.accentColor} / 0.3)` }}>
                     <div className="w-10 h-10 rounded-lg flex items-center justify-center mx-auto" style={{ background: `linear-gradient(135deg, hsl(${branding.brandColor}), hsl(${branding.accentColor}))` }}>
                       {settings?.logo_url ? (
-                        <img src={settings.logo_url} alt="" className="w-6 h-6 rounded object-cover" />
+                        <img src={settings.logo_url} alt="Logo" className="w-6 h-6 rounded object-cover" />
                       ) : (
                         <span className="text-xs font-bold text-white">{branding.appName.charAt(0)}</span>
                       )}

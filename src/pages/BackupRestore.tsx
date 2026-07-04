@@ -1,6 +1,9 @@
 /**
  * Backup & Restore Page — Data protection for organizations
  *
+ * ⚠️ EXPERIMENTAL / NOT ROUTED YET
+ * This module has not been commercially validated.
+ *
  * Features:
  * - List backups with status filtering
  * - Create manual backups (full org snapshot)
@@ -596,6 +599,7 @@ const BackupRestore = () => {
                                     size="icon"
                                     onClick={() => handleDownload(backup)}
                                     title="Télécharger"
+                                    aria-label="Télécharger la sauvegarde"
                                   >
                                     <Download className="h-4 w-4" />
                                   </Button>
@@ -607,6 +611,7 @@ const BackupRestore = () => {
                                       setRestoreDialogOpen(true);
                                     }}
                                     title="Restaurer"
+                                    aria-label="Restaurer la sauvegarde"
                                     className="text-orange-600 hover:text-orange-700"
                                   >
                                     <RotateCcw className="h-4 w-4" />
@@ -621,6 +626,7 @@ const BackupRestore = () => {
                                   setDeleteDialogOpen(true);
                                 }}
                                 title="Supprimer"
+                                aria-label="Supprimer la sauvegarde"
                                 className="text-destructive hover:text-destructive"
                               >
                                 <Trash2 className="h-4 w-4" />

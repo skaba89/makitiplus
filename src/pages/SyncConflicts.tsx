@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,8 @@ import {
 } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDemo } from "@/contexts/DemoContext";
+import { ADMIN_ROLES } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { reportError } from "@/lib/sentry";
 import {
@@ -63,20 +65,8 @@ const formatDate = (iso: string) => {
 
 const SyncConflicts = () => {
   const { userRole } = useAuth();
+  const { blockMutation } = useDemo();
   const { toast } = useToast();
-
-  // Only super_admin and admin should access this page
-  if (!userRole || !ADMIN_ROLES.includes(userRole)) {
-    return (
-      <DashboardLayout>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-          <ShieldCheck className="h-16 w-16 text-muted-foreground/40" />
-          <h2 className="text-xl font-semibold">Accès restreint</h2>
-          <p className="text-muted-foreground">Seuls les administrateurs peuvent gérer les conflits de synchronisation.</p>
-        </div>
-      </DashboardLayout>
-    );
-  }
   const [rows, setRows] = useState<ConflictRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"unack" | "all" | "diagnostic">("unack");
@@ -90,7 +80,7 @@ const SyncConflicts = () => {
     });
   };
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       let q = supabase
@@ -109,11 +99,25 @@ const SyncConflicts = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tab, toast]);
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [tab]);
+  useEffect(() => { load(); }, [load]);
+
+  // Only super_admin and admin should access this page
+  if (!userRole || !ADMIN_ROLES.includes(userRole)) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+          <ShieldCheck className="h-16 w-16 text-muted-foreground/40" />
+          <h2 className="text-xl font-semibold">Accès restreint</h2>
+          <p className="text-muted-foreground">Seuls les administrateurs peuvent gérer les conflits de synchronisation.</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   const acknowledgeAll = async () => {
+    if (blockMutation()) return;
     try {
       const ids = rows.filter((r) => !r.acknowledged).map((r) => r.id);
       if (!ids.length) return;
@@ -132,6 +136,7 @@ const SyncConflicts = () => {
   };
 
   const acknowledgeOne = async (id: string) => {
+    if (blockMutation()) return;
     try {
       const { error } = await supabase
         .from("sync_conflicts")

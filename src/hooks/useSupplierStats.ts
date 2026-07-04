@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { SupplierStatsRpc } from "@/types";
+import { logger } from "@/lib/logger";
 
 /**
  * Supplier stats hook — single source of truth.
@@ -21,7 +22,7 @@ export function useSupplierStats() {
       }
       const { data, error } = await supabase.rpc("get_supplier_stats");
       if (error) {
-        console.warn("[SupplierStats] get_supplier_stats RPC failed:", error.message);
+        logger.warn("[SupplierStats] get_supplier_stats RPC failed:", error.message);
         return { totalSuppliers: 0, activeSuppliers: 0, totalProducts: 0, totalSupplyValue: 0 };
       }
       const typed = data as unknown as SupplierStatsRpc;

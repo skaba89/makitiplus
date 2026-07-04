@@ -54,6 +54,7 @@ import { Plus, Trash2, Pencil, Wallet, Receipt, Calendar, Loader2, Home, Zap, Dr
 import { format } from "date-fns";
 import { formatDate } from "@/lib/utils";
 import { Database } from "@/integrations/supabase/types";
+import { FINANCIAL_ROLES } from "@/types";
 import { useExpenseStats } from "@/hooks/useExpenseStats";
 import { useCurrency } from "@/hooks/useCurrency";
 import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";

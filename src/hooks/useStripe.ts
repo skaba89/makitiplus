@@ -4,17 +4,14 @@
  * Provides:
  * - useStripeCustomer: Get the Stripe customer for the current org
  * - usePaymentHistory: Get payment history for the current org
- * - useStripeCheckout: Initiate a Stripe Checkout session
- * - useStripePortal: Open Stripe Customer Portal
  *
- * All hooks use Supabase Edge Functions as the backend proxy.
+ * For checkout & portal, use @/hooks/useStripeCheckout and @/hooks/useStripePortal.
  */
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { isStripeConfigured } from "@/integrations/stripe/config";
-import { reportError } from "@/lib/sentry";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -76,85 +73,6 @@ export function usePaymentHistory(limit = 20) {
   });
 }
 
-// ─── Hook: useStripeCheckout ───────────────────────────────────────────────
-
-/**
- * @deprecated Use useStripeCheckout from @/hooks/useStripeCheckout instead.
- * This hook lacks proper error reporting and loading state management.
- */
-export function useStripeCheckout() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (params: { price_id: string; plan_id: string; billing_period?: 'monthly' | 'yearly' }) => {
-      if (!isStripeConfigured()) {
-        throw new Error("Stripe n'est pas configuré. Veuillez contacter le support.");
-      }
-
-      const { data, error } = await supabase.functions.invoke("stripe-checkout", {
-        body: params,
-      });
-
-      if (error) {
-        // Extract meaningful error message from Supabase Functions error
-        const message = error.message || error.name || "Erreur lors de la création de la session de paiement.";
-        throw new Error(message);
-      }
-
-      if (data?.error) {
-        throw new Error(data.error);
-      }
-
-      return data as { url: string; session_id: string };
-    },
-    onSuccess: (data) => {
-      // Redirect to Stripe Checkout
-      if (data.url) {
-        window.location.href = data.url;
-      }
-    },
-    onError: (error: Error) => {
-      reportError(error, { action: "stripe_checkout" });
-    },
-  });
-}
-
-// ─── Hook: useStripePortal ─────────────────────────────────────────────────
-
-/**
- * @deprecated Use useStripePortal from @/hooks/useStripePortal instead.
- * This hook lacks proper error reporting and loading state management.
- */
-export function useStripePortal() {
-  return useMutation({
-    mutationFn: async () => {
-      if (!isStripeConfigured()) {
-        throw new Error("Stripe n'est pas configuré. Veuillez contacter le support.");
-      }
-
-      const { data, error } = await supabase.functions.invoke("stripe-portal", {
-        body: {},
-      });
-
-      if (error) {
-        const message = error.message || error.name || "Erreur lors de l'ouverture du portail client.";
-        throw new Error(message);
-      }
-
-      if (data?.error) {
-        throw new Error(data.error);
-      }
-
-      return data as { url: string };
-    },
-    onSuccess: (data) => {
-      // Redirect to Stripe Portal
-      if (data.url) {
-        window.location.href = data.url;
-      }
-    },
-    onError: (error: Error) => {
-      reportError(error, { action: "stripe_portal" });
-    },
-  });
-}
+// ─── Deprecated hooks removed ────────────────────────────────────────────
+// useStripeCheckout → use @/hooks/useStripeCheckout instead
+// useStripePortal    → use @/hooks/useStripePortal instead

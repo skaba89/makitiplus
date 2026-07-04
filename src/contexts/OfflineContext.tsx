@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from "react";
 import { toast } from "@/hooks/use-toast";
 import { reportError } from "@/lib/sentry";
 
@@ -75,15 +75,6 @@ export const OfflineProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [wasOffline, refreshPendingCount]);
 
-  // Auto-sync when coming back online
-  useEffect(() => {
-    if (isOnline && wasOffline) {
-      triggerSync();
-      setWasOffline(false);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOnline, wasOffline]);
-
   const triggerSync = useCallback(async () => {
     if (isSyncing || !isOnline) return;
     setIsSyncing(true);
@@ -104,6 +95,18 @@ export const OfflineProvider = ({ children }: { children: ReactNode }) => {
       setIsSyncing(false);
     }
   }, [isSyncing, isOnline, refreshPendingCount]);
+
+  // Stable ref to triggerSync so the auto-sync effect doesn't re-run on every isSyncing change
+  const triggerSyncRef = useRef(triggerSync);
+  triggerSyncRef.current = triggerSync;
+
+  // Auto-sync when coming back online
+  useEffect(() => {
+    if (isOnline && wasOffline) {
+      triggerSyncRef.current();
+      setWasOffline(false);
+    }
+  }, [isOnline, wasOffline]);
 
   return (
     <OfflineContext.Provider
