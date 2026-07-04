@@ -1,86 +1,13 @@
 -- ═══════════════════════════════════════════════════════════════════════
--- Fix: pg_cron schedules must pass CRON_SECRET to edge functions
--- Date: 2026-07-04
+-- MANUAL ONLY — This migration intentionally does not modify the database.
+-- It exists solely as documentation for the manual cron setup procedure.
 --
--- Problems fixed:
---   1. rotate-test-accounts cron did NOT send X-Cron-Secret → 403 Forbidden
---   2. subscription-lifecycle cron was commented out → no email notifications
---   3. Hardcoded project URL in rotate-test-accounts → not portable
---   4. ALTER DATABASE doesn't work on Supabase → use hardcoded values
+-- See: docs/production/SUPABASE_CRON_SETUP.md
 --
--- Prerequisites:
---   - CRON_SECRET must be set in Supabase Dashboard → Edge Functions → Secrets
---   - pg_cron and pg_net extensions must be enabled
---
--- ⚠️  THIS MIGRATION CANNOT BE AUTO-APPLIED — it contains placeholder values.
---     You MUST run the SQL manually in Supabase SQL Editor with your real values.
---     See the instructions at the bottom of this file.
+-- The cron jobs CANNOT be auto-applied because they require
+-- project-specific secrets (CRON_SECRET) and URLs (Project ID)
+-- that cannot be stored in this repository.
 -- ═══════════════════════════════════════════════════════════════════════
 
--- ─── This migration is a TEMPLATE — do NOT auto-apply ─────────────────
--- The cron.schedule() calls below are commented out because they contain
--- placeholder values. Run them manually in the SQL Editor instead.
-
--- ══════════════════════════════════════════════════════════════════════
--- MANUAL SETUP INSTRUCTIONS — Run in Supabase SQL Editor
--- ══════════════════════════════════════════════════════════════════════
---
--- Step 1: Enable required extensions (if not already enabled)
---
---   CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA pg_catalog;
---   CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
---
--- Step 2: Remove old broken cron jobs
---
---   SELECT cron.unschedule('rotate-test-accounts-daily');
---
--- Step 3: Create cron jobs with your real values
---
---   ⚠️  Replace VOTRE_CRON_SECRET and VOTRE_PROJECT_ID below:
---   - CRON_SECRET = same value as in Edge Functions → Secrets
---   - PROJECT_ID = your Supabase project ID (in Settings → General)
---
---   -- Rotate test accounts — daily at 03:00 UTC
---   SELECT cron.schedule(
---     'rotate-test-accounts-daily',
---     '0 3 * * *',
---     $$
---     SELECT net.http_post(
---       url := 'https://VOTRE_PROJECT_ID.supabase.co/functions/v1/rotate-test-accounts',
---       headers := jsonb_build_object(
---         'Content-Type', 'application/json',
---         'X-Cron-Secret', 'VOTRE_CRON_SECRET'
---       ),
---       body := '{}'::jsonb
---     );
---     $$
---   );
---
---   -- Subscription lifecycle — every 6 hours
---   SELECT cron.schedule(
---     'subscription-lifecycle-6h',
---     '0 */6 * * *',
---     $$
---     SELECT net.http_post(
---       url := 'https://VOTRE_PROJECT_ID.supabase.co/functions/v1/subscription-lifecycle',
---       headers := jsonb_build_object(
---         'Content-Type', 'application/json',
---         'Authorization', 'Bearer VOTRE_CRON_SECRET'
---       ),
---       body := '{}'::jsonb
---     );
---     $$
---   );
---
--- Step 4: Verify
---
---   SELECT jobname, schedule, command FROM cron.job;
---
--- ══════════════════════════════════════════════════════════════════════
--- SECURITY NOTE
--- ══════════════════════════════════════════════════════════════════════
--- The CRON_SECRET is stored in the cron.job command text, which is only
--- visible to the postgres superuser. This is the standard pattern for
--- Supabase since ALTER DATABASE SET is not allowed from the SQL Editor.
--- Alternatively, if you have Supabase Vault enabled, you can store the
--- secret there and retrieve it with vault.read_secret().
+-- No SQL to execute. See docs/production/SUPABASE_CRON_SETUP.md for setup instructions.
+SELECT 1 AS cron_setup_is_manual;

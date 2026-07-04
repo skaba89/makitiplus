@@ -239,6 +239,8 @@ Deno.serve(async (req) => {
 
           if (subUpsertError) {
             console.error(`[stripe-webhook] Failed to upsert subscription: ${subUpsertError.message}`);
+            processingError = true;
+            break;
           }
 
           // 2. Update organization cache (retrocompat)
@@ -253,10 +255,11 @@ Deno.serve(async (req) => {
 
           if (updateError) {
             console.error(`[stripe-webhook] Failed to update org: ${updateError.message}`);
-          } else {
-            console.log(`[stripe-webhook] Updated org ${org.id} to plan: ${plan}`);
+            processingError = true;
+            break;
           }
 
+          console.log(`[stripe-webhook] Updated org ${org.id} to plan: ${plan}`);
           break;
         }
 
@@ -301,7 +304,7 @@ Deno.serve(async (req) => {
           const effectivePlan = isCanceled ? 'starter' : plan!;
 
           // 1. Upsert into subscriptions table
-          await adminClient
+          const { error: subUpsertError } = await adminClient
             .from('subscriptions')
             .upsert({
               organization_id: org.id,
@@ -314,14 +317,26 @@ Deno.serve(async (req) => {
               updated_at: new Date().toISOString(),
             }, { onConflict: 'organization_id' });
 
+          if (subUpsertError) {
+            console.error(`[stripe-webhook] Failed to upsert subscription update: ${subUpsertError.message}`);
+            processingError = true;
+            break;
+          }
+
           // 2. Update organization cache
-          await adminClient
+          const { error: updateError } = await adminClient
             .from('organizations')
             .update({
               subscription_plan: effectivePlan,
               subscription_expires_at: currentPeriodEnd,
             })
             .eq('id', org.id);
+
+          if (updateError) {
+            console.error(`[stripe-webhook] Failed to update org on subscription update: ${updateError.message}`);
+            processingError = true;
+            break;
+          }
 
           console.log(`[stripe-webhook] Updated org ${org.id} — plan: ${isCanceled ? 'starter (canceled)' : plan}`);
           break;
@@ -355,16 +370,24 @@ Deno.serve(async (req) => {
 
           if (subUpdateError) {
             console.error(`[stripe-webhook] Failed to update subscription: ${subUpdateError.message}`);
+            processingError = true;
+            break;
           }
 
           // 2. Update organization cache
-          await adminClient
+          const { error: orgUpdateError } = await adminClient
             .from('organizations')
             .update({
               subscription_plan: 'starter',
               subscription_expires_at: null,
             })
             .eq('id', org.id);
+
+          if (orgUpdateError) {
+            console.error(`[stripe-webhook] Failed to update org on deletion: ${orgUpdateError.message}`);
+            processingError = true;
+            break;
+          }
 
           console.log(`[stripe-webhook] Subscription deleted for org ${org.id} — downgraded to starter`);
           break;
