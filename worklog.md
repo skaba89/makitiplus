@@ -779,3 +779,27 @@ Stage Summary:
 - 3 eslint-disable suppressions eliminated (0 remaining in app code)
 - 1 rules-of-hooks bug fixed in SyncConflicts (hooks called after conditional return)
 - PREPROD_CHECKLIST.md tech debt section now 5/5 resolved
+
+---
+Task ID: 25-31
+Agent: main
+Task: Pre-production final audit + cleanup
+
+Work Log:
+- Console.log audit: only logger.ts with isDev guard — clean
+- TODO/FIXME/HACK audit: none found in src/ — clean
+- npm audit: 0 vulnerabilities (high/critical)
+- Error boundary coverage: SentryErrorBoundary (app-level) + PageErrorBoundary (page-level via SafePage) on all 17 protected routes
+- Security headers: CSP, X-Frame-Options DENY, X-Content-Type-Options, Referrer-Policy, Permissions-Policy — all present in render.yaml
+- Cache headers: assets immutable, SW no-cache, manifest 1h — correctly configured
+- Playwright E2E setup verified: 5 spec files (auth, pos, dashboard, stock, offline), 2 projects (chromium, mobile-chrome)
+- Experimental pages: BackupRestore missing ⚠️ EXPERIMENTAL label — added
+- Updated preprodRegression test: 3 → 4 experimental pages documented
+- Commit a5cb435 pushed to main
+
+Stage Summary:
+- Full codebase audit: 0 console.log leaks, 0 TODOs, 0 vulnerabilities
+- All 17 routes have error boundaries + ProtectedRoute guards
+- Security headers complete and properly configured
+- 4 experimental pages consistently documented (Support, Loyalty, StockTransfers, BackupRestore)
+- Project is production-ready from a code quality standpoint
