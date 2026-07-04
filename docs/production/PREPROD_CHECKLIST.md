@@ -112,7 +112,7 @@ Ils ne doivent pas être exposés sans validation produit complète.
 
 | Élément | Sévérité | Impact | Plan |
 |---|---|---|---|
-| `esbuild` ≤ 0.24.2 (via `vite` ≤ 6.4.2) | Moderate/High | Dev server uniquement — aucune impact production | Mettre à jour `vite` v5 → v8 dans un sprint dédié (breaking change) |
+| ~~`esbuild` ≤ 0.24.2 (via `vite` ≤ 6.4.2)~~ | ~~Moderate/High~~ | ~~Dev server uniquement~~ | ✅ Résolu : mise à jour `vite` v5 → v6.4.3 (`esbuild ^0.25.0`) |
 | 49 warnings `GRANT EXECUTE` manquants sur RPC `SECURITY DEFINER` | Low | Les RPC restent accessibles via RLS ; les `GRANT` sont un hardening supplémentaire | Ajouter les `GRANT` progressivement via migrations |
 | Chunks > 500 kB (liberationSans fonts) | Warning | Temps de chargement initial | Remplacer par `@font-face` CSS ou sous-ensemble de polices |
 
