@@ -20,7 +20,6 @@ import { useSearchParams } from "react-router-dom";
 import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
-import { ADMIN_ROLES } from "@/types";
 import { useCurrency } from "@/hooks/useCurrency";
 
 const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -35,7 +34,7 @@ const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secon
 export default function Billing() {
   const { data: subscription, isLoading: subLoading } = useSubscription();
   const { data: plans } = usePlans();
-  const { userRole } = useAuth();
+  const { } = useAuth();
   const { blockMutation } = useDemo();
   const { currency } = useCurrency();
   const [searchParams, setSearchParams] = useSearchParams();

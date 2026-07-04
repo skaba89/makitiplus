@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { ADMIN_ROLES } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { reportError } from "@/lib/sentry";
 import {
