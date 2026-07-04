@@ -42,6 +42,7 @@ import {
   Calendar,
   ArrowUpRight,
   ArrowDownRight,
+  TrendingUp,
   Download,
   FileSpreadsheet,
   Truck,
@@ -53,6 +54,7 @@ import { exportSalesToCSV, exportExpensesToCSV } from "@/utils/exportUtils";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
 import { fetchAllRows } from "@/lib/batchedFetch";
+import { reportError } from "@/lib/sentry";
 import { ReportsPageSkeleton } from "@/components/skeletons/PageSkeletons";
 import { CHART_COLORS } from "@/constants/colors";
 import { FeatureGate } from "@/components/saas/PlanLimitGuard";
@@ -121,7 +123,7 @@ const Reports = () => {
           total_price,
           sales!inner(user_id, created_at)
         `)
-        .eq("sales.user_id", user!.id)
+        .eq("sales.user_id", user?.id ?? "")
         .gte("sales.created_at", start.toISOString())
         .lte("sales.created_at", end.toISOString());
 
@@ -233,10 +235,10 @@ const Reports = () => {
     );
   }
 
-  // Calculate stats
-  const totalSales = sales?.reduce((sum, sale) => sum + sale.total_amount, 0) || 0;
-  const totalTransactions = sales?.length || 0;
-  const totalExpenses = expenses?.reduce((sum, exp) => sum + exp.amount, 0) || 0;
+  // Calculate stats from RPC data
+  const totalSales = reportsStats?.totalSales ?? 0;
+  const totalTransactions = reportsStats?.totalTransactions ?? 0;
+  const totalExpenses = reportsStats?.totalExpenses ?? 0;
   const netProfit = totalSales - totalExpenses;
 
   // Payment distribution from RPC

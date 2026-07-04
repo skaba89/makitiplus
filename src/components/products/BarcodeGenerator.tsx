@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import JsBarcode from "jsbarcode";
+import { reportError } from "@/lib/sentry";
 
 interface Props {
   value: string;
@@ -21,8 +22,8 @@ export const BarcodeGenerator = ({ value, width = 2, height = 50 }: Props) => {
           fontSize: 12,
           margin: 5,
         });
-      } catch {
-        // Invalid barcode value
+      } catch (e) {
+        reportError(e);
       }
     }
   }, [value, width, height]);

@@ -12,10 +12,11 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Search, X, History, Download } from "lucide-react";
+import { useDemo } from "@/contexts/DemoContext";
+import { reportError } from "@/lib/sentry";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Database } from "@/integrations/supabase/types";
-import { AuditLogEntry } from "@/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 
@@ -63,6 +64,7 @@ const formatDate = (iso: string | null) => {
 interface UserOption { user_id: string; name: string; }
 
 export const AuditLogPanel = ({ users }: { users: UserOption[] }) => {
+  const { blockMutation } = useDemo();
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -99,7 +101,8 @@ export const AuditLogPanel = ({ users }: { users: UserOption[] }) => {
       const { data, error } = await q;
       if (error) throw error;
       setRows((data ?? []) as AuditRow[]);
-    } catch {
+    } catch (err) {
+      reportError(err instanceof Error ? err : new Error(String(err)));
       setRows([]);
     } finally {
       setLoading(false);
@@ -129,6 +132,7 @@ export const AuditLogPanel = ({ users }: { users: UserOption[] }) => {
   };
 
   const exportCsv = async () => {
+    if (blockMutation("Exporter l'historique d'audit")) return;
     const esc = (v: unknown) => {
       const s = v == null ? "" : String(v);
       return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
@@ -179,7 +183,7 @@ export const AuditLogPanel = ({ users }: { users: UserOption[] }) => {
         actor_name: userData.user?.email ?? null,
         details: { count: filtered.length, boutique: orgName },
       });
-    } catch { /* non-bloquant */ }
+    } catch (err) { reportError(err instanceof Error ? err : new Error(String(err))); /* non-bloquant */ }
   };
 
   return (

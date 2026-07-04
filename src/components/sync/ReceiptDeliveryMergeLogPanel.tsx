@@ -30,6 +30,7 @@ import {
   type MergeLogEntry, type MergeLogPurgePolicy,
 } from "@/lib/receiptDeliveryMergeLog";
 import { getDict, getDeliveryLocale } from "@/lib/receiptDeliveryI18n";
+import { reportError } from "@/lib/sentry";
 
 type SourceFilter = "all" | "local" | "remote" | "none";
 type GhostFilter = "all" | "only" | "hide";
@@ -54,7 +55,7 @@ export const ReceiptDeliveryMergeLogPanel = () => {
 
   useEffect(() => {
     refresh();
-    try { lastUuidRef.current = localStorage.getItem(LAST_UUID_KEY); } catch { /* ignore */ }
+    try { lastUuidRef.current = localStorage.getItem(LAST_UUID_KEY); } catch (e) { reportError(e); }
     const onStorage = (e: StorageEvent) => {
       if (e.key === STORAGE_KEY) refresh();
     };
@@ -93,7 +94,7 @@ export const ReceiptDeliveryMergeLogPanel = () => {
 
   const rememberUuid = (uuid: string) => {
     lastUuidRef.current = uuid;
-    try { localStorage.setItem(LAST_UUID_KEY, uuid); } catch { /* ignore */ }
+    try { localStorage.setItem(LAST_UUID_KEY, uuid); } catch (e) { reportError(e); }
   };
 
   const handleGotoLast = () => {
@@ -122,7 +123,8 @@ export const ReceiptDeliveryMergeLogPanel = () => {
         document.body.removeChild(ta);
       }
       toast.success(`${dict.mergeLogCopied} (${uuids.length})`);
-    } catch {
+    } catch (e) {
+      reportError(e);
       toast.error(dict.mergeLogCopied);
     }
   };

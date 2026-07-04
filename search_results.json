@@ -1,0 +1,92 @@
+[
+  {
+    "url": "https://github.com/flow-project/flow",
+    "name": "flow-project/flow: Computational framework for  - GitHub",
+    "snippet": "Flow is a computational framework for deep RL and control experiments for traffic microsimulation. See our website for more information.",
+    "host_name": "github.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com/flow-project/flow/blob/master/tutorials/tutorial00_flow.ipynb",
+    "name": "flow/tutorials/tutorial00_flow.ipynb at master · flow-project/flow - GitHub",
+    "snippet": "Tutorial 0: Flow¶. This tutorial gives you a high-level introduction to and a better understanding about what Flow is and how it works.",
+    "host_name": "github.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com/flow-project/flow/releases",
+    "name": "Releases · flow-project/flow - GitHub",
+    "snippet": "Modifications to aimsun functionality and inclusion of an aimsun scripting class. Extended unit test coverage. Our coverage is now about 90%.",
+    "host_name": "github.com",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com/flow-project/flow/blob/master/docs/source/examples.rst",
+    "name": "flow/docs/source/examples.rst at master · flow-project/flow - GitHub",
+    "snippet": "We provide a quick introduction to the traffic examples and tools that Flow comes pre-built with. For further details, please examine the documentation ...",
+    "host_name": "github.com",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=kDGOv0WnSY8",
+    "name": "Make the Most of GitHub to Setup your Projects for Success - YouTube",
+    "snippet": "Learn about the GitHub developer workflow from project management in GitHub Issues, through version control in the IDE, and GitHub Actions ...",
+    "host_name": "www.youtube.com",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com/flow-project",
+    "name": "flow-project - GitHub",
+    "snippet": "Open-source code that can be used to reproduce results from experiments conducted on Flow.",
+    "host_name": "github.com",
+    "rank": 5,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com/flow-project/flow-project.github.io",
+    "name": "flow-project.github.io",
+    "snippet": "The website for the flow-project repo. Contribute to flow-project/flow-project.github.io development by creating an account on GitHub.",
+    "host_name": "github.com",
+    "rank": 6,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://arxiv.org/abs/2103.04682",
+    "name": "[2103.04682] Sampling Projects in GitHub for MSR Studies - arXiv",
+    "snippet": "To support researchers in sampling projects from GitHub, we present GHS (GitHub Search), a dataset containing 25 characteristics (e.g., number ...",
+    "host_name": "arxiv.org",
+    "rank": 7,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com/ProjectSavanna",
+    "name": "Project Savanna - GitHub",
+    "snippet": "Tools for Standard ML. Project Savanna has 11 repositories available. Follow their code on GitHub.",
+    "host_name": "github.com",
+    "rank": 8,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=uO16CdYpPNI&vl=en-US",
+    "name": "Copy Any Full Stack Project From GitHub Repository  - YouTube",
+    "snippet": "Copy Any Full Stack Project From GitHub Repository Step By Step Process. Auto-dubbed. 12K views · 10 months ago. #clone #project #github.",
+    "host_name": "www.youtube.com",
+    "rank": 9,
+    "date": "",
+    "favicon": ""
+  }
+]

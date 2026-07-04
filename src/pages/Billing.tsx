@@ -9,15 +9,19 @@ import { useSubscription, usePlanLimit, usePlans, formatLimit, type LimitType } 
 import { useStripeCheckout } from "@/hooks/useStripeCheckout";
 import { useStripePortal } from "@/hooks/useStripePortal";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDemo } from "@/contexts/DemoContext";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Loader2, CheckCircle, AlertTriangle, CreditCard, Calendar, TrendingUp } from "lucide-react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+import { ADMIN_ROLES } from "@/types";
+import { useCurrency } from "@/hooks/useCurrency";
 
 const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   active: { label: "Actif", variant: "default" },
@@ -32,7 +36,8 @@ export default function Billing() {
   const { data: subscription, isLoading: subLoading } = useSubscription();
   const { data: plans } = usePlans();
   const { userRole } = useAuth();
-  const navigate = useNavigate();
+  const { blockMutation } = useDemo();
+  const { currency } = useCurrency();
   const [searchParams, setSearchParams] = useSearchParams();
   const { checkout, isLoading: isCheckingOut, error: checkoutError, isStripeConfigured } = useStripeCheckout();
   const { openPortal, isLoading: isPortalLoading } = useStripePortal();
@@ -68,10 +73,11 @@ export default function Billing() {
 
   const planId = subscription?.plan_id || "";
   const currentPlan = plans?.find((p) => p.id === planId);
-  const currencySymbol = "€";
+  const currencySymbol = currency.displaySymbol || currency.symbol;
 
   return (
-    <div className="space-y-6 p-6 max-w-4xl mx-auto">
+    <DashboardLayout>
+    <div className="space-y-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Abonnement & Facturation</h1>
@@ -161,7 +167,7 @@ export default function Billing() {
                 Modifiez votre moyen de paiement, consultez l'historique de facturation ou annulez votre abonnement.
               </p>
             </div>
-            <Button variant="outline" onClick={openPortal} disabled={isPortalLoading}>
+            <Button variant="outline" onClick={() => { if (blockMutation("Gérer l'abonnement")) return; openPortal(); }} disabled={isPortalLoading}>
               {isPortalLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CreditCard className="h-4 w-4 mr-2" />}
               Gérer mon abonnement
             </Button>
@@ -181,7 +187,7 @@ export default function Billing() {
                 À partir de 39,90€/mois — POS, gestion stock, clients à crédit
               </p>
             </div>
-            <Button size="lg" onClick={() => checkout("croissance")} disabled={isCheckingOut}>
+            <Button size="lg" onClick={() => { if (blockMutation("Souscrire au plan")) return; checkout("croissance"); }} disabled={isCheckingOut}>
               {isCheckingOut ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Commencer
             </Button>
@@ -199,7 +205,7 @@ export default function Billing() {
                 99,90€/mois — Boutiques et utilisateurs illimités, assistant IA, programme fidélité
               </p>
             </div>
-            <Button size="lg" onClick={() => checkout("enterprise")} disabled={isCheckingOut}>
+            <Button size="lg" onClick={() => { if (blockMutation("Souscrire au plan")) return; checkout("enterprise"); }} disabled={isCheckingOut}>
               {isCheckingOut ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Upgrader
             </Button>
@@ -258,6 +264,7 @@ export default function Billing() {
         </CardContent>
       </Card>
     </div>
+    </DashboardLayout>
   );
 }
 

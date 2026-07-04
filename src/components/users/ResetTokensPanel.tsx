@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/pagination";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDateTime } from "@/lib/utils";
+import { reportError } from "@/lib/sentry";
 import {
   Loader2, RefreshCw, Mail, MessageSquare, KeyRound,
   CheckCircle2, Clock, XCircle,
@@ -41,7 +42,7 @@ const PAGE_SIZE = 10;
 const fmtAbs = (iso: string | null) => {
   if (!iso) return "—";
   try { return formatDateTime(iso); }
-  catch { return "—"; }
+  catch (e) { reportError(e); return "—"; }
 };
 
 const statusOf = (row: ResetTokenRow): "used" | "expired" | "active" => {

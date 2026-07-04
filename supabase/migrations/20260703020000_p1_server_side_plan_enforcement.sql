@@ -20,7 +20,7 @@ CREATE OR REPLACE FUNCTION public.create_product(
   p_unit TEXT DEFAULT 'unité',
   p_stock_quantity INTEGER DEFAULT 0,
   p_min_stock_alert INTEGER DEFAULT 5,
-  p_buy_price NUMERIC DEFAULT NULL,
+  p_cost_price NUMERIC DEFAULT NULL,
   p_supplier_id UUID DEFAULT NULL,
   p_store_id UUID DEFAULT NULL,
   p_description TEXT DEFAULT NULL,
@@ -68,11 +68,11 @@ BEGIN
 
   INSERT INTO public.products (
     organization_id, name, price, category_id, barcode, unit,
-    stock_quantity, min_stock_alert, buy_price, supplier_id,
+    stock_quantity, min_stock_alert, cost_price, supplier_id,
     store_id, description, image_url, is_active, user_id
   ) VALUES (
     v_org_id, p_name, p_price, p_category_id, p_barcode, p_unit,
-    p_stock_quantity, p_min_stock_alert, p_buy_price, p_supplier_id,
+    p_stock_quantity, p_min_stock_alert, p_cost_price, p_supplier_id,
     p_store_id, p_description, p_image_url, p_is_active, v_user_id
   ) RETURNING id INTO v_product_id;
 
@@ -194,10 +194,10 @@ BEGIN
     RAISE EXCEPTION 'Utilisateur non trouvé. Utilisez l''invitation par email.';
   END IF;
 
-  -- Add role for existing user
-  INSERT INTO public.user_roles (user_id, organization_id, role)
-  VALUES (v_user_id, v_org_id, p_role)
-  ON CONFLICT (user_id, organization_id, role) DO NOTHING;
+  -- Add role for existing user (organization_id is on profiles, not user_roles)
+  INSERT INTO public.user_roles (user_id, role)
+  VALUES (v_user_id, p_role)
+  ON CONFLICT DO NOTHING;
 
   -- Create profile if missing
   INSERT INTO public.profiles (user_id, organization_id, owner_name)

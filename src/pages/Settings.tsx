@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Store, MapPin, Phone, Globe, Smartphone, Nfc, Palette, CreditCard } from "lucide-react";
+import { Loader2, Store, MapPin, Globe, Smartphone, Nfc, Palette, CreditCard } from "lucide-react";
 import { CountryFlag } from "@/components/ui/country-flag";
 import StoreCustomization from "@/components/settings/StoreCustomization";
 import {
@@ -24,9 +24,9 @@ import { COUNTRIES, getCountryByCode, DEFAULT_CURRENCY } from "@/utils/currencie
 import { CurrencySelector } from "@/components/ui/currency-selector";
 import { useCurrency } from "@/hooks/useCurrency";
 import { TaxSettingsCard } from "@/components/settings/TaxSettingsCard";
-import { BrandingSettings } from "@/components/settings/BrandingSettings";
 import { FeatureGate } from "@/components/saas/PlanLimitGuard";
 import { SubscriptionCard } from "@/components/settings/SubscriptionCard";
+import { reportError } from "@/lib/sentry";
 
 const Settings = () => {
   const { user, profile, refreshProfile } = useAuth();
@@ -83,7 +83,7 @@ const Settings = () => {
           country: data.country,
           currency: selectedCountry?.currency.code || DEFAULT_CURRENCY.code,
         })
-        .eq("user_id", user!.id);
+        .eq("user_id", user?.id ?? "");
 
       if (error) throw error;
     },
@@ -119,6 +119,7 @@ const Settings = () => {
         const ndef = new NDEFReaderCtor();
         await ndef.scan();
       } catch (error) {
+        reportError(error instanceof Error ? error : new Error(String(error)));
         toast({
           variant: "destructive",
           title: "Erreur NFC",
@@ -133,7 +134,7 @@ const Settings = () => {
       const { error } = await supabase
         .from("profiles")
         .update({ nfc_enabled: checked })
-        .eq("user_id", user!.id);
+        .eq("user_id", user?.id ?? "");
       if (error) throw error;
       setNfcEnabled(checked);
       queryClient.invalidateQueries({ queryKey: ["profile"] });
@@ -144,6 +145,7 @@ const Settings = () => {
           : "Le paiement sans contact a été désactivé",
       });
     } catch (error) {
+      reportError(error instanceof Error ? error : new Error(String(error)));
       toast({
         variant: "destructive",
         title: "Erreur",

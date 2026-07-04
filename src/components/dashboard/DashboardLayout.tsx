@@ -58,7 +58,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const { isDemo } = useDemo();
 
   // Use theme settings (store_settings) with fallback to branding context
-  const displayName = settings?.store_name || branding.appName || "MalikiPlus";
+  const displayName = settings?.store_name || branding.appName || "MakitiPlus";
   const displayLogo = settings?.logo_url || branding.logoUrl;
 
   const handleSignOut = async () => {
@@ -145,7 +145,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       name: "Analyse Multi-Magasins",
       href: "/dashboard/admin-analytics",
       icon: AnalyticsIcon,
-      roles: ["super_admin"],
+      roles: STORE_ROLES,
     },
     {
       name: "Abonnement",
@@ -187,13 +187,19 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Skip to content — accessibility */}
+
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:top-2 focus:left-2 focus:bg-primary focus:text-primary-foreground focus:px-4 focus:py-2 focus:rounded-md focus:text-sm focus:font-medium">
+        Aller au contenu principal
+      </a>
+
       {/* Offline Banner */}
       <OfflineBanner />
       {/* Demo Mode Banner */}
       {isDemo && (
         <div className="fixed top-0 left-0 right-0 z-[60] bg-amber-500 text-white text-center py-1.5 text-sm font-medium">
           Mode démo — les modifications ne sont pas enregistrées.{" "}
-          <a href="/auth" className="underline font-bold hover:text-amber-100">Créer mon compte</a>
+          <a href="/auth" className="underline font-bold hover:text-amber-900">Créer mon compte</a>
         </div>
       )}
 
@@ -289,7 +295,11 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         {/* Navigation */}
         <nav className="p-4 space-y-1 overflow-y-auto" style={{ maxHeight: "calc(100vh - 140px)" }}>
           {filteredMenuItems.map((item) => {
-            const isActive = location.pathname === item.href;
+            const isActive = (href: string) => {
+              if (href === "/dashboard") return location.pathname === "/dashboard";
+              return location.pathname.startsWith(href);
+            };
+            const active = isActive(item.href);
             return (
               <Link
                 key={item.href}
@@ -297,7 +307,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 onClick={() => setIsSidebarOpen(false)}
                 className={cn(
                   "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all",
-                  isActive
+                  active
                     ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-soft"
                     : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                 )}
@@ -313,7 +323,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-sidebar-border">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-sidebar-accent transition-colors">
+              <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-sidebar-accent transition-colors" aria-label={`Menu utilisateur — ${profile?.owner_name || 'Utilisateur'}`}>
                 <Avatar className="h-10 w-10">
                   <AvatarFallback className="bg-primary text-primary-foreground">
                     {initials}
@@ -353,13 +363,14 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             setIsSidebarOpen(false);
             menuButtonRef.current?.focus();
           }}
+          aria-hidden="true"
         />
       )}
 
       {/* Main content */}
-      <main className={cn(
+      <main id="main-content" className={cn(
         "lg:ml-64 min-h-screen pt-14 sm:pt-16 lg:pt-0",
-        isDemo && "pt-22 sm:pt-24 lg:pt-8"
+        isDemo && "pt-[5.5rem] sm:pt-24 lg:pt-8"
       )}>
         <div className="p-3 sm:p-4 lg:p-8 pb-28 sm:pb-24 lg:pb-8">{children}</div>
       </main>

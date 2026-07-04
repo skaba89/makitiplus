@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -61,6 +62,7 @@ import { Lock } from "lucide-react";
 
 const Suppliers = () => {
   const { user, profile, userRole } = useAuth();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const { blockMutation } = useDemo();
   const { formatPrice } = useCurrency();
@@ -133,7 +135,7 @@ const Suppliers = () => {
     mutationFn: async (data: typeof formData) => {
       const insertData: Record<string, unknown> = {
         ...data,
-        user_id: user!.id,
+        user_id: user?.id ?? "",
       };
       if (profile?.organization_id) {
         insertData.organization_id = profile.organization_id;
@@ -295,9 +297,9 @@ const Suppliers = () => {
             <h2 className="text-xl font-bold mb-2">Gestion des fournisseurs</h2>
             <p className="text-muted-foreground max-w-md mb-6">
               La gestion des fournisseurs est disponible à partir du plan Croissance.
-              Upgradéz votre abonnement pour accéder à cette fonctionnalité.
+              Upgradez votre abonnement pour accéder à cette fonctionnalité.
             </p>
-            <Button onClick={() => window.location.hash = "/dashboard/billing"}>
+            <Button onClick={() => navigate("/dashboard/billing")}>
               Voir les abonnements
             </Button>
           </div>

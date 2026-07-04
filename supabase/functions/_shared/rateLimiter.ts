@@ -5,10 +5,15 @@
  * for distributed, atomic rate limiting. Falls back to in-memory
  * tracking if KV is unavailable.
  *
- * Designed for public endpoints (verify_jwt = false) that need
- * protection against abuse:
+ * Uses kv.atomic() for compare-and-set to prevent race conditions
+ * where concurrent requests both read the same count.
+ *
+ * Designed for endpoints that need protection against abuse:
+ *   - stripe-portal: Stripe portal session creation
+ *   - stripe-checkout: Stripe checkout session creation
  *   - redeem-reset-token: password reset redemption
- *   - rotate-test-accounts: cron job (should only be called by pg_cron)
+ *   - rotate-test-accounts: cron job
+ *   - send-whatsapp: WhatsApp message sending
  *
  * Usage in an edge function:
  *   const limiter = createRateLimiter("redeem-reset-token", {
@@ -78,6 +83,7 @@ export function createRateLimiter(endpoint: string, config: RateLimiterConfig) {
   return {
     /**
      * Check if the request is allowed under the rate limit.
+     * Uses kv.atomic() for race-condition-free increment.
      * Returns result with allowed flag and metadata.
      */
     async check(req: Request): Promise<RateLimitResult> {
@@ -89,36 +95,69 @@ export function createRateLimiter(endpoint: string, config: RateLimiterConfig) {
       // Try Deno KV first (distributed, atomic)
       try {
         const kv = await Deno.openKv();
-        const entry = await kv.get<RateEntry>([key]);
+        const kvKey = [key];
 
-        if (!entry.value || entry.value.resetAt <= now) {
-          // Window expired or first request — start fresh
-          await kv.set([key], { count: 1, resetAt });
-          kv.close();
-          return {
-            allowed: true,
-            remaining: config.maxRequests - 1,
-            resetAt,
-          };
+        // Use atomic compare-and-set to prevent race conditions
+        // Retry up to 3 times in case of concurrent writes
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const entry = await kv.get<RateEntry>(kvKey);
+          const currentVersion = entry.versionstamp;
+
+          if (!entry.value || entry.value.resetAt <= now) {
+            // Window expired or first request — start fresh
+            // Use atomic to ensure no other request wrote first
+            const op = kv.atomic();
+            if (currentVersion) {
+              op.check({ key: kvKey, versionstamp: currentVersion });
+            }
+            op.set(kvKey, { count: 1, resetAt });
+            const result = await op.commit();
+            if (result.ok) {
+              kv.close();
+              return {
+                allowed: true,
+                remaining: config.maxRequests - 1,
+                resetAt,
+              };
+            }
+            // Another request wrote first — retry
+            continue;
+          }
+
+          const count = entry.value.count + 1;
+          if (count > config.maxRequests) {
+            kv.close();
+            return {
+              allowed: false,
+              remaining: 0,
+              resetAt: entry.value.resetAt,
+              error: `Trop de requêtes. Réessayez dans ${Math.ceil((entry.value.resetAt - now) / 1000)}s.`,
+            };
+          }
+
+          // Increment counter atomically
+          const op = kv.atomic();
+          op.check({ key: kvKey, versionstamp: currentVersion! });
+          op.set(kvKey, { count, resetAt: entry.value.resetAt });
+          const result = await op.commit();
+          if (result.ok) {
+            kv.close();
+            return {
+              allowed: true,
+              remaining: config.maxRequests - count,
+              resetAt: entry.value.resetAt,
+            };
+          }
+          // CAS failed — another request modified the entry — retry
         }
 
-        const count = entry.value.count + 1;
-        if (count > config.maxRequests) {
-          kv.close();
-          return {
-            allowed: false,
-            remaining: 0,
-            resetAt: entry.value.resetAt,
-            error: `Trop de requêtes. Réessayez dans ${Math.ceil((entry.value.resetAt - now) / 1000)}s.`,
-          };
-        }
-
-        await kv.set([key], { count, resetAt: entry.value.resetAt });
+        // All retries exhausted — allow the request (fail-open)
+        console.warn(`[rateLimiter] CAS retries exhausted for ${key} — allowing request`);
         kv.close();
         return {
           allowed: true,
-          remaining: config.maxRequests - count,
-          resetAt: entry.value.resetAt,
+          remaining: 0,
+          resetAt,
         };
       } catch {
         // KV not available — use in-memory fallback

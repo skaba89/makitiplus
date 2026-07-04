@@ -8,7 +8,9 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { reportError } from "@/lib/sentry";
 import {
   Loader2, GitMerge, CheckCircle2, AlertTriangle, RefreshCw, Smartphone,
   ShieldCheck, ChevronDown, ChevronRight, WifiOff, Database as DbIcon,
@@ -20,7 +22,6 @@ import { OfflinePOSSimulationPanel } from "@/components/sync/OfflinePOSSimulatio
 import { MobileMoneySimulationPanel } from "@/components/sync/MobileMoneySimulationPanel";
 import { ReceiptDeliveryTrackingPanel } from "@/components/sync/ReceiptDeliveryTrackingPanel";
 import { ReceiptDeliveryMergeLogPanel } from "@/components/sync/ReceiptDeliveryMergeLogPanel";
-import { SyncConflictRow } from "@/types";
 
 interface ConflictRow {
   id: string;
@@ -61,7 +62,21 @@ const formatDate = (iso: string) => {
 };
 
 const SyncConflicts = () => {
+  const { userRole } = useAuth();
   const { toast } = useToast();
+
+  // Only super_admin and admin should access this page
+  if (!userRole || !ADMIN_ROLES.includes(userRole)) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+          <ShieldCheck className="h-16 w-16 text-muted-foreground/40" />
+          <h2 className="text-xl font-semibold">Accès restreint</h2>
+          <p className="text-muted-foreground">Seuls les administrateurs peuvent gérer les conflits de synchronisation.</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
   const [rows, setRows] = useState<ConflictRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"unack" | "all" | "diagnostic">("unack");
@@ -89,6 +104,7 @@ const SyncConflicts = () => {
       if (error) throw error;
       setRows((data ?? []) as ConflictRow[]);
     } catch {
+      reportError(new Error('[SyncConflicts] Failed to load conflicts'));
       toast({ variant: "destructive", title: "Erreur", description: "Chargement impossible" });
     } finally {
       setLoading(false);
@@ -110,6 +126,7 @@ const SyncConflicts = () => {
       load();
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : String(e);
+      reportError(e instanceof Error ? e : new Error(String(e)));
       toast({ variant: "destructive", title: "Erreur", description: message });
     }
   };
@@ -124,6 +141,7 @@ const SyncConflicts = () => {
       load();
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : String(e);
+      reportError(e instanceof Error ? e : new Error(String(e)));
       toast({ variant: "destructive", title: "Erreur", description: message });
     }
   };

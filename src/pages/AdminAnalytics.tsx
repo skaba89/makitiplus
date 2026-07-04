@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -58,6 +59,7 @@ import {
   Eye,
 } from "lucide-react";
 import { useCurrency } from "@/hooks/useCurrency";
+import { reportError } from "@/lib/sentry";
 import { FeatureGate } from "@/components/saas/PlanLimitGuard";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -178,6 +180,7 @@ const movementTypeLabels: Record<string, string> = {
 
 const AdminAnalytics = () => {
   const { userRole } = useAuth();
+  const navigate = useNavigate();
   const { formatPrice } = useCurrency();
   const [period, setPeriod] = useState<Period>("month");
   const [selectedStoreId, setSelectedStoreId] = useState<string>("all");
@@ -351,7 +354,7 @@ const AdminAnalytics = () => {
               L'analyse multi-magasins est disponible uniquement avec le plan Enterprise.
               Contactez-nous pour en savoir plus.
             </p>
-            <Button className="mt-4" onClick={() => window.location.hash = "/dashboard/billing"}>
+            <Button className="mt-4" onClick={() => navigate("/dashboard/billing")}>
               Voir les abonnements
             </Button>
           </div>

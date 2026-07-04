@@ -58,6 +58,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDemo } from "@/contexts/DemoContext";
 import { Database } from "@/integrations/supabase/types";
 import { AuditLogPanel } from "@/components/users/AuditLogPanel";
 import { SecurityDiagnosticPanel } from "@/components/users/SecurityDiagnosticPanel";
@@ -65,7 +66,8 @@ import { ResetTokensPanel } from "@/components/users/ResetTokensPanel";
 import { PasswordStrengthMeter } from "@/components/users/PasswordStrengthMeter";
 import { UsersPageSkeleton } from "@/components/skeletons/PageSkeletons";
 import { checkPassword } from "@/lib/passwordPolicy";
-import { AdminActionResponse, ResetLinkResponse, Profile as ProfileType, isAdminRole } from "@/types";
+import { reportError } from "@/lib/sentry";
+import { AdminActionResponse, ResetLinkResponse, isAdminRole } from "@/types";
 import {
   Loader2,
   UserPlus,
@@ -154,6 +156,7 @@ const formatDate = (iso: string | null) => {
 const Users = () => {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { blockMutation } = useDemo();
   const [users, setUsers] = useState<UserRow[]>([]);
   const [audit, setAudit] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -225,6 +228,7 @@ const Users = () => {
       });
       setUsers(merged);
     } catch (err) {
+      reportError(err instanceof Error ? err : new Error(String(err)));
       toast({
         variant: "destructive",
         title: "Erreur",
@@ -246,6 +250,7 @@ const Users = () => {
       if (error) throw error;
       setAudit((data ?? []) as AuditRow[]);
     } catch {
+      reportError(new Error('[Users] Failed to load audit log'));
       // silent
     } finally {
       setAuditLoading(false);
@@ -268,6 +273,7 @@ const Users = () => {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (blockMutation('Créer un utilisateur')) return;
     const pwdCheck = checkPassword(password);
     if (!pwdCheck.ok) {
       toast({
@@ -298,6 +304,7 @@ const Users = () => {
       loadAudit();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
+      reportError(err instanceof Error ? err : new Error(String(err)));
       toast({
         variant: "destructive",
         title: "Erreur",
@@ -331,6 +338,7 @@ const Users = () => {
       loadAudit();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
+      reportError(err instanceof Error ? err : new Error(String(err)));
       toast({
         variant: "destructive",
         title: "Erreur",
@@ -341,6 +349,7 @@ const Users = () => {
 
   const handleDeactivate = async () => {
     if (!deactivateTarget) return;
+    if (blockMutation('Désactiver un utilisateur')) return;
     await callManage(deactivateTarget, "deactivate", deactivationReason || undefined);
     setDeactivateTarget(null);
     setDeactivationReason("");
@@ -348,12 +357,14 @@ const Users = () => {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
+    if (blockMutation('Supprimer un utilisateur')) return;
     await callManage(deleteTarget, "delete");
     setDeleteTarget(null);
   };
 
   const handleResetPassword = async () => {
     if (!resetTarget) return;
+    if (blockMutation('Réinitialiser le mot de passe')) return;
 
     // Magic link mode (email or SMS)
     if (resetMode === "email" || resetMode === "sms") {
@@ -379,6 +390,7 @@ const Users = () => {
         loadAudit();
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
+        reportError(err instanceof Error ? err : new Error(String(err)));
         toast({ variant: "destructive", title: "Erreur", description: message });
       } finally {
         setResetting(false);
@@ -411,6 +423,7 @@ const Users = () => {
       loadAudit();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
+      reportError(err instanceof Error ? err : new Error(String(err)));
       toast({ variant: "destructive", title: "Erreur", description: message });
     } finally {
       setResetting(false);
@@ -454,6 +467,7 @@ const Users = () => {
       loadAudit();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
+      reportError(err instanceof Error ? err : new Error(String(err)));
       toast({
         variant: "destructive",
         title: "Export refusé",
@@ -517,6 +531,8 @@ const Users = () => {
                   <Input
                     id="password"
                     type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     placeholder="Min 8 car. avec maj/min/chiffre/symbole"
                     required
                   />
@@ -826,6 +842,8 @@ const Users = () => {
                 <Input
                   id="newPwd"
                   type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Min 8 car. avec maj/min/chiffre/symbole"
                   autoComplete="off"
                 />

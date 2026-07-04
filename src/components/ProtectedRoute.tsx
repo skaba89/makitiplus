@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
-import { Database } from "@integrations/supabase/types";
+import { Database } from "@/integrations/supabase/types";
 import { useAccountStatusGuard } from "@/hooks/useAccountStatusGuard";
 import { useQueryErrorGuard } from "@/hooks/useQueryErrorGuard";
 import { Button } from "@/components/ui/button";

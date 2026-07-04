@@ -10,6 +10,7 @@
  */
 
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -127,6 +128,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof
 
 const PurchaseOrders = () => {
   const { user, profile, userRole } = useAuth();
+  const navigate = useNavigate();
   const storeId = useStoreId();
   const { toast } = useToast();
   const { blockMutation } = useDemo();
@@ -212,7 +214,7 @@ const PurchaseOrders = () => {
     mutationFn: async () => {
       // Generate order number
       const { data: orderNumber } = await supabase.rpc("generate_order_number", {
-        p_org_id: profile!.organization_id,
+        p_org_id: profile?.organization_id ?? "",
       });
 
       const subtotal = formItems.reduce((s, i) => s + i.line_total, 0);
@@ -224,7 +226,7 @@ const PurchaseOrders = () => {
       const { data: order, error: orderError } = await supabase
         .from("purchase_orders")
         .insert({
-          organization_id: profile!.organization_id,
+          organization_id: profile?.organization_id ?? "",
           store_id: storeId,
           supplier_id: formSupplier,
           order_number: orderNumber || `BC-${Date.now()}`,
@@ -236,7 +238,7 @@ const PurchaseOrders = () => {
           tax_amount: taxAmount,
           total_amount: subtotal + taxAmount,
           currency: "GNF",
-          created_by: profile!.id,
+          created_by: user?.id ?? "",
         })
         .select()
         .single();
@@ -293,7 +295,8 @@ const PurchaseOrders = () => {
       queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
       toast({ title: "Statut mis à jour" });
     },
-    onError: () => {
+    onError: (error: unknown) => {
+      reportError(error);
       toast({
         variant: "destructive",
         title: "Erreur",
@@ -317,7 +320,8 @@ const PurchaseOrders = () => {
       setIsDeleteOpen(false);
       setSelectedOrder(null);
     },
-    onError: () => {
+    onError: (error: unknown) => {
+      reportError(error);
       toast({
         variant: "destructive",
         title: "Erreur",
@@ -393,9 +397,9 @@ const PurchaseOrders = () => {
             <h2 className="text-xl font-bold mb-2">Commandes fournisseurs</h2>
             <p className="text-muted-foreground max-w-md mb-6">
               La gestion des commandes fournisseurs est disponible à partir du plan Croissance.
-              Upgradéz votre abonnement pour accéder à cette fonctionnalité.
+              Upgradez votre abonnement pour accéder à cette fonctionnalité.
             </p>
-            <Button onClick={() => (window.location.hash = "/dashboard/billing")}>
+            <Button onClick={() => navigate("/dashboard/billing")}>
               Voir les abonnements
             </Button>
           </div>

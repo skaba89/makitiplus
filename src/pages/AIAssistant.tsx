@@ -8,6 +8,7 @@
  */
 
 import { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { FeatureGate } from "@/components/saas/PlanLimitGuard";
@@ -30,7 +31,6 @@ import {
   BarChart3,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useFeatureAccess } from "@/hooks/useSubscription";
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -117,6 +117,7 @@ function generateAIResponse(query: string): { content: string; suggestions: stri
 
 const AIAssistant = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -198,7 +199,7 @@ const AIAssistant = () => {
               L'assistant IA métier est disponible uniquement avec le plan Enterprise.
               Obtenez des conseils personnalisés pour optimiser votre activité.
             </p>
-            <Button onClick={() => (window.location.hash = "/dashboard/billing")}>
+            <Button onClick={() => navigate("/dashboard/billing")}>
               Voir les abonnements
             </Button>
           </div>

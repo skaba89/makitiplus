@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
-import { ALL_ROLES, INVENTORY_ROLES, FINANCIAL_ROLES, POS_ROLES } from "@/types";
+import { ALL_ROLES, INVENTORY_ROLES, FINANCIAL_ROLES, POS_ROLES, MANAGEMENT_ROLES, ADMIN_ROLES, STORE_ROLES } from "@/types";
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -26,6 +26,10 @@ import {
   Shield,
   Store,
   GitMerge,
+  Package as PackageIcon,
+  CreditCard,
+  Sparkles,
+  BarChart3 as AnalyticsIcon,
 } from "lucide-react";
 
 interface BottomNavItem {
@@ -58,7 +62,7 @@ const primaryNavItems: BottomNavItem[] = [
     name: "Fournisseurs",
     href: "/dashboard/suppliers",
     icon: Truck,
-    roles: ["super_admin", "admin", "manager"],
+    roles: MANAGEMENT_ROLES,
   },
 ];
 
@@ -68,19 +72,19 @@ const moreNavItems: BottomNavItem[] = [
     name: "Catégories",
     href: "/dashboard/categories",
     icon: FolderOpen,
-    roles: ["super_admin", "admin", "manager"],
+    roles: MANAGEMENT_ROLES,
   },
   {
     name: "Clients",
     href: "/dashboard/customers",
     icon: Users,
-    roles: ["super_admin", "admin", "manager", "vendeur"],
+    roles: POS_ROLES,
   },
   {
     name: "Dépenses",
     href: "/dashboard/expenses",
     icon: Wallet,
-    roles: ["super_admin", "admin", "manager", "comptable"],
+    roles: FINANCIAL_ROLES,
   },
   {
     name: "Rapports",
@@ -92,25 +96,49 @@ const moreNavItems: BottomNavItem[] = [
     name: "Utilisateurs",
     href: "/dashboard/users",
     icon: Shield,
-    roles: ["super_admin", "admin"],
+    roles: ADMIN_ROLES,
   },
   {
     name: "Magasins",
     href: "/dashboard/stores",
     icon: Store,
-    roles: ["super_admin"],
+    roles: STORE_ROLES,
+  },
+  {
+    name: "Commandes",
+    href: "/dashboard/purchase-orders",
+    icon: PackageIcon,
+    roles: MANAGEMENT_ROLES,
+  },
+  {
+    name: "Abonnement",
+    href: "/dashboard/billing",
+    icon: CreditCard,
+    roles: ADMIN_ROLES,
+  },
+  {
+    name: "Assistant IA",
+    href: "/dashboard/ai-assistant",
+    icon: Sparkles,
+    roles: MANAGEMENT_ROLES,
+  },
+  {
+    name: "Analyse Multi-Magasins",
+    href: "/dashboard/admin-analytics",
+    icon: AnalyticsIcon,
+    roles: STORE_ROLES,
   },
   {
     name: "Conflits sync",
     href: "/dashboard/sync-conflicts",
     icon: GitMerge,
-    roles: ["super_admin", "admin"],
+    roles: ADMIN_ROLES,
   },
   {
     name: "Paramètres",
     href: "/dashboard/settings",
     icon: Settings,
-    roles: ["super_admin", "admin", "manager"],
+    roles: MANAGEMENT_ROLES,
   },
 ];
 

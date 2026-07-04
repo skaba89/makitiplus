@@ -14,6 +14,7 @@ import { Database } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import { PasswordStrengthMeter } from "@/components/users/PasswordStrengthMeter";
 import { checkPassword } from "@/lib/passwordPolicy";
+import { reportError } from "@/lib/sentry";
 import { EdgeFunctionResponse, ADMIN_ROLES } from "@/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
@@ -99,6 +100,7 @@ const Auth = () => {
       toast({ title: "Mot de passe mis à jour", description: "Vous pouvez maintenant vous connecter." });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
+      reportError(err instanceof Error ? err : new Error(String(err)));
       toast({ variant: "destructive", title: "Lien invalide", description: message });
     } finally {
       setResetSubmitting(false);
@@ -155,6 +157,7 @@ const Auth = () => {
         navigate("/dashboard");
       }
     } catch (error) {
+      reportError(error instanceof Error ? error : new Error(String(error)));
       toast({
         variant: "destructive",
         title: "Erreur",
@@ -229,6 +232,7 @@ const Auth = () => {
         navigate("/dashboard");
       }
     } catch (error) {
+      reportError(error instanceof Error ? error : new Error(String(error)));
       toast({
         variant: "destructive",
         title: "Erreur",

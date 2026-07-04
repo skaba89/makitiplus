@@ -13,8 +13,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { reportError } from "@/lib/sentry";
 import { Plus, FolderOpen, Pencil, Trash2, Loader2, Search, ArrowUpDown, Tag, Package } from "lucide-react";
-import { CategoryIcon, ICON_MAP } from "@/components/ui/category-icon";
+import { CategoryIcon } from "@/components/ui/category-icon";
+import { MANAGEMENT_ROLES } from "@/types";
 
 import {
   Dialog,
@@ -74,13 +76,13 @@ const Categories = () => {
     }
   }, [categories]);
 
-  const canModify = userRole === 'admin' || userRole === 'manager' || userRole === 'super_admin';
+  const canModify = userRole !== null && MANAGEMENT_ROLES.includes(userRole);
 
   const createMutation = useMutation({
     mutationFn: async (category: Omit<CategoryInsert, "user_id">) => {
       const insertData: Record<string, unknown> = {
         ...category,
-        user_id: user!.id,
+        user_id: user?.id ?? "",
       };
 
       // Explicitly set organization_id from profile to avoid relying solely on trigger
@@ -121,6 +123,7 @@ const Categories = () => {
       handleCloseForm();
     },
     onError: (error) => {
+      reportError(error);
       const msg = error instanceof Error ? error.message : String(error);
       const isRlsError = msg.includes('policy') || msg.includes('row-level') || msg.includes('violates');
       toast({
@@ -151,6 +154,7 @@ const Categories = () => {
       handleCloseForm();
     },
     onError: (error) => {
+      reportError(error);
       const msg = error instanceof Error ? error.message : String(error);
       const isRlsError = msg.includes('policy') || msg.includes('row-level') || msg.includes('violates');
       toast({
@@ -174,6 +178,7 @@ const Categories = () => {
       setDeleteId(null);
     },
     onError: (error) => {
+      reportError(error);
       const msg = error instanceof Error ? error.message : String(error);
       const isRlsError = msg.includes('policy') || msg.includes('row-level') || msg.includes('violates');
       toast({

@@ -15,6 +15,7 @@ import { createContext, useContext, useState, useEffect, useCallback, type React
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { logger } from "@/lib/logger";
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -62,7 +63,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (error) {
         // Graceful fallback: if RPC doesn't exist yet (migration not deployed),
         // try a direct query on the stores table instead
-        console.warn("[Store] get_organization_stores RPC failed:", error.message);
+        logger.warn("[Store] get_organization_stores RPC failed:", error.message);
         const { data: fallbackData, error: fallbackError } = await supabase
           .from("stores")
           .select("*")

@@ -36,6 +36,18 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Champs requis manquants' }), { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
     }
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return new Response(JSON.stringify({ error: 'Format d\'email invalide' }), { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
+    }
+
+    // Validate role is a valid AppRole
+    const VALID_ROLES = ['admin', 'manager', 'vendeur', 'comptable'];
+    if (!VALID_ROLES.includes(role)) {
+      return new Response(JSON.stringify({ error: 'Rôle invalide. Rôles autorisés : admin, manager, vendeur, comptable' }), { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
+    }
+
     const policyCheck = validatePasswordServer(password);
     if (!policyCheck.ok) {
       return new Response(JSON.stringify({ error: policyCheck.error }), { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });

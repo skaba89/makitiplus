@@ -242,7 +242,7 @@ const App = () => {
             <Route
               path="/dashboard/categories"
               element={
-                <ProtectedRoute allowedRoles={["super_admin", "admin", "manager"]}>
+                <ProtectedRoute allowedRoles={MANAGEMENT_ROLES}>
                   <Suspense fallback={<PageLoader />}>
                     <Categories />
                   </Suspense>
@@ -264,7 +264,7 @@ const App = () => {
             <Route
               path="/dashboard/expenses"
               element={
-                <ProtectedRoute allowedRoles={["super_admin", "admin", "manager", "comptable"]}>
+                <ProtectedRoute allowedRoles={FINANCIAL_ROLES}>
                   <Suspense fallback={<PageLoader />}>
                     <Expenses />
                   </Suspense>
@@ -274,7 +274,7 @@ const App = () => {
             <Route
               path="/dashboard/customers"
               element={
-                <ProtectedRoute allowedRoles={["super_admin", "admin", "manager", "vendeur"]}>
+                <ProtectedRoute allowedRoles={POS_ROLES}>
                   <Suspense fallback={<PageLoader />}>
                     <Customers />
                   </Suspense>
@@ -284,7 +284,7 @@ const App = () => {
             <Route
               path="/dashboard/suppliers"
               element={
-                <ProtectedRoute allowedRoles={["super_admin", "admin", "manager"]}>
+                <ProtectedRoute allowedRoles={MANAGEMENT_ROLES}>
                   <Suspense fallback={<PageLoader />}>
                     <Suppliers />
                   </Suspense>
@@ -294,7 +294,7 @@ const App = () => {
             <Route
               path="/dashboard/users"
               element={
-                <ProtectedRoute allowedRoles={["super_admin", "admin"]}>
+                <ProtectedRoute allowedRoles={ADMIN_ROLES}>
                   <Suspense fallback={<PageLoader />}>
                     <Users />
                   </Suspense>
@@ -304,7 +304,7 @@ const App = () => {
             <Route
               path="/dashboard/stores"
               element={
-                <ProtectedRoute allowedRoles={["super_admin"]}>
+                <ProtectedRoute allowedRoles={STORE_ROLES}>
                   <Suspense fallback={<PageLoader />}>
                     <Stores />
                   </Suspense>
@@ -314,7 +314,7 @@ const App = () => {
             <Route
               path="/dashboard/admin-analytics"
               element={
-                <ProtectedRoute allowedRoles={["super_admin"]}>
+                <ProtectedRoute allowedRoles={ADMIN_ROLES}>
                   <Suspense fallback={<PageLoader />}>
                     <AdminAnalytics />
                   </Suspense>
@@ -324,7 +324,7 @@ const App = () => {
             <Route
               path="/dashboard/sync-conflicts"
               element={
-                <ProtectedRoute allowedRoles={["super_admin", "admin"]}>
+                <ProtectedRoute allowedRoles={ADMIN_ROLES}>
                   <Suspense fallback={<PageLoader />}>
                     <SyncConflicts />
                   </Suspense>
@@ -334,7 +334,7 @@ const App = () => {
             <Route
               path="/dashboard/settings"
               element={
-                <ProtectedRoute allowedRoles={["super_admin", "admin", "manager"]}>
+                <ProtectedRoute allowedRoles={MANAGEMENT_ROLES}>
                   <Suspense fallback={<PageLoader />}>
                     <Settings />
                   </Suspense>
@@ -344,7 +344,7 @@ const App = () => {
             <Route
               path="/dashboard/billing"
               element={
-                <ProtectedRoute allowedRoles={["super_admin", "admin"]}>
+                <ProtectedRoute allowedRoles={ADMIN_ROLES}>
                   <Suspense fallback={<PageLoader />}>
                     <Billing />
                   </Suspense>
@@ -354,7 +354,7 @@ const App = () => {
             <Route
               path="/dashboard/ai-assistant"
               element={
-                <ProtectedRoute allowedRoles={["super_admin", "admin", "manager"]}>
+                <ProtectedRoute allowedRoles={MANAGEMENT_ROLES}>
                   <Suspense fallback={<PageLoader />}>
                     <AIAssistant />
                   </Suspense>
@@ -364,7 +364,7 @@ const App = () => {
             <Route
               path="/dashboard/purchase-orders"
               element={
-                <ProtectedRoute allowedRoles={["super_admin", "admin", "manager"]}>
+                <ProtectedRoute allowedRoles={MANAGEMENT_ROLES}>
                   <Suspense fallback={<PageLoader />}>
                     <PurchaseOrders />
                   </Suspense>

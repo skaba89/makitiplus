@@ -23,8 +23,10 @@ import { CategoryIcon } from "@/components/ui/category-icon";
 import { startOfDay, endOfDay, startOfMonth, endOfMonth } from "date-fns";
 import { format } from "date-fns";
 import { formatDateTime } from "@/lib/utils";
+import { reportError } from "@/lib/sentry";
 import { useNavigate } from "react-router-dom";
-import { INVENTORY_ROLES } from "@/types";
+import { INVENTORY_ROLES, POS_ROLES, MANAGEMENT_ROLES, FINANCIAL_ROLES } from "@/types";
+import { logger } from "@/lib/logger";
 
 /** Product with optional category icon + supplier name for stock alerts */
 interface DashboardProduct {
@@ -60,7 +62,7 @@ const Dashboard = () => {
       });
       if (error) {
         // Graceful fallback: RPC not deployed yet — return zeros so the dashboard renders
-        console.warn("[Dashboard] get_dashboard_stats RPC failed:", error.message);
+        logger.warn("[Dashboard] get_dashboard_stats RPC failed:", error.message);
         return null;
       }
       // RPC returns array with single object
@@ -81,7 +83,7 @@ const Dashboard = () => {
         p_limit: 5,
       });
       if (error) {
-        console.warn("[Dashboard] get_top_products RPC failed:", error.message);
+        logger.warn("[Dashboard] get_top_products RPC failed:", error.message);
         return [];
       }
       return data;
@@ -94,11 +96,15 @@ const Dashboard = () => {
   const { data: monthSales } = useQuery({
     queryKey: ["dashboard-sales-month", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("sales")
         .select("total_amount")
         .gte("created_at", monthStart)
         .lte("created_at", monthEnd);
+      if (profile?.organization_id) {
+        query = query.eq("organization_id", profile.organization_id);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -109,11 +115,15 @@ const Dashboard = () => {
   const { data: monthExpenses } = useQuery({
     queryKey: ["dashboard-expenses-month", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("expenses")
         .select("amount")
         .gte("expense_date", format(startOfMonth(today), "yyyy-MM-dd"))
         .lte("expense_date", format(endOfMonth(today), "yyyy-MM-dd"));
+      if (profile?.organization_id) {
+        query = query.eq("organization_id", profile.organization_id);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -124,10 +134,14 @@ const Dashboard = () => {
   const { data: products } = useQuery({
     queryKey: ["dashboard-products", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("products")
         .select("id, name, stock_quantity, min_stock_alert, categories(icon), suppliers(name)")
         .eq("is_active", true);
+      if (profile?.organization_id) {
+        query = query.eq("organization_id", profile.organization_id);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data as DashboardProduct[];
     },
@@ -138,10 +152,14 @@ const Dashboard = () => {
   const { data: suppliersCount } = useQuery({
     queryKey: ["dashboard-suppliers-count", user?.id],
     queryFn: async () => {
-      const { count, error } = await supabase
+      let query = supabase
         .from("suppliers")
         .select("*", { count: "exact", head: true })
         .eq("is_active", true);
+      if (profile?.organization_id) {
+        query = query.eq("organization_id", profile.organization_id);
+      }
+      const { count, error } = await query;
       if (error) throw error;
       return count || 0;
     },
@@ -169,12 +187,12 @@ const Dashboard = () => {
   });
 
   // Dérivés depuis dashboardStats RPC (agrégation serveur) + fallback client-side
-  const totalSalesToday = dashboardStats?.sales_today ?? monthSales?.filter(
+  const totalSalesToday = dashboardStats?.todaySales ?? monthSales?.filter(
     (s) => s.created_at >= dayStart && s.created_at <= dayEnd
   ).reduce((s, sale) => s + sale.total_amount, 0) ?? 0;
-  const transactionsToday = dashboardStats?.transactions_today ?? 0;
-  const totalSalesMonth = monthSales?.reduce((s, sale) => s + sale.total_amount, 0) || 0;
-  const totalExpensesMonth = monthExpenses?.reduce((s, e) => s + e.amount, 0) || 0;
+  const transactionsToday = dashboardStats?.todayTransactions ?? 0;
+  const totalSalesMonth = monthSales?.reduce((s, sale) => s + sale.total_amount, 0) ?? 0;
+  const totalExpensesMonth = monthExpenses?.reduce((s, e) => s + e.amount, 0) ?? 0;
   const netProfit = totalSalesMonth - totalExpensesMonth;
   const totalProducts = products?.length || 0;
   const lowStockProducts = products?.filter(
@@ -208,7 +226,7 @@ const Dashboard = () => {
     {
       title: "Ventes du mois",
       value: formatPrice(totalSalesMonth),
-      change: dashboardStats?.credit_sales_month > 0 ? `${dashboardStats.credit_sales_month} a credit` : "voir rapports",
+      change: (dashboardStats?.monthCreditCount ?? 0) > 0 ? `${dashboardStats.monthCreditCount} à crédit` : "voir rapports",
       trend: "up" as const,
       icon: BarChart3,
     },
@@ -373,7 +391,7 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
             )}
-            {userRole && ["admin", "manager", "vendeur"].includes(userRole) && (
+            {userRole && POS_ROLES.includes(userRole) && (
               <Card
                 className="card-elevated hover:shadow-medium transition-shadow cursor-pointer group"
                 role="button"
@@ -407,7 +425,7 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
             )}
-            {userRole && ["admin", "manager"].includes(userRole) && (
+            {userRole && MANAGEMENT_ROLES.includes(userRole) && (
               <Card
                 className="card-elevated hover:shadow-medium transition-shadow cursor-pointer group"
                 role="button"
@@ -423,7 +441,7 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
             )}
-            {userRole && ["admin", "manager", "comptable"].includes(userRole) && (
+            {userRole && FINANCIAL_ROLES.includes(userRole) && (
               <Card
                 className="card-elevated hover:shadow-medium transition-shadow cursor-pointer group"
                 role="button"

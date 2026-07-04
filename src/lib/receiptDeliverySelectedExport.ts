@@ -5,6 +5,7 @@
 import { format } from "date-fns";
 import type { QueuedDelivery } from "./receiptDeliveryQueue";
 import type { DeliveryDict } from "./receiptDeliveryI18n";
+import { ensurePdfFont, setPdfFont } from "@/utils/pdfFont";
 
 const csvCell = (v: string | number | null | undefined): string => {
   if (v === null || v === undefined) return "";
@@ -55,6 +56,8 @@ export const exportSelectedHistoryCSV = (rows: QueuedDelivery[], dict: DeliveryD
 export const exportSelectedHistoryPDF = async (rows: QueuedDelivery[], dict: DeliveryDict) => {
   const { default: jsPDF } = await import("jspdf");
   const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
+  await ensurePdfFont(doc);
+  setPdfFont(doc, "bold");
   doc.setFontSize(14);
   doc.text(`${dict.details} — ${rows.length} ${dict.ticket}`, 10, 14);
   doc.setFontSize(8);
@@ -64,9 +67,9 @@ export const exportSelectedHistoryPDF = async (rows: QueuedDelivery[], dict: Del
   rows.forEach((r, idx) => {
     if (y > 195) { doc.addPage(); y = 14; }
     doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
+    setPdfFont(doc, "bold");
     doc.text(`${idx + 1}. ${r.saleNumber}  ·  ${r.channel.toUpperCase()}  ·  ${r.status.toUpperCase()}`, 10, y);
-    doc.setFont("helvetica", "normal");
+    setPdfFont(doc, "normal");
     doc.setFontSize(8);
     y += 5;
     const lines: [string, string][] = [

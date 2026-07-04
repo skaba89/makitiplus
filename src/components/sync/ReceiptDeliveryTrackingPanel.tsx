@@ -38,6 +38,7 @@ import { exportDeliveryLogCSV, exportDeliveryLogPDF } from "@/lib/receiptDeliver
 import { exportSelectedHistoryCSV, exportSelectedHistoryPDF } from "@/lib/receiptDeliverySelectedExport";
 import { useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
+import { reportError } from "@/lib/sentry";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -92,13 +93,13 @@ export const ReceiptDeliveryTrackingPanel = () => {
       if (!raw) return new Set();
       const arr = JSON.parse(raw);
       return new Set(Array.isArray(arr) ? arr : []);
-    } catch { return new Set(); }
+    } catch (err) { reportError(err); return new Set(); }
   };
   const [selected, setSelected] = useState<Set<string>>(() => readPersistedSelection());
   useEffect(() => {
     try {
       localStorage.setItem(SELECTION_KEY, JSON.stringify(Array.from(selected)));
-    } catch { /* ignore */ }
+    } catch (err) { reportError(err); }
   }, [selected]);
   const [detailUuid, setDetailUuid] = useState<string | null>(null);
   const dictRef = useRef(dict);
@@ -172,7 +173,7 @@ export const ReceiptDeliveryTrackingPanel = () => {
         try {
           const arr = e.newValue ? JSON.parse(e.newValue) : [];
           setSelected(new Set(Array.isArray(arr) ? arr : []));
-        } catch { /* ignore */ }
+        } catch (err) { reportError(err); }
       } else if (e.key === "malikiplus:receipt_delivery_queue") {
         refresh();
       }

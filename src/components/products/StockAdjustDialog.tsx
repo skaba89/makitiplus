@@ -62,10 +62,11 @@ export const StockAdjustDialog = ({
   const { data: supplier } = useQuery({
     queryKey: ["supplier-for-product", product?.supplier_id],
     queryFn: async () => {
+      if (!product?.supplier_id) return null;
       const { data, error } = await supabase
         .from("suppliers")
         .select("id, name, phone, email")
-        .eq("id", product!.supplier_id!)
+        .eq("id", product.supplier_id)
         .single();
       if (error) throw error;
       return data;

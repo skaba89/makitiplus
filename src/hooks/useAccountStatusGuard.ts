@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { reportError } from "@/lib/sentry";
 
 /**
  * Garde de session : vérifie en continu que le compte connecté est encore actif.
@@ -29,6 +30,8 @@ export function useAccountStatusGuard() {
         if (error) {
           if (error.code === '42501' || error.message?.includes('not allowed')) {
             // check_account_status non autorisée — silencieux
+          } else {
+            reportError(error, { context: 'check_account_status' });
           }
           return; // Réseau indisponible / RPC non disponible → on ne déconnecte pas
         }

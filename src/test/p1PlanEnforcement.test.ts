@@ -222,7 +222,7 @@ describe("P1 Fix: Frontend POS uses create_sale_with_limit", () => {
 
     // Should detect plan limit errors and show specific message
     expect(source).toMatch(/isPlanLimit/);
-    expect(source).toMatch(/Limite.*atteinte|Upgradéz/);
+    expect(source).toMatch(/Limite.*atteinte|Upgradez/);
   });
 });
 

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
+import { reportError } from "@/lib/sentry";
 
 const STORAGE_KEY = "malikiplus:offline_sales_sim";
 
@@ -43,7 +44,7 @@ const loadLocal = (): OfflineSale[] => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
+  } catch (e) { reportError(e); return []; }
 };
 const saveLocal = (sales: OfflineSale[]) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(sales));

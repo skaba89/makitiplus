@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProductStatsRpc } from "@/types";
+import { logger } from "@/lib/logger";
 
 /**
  * Product stats hook — single source of truth.
@@ -21,7 +22,7 @@ export function useProductStats() {
       }
       const { data, error } = await supabase.rpc("get_product_stats");
       if (error) {
-        console.warn("[ProductStats] get_product_stats RPC failed:", error.message);
+        logger.warn("[ProductStats] get_product_stats RPC failed:", error.message);
         return { totalProducts: 0, lowStockCount: 0, outOfStockCount: 0, categoryCounts: {} };
       }
       const typed = data as unknown as ProductStatsRpc;

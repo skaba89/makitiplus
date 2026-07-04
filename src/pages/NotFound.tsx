@@ -1,5 +1,6 @@
 import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
+import { reportError } from "@/lib/sentry";
 
 const NotFound = () => {
   const location = useLocation();

@@ -22,6 +22,13 @@ Deno.serve(async (req) => {
     const { adminClient, actorProfile, isSuperAdmin } = ctx;
     const { userIds } = await req.json();
     if (!Array.isArray(userIds)) return new Response(JSON.stringify({ error: 'userIds must be an array' }), { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
+    if (userIds.length > 100) return new Response(JSON.stringify({ error: 'userIds array too large (max 100)' }), { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const validUserIds = userIds.filter((id: string) => typeof id === 'string' && uuidRegex.test(id));
+    if (validUserIds.length !== userIds.length) {
+      return new Response(JSON.stringify({ error: 'userIds contains invalid UUID format' }), { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
+    }
 
     // Super admin can query across orgs; admin scoped to own org
     const orgFilter = isSuperAdmin ? {} : { organization_id: actorProfile.organization_id! };

@@ -5,6 +5,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.93.3';
 import { getCorsHeaders, corsOptionsResponse } from '../_shared/cors.ts';
 import { requireMethod } from '../_shared/httpMethodGuard.ts';
 import { createRateLimiter } from '../_shared/rateLimiter.ts';
+import { timingSafeEqual } from '../_shared/timingSafeEqual.ts';
 
 const rateLimiter = createRateLimiter('rotate-test-accounts', { maxRequests: 10, windowMs: 5 * 60_000 });
 
@@ -17,7 +18,7 @@ Deno.serve(async (req) => {
     // Verify shared cron secret — only pg_cron or authorized callers can invoke this
     const cronSecret = Deno.env.get('CRON_SECRET');
     const requestSecret = req.headers.get('X-Cron-Secret');
-    if (cronSecret && requestSecret !== cronSecret) {
+    if (cronSecret && !timingSafeEqual(requestSecret ?? '', cronSecret)) {
       return new Response(JSON.stringify({ error: 'Accès non autorisé' }), {
         status: 403, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });

@@ -2,8 +2,9 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
-import { setSentryUserContext, clearSentryUserContext } from "@/lib/sentry";
+import { setSentryUserContext, clearSentryUserContext, reportError } from "@/lib/sentry";
 import { isAdminRole } from "@/types";
+import { logger } from "@/lib/logger";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 
@@ -95,7 +96,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Handle session expiration — redirect to login
         if (event === "TOKEN_REFRESHED" && !session) {
           // Refresh token failed — session is dead
-          console.warn("[Auth] Refresh token invalid — signing out and redirecting to /auth");
+          logger.warn("[Auth] Refresh token invalid — signing out and redirecting to /auth");
           setUserRole(null);
           setProfile(null);
           setLoading(false);
@@ -126,7 +127,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       // If session retrieval fails (expired refresh token), clear state + redirect
       if (error) {
-        console.warn("[Auth] Session retrieval failed:", error.message);
+        logger.warn("[Auth] Session retrieval failed:", error.message);
         setSession(null);
         setUser(null);
         setUserRole(null);

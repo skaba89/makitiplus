@@ -47,10 +47,11 @@ export const SupplierDetailDialog = ({
   const { data: supplierProducts } = useQuery({
     queryKey: ["supplier-products", supplier?.id],
     queryFn: async () => {
+      if (!supplier?.id) return [];
       const { data, error } = await supabase
         .from("products")
         .select("id, name, price, cost_price, stock_quantity, is_active")
-        .eq("supplier_id", supplier!.id)
+        .eq("supplier_id", supplier.id)
         .order("name");
       if (error) throw error;
       return data;

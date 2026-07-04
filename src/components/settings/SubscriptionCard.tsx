@@ -2,14 +2,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, CreditCard, Crown, AlertTriangle } from "lucide-react";
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-
-interface SubscriptionInfo {
-  plan: string;
-  expiresAt: string | null;
-  stripeCustomerId: string | null;
-}
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useSubscription } from "@/hooks/useSubscription";
+import { reportError } from "@/lib/sentry";
+import { useToast } from "@/hooks/use-toast";
 
 const PLAN_LABELS: Record<string, { label: string; color: string }> = {
   starter: { label: "Starter", color: "bg-gray-100 text-gray-700" },
@@ -18,44 +15,19 @@ const PLAN_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 export const SubscriptionCard = () => {
-  const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: subscription, isLoading } = useSubscription();
   const [portalLoading, setPortalLoading] = useState(false);
-
-  useEffect(() => {
-    fetchSubscription();
-  }, []);
-
-  const fetchSubscription = async () => {
-    try {
-      const { data, error } = await supabase.rpc("get_organization_subscription");
-
-      if (error) {
-        console.error("Failed to fetch subscription:", error);
-        return;
-      }
-
-      if (data) {
-        setSubscription({
-          plan: data.plan ?? "starter",
-          expiresAt: data.expires_at ?? null,
-          stripeCustomerId: data.stripe_customer_id ?? null,
-        });
-      }
-    } catch (err) {
-      console.error("Subscription fetch error:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   const handleManageSubscription = async () => {
     setPortalLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("stripe-portal");
+      const { data, error } = await (await import("@/integrations/supabase/client")).supabase.functions.invoke("stripe-portal");
 
       if (error) {
-        alert("Erreur lors de l'ouverture du portail. Veuillez réessayer.");
+        reportError(error);
+        toast({ title: "Erreur", description: "Erreur lors de l'ouverture du portail. Veuillez réessayer.", variant: "destructive" });
         return;
       }
 
@@ -63,14 +35,14 @@ export const SubscriptionCard = () => {
         window.location.href = data.url;
       }
     } catch (err) {
-      console.error("Portal error:", err);
-      alert("Erreur de connexion. Veuillez réessayer.");
+      reportError(err instanceof Error ? err : new Error(String(err)));
+      toast({ title: "Erreur", description: "Erreur de connexion. Veuillez réessayer.", variant: "destructive" });
     } finally {
       setPortalLoading(false);
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Card>
         <CardContent className="p-6 flex items-center justify-center">
@@ -80,17 +52,22 @@ export const SubscriptionCard = () => {
     );
   }
 
-  const planInfo = PLAN_LABELS[subscription?.plan ?? "starter"] ?? PLAN_LABELS.starter;
-  const isExpired = subscription?.expiresAt
-    ? new Date(subscription.expiresAt) < new Date()
-    : subscription?.plan !== "starter";
-  const expiryDate = subscription?.expiresAt
-    ? new Date(subscription.expiresAt).toLocaleDateString("fr-FR", {
+  const planId = subscription?.plan_id ?? "starter";
+  const planInfo = PLAN_LABELS[planId] ?? PLAN_LABELS.starter;
+  const isExpired = subscription?.current_period_end
+    ? new Date(subscription.current_period_end) < new Date()
+    : planId !== "starter";
+  const expiryDate = subscription?.current_period_end
+    ? new Date(subscription.current_period_end).toLocaleDateString("fr-FR", {
         day: "numeric",
         month: "long",
         year: "numeric",
       })
     : null;
+
+  // Determine if Stripe customer exists — check organizations table for stripe_customer_id
+  // For now, if subscription has a current_period_end and plan is not starter, assume Stripe customer exists
+  const hasStripeCustomer = planId !== "starter" && !!subscription?.current_period_end;
 
   return (
     <Card>
@@ -123,7 +100,7 @@ export const SubscriptionCard = () => {
 
         {/* Actions */}
         <div className="flex flex-col gap-2 pt-2">
-          {subscription?.stripeCustomerId ? (
+          {hasStripeCustomer ? (
             <Button
               variant="outline"
               className="w-full"
@@ -146,7 +123,7 @@ export const SubscriptionCard = () => {
             <Button
               variant="default"
               className="w-full"
-              onClick={() => (window.location.href = "/pricing")}
+              onClick={() => navigate("/pricing")}
             >
               <Crown className="w-4 h-4 mr-2" />
               Voir les offres

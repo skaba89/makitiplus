@@ -61,7 +61,7 @@ export function useStripeCheckout(): UseStripeCheckoutReturn {
 
     try {
       const { data, error: fnError } = await supabase.functions.invoke("stripe-checkout", {
-        body: { plan_id: planId, billing },
+        body: { planKey: planId, plan_id: planId, billing },
         headers: {
           Authorization: `Bearer ${session.access_token}`,
         },

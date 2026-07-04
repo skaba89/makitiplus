@@ -12,6 +12,7 @@
 
 import { STORES, type StoreName } from "./indexedDBStorage";
 import type { DynamicSupabaseQuery } from "./supabaseDynamicQuery";
+import { logger } from "@/lib/logger";
 
 // Extend the STORES constant with new stores for offline queue
 const OFFLINE_DB_NAME = "malikiplus_offline";
@@ -237,7 +238,7 @@ export async function flushQueue(): Promise<{ synced: number; failed: number }> 
   // Security: Get current user's organization_id to validate mutations
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    console.warn("[flushQueue] No authenticated user — skipping flush");
+    logger.warn("[flushQueue] No authenticated user — skipping flush");
     return { synced: 0, failed: 0 };
   }
 

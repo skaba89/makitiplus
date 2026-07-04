@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useDeferredValue } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -36,9 +36,10 @@ import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import { useCategories } from "@/hooks/useCategories";
 import { useProductStats } from "@/hooks/useProductStats";
 import { fetchAllRows } from "@/lib/batchedFetch";
-import { ProductWithCategory, AdjustStockRpcRow } from "@/types";
+import { ProductWithCategory, AdjustStockRpcRow, MANAGEMENT_ROLES } from "@/types";
 import { PlanLimitGuard, FeatureGate } from "@/components/saas/PlanLimitGuard";
 import { useDemo } from "@/contexts/DemoContext";
+import { reportError } from "@/lib/sentry";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
 type ProductInsert = Database["public"]["Tables"]["products"]["Insert"];
@@ -107,7 +108,7 @@ const Products = () => {
 
   const { data: categories } = useCategories();
 
-  const canModify = userRole === 'admin' || userRole === 'manager' || userRole === 'super_admin';
+  const canModify = userRole !== null && MANAGEMENT_ROLES.includes(userRole);
 
   const createProductMutation = useMutation({
     mutationFn: async (product: Omit<ProductInsert, "user_id">) => {
@@ -120,7 +121,7 @@ const Products = () => {
         p_unit: product.unit || 'unité',
         p_stock_quantity: product.stock_quantity ?? 0,
         p_min_stock_alert: product.min_stock_alert ?? 5,
-        p_buy_price: product.buy_price || null,
+        p_cost_price: product.cost_price || null,
         p_supplier_id: product.supplier_id || null,
         p_store_id: product.store_id || null,
         p_description: product.description || null,
@@ -148,13 +149,13 @@ const Products = () => {
     },
     onError: (error: unknown) => {
       const msg = error instanceof Error ? error.message : (typeof error === 'object' && error !== null && 'message' in error) ? String((error as Record<string, unknown>).message) : String(error);
-      const isPlanLimit = msg.includes('Limite') || msg.includes('plan') || msg.includes('Upgradéz');
+      const isPlanLimit = msg.includes('Limite') || msg.includes('plan') || msg.includes('Upgrad');
       const isRlsError = msg.includes('policy') || msg.includes('row-level') || msg.includes('violates') || msg.includes('409');
       toast({
         variant: "destructive",
         title: isPlanLimit ? "Limite atteinte" : "Erreur",
         description: isPlanLimit
-          ? "Limite de produits atteinte pour votre plan. Upgradéz votre abonnement."
+          ? "Limite de produits atteinte pour votre plan. Upgradez votre abonnement."
           : isRlsError
           ? "Permission insuffisante. Seuls les administrateurs et managers peuvent créer des produits."
           : `Impossible de créer le produit: ${msg}`,

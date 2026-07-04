@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { ExpenseStatsRpc } from "@/types";
+import { logger } from "@/lib/logger";
 
 /**
  * Expense stats hook — single source of truth.
@@ -21,7 +22,7 @@ export function useExpenseStats() {
       }
       const { data, error } = await supabase.rpc("get_expense_stats");
       if (error) {
-        console.warn("[ExpenseStats] get_expense_stats RPC failed:", error.message);
+        logger.warn("[ExpenseStats] get_expense_stats RPC failed:", error.message);
         return { monthTotal: 0, monthCount: 0 };
       }
       const typed = data as unknown as ExpenseStatsRpc;

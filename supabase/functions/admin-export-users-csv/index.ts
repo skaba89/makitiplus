@@ -44,7 +44,12 @@ Deno.serve(async (req) => {
       });
     }
     const { user, adminClient, actorProfile, ipAddress } = ctx;
-    const orgId = actorProfile.organization_id!;
+    if (!actorProfile.organization_id) {
+      return new Response(JSON.stringify({ error: 'Admin sans boutique associée' }), {
+        status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+      });
+    }
+    const orgId = actorProfile.organization_id;
 
     // Load profiles + roles strictly scoped to this org
     const { data: profiles, error: profilesErr } = await adminClient

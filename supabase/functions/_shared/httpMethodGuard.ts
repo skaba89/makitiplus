@@ -4,6 +4,8 @@
  * Ensures that only allowed methods reach the handler.
  * Returns a 405 Method Not Allowed for disallowed methods.
  */
+import { getCorsHeaders } from './cors.ts';
+
 export function requireMethod(req: Request, allowed: string | string[]): Response | null {
   const methods = Array.isArray(allowed) ? allowed : [allowed];
   // OPTIONS is always allowed for CORS preflight
@@ -13,6 +15,7 @@ export function requireMethod(req: Request, allowed: string | string[]): Respons
   return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
     status: 405,
     headers: {
+      ...getCorsHeaders(req),
       'Content-Type': 'application/json',
       Allow: methods.join(', '),
     },
