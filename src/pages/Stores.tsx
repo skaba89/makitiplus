@@ -345,14 +345,24 @@ const Stores = () => {
     if (!storeToDelete) return;
     if (blockMutation('Gérer les boutiques')) return;
     try {
-      const { error } = await supabase.from("organizations").delete().eq("id", storeToDelete.id);
+      // Use server-side RPC for safe deletion (checks ownership, handles FK constraints)
+      const { error } = await supabase.rpc("delete_store", { p_store_id: storeToDelete.id });
       if (error) throw error;
       toast({ title: "Magasin supprimé", description: `"${storeToDelete.name}" a été supprimé.` });
       queryClient.invalidateQueries({ queryKey: ["stores"] });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       reportError(error instanceof Error ? error : new Error(String(error)));
-      toast({ variant: "destructive", title: "Erreur", description: message });
+      // Handle specific FK constraint errors
+      const isFKViolation = message.includes('23') && message.includes('restrict');
+      const isProtected = message.includes('transferts') || message.includes('stock_transfers');
+      toast({
+        variant: "destructive",
+        title: isFKViolation || isProtected ? "Suppression impossible" : "Erreur",
+        description: isFKViolation || isProtected
+          ? "Ce magasin ne peut pas être supprimé car il est lié à des transferts de stock. Supprimez ou réassignez les transferts d'abord."
+          : message,
+      });
     } finally {
       setDeleteDialogOpen(false);
       setStoreToDelete(null);
