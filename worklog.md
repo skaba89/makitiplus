@@ -826,3 +826,25 @@ Stage Summary:
 - New offline RPC queue architecture for atomic operations (create_sale_with_limit)
 - Conflict logs no longer silently lost when offline
 - Files modified: indexedDBStorage.ts, offlineQueue.ts, POSCartContext.ts, POS.tsx, main.tsx, syncConflictResolver.ts, posCart.integration.test.ts
+
+---
+Task ID: merge-resolution
+Agent: main
+Task: Resolve merge conflict after rebase — integrate remote useOfflineSale hook with infrastructure improvements
+
+Work Log:
+- Discovered remote branch already had useOfflineSale hook (PR #7 or similar)
+- Resolved conflict by accepting remote POS.tsx structure + adding my improvements
+- Enhanced useOfflineSale to use enqueueRPCMutation instead of raw INSERTs
+  - Atomic replay via create_sale_with_limit RPC at reconnection
+  - Plan quota check at sync time (not bypassed)
+  - Credit sales also enqueued as RPC for proper resolution
+- Added IndexedDB cart hydration on POS mount (hydrateFromDB)
+- Added OfflineBanner in POS UI when offline
+- Removed 412 lines of inline sale logic from POS.tsx (delegated to hook)
+
+Stage Summary:
+- Clean merge: remote's architecture + my infrastructure
+- POS.tsx: 494 lines (was 809) — much cleaner with useOfflineSale hook
+- All 391 tests pass, 0 TS errors, 0 lint errors
+- Pushed to main: commit 70cd0ea
