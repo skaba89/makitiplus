@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { getDB, STORES } from "./indexedDBStorage";
 
 // Lazy import de supabase pour éviter le side-effect au niveau du module
 // (crash "supabaseUrl is required" dans les tests unitaires qui n'ont pas de .env)
@@ -79,19 +80,100 @@ export function lastWriteWins<T extends { updated_at?: string | null }>(
 
 /** Logge un conflit dans la base (best-effort, non-bloquant). */
 export async function logConflict(entry: ConflictLog): Promise<void> {
+  const localEntry = {
+    ...entry,
+    id: `conflict_${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    device_id: entry.device_id ?? getDeviceId(),
+    status: entry.status ?? "resolved",
+    createdAt: new Date().toISOString(),
+    synced: false,
+  };
+
+  // Always write to local IndexedDB first (guaranteed persistence)
+  await localConflictFallback(localEntry);
+
+  // Then try to push to remote Supabase
   try {
     const supabase = await getSupabase();
-    await supabase.from("sync_conflicts").insert({
+    const { error } = await supabase.from("sync_conflicts").insert({
       ...entry,
-      device_id: entry.device_id ?? getDeviceId(),
-      status: entry.status ?? "resolved",
+      device_id: localEntry.device_id,
+      status: localEntry.status,
       local_data: entry.local_data as unknown as import("@/integrations/supabase/types").Json,
       remote_data: entry.remote_data as unknown as import("@/integrations/supabase/types").Json,
       resolved_data: entry.resolved_data as unknown as import("@/integrations/supabase/types").Json | undefined,
     } as never);
+
+    if (!error) {
+      // Mark as synced in local store
+      await markConflictSynced(localEntry.id);
+    }
   } catch (e) {
     // silent : ne jamais bloquer la sync
-    logger.warn("[sync] logConflict failed", e);
+    logger.warn("[sync] logConflict remote insert failed (stored locally)", e);
+  }
+}
+
+/**
+ * Store conflict in local IndexedDB as fallback when remote insert fails.
+ * Ensures conflicts are never silently lost even when offline.
+ */
+async function localConflictFallback(entry: Record<string, unknown>): Promise<void> {
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORES.CONFLICT_LOG, "readwrite");
+      const store = tx.objectStore(STORES.CONFLICT_LOG);
+      store.put(entry);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (e) {
+    logger.warn("[sync] localConflictFallback failed", e);
+  }
+}
+
+/**
+ * Mark a local conflict as synced after successful remote insert.
+ */
+async function markConflictSynced(id: string): Promise<void> {
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORES.CONFLICT_LOG, "readwrite");
+      const store = tx.objectStore(STORES.CONFLICT_LOG);
+      const getReq = store.get(id);
+      getReq.onsuccess = () => {
+        const entry = getReq.result;
+        if (entry) {
+          entry.synced = true;
+          store.put(entry);
+        }
+      };
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (e) {
+    logger.warn("[sync] markConflictSynced failed", e);
+  }
+}
+
+/**
+ * Get all unsynced local conflict logs (for admin inspection).
+ */
+export async function getUnsyncedConflicts(): Promise<Record<string, unknown>[]> {
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORES.CONFLICT_LOG, "readonly");
+      const store = tx.objectStore(STORES.CONFLICT_LOG);
+      const index = store.index("synced");
+      const request = index.getAll(false);
+      request.onsuccess = () => resolve(request.result as Record<string, unknown>[]);
+      request.onerror = () => reject(request.error);
+    });
+  } catch {
+    return [];
   }
 }
 

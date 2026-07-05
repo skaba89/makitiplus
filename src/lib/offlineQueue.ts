@@ -1,40 +1,33 @@
 /**
  * Offline Mutation Queue for MakitiPlus
  *
- * When the app is offline, mutations (INSERT/UPDATE/DELETE) are stored in IndexedDB.
+ * When the app is offline, mutations (INSERT/UPDATE/DELETE/RPC) are stored in IndexedDB.
  * When connectivity is restored, the queue is flushed in order.
  *
  * Each queued operation stores:
- * - The Supabase table, operation type, and data
+ * - The Supabase table/RPC, operation type, and data
  * - A unique ID for deduplication
  * - Timestamp and retry count
+ *
+ * IMPORTANT: This module uses the shared getDB() from indexedDBStorage.ts
+ * to avoid the dual-singleton race condition that existed before.
  */
 
-import { STORES, type StoreName } from "./indexedDBStorage";
+import { STORES, getDB, type StoreName } from "./indexedDBStorage";
 import type { DynamicSupabaseQuery } from "./supabaseDynamicQuery";
 import { logger } from "@/lib/logger";
 
-// Extend the STORES constant with new stores for offline queue
-const OFFLINE_DB_NAME = "malikiplus_offline";
-const OFFLINE_DB_VERSION = 2; // Bumped from v1 to add new stores
-
-export const OFFLINE_STORES = {
-  ...STORES,
-  MUTATION_QUEUE: "mutation_queue",
-  PRODUCT_CACHE: "product_cache",
-  CATEGORY_CACHE: "category_cache",
-  CUSTOMER_CACHE: "customer_cache",
-  SALE_CACHE: "sale_cache",
-} as const;
-
-export type OfflineStoreName = (typeof OFFLINE_STORES)[keyof typeof OFFLINE_STORES];
+// Re-export STORES for backward compatibility with consumers
+export const OFFLINE_STORES = STORES;
+export type OfflineStoreName = StoreName;
 
 export interface QueuedMutation {
   id: string;
   table: string;
-  operation: "INSERT" | "UPDATE" | "DELETE";
+  operation: "INSERT" | "UPDATE" | "DELETE" | "RPC";
   data: Record<string, unknown>;
   filter?: Record<string, unknown>; // For UPDATE/DELETE: which row(s) to target
+  rpcName?: string; // For RPC: the Supabase RPC function name
   organizationId?: string; // Organization scope — used for security validation on flush
   userId?: string; // User who created the mutation — validated on flush
   createdAt: string;
@@ -55,75 +48,14 @@ const ALLOWED_TABLES = new Set([
   "categories",
 ]);
 
-let dbInstance: IDBDatabase | null = null;
-let dbInitPromise: Promise<IDBDatabase> | null = null;
-
-function openOfflineDB(): Promise<IDBDatabase> {
-  if (dbInstance) return Promise.resolve(dbInstance);
-  if (dbInitPromise) return dbInitPromise;
-
-  dbInitPromise = new Promise<IDBDatabase>((resolve, reject) => {
-    const request = indexedDB.open(OFFLINE_DB_NAME, OFFLINE_DB_VERSION);
-
-    request.onupgradeneeded = () => {
-      const db = request.result;
-
-      // Keep existing stores (they already exist if v1)
-      // Create new stores for v2
-      if (!db.objectStoreNames.contains(OFFLINE_STORES.MUTATION_QUEUE)) {
-        const queueStore = db.createObjectStore(OFFLINE_STORES.MUTATION_QUEUE, { keyPath: "id" });
-        queueStore.createIndex("status", "status", { unique: false });
-        queueStore.createIndex("createdAt", "createdAt", { unique: false });
-        queueStore.createIndex("table", "table", { unique: false });
-      }
-
-      if (!db.objectStoreNames.contains(OFFLINE_STORES.PRODUCT_CACHE)) {
-        const productStore = db.createObjectStore(OFFLINE_STORES.PRODUCT_CACHE, { keyPath: "id" });
-        productStore.createIndex("category_id", "category_id", { unique: false });
-        productStore.createIndex("updated_at", "updated_at", { unique: false });
-      }
-
-      if (!db.objectStoreNames.contains(OFFLINE_STORES.CATEGORY_CACHE)) {
-        db.createObjectStore(OFFLINE_STORES.CATEGORY_CACHE, { keyPath: "id" });
-      }
-
-      if (!db.objectStoreNames.contains(OFFLINE_STORES.CUSTOMER_CACHE)) {
-        const customerStore = db.createObjectStore(OFFLINE_STORES.CUSTOMER_CACHE, { keyPath: "id" });
-        customerStore.createIndex("phone", "phone", { unique: false });
-      }
-
-      if (!db.objectStoreNames.contains(OFFLINE_STORES.SALE_CACHE)) {
-        const saleStore = db.createObjectStore(OFFLINE_STORES.SALE_CACHE, { keyPath: "id" });
-        saleStore.createIndex("sale_number", "sale_number", { unique: false });
-        saleStore.createIndex("created_at", "created_at", { unique: false });
-      }
-    };
-
-    request.onsuccess = () => {
-      dbInstance = request.result;
-      dbInstance.onclose = () => {
-        dbInstance = null;
-        dbInitPromise = null;
-      };
-      dbInstance.onversionchange = () => {
-        dbInstance?.close();
-        dbInstance = null;
-        dbInitPromise = null;
-      };
-      resolve(dbInstance);
-    };
-
-    request.onerror = () => {
-      dbInitPromise = null;
-      reject(new Error(`OfflineDB open failed: ${request.error?.message}`));
-    };
-  });
-
-  return dbInitPromise;
-}
+// Allowlist of permitted RPC names for offline RPC queue
+const ALLOWED_RPCS = new Set([
+  "create_sale_with_limit",
+  "increment_customer_credit",
+]);
 
 // ---------------------------------------------------------------------------
-// Mutation Queue
+// Mutation Queue (generic table-level operations)
 // ---------------------------------------------------------------------------
 
 function generateId(): string {
@@ -136,11 +68,17 @@ function generateId(): string {
  */
 export async function enqueueMutation(mutation: Omit<QueuedMutation, "id" | "createdAt" | "retryCount" | "status">): Promise<QueuedMutation> {
   // Validate table against allowlist (H3: prevent arbitrary table writes)
-  if (!ALLOWED_TABLES.has(mutation.table)) {
-    throw new Error(`Offline queue: table "${mutation.table}" is not in the allowed list`);
+  if (mutation.operation === "RPC") {
+    if (!mutation.rpcName || !ALLOWED_RPCS.has(mutation.rpcName)) {
+      throw new Error(`Offline queue: RPC "${mutation.rpcName}" is not in the allowed list`);
+    }
+  } else {
+    if (!ALLOWED_TABLES.has(mutation.table)) {
+      throw new Error(`Offline queue: table "${mutation.table}" is not in the allowed list`);
+    }
   }
 
-  const db = await openOfflineDB();
+  const db = await getDB();
   const entry: QueuedMutation = {
     ...mutation,
     id: generateId(),
@@ -150,8 +88,9 @@ export async function enqueueMutation(mutation: Omit<QueuedMutation, "id" | "cre
   };
 
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(OFFLINE_STORES.MUTATION_QUEUE, "readwrite");
-    const store = tx.objectStore(OFFLINE_STORES.MUTATION_QUEUE);
+    const storeName = mutation.operation === "RPC" ? STORES.RPC_QUEUE : STORES.MUTATION_QUEUE;
+    const tx = db.transaction(storeName, "readwrite");
+    const store = tx.objectStore(storeName);
     const request = store.put(entry);
     request.onsuccess = () => resolve(entry);
     request.onerror = () => reject(request.error);
@@ -160,45 +99,73 @@ export async function enqueueMutation(mutation: Omit<QueuedMutation, "id" | "cre
 
 /**
  * Get all pending mutations, ordered by creation time.
+ * Includes both regular mutations and RPC mutations.
  */
 export async function getPendingMutations(): Promise<QueuedMutation[]> {
-  const db = await openOfflineDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(OFFLINE_STORES.MUTATION_QUEUE, "readonly");
-    const store = tx.objectStore(OFFLINE_STORES.MUTATION_QUEUE);
-    const index = store.index("createdAt");
-    const request = index.getAll();
-    request.onsuccess = () => {
-      const all = request.result as QueuedMutation[];
-      resolve(all.filter((m) => m.status === "pending" || m.status === "failed"));
-    };
-    request.onerror = () => reject(request.error);
-  });
+  const db = await getDB();
+
+  const getFromStore = (storeName: StoreName): Promise<QueuedMutation[]> =>
+    new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, "readonly");
+      const store = tx.objectStore(storeName);
+      const index = store.index("createdAt");
+      const request = index.getAll();
+      request.onsuccess = () => {
+        const all = request.result as QueuedMutation[];
+        resolve(all.filter((m) => m.status === "pending" || m.status === "failed"));
+      };
+      request.onerror = () => reject(request.error);
+    });
+
+  const [regular, rpc] = await Promise.all([
+    getFromStore(STORES.MUTATION_QUEUE),
+    getFromStore(STORES.RPC_QUEUE),
+  ]);
+
+  // Merge and sort by createdAt
+  return [...regular, ...rpc].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  );
 }
 
 /**
- * Get the count of pending mutations.
+ * Get the count of pending mutations (both regular + RPC).
  */
 export async function getPendingCount(): Promise<{ count: number }> {
-  const db = await openOfflineDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(OFFLINE_STORES.MUTATION_QUEUE, "readonly");
-    const store = tx.objectStore(OFFLINE_STORES.MUTATION_QUEUE);
-    const index = store.index("status");
-    const request = index.count("pending");
-    request.onsuccess = () => resolve({ count: request.result });
-    request.onerror = () => reject(request.error);
-  });
+  const db = await getDB();
+
+  const countStore = (storeName: StoreName): Promise<number> =>
+    new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, "readonly");
+      const store = tx.objectStore(storeName);
+      const index = store.index("status");
+      const request = index.count("pending");
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+
+  const [regular, rpc] = await Promise.all([
+    countStore(STORES.MUTATION_QUEUE),
+    countStore(STORES.RPC_QUEUE),
+  ]);
+
+  return { count: regular + rpc };
 }
 
 /**
  * Update a mutation's status in the queue.
  */
-async function updateMutationStatus(id: string, status: QueuedMutation["status"], error?: string): Promise<void> {
-  const db = await openOfflineDB();
+async function updateMutationStatus(
+  id: string,
+  status: QueuedMutation["status"],
+  error?: string,
+  isRPC: boolean = false
+): Promise<void> {
+  const db = await getDB();
+  const storeName = isRPC ? STORES.RPC_QUEUE : STORES.MUTATION_QUEUE;
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(OFFLINE_STORES.MUTATION_QUEUE, "readwrite");
-    const store = tx.objectStore(OFFLINE_STORES.MUTATION_QUEUE);
+    const tx = db.transaction(storeName, "readwrite");
+    const store = tx.objectStore(storeName);
     const getReq = store.get(id);
     getReq.onsuccess = () => {
       const entry = getReq.result as QueuedMutation | undefined;
@@ -216,11 +183,12 @@ async function updateMutationStatus(id: string, status: QueuedMutation["status"]
 /**
  * Remove a mutation from the queue after successful sync.
  */
-async function removeMutation(id: string): Promise<void> {
-  const db = await openOfflineDB();
+async function removeMutation(id: string, isRPC: boolean = false): Promise<void> {
+  const db = await getDB();
+  const storeName = isRPC ? STORES.RPC_QUEUE : STORES.MUTATION_QUEUE;
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(OFFLINE_STORES.MUTATION_QUEUE, "readwrite");
-    const store = tx.objectStore(OFFLINE_STORES.MUTATION_QUEUE);
+    const tx = db.transaction(storeName, "readwrite");
+    const store = tx.objectStore(storeName);
     store.delete(id);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
@@ -228,7 +196,165 @@ async function removeMutation(id: string): Promise<void> {
 }
 
 /**
- * Flush the mutation queue: attempt to sync all pending mutations to Supabase.
+ * Flush the regular mutation queue: attempt to sync all pending mutations to Supabase.
+ * Returns stats about how many succeeded/failed.
+ */
+async function flushMutationQueue(
+  pending: QueuedMutation[],
+  user: { id: string },
+  currentUserOrgId: string | null | undefined
+): Promise<{ synced: number; failed: number }> {
+  const { supabase } = await import("@/integrations/supabase/client");
+
+  let synced = 0;
+  let failed = 0;
+
+  for (const mutation of pending) {
+    if (mutation.operation === "RPC") continue; // RPC mutations handled separately
+
+    if (mutation.retryCount >= 5) {
+      await updateMutationStatus(mutation.id, "failed", "Max retries exceeded", false);
+      failed++;
+      continue;
+    }
+
+    // Security: Validate that the mutation belongs to the current user's organization
+    if (mutation.organizationId && currentUserOrgId && mutation.organizationId !== currentUserOrgId) {
+      await updateMutationStatus(mutation.id, "failed", "Organization mismatch — mutation rejected for security", false);
+      failed++;
+      continue;
+    }
+
+    // Security: Validate that the mutation was created by the current user
+    if (mutation.userId && mutation.userId !== user.id) {
+      await updateMutationStatus(mutation.id, "failed", "User mismatch — mutation rejected for security", false);
+      failed++;
+      continue;
+    }
+
+    // Security: Ensure mutation data includes the correct organization_id
+    const dataWithOrg = currentUserOrgId ? {
+      ...mutation.data,
+      organization_id: mutation.data.organization_id || currentUserOrgId,
+    } : mutation.data;
+
+    await updateMutationStatus(mutation.id, "syncing", undefined, false);
+
+    try {
+      let result;
+
+      switch (mutation.operation) {
+        case "INSERT":
+          result = await (supabase.from(mutation.table as never) as unknown as DynamicSupabaseQuery).insert(dataWithOrg as never);
+          break;
+        case "UPDATE": {
+          let query: DynamicSupabaseQuery = (supabase.from(mutation.table as never) as unknown as DynamicSupabaseQuery).update(dataWithOrg as never);
+          if (mutation.filter) {
+            for (const [key, value] of Object.entries(mutation.filter)) {
+              query = query.eq(key, value as string | number | boolean);
+            }
+          }
+          result = await query;
+          break;
+        }
+        case "DELETE": {
+          let query: DynamicSupabaseQuery = (supabase.from(mutation.table as never) as unknown as DynamicSupabaseQuery).delete();
+          if (mutation.filter) {
+            for (const [key, value] of Object.entries(mutation.filter)) {
+              query = query.eq(key, value as string | number | boolean);
+            }
+          }
+          result = await query;
+          break;
+        }
+        default:
+          continue;
+      }
+
+      if (result?.error) {
+        await updateMutationStatus(mutation.id, "failed", result.error.message, false);
+        failed++;
+      } else {
+        await removeMutation(mutation.id, false);
+        synced++;
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await updateMutationStatus(mutation.id, "failed", message, false);
+      failed++;
+    }
+  }
+
+  return { synced, failed };
+}
+
+/**
+ * Flush the RPC mutation queue: replay RPC calls (e.g., create_sale_with_limit).
+ * RPC mutations are replayed in order — they represent atomic operations
+ * that cannot be decomposed into individual table mutations.
+ */
+async function flushRPCQueue(
+  pending: QueuedMutation[],
+  user: { id: string },
+  currentUserOrgId: string | null | undefined
+): Promise<{ synced: number; failed: number }> {
+  const { supabase } = await import("@/integrations/supabase/client");
+
+  let synced = 0;
+  let failed = 0;
+
+  const rpcMutations = pending.filter((m) => m.operation === "RPC");
+
+  for (const mutation of rpcMutations) {
+    if (mutation.retryCount >= 5) {
+      await updateMutationStatus(mutation.id, "failed", "Max retries exceeded", true);
+      failed++;
+      continue;
+    }
+
+    // Security: Validate org and user
+    if (mutation.organizationId && currentUserOrgId && mutation.organizationId !== currentUserOrgId) {
+      await updateMutationStatus(mutation.id, "failed", "Organization mismatch — RPC rejected for security", true);
+      failed++;
+      continue;
+    }
+
+    if (mutation.userId && mutation.userId !== user.id) {
+      await updateMutationStatus(mutation.id, "failed", "User mismatch — RPC rejected for security", true);
+      failed++;
+      continue;
+    }
+
+    if (!mutation.rpcName) {
+      await updateMutationStatus(mutation.id, "failed", "Missing rpcName", true);
+      failed++;
+      continue;
+    }
+
+    await updateMutationStatus(mutation.id, "syncing", undefined, true);
+
+    try {
+      const { error: rpcError } = await supabase.rpc(mutation.rpcName, mutation.data);
+
+      if (rpcError) {
+        await updateMutationStatus(mutation.id, "failed", rpcError.message, true);
+        failed++;
+      } else {
+        await removeMutation(mutation.id, true);
+        synced++;
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await updateMutationStatus(mutation.id, "failed", message, true);
+      failed++;
+    }
+  }
+
+  return { synced, failed };
+}
+
+/**
+ * Flush all queues: regular mutations + RPC mutations.
  * Returns stats about how many succeeded/failed.
  */
 export async function flushQueue(): Promise<{ synced: number; failed: number }> {
@@ -250,85 +376,16 @@ export async function flushQueue(): Promise<{ synced: number; failed: number }> 
 
   const currentUserOrgId = profile?.organization_id;
 
-  let synced = 0;
-  let failed = 0;
+  // Flush regular mutations first (they're typically simpler and non-atomic)
+  const regularResult = await flushMutationQueue(pending, user, currentUserOrgId);
 
-  for (const mutation of pending) {
-    if (mutation.retryCount >= 5) {
-      await updateMutationStatus(mutation.id, "failed", "Max retries exceeded");
-      failed++;
-      continue;
-    }
+  // Then flush RPC mutations (atomic operations like sales)
+  const rpcResult = await flushRPCQueue(pending, user, currentUserOrgId);
 
-    // Security: Validate that the mutation belongs to the current user's organization
-    // If the mutation has an organizationId, verify it matches the current user's org
-    if (mutation.organizationId && currentUserOrgId && mutation.organizationId !== currentUserOrgId) {
-      await updateMutationStatus(mutation.id, "failed", "Organization mismatch — mutation rejected for security");
-      failed++;
-      continue;
-    }
-
-    // Security: Validate that the mutation was created by the current user
-    if (mutation.userId && mutation.userId !== user.id) {
-      await updateMutationStatus(mutation.id, "failed", "User mismatch — mutation rejected for security");
-      failed++;
-      continue;
-    }
-
-    // Security: Ensure mutation data includes the correct organization_id
-    // This prevents cross-org data leaks via offline mutations
-    const dataWithOrg = currentUserOrgId ? {
-      ...mutation.data,
-      organization_id: mutation.data.organization_id || currentUserOrgId,
-    } : mutation.data;
-
-    await updateMutationStatus(mutation.id, "syncing");
-
-    try {
-      let result;
-
-      switch (mutation.operation) {
-        case "INSERT":
-          result = await (supabase.from(mutation.table as never) as unknown as DynamicSupabaseQuery).insert(dataWithOrg as never);
-          break;
-        case "UPDATE": {
-          let query: DynamicSupabaseQuery = (supabase.from(mutation.table as never) as unknown as DynamicSupabaseQuery).update(dataWithOrg as never);
-          // Apply filters
-          if (mutation.filter) {
-            for (const [key, value] of Object.entries(mutation.filter)) {
-              query = query.eq(key, value as string | number | boolean);
-            }
-          }
-          result = await query;
-          break;
-        }
-        case "DELETE": {
-          let query: DynamicSupabaseQuery = (supabase.from(mutation.table as never) as unknown as DynamicSupabaseQuery).delete();
-          if (mutation.filter) {
-            for (const [key, value] of Object.entries(mutation.filter)) {
-              query = query.eq(key, value as string | number | boolean);
-            }
-          }
-          result = await query;
-          break;
-        }
-      }
-
-      if (result?.error) {
-        await updateMutationStatus(mutation.id, "failed", result.error.message);
-        failed++;
-      } else {
-        await removeMutation(mutation.id);
-        synced++;
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      await updateMutationStatus(mutation.id, "failed", message);
-      failed++;
-    }
-  }
-
-  return { synced, failed };
+  return {
+    synced: regularResult.synced + rpcResult.synced,
+    failed: regularResult.failed + rpcResult.failed,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -342,7 +399,7 @@ export async function cacheData<T extends { id: string }>(
   storeName: OfflineStoreName,
   data: T[]
 ): Promise<void> {
-  const db = await openOfflineDB();
+  const db = await getDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(storeName, "readwrite");
     const store = tx.objectStore(storeName);
@@ -360,7 +417,7 @@ export async function cacheData<T extends { id: string }>(
  * Read cached data from IndexedDB.
  */
 export async function getCachedData<T>(storeName: OfflineStoreName): Promise<T[]> {
-  const db = await openOfflineDB();
+  const db = await getDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(storeName, "readonly");
     const store = tx.objectStore(storeName);
@@ -374,7 +431,7 @@ export async function getCachedData<T>(storeName: OfflineStoreName): Promise<T[]
  * Get a single cached item by ID.
  */
 export async function getCachedItem<T>(storeName: OfflineStoreName, id: string): Promise<T | undefined> {
-  const db = await openOfflineDB();
+  const db = await getDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(storeName, "readonly");
     const store = tx.objectStore(storeName);
@@ -388,7 +445,7 @@ export async function getCachedItem<T>(storeName: OfflineStoreName, id: string):
  * Get cache age in seconds.
  */
 export async function getCacheAge(storeName: OfflineStoreName): Promise<number | null> {
-  const db = await openOfflineDB();
+  const db = await getDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(storeName, "readonly");
     const store = tx.objectStore(storeName);
@@ -412,12 +469,36 @@ export async function getCacheAge(storeName: OfflineStoreName): Promise<number |
  * Clear all cached data for a store.
  */
 export async function clearCache(storeName: OfflineStoreName): Promise<void> {
-  const db = await openOfflineDB();
+  const db = await getDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(storeName, "readwrite");
     const store = tx.objectStore(storeName);
     store.clear();
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Convenience: Enqueue an RPC mutation
+// ---------------------------------------------------------------------------
+
+/**
+ * Enqueue an RPC call for later sync when offline.
+ * Use this for atomic operations like create_sale_with_limit.
+ */
+export async function enqueueRPCMutation(params: {
+  rpcName: string;
+  data: Record<string, unknown>;
+  userId?: string;
+  organizationId?: string;
+}): Promise<QueuedMutation> {
+  return enqueueMutation({
+    table: "__rpc__", // Placeholder — RPC mutations don't map to a table
+    operation: "RPC",
+    rpcName: params.rpcName,
+    data: params.data,
+    userId: params.userId,
+    organizationId: params.organizationId,
   });
 }

@@ -33,6 +33,8 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { useOrgTaxRate } from "@/hooks/useOrgTaxRate";
 import { computeTax } from "@/lib/taxUtils";
 import { reportError } from "@/lib/sentry";
+import { useOnlineStatus } from "@/contexts/OfflineContext";
+import { enqueueRPCMutation } from "@/lib/offlineQueue";
 import { ShoppingCart, Camera, LayoutGrid, List, Keyboard } from "lucide-react";
 import { CurrencySelector } from "@/components/ui/currency-selector";
 import { CategoryIcon } from "@/components/ui/category-icon";
@@ -42,7 +44,6 @@ import { useBranding } from "@/contexts/BrandingContext";
 import { useThemeSettings } from "@/contexts/ThemeContext";
 import { usePOSKeyboardShortcuts } from "@/hooks/usePOSKeyboardShortcuts";
 import { usePOSProducts, ProductWithCategory as POSProduct } from "@/hooks/usePOSProducts";
-import { useOfflineSale } from "@/hooks/useOfflineSale";
 import { lookupBarcode } from "@/hooks/useProductSearch";
 import { useCategories } from "@/hooks/useCategories";
 import { POSProductGridSkeleton, POSProductListSkeleton, POSCartSkeleton } from "@/components/pos/POSSkeletons";
@@ -59,12 +60,20 @@ const POS = () => {
   const { blockMutation } = useDemo();
   const { currency, formatPrice } = useCurrency();
   const orgTaxRate = useOrgTaxRate();
+  const { isOnline } = useOnlineStatus();
   const { branding } = useBranding();
   const { settings } = useThemeSettings();
   const queryClient = useQueryClient();
   const cart = usePOSCartStore((s) => s.items);
-  const { addToCart: addToCartStore, updateQuantity, removeItem, clearCart } = usePOSCartStore();
+  const { addToCart: addToCartStore, updateQuantity, removeItem, clearCart, hydrateFromDB, isHydrated } = usePOSCartStore();
   const cartTotal = useCartTotal();
+
+  // Hydrate cart from IndexedDB on mount (org-scoped)
+  useEffect(() => {
+    if (profile?.organization_id && !isHydrated) {
+      hydrateFromDB(profile.organization_id);
+    }
+  }, [profile?.organization_id, isHydrated, hydrateFromDB]);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
   const [lastReceiptData, setLastReceiptData] = useState<ReceiptData | null>(null);
@@ -101,11 +110,326 @@ const POS = () => {
 
   const { data: categories } = useCategories();
 
-  const createSaleMutation = useOfflineSale({
-    onSaleComplete: ({ receiptData }) => {
+  const createSaleMutation = useMutation({
+    mutationFn: async ({
+      paymentMethod,
+      amountPaid,
+      customerName,
+      customerPhone,
+    }: {
+      paymentMethod: PaymentMethod;
+      amountPaid: number;
+      customerName?: string;
+      customerPhone?: string;
+    }) => {
+      if (Date.now() - lastSubmitRef.current < 2000) {
+        throw new Error("Vente déjà en cours de traitement");
+      }
+      lastSubmitRef.current = Date.now();
+
+      // Calculs financiers (identiques online/offline)
+      const subtotal = cart.reduce(
+        (sum, item) => sum + item.product.price * item.quantity,
+        0
+      );
+      const taxAmount = cart.reduce((sum, item) => {
+        const t = computeTax(item.product.price, item.product.tax_rate, orgTaxRate);
+        return sum + t.taxAmount * item.quantity;
+      }, 0);
+      const totalAmount = subtotal;
+      const htAmount = subtotal - taxAmount;
+      const changeAmount = amountPaid - totalAmount;
+
+      const saleItems = cart.map((item) => ({
+        product_id: item.product.id,
+        product_name: item.product.name,
+        quantity: item.quantity,
+        unit_price: item.product.price,
+        total_price: item.product.price * item.quantity,
+      }));
+
+      // Générer le numéro de vente
+      // Offline: toujours local (crypto.randomUUID fallback)
+      // Online: essayer generate_sale_number RPC, fallback local si indisponible
+      let finalSaleNumber = '';
+      if (isOnline) {
+        try {
+          const { data: saleNumber, error: rpcError } = await supabase.rpc("generate_sale_number");
+          if (!rpcError && saleNumber) {
+            finalSaleNumber = saleNumber;
+          }
+        } catch {
+          // generate_sale_number RPC indisponible, utilisation du fallback
+        }
+      }
+      if (!finalSaleNumber) {
+        const uid = crypto.randomUUID().replace(/-/g, '').substring(0, 12).toUpperCase();
+        finalSaleNumber = `VTE-${uid}`;
+      }
+
+      // ─────────────────────────────────────────────────────────────────────
+      // OFFLINE PATH: Enqueue sale as RPC mutation for later sync
+      // ─────────────────────────────────────────────────────────────────────
+      if (!isOnline) {
+        await enqueueRPCMutation({
+          rpcName: "create_sale_with_limit",
+          data: {
+            p_sale_number: finalSaleNumber,
+            p_subtotal: htAmount,
+            p_tax_amount: taxAmount,
+            p_total_amount: totalAmount,
+            p_payment_method: paymentMethod,
+            p_amount_paid: amountPaid,
+            p_change_amount: changeAmount > 0 ? changeAmount : 0,
+            p_customer_name: customerName || null,
+            p_customer_phone: customerPhone || null,
+            p_seller_name: profile?.owner_name || null,
+            p_items: saleItems,
+          },
+          userId: user?.id,
+          organizationId: profile?.organization_id,
+        });
+
+        // Si vente à crédit hors-ligne, enqueue aussi increment_customer_credit
+        // (sera rejoué APRÈS la vente grâce à l'ordre createdAt)
+        if (paymentMethod === "credit" && totalAmount > 0 && customerPhone) {
+          // Note: le customer_id sera résolu au moment du flush (online)
+          // On stocke les infos nécessaires pour la résolution
+          await enqueueRPCMutation({
+            rpcName: "increment_customer_credit",
+            data: {
+              p_customer_phone: customerPhone,
+              p_customer_name: customerName || customerPhone,
+              p_amount: totalAmount,
+              p_organization_id: profile?.organization_id || null,
+              p_sale_number: finalSaleNumber,
+            },
+            userId: user?.id,
+            organizationId: profile?.organization_id,
+          });
+        }
+
+        // Retourner un objet "sale" factice pour le ticket hors-ligne
+        return {
+          sale: {
+            id: `offline_${finalSaleNumber}`,
+            sale_number: finalSaleNumber,
+            payment_method: paymentMethod,
+            amount_paid: amountPaid,
+            customer_name: customerName || null,
+            customer_phone: customerPhone || null,
+          },
+          changeAmount,
+          creditUpdateFailed: false,
+          offline_sale: true as const,
+        };
+      }
+
+      // ─────────────────────────────────────────────────────────────────────
+      // ONLINE PATH: Create sale atomically via RPC (existing flow)
+      // ─────────────────────────────────────────────────────────────────────
+      const orgId = profile?.organization_id || null;
+      let creditUpdateFailed = false;
+
+      const { data: rpcSaleId, error: rpcError } = await supabase.rpc("create_sale_with_limit", {
+        p_sale_number: finalSaleNumber,
+        p_subtotal: htAmount,
+        p_tax_amount: taxAmount,
+        p_total_amount: totalAmount,
+        p_payment_method: paymentMethod,
+        p_amount_paid: amountPaid,
+        p_change_amount: changeAmount > 0 ? changeAmount : 0,
+        p_customer_name: customerName || null,
+        p_customer_phone: customerPhone || null,
+        p_seller_name: profile?.owner_name || null,
+        p_items: saleItems,
+      });
+
+      if (rpcError || !rpcSaleId) {
+        throw new Error(
+          `Impossible de créer la vente (RPC create_sale_with_limit) : ${rpcError?.message || 'Réponse vide'}. Veuillez réessayer.`
+        );
+      }
+
+      // Récupérer l'enregistrement de vente pour le ticket
+      const { data: sale } = await supabase
+        .from("sales")
+        .select("id, sale_number, payment_method, amount_paid, customer_name, customer_phone")
+        .eq("id", rpcSaleId)
+        .single();
+
+      if (!sale) {
+        throw new Error('Vente créée mais introuvable. Veuillez réessayer.');
+      }
+
+      // Si vente à crédit, créer une entrée customer_credits pour le suivi de la dette
+      if (paymentMethod === "credit" && totalAmount > 0) {
+        let customerId: string | null = null;
+
+        if (customerPhone) {
+          const upsertData: Record<string, unknown> = {
+            name: customerName || customerPhone,
+            phone: customerPhone,
+          };
+          if (profile?.organization_id) {
+            upsertData.organization_id = profile.organization_id;
+          }
+          const { data: upsertedCustomer, error: custErr } = await supabase
+            .from("customers")
+            .upsert(upsertData as never, {
+              onConflict: 'phone,organization_id',
+              ignoreDuplicates: false,
+            })
+            .select("id")
+            .maybeSingle();
+
+          if (!custErr && upsertedCustomer) {
+            customerId = upsertedCustomer.id;
+          }
+        } else if (customerName) {
+          const { data: existingCustomer } = await supabase
+            .from("customers")
+            .select("id")
+            .eq("name", customerName)
+            .eq("organization_id", orgId)
+            .maybeSingle();
+          if (existingCustomer) {
+            customerId = existingCustomer.id;
+          }
+        }
+
+        if (customerId) {
+          const creditInsert: Record<string, unknown> = {
+            user_id: user?.id ?? "",
+            customer_id: customerId,
+            sale_id: sale.id,
+            amount: totalAmount,
+            type: "credit",
+            description: `Vente crédit ${finalSaleNumber}`,
+          };
+          if (profile?.organization_id) {
+            creditInsert.organization_id = profile.organization_id;
+          }
+          await supabase.from("customer_credits").insert(creditInsert as never);
+
+          const { error: creditUpdateError } = await supabase.rpc("increment_customer_credit", {
+            p_customer_id: customerId,
+            p_amount: totalAmount,
+          });
+
+          if (creditUpdateError) {
+            reportError(new Error(`increment_customer_credit RPC failed: ${creditUpdateError.message}`));
+            creditUpdateFailed = true;
+          }
+        }
+      }
+
+      return { sale, changeAmount, creditUpdateFailed };
+    },
+    onSuccess: ({ sale, changeAmount, creditUpdateFailed, offline_sale }) => {
+      // Calculer la taxe pour l'affichage du ticket AVANT clearCart()
+      const receiptTaxAmount = cart.reduce((sum, item) => {
+        const t = computeTax(item.product.price, item.product.tax_rate, orgTaxRate);
+        return sum + t.taxAmount * item.quantity;
+      }, 0);
+      const receiptSubtotal = cartTotal - receiptTaxAmount;
+
+      // Préparer les données du ticket pour le dialogue (avant clearCart)
+      const receiptData: ReceiptData = {
+        saleNumber: sale.sale_number,
+        date: new Date(),
+        items: cart.map((item) => ({
+          product_name: item.product.name,
+          quantity: item.quantity,
+          unit_price: item.product.price,
+          total_price: item.product.price * item.quantity,
+        })),
+        subtotal: receiptSubtotal,
+        total: cartTotal,
+        paymentMethod: sale.payment_method,
+        amountPaid: sale.amount_paid,
+        change: changeAmount > 0 ? changeAmount : 0,
+        customerName: sale.customer_name || undefined,
+        customerPhone: sale.customer_phone || undefined,
+        businessName: profile?.business_name || "Ma Boutique",
+        businessAddress: profile?.address || undefined,
+        businessPhone: profile?.phone || undefined,
+        sellerName: profile?.owner_name || undefined,
+        currencySymbol: currency.displaySymbol || currency.symbol,
+        currencyPosition: currency.position,
+        logoUrl: settings?.logo_url || branding.logoUrl,
+        template: branding.receiptTemplate,
+        paperSize: (settings?.extra_settings as Record<string, string>)?.receiptPaperSize as ReceiptData["paperSize"] || "80mm",
+        showLogo: settings?.receipt_show_logo ?? true,
+        showTax: settings?.receipt_show_tax ?? true,
+        footerText: settings?.receipt_footer || undefined,
+        organizationId: profile?.organization_id ?? undefined,
+        taxRate: orgTaxRate,
+      };
+
+      // Clear cart AFTER receipt data is computed
+      clearCart();
       setLastReceiptData(receiptData);
       setIsReceiptOpen(true);
+
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["sales"] });
       setIsPaymentOpen(false);
+
+      // Avertir l'utilisateur si la vente est hors-ligne
+      if (offline_sale) {
+        toast({
+          title: "Vente enregistrée hors-ligne",
+          description: "Elle sera synchronisée automatiquement à la reconnexion.",
+          duration: 5000,
+        });
+      }
+
+      // Avertir l'utilisateur si la mise à jour du crédit a échoué
+      if (creditUpdateFailed) {
+        toast({
+          variant: "destructive",
+          title: "Vente enregistrée, crédit en attente",
+          description: "La vente est validée mais la mise à jour du crédit client a échoué. Vérifiez les crédits du client.",
+          duration: 8000,
+        });
+      }
+    },
+    onError: (error: unknown) => {
+      // Les erreurs Supabase sont des objets simples, pas des instances Error
+      let message = "Impossible d'enregistrer la vente";
+      if (error instanceof Error) {
+        message = error.message;
+      } else if (typeof error === 'object' && error !== null) {
+        const err = error as Record<string, unknown>;
+        if (typeof err.message === 'string') {
+          message = err.message;
+        } else if (typeof err.details === 'string') {
+          message = err.details;
+        } else if (typeof err.code === 'string') {
+          message = `Erreur ${err.code}: veuillez réessayer`;
+        } else {
+          try {
+            message = JSON.stringify(error);
+          } catch {
+            message = String(error);
+          }
+        }
+      } else {
+        message = String(error);
+      }
+      // Detect plan limit errors from create_sale_with_limit
+      const isPlanLimit = message.includes('Limite') || message.includes('plan') || message.includes('Upgrad');
+      toast({
+        variant: "destructive",
+        title: isPlanLimit ? "Limite atteinte" : "Erreur de vente",
+        description: isPlanLimit
+          ? "Limite de ventes mensuelles atteinte pour votre plan. Upgradez votre abonnement."
+          : message,
+      });
+      if (!isPlanLimit) {
+        reportError(error instanceof Error ? error : new Error(message));
+      }
     },
   });
 

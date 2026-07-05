@@ -803,3 +803,26 @@ Stage Summary:
 - Security headers complete and properly configured
 - 4 experimental pages consistently documented (Support, Loyalty, StockTransfers, BackupRestore)
 - Project is production-ready from a code quality standpoint
+
+---
+Task ID: offline-blockers-fix
+Agent: main
+Task: Fix 3 offline blockers + reinforce offline mode for sales without internet
+
+Work Log:
+- BLOQUEUR 2: Unified IndexedDB — merged dual singleton (indexedDBStorage.ts + offlineQueue.ts) into single getDB() shared connection, bumped DB version to v3, added all stores in single onupgradeneeded handler
+- BLOQUEUR 3: Migrated POSCartContext from localStorage to IndexedDB — added hydrateFromDB() for org-scoped hydration, localStorage fallback for migration, fire-and-forget async saves
+- BLOQUEUR 1: Added offline sale support in POS.tsx — when !isOnline, sales are enqueued via enqueueRPCMutation("create_sale_with_limit") for atomic replay at reconnection, offline receipt generated with local sale number
+- RENFORCEMENT: Split flushQueue into flushMutationQueue + flushRPCQueue for proper ordering of atomic operations
+- RENFORCEMENT: Added ALLOWED_RPCS allowlist for RPC queue security (create_sale_with_limit, increment_customer_credit)
+- RENFORCEMENT: Added local IndexedDB fallback for logConflict — conflicts never silently lost, stored in conflict_log store, synced flag for tracking
+- RENFORCEMENT: Added getUnsyncedConflicts() for admin inspection of unsynced local conflicts
+- Updated main.tsx: unified DB init via getDB() + runMigrations() instead of separate imports
+- Updated posCart.integration.test.ts: adapted persistence tests for IndexedDB migration
+- Verification: 0 TypeScript errors, Vite build OK, 391/391 tests pass, 0 lint errors
+
+Stage Summary:
+- 3 critical blockers fixed: offline sales now work, no more dual-singleton race, cart uses IndexedDB
+- New offline RPC queue architecture for atomic operations (create_sale_with_limit)
+- Conflict logs no longer silently lost when offline
+- Files modified: indexedDBStorage.ts, offlineQueue.ts, POSCartContext.ts, POS.tsx, main.tsx, syncConflictResolver.ts, posCart.integration.test.ts

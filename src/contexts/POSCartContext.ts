@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import { Database } from "@/integrations/supabase/types";
+import { getDB, STORES } from "@/lib/indexedDBStorage";
+import { logger } from "@/lib/logger";
 
 type Product = Database["public"]["Tables"]["products"]["Row"] & {
   categories?: { name: string; color: string | null; icon: string | null } | null;
@@ -12,15 +14,45 @@ export interface CartItem {
 
 interface POSCartState {
   items: CartItem[];
+  isHydrated: boolean;
   addToCart: (product: Product, addQty?: number) => boolean; // returns false if stock exceeded
   updateQuantity: (productId: string, quantity: number) => boolean; // returns false if stock exceeded
   removeItem: (productId: string) => void;
   clearCart: () => void;
   setItems: (items: CartItem[]) => void;
+  hydrateFromDB: (organizationId: string) => Promise<void>;
 }
 
-// Load cart from localStorage
-const loadCart = (): CartItem[] => {
+/**
+ * Load cart from IndexedDB (primary) with localStorage fallback for migration.
+ */
+const loadCartFromDB = async (organizationId: string): Promise<CartItem[]> => {
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORES.POS_CART, "readonly");
+      const store = tx.objectStore(STORES.POS_CART);
+      const request = store.get(organizationId);
+      request.onsuccess = () => {
+        const entry = request.result as { items: CartItem[] } | undefined;
+        if (entry?.items && Array.isArray(entry.items)) {
+          resolve(entry.items);
+        } else {
+          resolve([]);
+        }
+      };
+      request.onerror = () => reject(request.error);
+    });
+  } catch {
+    // Fallback to localStorage if IndexedDB is unavailable
+    return loadCartFromLocalStorage();
+  }
+};
+
+/**
+ * Legacy localStorage loader (fallback + migration source).
+ */
+const loadCartFromLocalStorage = (): CartItem[] => {
   try {
     const saved = localStorage.getItem("pos_cart");
     if (saved) {
@@ -33,8 +65,30 @@ const loadCart = (): CartItem[] => {
   return [];
 };
 
-// Save cart to localStorage
-const saveCart = (items: CartItem[]) => {
+/**
+ * Save cart to IndexedDB (primary).
+ */
+const saveCartToDB = async (items: CartItem[], organizationId: string): Promise<void> => {
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORES.POS_CART, "readwrite");
+      const store = tx.objectStore(STORES.POS_CART);
+      store.put({ organizationId, items, updatedAt: new Date().toISOString() });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (err) {
+    // Fallback to localStorage if IndexedDB is unavailable
+    logger.warn("[POSCart] IndexedDB save failed, falling back to localStorage:", err);
+    saveCartToLocalStorage(items);
+  }
+};
+
+/**
+ * Legacy localStorage saver (fallback).
+ */
+const saveCartToLocalStorage = (items: CartItem[]) => {
   try {
     localStorage.setItem("pos_cart", JSON.stringify(items));
   } catch {
@@ -43,7 +97,28 @@ const saveCart = (items: CartItem[]) => {
 };
 
 export const usePOSCartStore = create<POSCartState>((set, get) => ({
-  items: loadCart(),
+  items: [],
+  isHydrated: false,
+
+  hydrateFromDB: async (organizationId: string) => {
+    // First try IndexedDB
+    let items = await loadCartFromDB(organizationId);
+
+    // If IndexedDB is empty but localStorage has data, migrate it
+    if (items.length === 0) {
+      const lsItems = loadCartFromLocalStorage();
+      if (lsItems.length > 0) {
+        items = lsItems;
+        // Migrate to IndexedDB
+        await saveCartToDB(items, organizationId);
+        // Remove from localStorage after successful migration
+        localStorage.removeItem("pos_cart");
+        logger.info("[POSCart] Migrated cart from localStorage to IndexedDB");
+      }
+    }
+
+    set({ items, isHydrated: true });
+  },
 
   addToCart: (product, addQty = 1) => {
     const state = get();
@@ -65,7 +140,9 @@ export const usePOSCartStore = create<POSCartState>((set, get) => ({
       : [...state.items, { product, quantity: addQty }];
 
     set({ items: newItems });
-    saveCart(newItems);
+    // Fire-and-forget save (non-blocking for UI responsiveness)
+    const orgId = (product as { organization_id?: string }).organization_id || "default";
+    saveCartToDB(newItems, orgId).catch(() => saveCartToLocalStorage(newItems));
     return true;
   },
 
@@ -83,24 +160,30 @@ export const usePOSCartStore = create<POSCartState>((set, get) => ({
       item.product.id === productId ? { ...item, quantity } : item
     );
     set({ items: newItems });
-    saveCart(newItems);
+    const orgId = (item?.product as { organization_id?: string })?.organization_id || "default";
+    saveCartToDB(newItems, orgId).catch(() => saveCartToLocalStorage(newItems));
     return true;
   },
 
   removeItem: (productId) => {
-    const newItems = get().items.filter((item) => item.product.id !== productId);
+    const state = get();
+    const newItems = state.items.filter((item) => item.product.id !== productId);
     set({ items: newItems });
-    saveCart(newItems);
+    const orgId = (state.items[0]?.product as { organization_id?: string })?.organization_id || "default";
+    saveCartToDB(newItems, orgId).catch(() => saveCartToLocalStorage(newItems));
   },
 
   clearCart: () => {
+    const state = get();
     set({ items: [] });
-    saveCart([]);
+    const orgId = (state.items[0]?.product as { organization_id?: string })?.organization_id || "default";
+    saveCartToDB([], orgId).catch(() => saveCartToLocalStorage([]));
   },
 
   setItems: (items) => {
     set({ items });
-    saveCart(items);
+    const orgId = (items[0]?.product as { organization_id?: string })?.organization_id || "default";
+    saveCartToDB(items, orgId).catch(() => saveCartToLocalStorage(items));
   },
 }));
 
