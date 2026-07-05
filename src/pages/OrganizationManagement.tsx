@@ -105,12 +105,19 @@ export default function OrganizationManagement() {
   const changeSubMutation = useMutation({
     mutationFn: async () => {
       if (!selectedOrg || !selectedPlan) throw new Error("Sélection incomplète");
-      const durationInterval = selectedDuration === "1year" ? "1 year" : "1 month";
+
+      // Align p_duration with RPC accepted values: 1_month, 3_months, 6_months, 1_year
+      const duration = selectedDuration === "1year" ? "1_year" : "1_month";
+
+      // La RPC actuelle active/renouvelle l'abonnement.
+      // Le statut sélectionné est conservé dans la raison d'audit,
+      // mais n'est pas appliqué directement pour éviter les états incohérents.
       const { data, error } = await supabase.rpc("admin_update_organization_subscription", {
         p_organization_id: selectedOrg.organization_id,
         p_plan_id: selectedPlan,
-        p_status: selectedStatus,
-        p_duration: durationInterval,
+        p_duration: duration,
+        p_payment_reference: null,
+        p_reason: `Changement manuel depuis l'écran Organisations. Statut demandé: ${selectedStatus}`,
       });
       if (error) throw error;
       return data;
