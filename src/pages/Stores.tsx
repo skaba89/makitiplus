@@ -345,22 +345,23 @@ const Stores = () => {
     if (!storeToDelete) return;
     if (blockMutation('Gérer les boutiques')) return;
     try {
-      // Use server-side RPC for safe deletion (checks ownership, handles FK constraints)
-      const { error } = await supabase.rpc("delete_store", { p_store_id: storeToDelete.id });
+      // Use server-side RPC for safe organization deletion (super_admin only, audit logging)
+      // Note: This page manages organizations (presented as "stores" in the UI)
+      const { error } = await supabase.rpc("delete_organization", { p_organization_id: storeToDelete.id });
       if (error) throw error;
-      toast({ title: "Magasin supprimé", description: `"${storeToDelete.name}" a été supprimé.` });
+      toast({ title: "Organisation supprimée", description: `"${storeToDelete.name}" et tous ses magasins ont été supprimés.` });
       queryClient.invalidateQueries({ queryKey: ["stores"] });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       reportError(error instanceof Error ? error : new Error(String(error)));
-      // Handle specific FK constraint errors
-      const isFKViolation = message.includes('23') && message.includes('restrict');
-      const isProtected = message.includes('transferts') || message.includes('stock_transfers');
+      // Handle permission errors
+      const isPermissionDenied = message.includes('Accès refusé') || message.includes('super administrateur');
+      const isNotFound = message.includes('introuvable');
       toast({
         variant: "destructive",
-        title: isFKViolation || isProtected ? "Suppression impossible" : "Erreur",
-        description: isFKViolation || isProtected
-          ? "Ce magasin ne peut pas être supprimé car il est lié à des transferts de stock. Supprimez ou réassignez les transferts d'abord."
+        title: isPermissionDenied ? "Accès refusé" : isNotFound ? "Introuvable" : "Erreur",
+        description: isPermissionDenied
+          ? "Seul un super administrateur peut supprimer une organisation."
           : message,
       });
     } finally {
@@ -739,9 +740,11 @@ const Stores = () => {
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Supprimer le magasin</AlertDialogTitle>
+              <AlertDialogTitle>Supprimer cette organisation</AlertDialogTitle>
               <AlertDialogDescription>
-                Êtes-vous sûr de vouloir supprimer le magasin "{storeToDelete?.name}" ? Cette action est irréversible.
+                Êtes-vous sûr de vouloir supprimer l'organisation "{storeToDelete?.name}" ? 
+                Cela supprimera également tous ses magasins, abonnements et données associées. 
+                Cette action est irréversible.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
