@@ -25,20 +25,21 @@ supabase login
 
 # 1c. Lier le projet
 cd /chemin/vers/makitiplus
-supabase link --project-ref exxntkuursgwhxvehekr
+supabase link --project-ref <VOTRE_PROJECT_REF>
 
 # 1d. Déployer les 3 fonctions Stripe
-supabase functions deploy stripe-checkout --project-ref exxntkuursgwhxvehekr
-supabase functions deploy stripe-webhook  --project-ref exxntkuursgwhxvehekr
-supabase functions deploy stripe-portal   --project-ref exxntkuursgwhxvehekr
+supabase functions deploy stripe-checkout --project-ref <VOTRE_PROJECT_REF>
+supabase functions deploy stripe-webhook  --project-ref <VOTRE_PROJECT_REF>
+supabase functions deploy stripe-portal   --project-ref <VOTRE_PROJECT_REF>
 
 # OU déployer TOUTES les fonctions d'un coup :
+# export SUPABASE_PROJECT_REF=<VOTRE_PROJECT_REF>
 # chmod +x deploy-functions.sh && ./deploy-functions.sh
 
 # Vérification — les URLs seront :
-# https://exxntkuursgwhxvehekr.supabase.co/functions/v1/stripe-checkout
-# https://exxntkuursgwhxvehekr.supabase.co/functions/v1/stripe-webhook
-# https://exxntkuursgwhxvehekr.supabase.co/functions/v1/stripe-portal
+# https://<VOTRE_PROJECT_REF>.supabase.co/functions/v1/stripe-checkout
+# https://<VOTRE_PROJECT_REF>.supabase.co/functions/v1/stripe-webhook
+# https://<VOTRE_PROJECT_REF>.supabase.co/functions/v1/stripe-portal
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -82,25 +83,25 @@ supabase functions deploy stripe-portal   --project-ref exxntkuursgwhxvehekr
 # OU utiliser la CLI :
 
 # 3a. Clé secrète Stripe (trouver dans Stripe Dashboard → Developers → API keys)
-supabase secrets set --project-ref exxntkuursgwhxvehekr \
+supabase secrets set --project-ref <VOTRE_PROJECT_REF> \
   STRIPE_SECRET_KEY=sk_live_VOTRE_CLE_SECRETE
 
 # 3b. Webhook secret (sera obtenu à l'étape 4)
 # → À définir APRÈS avoir créé le webhook (étape 4)
 
 # 3c. Price IDs (obtenus à l'étape 2)
-supabase secrets set --project-ref exxntkuursgwhxvehekr \
+supabase secrets set --project-ref <VOTRE_PROJECT_REF> \
   STRIPE_PRICE_CROISSANCE_MONTHLY=price_VOTRE_ID_CROISSANCE_MENSUEL \
   STRIPE_PRICE_CROISSANCE_YEARLY=price_VOTRE_ID_CROISSANCE_ANNUEL \
   STRIPE_PRICE_ENTERPRISE_MONTHLY=price_VOTRE_ID_ENTERPRISE_MENSUEL \
   STRIPE_PRICE_ENTERPRISE_YEARLY=price_VOTRE_ID_ENTERPRISE_ANNUEL
 
 # 3d. URL de l'app
-supabase secrets set --project-ref exxntkuursgwhxvehekr \
+supabase secrets set --project-ref <VOTRE_PROJECT_REF> \
   APP_URL=https://makitiplus.onrender.com
 
 # 3e. Webhook secret (après l'étape 4)
-supabase secrets set --project-ref exxntkuursgwhxvehekr \
+supabase secrets set --project-ref <VOTRE_PROJECT_REF> \
   STRIPE_WEBHOOK_SECRET=whsec_VOTRE_WEBHOOK_SECRET
 
 
@@ -112,7 +113,7 @@ supabase secrets set --project-ref exxntkuursgwhxvehekr \
 
 # 4a. Cliquer "Add endpoint"
 # 4b. URL de l'endpoint :
-#     https://exxntkuursgwhxvehekr.supabase.co/functions/v1/stripe-webhook
+#     https://<VOTRE_PROJECT_REF>.supabase.co/functions/v1/stripe-webhook
 # 4c. Événements à écouter (cliquer "Select events") :
 #     ☑ checkout.session.completed
 #     ☑ customer.subscription.updated

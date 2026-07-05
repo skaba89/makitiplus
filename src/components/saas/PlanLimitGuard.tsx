@@ -1,6 +1,10 @@
 /**
  * PlanLimitGuard — Blocks child actions when plan limit is reached
  *
+ * Security model:
+ *   - super_admin: BYPASSES all plan limits (platform operator needs full access)
+ *   - admin/manager/vendeur/comptable: subject to plan limits
+ *
  * Usage:
  * <PlanLimitGuard limitType="products" fallback={<UpgradePrompt />}>
  *   <Button onClick={addProduct}>Ajouter un produit</Button>
@@ -11,7 +15,6 @@ import { type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePlanLimit, useFeatureAccess, type LimitType, type FeatureKey } from "@/hooks/useSubscription";
 import { useAuth } from "@/contexts/AuthContext";
-import { isAdminRole } from "@/types";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -36,11 +39,12 @@ export function PlanLimitGuard({
   fallback,
   showUpgrade = true,
 }: PlanLimitGuardProps) {
-  const { userRole } = useAuth();
   const { data: limitCheck, isLoading } = usePlanLimit(limitType);
+  const { userRole } = useAuth();
 
-  // Super_admin and admin bypass plan limits (they can always add more)
-  if (userRole && isAdminRole(userRole)) {
+  // SECURITY: Only super_admin bypasses plan limits — NOT admin
+  // This ensures tenant admins cannot exceed their plan's quotas
+  if (userRole === "super_admin") {
     return <>{children}</>;
   }
 
@@ -110,21 +114,17 @@ interface FeatureGateProps {
 }
 
 export function FeatureGate({ feature, children, fallback }: FeatureGateProps) {
-  const { userRole } = useAuth();
   const { data: allowed, isLoading } = useFeatureAccess(feature);
+  const { userRole } = useAuth();
 
-  // Super_admin and admin always have access to all features
-  if (userRole && isAdminRole(userRole)) {
+  // SECURITY: Only super_admin bypasses feature gates — NOT admin
+  // This ensures tenant admins cannot access features their plan doesn't include
+  if (userRole === "super_admin") {
     return <>{children}</>;
   }
 
-  // While loading, show nothing (brief flash prevention)
   if (isLoading) return null;
-
-  // Feature check passed
   if (allowed) return <>{children}</>;
-
-  // Feature not available — show fallback or nothing
   if (fallback) return <>{fallback}</>;
   return null;
 }
