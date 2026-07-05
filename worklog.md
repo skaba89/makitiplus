@@ -977,3 +977,28 @@ Stage Summary:
 - Couverture: cleanupExpiredMutations, retryFailedMutations, getFailedCount, decrementLocalStock, flushQueueWithMutex, enqueueMutation, OfflineFallback
 - Fichiers créés: src/test/offlineQueue.test.ts, src/test/offlineFallback.test.tsx
 - Dépendance ajoutée: fake-indexeddb
+
+---
+Task ID: 6
+Agent: main
+Task: Création PR + Test E2E Playwright
+
+Work Log:
+- Créé la branche fix/offline-mode-audit
+- Créé e2e/offline-cycle.spec.ts — 7 tests E2E Playwright:
+  - Offline indicator appears when network drops
+  - Offline banner appears in dashboard when offline
+  - Online indicator shows after reconnection
+  - Offline fallback page loads for uncached routes
+  - POS search input works offline with cached data
+  - Retry button visibility
+  - Cache staleness indicator
+- Build vérifié: TypeScript 0 erreurs, Vite OK, 27/27 tests unitaires OK
+- Commité: "e2e: test cycle offline→online complet"
+- Poussé la branche sur origin
+- Créé PR #8 via GitHub API: https://github.com/skaba89/makitiplus/pull/8
+
+Stage Summary:
+- PR #8 ouverte: "fix: Audit offline complet — 13 vulnérabilités traitées + 27 tests + E2E"
+- 27 tests unitaires + 7 tests E2E couvrant le cycle offline complet
+- Branche: fix/offline-mode-audit → main
