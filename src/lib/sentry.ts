@@ -69,7 +69,7 @@ export function initSentry(): void {
   Sentry.init({
     dsn: SENTRY_DSN,
     environment: ENVIRONMENT,
-    release: `malikiplus@${import.meta.env.VITE_APP_VERSION || "0.0.0"}`,
+    release: `makitiplus@${import.meta.env.VITE_APP_VERSION || "1.0.0"}`,
 
     // Performance monitoring
     integrations: [
@@ -110,7 +110,7 @@ export function initSentry(): void {
     // Initial tags
     initialScope: {
       tags: {
-        app: "malikiplus",
+        app: "makitiplus",
         offline_first: true,
         pwa: true,
       },
