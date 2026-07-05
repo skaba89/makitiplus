@@ -45,6 +45,22 @@ type Product = Database["public"]["Tables"]["products"]["Row"];
 type ProductInsert = Database["public"]["Tables"]["products"]["Insert"];
 type ProductWithCat = ProductWithCategory;
 
+/**
+ * Extract a human-readable message from Supabase/Postgrest errors.
+ * Supabase RPC errors are PostgrestError objects {message, code, details, hint},
+ * NOT native Error instances. String(error) gives "[object Object]".
+ */
+function extractErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object' && error !== null) {
+    const errObj = error as Record<string, unknown>;
+    if (typeof errObj.message === 'string') return errObj.message;
+    if (typeof errObj.msg === 'string') return errObj.msg;
+    return JSON.stringify(error);
+  }
+  return String(error);
+}
+
 const Products = () => {
   const { user, profile, userRole } = useAuth();
   const { currency } = useCurrency();
@@ -121,7 +137,7 @@ const Products = () => {
         p_unit: product.unit || 'unité',
         p_stock_quantity: product.stock_quantity ?? 0,
         p_min_stock_alert: product.min_stock_alert ?? 5,
-        p_cost_price: product.cost_price || null,
+        p_buy_price: product.cost_price || null, // RPC param is p_buy_price, not p_cost_price
         p_supplier_id: product.supplier_id || null,
         p_store_id: product.store_id || null,
         p_description: product.description || null,
@@ -148,7 +164,9 @@ const Products = () => {
       setIsFormOpen(false);
     },
     onError: (error: unknown) => {
-      const msg = error instanceof Error ? error.message : (typeof error === 'object' && error !== null && 'message' in error) ? String((error as Record<string, unknown>).message) : String(error);
+      // Supabase RPC errors are PostgrestError objects {message, code, details, hint}
+      // not native Error instances, so String(error) gives [object Object]
+      const msg = extractErrorMessage(error);
       const isPlanLimit = msg.includes('Limite') || msg.includes('plan') || msg.includes('Upgrad');
       const isRlsError = msg.includes('policy') || msg.includes('row-level') || msg.includes('violates') || msg.includes('409');
       toast({
@@ -187,7 +205,7 @@ const Products = () => {
       setSelectedProduct(null);
     },
     onError: (error: unknown) => {
-      const msg = error instanceof Error ? error.message : (typeof error === 'object' && error !== null && 'message' in error) ? String((error as Record<string, unknown>).message) : String(error);
+      const msg = extractErrorMessage(error);
       const isRlsError = msg.includes('policy') || msg.includes('row-level') || msg.includes('violates') || msg.includes('409');
       toast({
         variant: "destructive",
@@ -211,7 +229,7 @@ const Products = () => {
       toast({ title: "Produit supprimé" });
     },
     onError: (error: unknown) => {
-      const msg = error instanceof Error ? error.message : (typeof error === 'object' && error !== null && 'message' in error) ? String((error as Record<string, unknown>).message) : String(error);
+      const msg = extractErrorMessage(error);
       const isRlsError = msg.includes('policy') || msg.includes('row-level') || msg.includes('violates') || msg.includes('409');
       toast({
         variant: "destructive",
