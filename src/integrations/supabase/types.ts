@@ -1482,6 +1482,25 @@ export type Database = {
     }
     Functions: {
       admin_exists: { Args: never; Returns: boolean }
+      admin_get_all_subscriptions: {
+        Args: never
+        Returns: {
+          organization_id: string
+          organization_name: string
+          owner_email: string | null
+          country: string | null
+          subscription_id: string | null
+          plan_id: string | null
+          plan_name: string | null
+          status: string | null
+          current_period_start: string | null
+          current_period_end: string | null
+          trial_ends_at: string | null
+          billing_period: string | null
+          stripe_customer_id: string | null
+          created_at: string | null
+        }[]
+      }
       admin_update_organization_subscription: {
         Args: {
           p_organization_id: string

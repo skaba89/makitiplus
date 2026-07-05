@@ -3,6 +3,7 @@
  *
  * Lists all organizations with their subscription details and allows
  * the super_admin to change any organization's plan, status, and duration.
+ * Also allows deleting organizations (with confirmation).
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -30,6 +31,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Table,
   TableBody,
   TableCell,
@@ -37,7 +48,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, Building2, CreditCard, Search, Edit, RefreshCw, AlertTriangle } from "lucide-react";
+import { Loader2, Building2, CreditCard, Search, Edit, RefreshCw, AlertTriangle, Trash2 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -72,6 +83,19 @@ const STATUS_STYLES: Record<string, { label: string; variant: "default" | "secon
   expired: { label: "Expiré", variant: "destructive" },
 };
 
+// ─── Helper: extract error message from Supabase PostgrestError ──
+
+function extractErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object" && error !== null) {
+    const errObj = error as Record<string, unknown>;
+    if (typeof errObj.message === "string") return errObj.message;
+    if (typeof errObj.msg === "string") return errObj.msg;
+    return JSON.stringify(error);
+  }
+  return String(error);
+}
+
 // ─── Component ────────────────────────────────────────────────
 
 export default function OrganizationManagement() {
@@ -86,6 +110,11 @@ export default function OrganizationManagement() {
   const [selectedPlan, setSelectedPlan] = useState<string>("");
   const [selectedStatus, setSelectedStatus] = useState<string>("active");
   const [selectedDuration, setSelectedDuration] = useState<"1month" | "1year">("1month");
+
+  // Delete state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [orgToDelete, setOrgToDelete] = useState<OrgSubscription | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // ─── Fetch all org subscriptions ──────────────────────────
   const { data: orgs, isLoading, error } = useQuery({
@@ -109,9 +138,6 @@ export default function OrganizationManagement() {
       // Align p_duration with RPC accepted values: 1_month, 3_months, 6_months, 1_year
       const duration = selectedDuration === "1year" ? "1_year" : "1_month";
 
-      // La RPC actuelle active/renouvelle l'abonnement.
-      // Le statut sélectionné est conservé dans la raison d'audit,
-      // mais n'est pas appliqué directement pour éviter les états incohérents.
       const { data, error } = await supabase.rpc("admin_update_organization_subscription", {
         p_organization_id: selectedOrg.organization_id,
         p_plan_id: selectedPlan,
@@ -139,6 +165,43 @@ export default function OrganizationManagement() {
       });
     },
   });
+
+  // ─── Delete organization ──────────────────────────────────
+  const handleDeleteOrg = (org: OrgSubscription) => {
+    setOrgToDelete(org);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteOrg = async () => {
+    if (!orgToDelete) return;
+    setDeleting(true);
+    try {
+      const { error } = await supabase.rpc("delete_organization", {
+        p_organization_id: orgToDelete.organization_id,
+      });
+      if (error) throw error;
+      toast({
+        title: "Organisation supprimée",
+        description: `"${orgToDelete.organization_name}" et toutes ses données ont été supprimés définitivement.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["admin-all-subscriptions"] });
+    } catch (error) {
+      const message = extractErrorMessage(error);
+      const isPermissionDenied = message.includes("Accès refusé") || message.includes("super administrateur");
+      const isNotFound = message.includes("introuvable");
+      toast({
+        variant: "destructive",
+        title: isPermissionDenied ? "Accès refusé" : isNotFound ? "Introuvable" : "Erreur de suppression",
+        description: isPermissionDenied
+          ? "Seul un super administrateur peut supprimer une organisation."
+          : message,
+      });
+    } finally {
+      setDeleting(false);
+      setDeleteDialogOpen(false);
+      setOrgToDelete(null);
+    }
+  };
 
   // ─── Filter orgs by search ────────────────────────────────
   const filteredOrgs = useMemo(() => {
@@ -332,14 +395,24 @@ export default function OrganizationManagement() {
                               )}
                             </TableCell>
                             <TableCell className="text-right">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openChangeDialog(org)}
-                              >
-                                <Edit className="h-4 w-4 mr-1" />
-                                Modifier
-                              </Button>
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => openChangeDialog(org)}
+                                >
+                                  <Edit className="h-4 w-4 mr-1" />
+                                  Modifier
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-destructive hover:text-destructive"
+                                  onClick={() => handleDeleteOrg(org)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
@@ -463,6 +536,35 @@ export default function OrganizationManagement() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Delete Organization Confirmation */}
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Supprimer cette organisation ?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Cette action est <strong>irréversible</strong>. L'organisation{" "}
+                <strong>{orgToDelete?.organization_name}</strong> et toutes ses données
+                (magasins, produits, ventes, abonnements...) seront supprimées définitivement.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Annuler</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDeleteOrg}
+                disabled={deleting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deleting ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Trash2 className="h-4 w-4 mr-2" />
+                )}
+                Supprimer définitivement
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );
