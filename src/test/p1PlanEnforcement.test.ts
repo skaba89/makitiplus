@@ -209,20 +209,25 @@ describe("P1 Fix: Stripe webhook idempotency", () => {
 
 // ─── 5. Frontend uses create_sale_with_limit ──────────────────────
 describe("P1 Fix: Frontend POS uses create_sale_with_limit", () => {
-  it("POS.tsx calls create_sale_with_limit RPC, not create_full_sale directly", () => {
-    const source = readSrc("pages/POS.tsx");
+  it("POS uses create_sale_with_limit RPC via useOfflineSale hook", () => {
+    // The sale creation logic is now in useOfflineSale hook
+    const hookSource = readSrc("hooks/useOfflineSale.ts");
+    const posSource = readSrc("pages/POS.tsx");
 
-    expect(source).toMatch(/supabase\.rpc\(["']create_sale_with_limit["']/);
+    // POS.tsx must use the offline-aware hook
+    expect(posSource).toContain("useOfflineSale");
+    // The hook must call create_sale_with_limit when online
+    expect(hookSource).toMatch(/supabase\.rpc\(["']create_sale_with_limit["']/);
     // Should NOT call create_full_sale directly from frontend anymore
-    expect(source).not.toMatch(/supabase\.rpc\(["']create_full_sale["']/);
+    expect(hookSource).not.toMatch(/supabase\.rpc\(["']create_full_sale["']/);
   });
 
-  it("POS.tsx has plan limit error detection", () => {
-    const source = readSrc("pages/POS.tsx");
+  it("POS has plan limit error detection", () => {
+    const hookSource = readSrc("hooks/useOfflineSale.ts");
 
     // Should detect plan limit errors and show specific message
-    expect(source).toMatch(/isPlanLimit/);
-    expect(source).toMatch(/Limite.*atteinte|Upgradez/);
+    expect(hookSource).toMatch(/isPlanLimit/);
+    expect(hookSource).toMatch(/Limite.*atteinte|Upgradez/);
   });
 });
 
