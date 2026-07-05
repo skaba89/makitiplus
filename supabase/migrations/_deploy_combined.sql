@@ -13888,6 +13888,7 @@ BEGIN
   SET
     subscription_plan = p_plan_id,
     subscription_status = 'active',
+    subscription_expires_at = v_new_period_end,
     updated_at = NOW()
   WHERE id = p_organization_id;
 

@@ -1482,6 +1482,16 @@ export type Database = {
     }
     Functions: {
       admin_exists: { Args: never; Returns: boolean }
+      admin_update_organization_subscription: {
+        Args: {
+          p_organization_id: string
+          p_plan_id: string
+          p_duration?: string
+          p_payment_reference?: string | null
+          p_reason?: string | null
+        }
+        Returns: Json
+      }
       check_account_status: {
         Args: never
         Returns: {

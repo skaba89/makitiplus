@@ -339,3 +339,165 @@ describe("Hotfix: CI configuration", () => {
     expect(true).toBe(true); // This test just documents the expectation
   });
 });
+
+// ════════════════════════════════════════════════════════════════
+// 7. OrganizationManagement.tsx — RPC alignment
+// ════════════════════════════════════════════════════════════════
+describe("Hotfix: OrganizationManagement.tsx RPC alignment", () => {
+  let orgMgmt: string;
+  beforeAll(() => {
+    orgMgmt = readSrc("pages/OrganizationManagement.tsx");
+  });
+
+  it("calls admin_update_organization_subscription RPC (not direct update)", () => {
+    expect(orgMgmt).toContain("admin_update_organization_subscription");
+    expect(orgMgmt).not.toMatch(/supabase\.from\(["']subscriptions["']\)\.update/);
+    expect(orgMgmt).not.toMatch(/supabase\.from\(["']subscriptions["']\)\.insert/);
+  });
+
+  it("does NOT send p_status to the RPC", () => {
+    // p_status is not a parameter of the current RPC signature
+    const rpcCallSection = orgMgmt.substring(
+      orgMgmt.indexOf('supabase.rpc("admin_update_organization_subscription"'),
+      orgMgmt.indexOf('supabase.rpc("admin_update_organization_subscription"') + 500
+    );
+    expect(rpcCallSection).not.toContain("p_status:");
+  });
+
+  it("sends p_duration with RPC-accepted format", () => {
+    // Must use 1_month/1_year (not "1 month"/"1 year")
+    expect(orgMgmt).toContain("p_duration");
+    // The conversion must produce RPC-accepted values
+    expect(orgMgmt).toMatch(/1year.*1_year/);
+    expect(orgMgmt).toMatch(/1_month/);
+  });
+
+  it("converts '1year' selector to '1_year' for the RPC", () => {
+    // The duration selector uses '1year' but RPC expects '1_year'
+    expect(orgMgmt).toMatch(/selectedDuration.*1year.*1_year/);
+  });
+
+  it("converts '1month' selector to '1_month' for the RPC", () => {
+    // The duration selector uses '1month' but RPC expects '1_month'
+    expect(orgMgmt).toMatch(/1_month/);
+  });
+
+  it("does NOT send '1 year' or '1 month' to the RPC", () => {
+    const rpcCallSection = orgMgmt.substring(
+      orgMgmt.indexOf('supabase.rpc("admin_update_organization_subscription"'),
+      orgMgmt.indexOf('supabase.rpc("admin_update_organization_subscription"') + 500
+    );
+    expect(rpcCallSection).not.toContain('"1 year"');
+    expect(rpcCallSection).not.toContain('"1 month"');
+  });
+
+  it("sends p_payment_reference and p_reason to the RPC", () => {
+    expect(orgMgmt).toContain("p_payment_reference");
+    expect(orgMgmt).toContain("p_reason");
+  });
+
+  it("includes selectedStatus in p_reason for audit trail", () => {
+    expect(orgMgmt).toMatch(/p_reason.*selectedStatus/);
+  });
+
+  it("is reserved to super_admin only (userRole check)", () => {
+    expect(orgMgmt).toMatch(/userRole\s*!==\s*["']super_admin["']/);
+  });
+
+  it("query is only enabled for super_admin", () => {
+    expect(orgMgmt).toMatch(/enabled:\s*userRole\s*===\s*["']super_admin["']/);
+  });
+
+  it("does not import or use isAdminRole", () => {
+    expect(orgMgmt).not.toContain("isAdminRole");
+  });
+});
+
+// ════════════════════════════════════════════════════════════════
+// 8. SQL Migration — subscription_expires_at alignment
+// ════════════════════════════════════════════════════════════════
+describe("Hotfix: SQL migration subscription_expires_at", () => {
+  let sql: string;
+  beforeAll(() => {
+    sql = readMigration("20260705050000_secure_manual_subscription_management.sql");
+  });
+
+  it("updates subscription_expires_at in organizations", () => {
+    expect(sql).toContain("subscription_expires_at = v_new_period_end");
+  });
+
+  it("updates subscription_status in organizations", () => {
+    expect(sql).toContain("subscription_status = 'active'");
+  });
+
+  it("updates subscription_plan in organizations", () => {
+    expect(sql).toContain("subscription_plan = p_plan_id");
+  });
+
+  it("IF NOT public.is_super_admin() guard exists", () => {
+    expect(sql).toMatch(/IF NOT public\.is_super_admin\(\)/);
+  });
+
+  it("validates p_plan_id against plans table", () => {
+    expect(sql).toMatch(/EXISTS.*plans.*p_plan_id/);
+  });
+
+  it("validates p_duration with accepted values", () => {
+    expect(sql).toContain("1_month");
+    expect(sql).toContain("3_months");
+    expect(sql).toContain("6_months");
+    expect(sql).toContain("1_year");
+    expect(sql).toMatch(/Durée invalide/);
+  });
+
+  it("GRANT EXECUTE is present for authenticated", () => {
+    expect(sql).toContain("GRANT EXECUTE ON FUNCTION public.admin_update_organization_subscription");
+    expect(sql).toContain("TO authenticated");
+  });
+
+  it("subscriptions INSERT restricted to super_admin", () => {
+    expect(sql).toMatch(/Only super_admin can insert subscriptions/);
+  });
+
+  it("subscriptions UPDATE restricted to super_admin", () => {
+    expect(sql).toMatch(/Only super_admin can update subscriptions/);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════
+// 9. SaaS governance — no regression on Billing & PlanLimitGuard
+// ════════════════════════════════════════════════════════════════
+describe("Hotfix: SaaS governance no-regression", () => {
+  let billing: string;
+  let guard: string;
+  beforeAll(() => {
+    billing = readSrc("pages/Billing.tsx");
+    guard = readSrc("components/saas/PlanLimitGuard.tsx");
+  });
+
+  it("Billing.tsx has no direct subscriptions.update() fallback", () => {
+    expect(billing).not.toMatch(/supabase\.from\(["']subscriptions["']\)\.update/);
+  });
+
+  it("admin (tenant) cannot see manual plan change block in Billing.tsx", () => {
+    // isPlatformSuperAdmin gates the manual change, not isTenantAdmin
+    expect(billing).toMatch(/isPlatformSuperAdmin\s*&&\s*\(/);
+  });
+
+  it("super_admin sees manual plan change block in Billing.tsx", () => {
+    expect(billing).toMatch(/isPlatformSuperAdmin/);
+  });
+
+  it("PlanLimitGuard bypasses only for super_admin", () => {
+    expect(guard).toMatch(/userRole\s*===\s*["']super_admin["']/);
+    expect(guard).not.toContain("isAdminRole");
+  });
+
+  it("FeatureGate bypasses only for super_admin", () => {
+    const featureGateSection = guard.substring(
+      guard.indexOf("export function FeatureGate"),
+      guard.indexOf("export function FeatureGate") + 400
+    );
+    expect(featureGateSection).toMatch(/userRole\s*===\s*["']super_admin["']/);
+  });
+});
