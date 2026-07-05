@@ -952,3 +952,28 @@ Stage Summary:
 - Tous les 13 problèmes de l'audit offline sont maintenant traités (3 CRITIQUES + 5 HAUTES + 5 MOYENNES)
 - Fichiers créés: src/pages/OfflineFallback.tsx
 - Fichiers modifiés: App.tsx, offlineQueue.ts, OfflineContext.tsx, offline-indicator.tsx
+
+---
+Task ID: 5
+Agent: main
+Task: Tests unitaires offline + commit
+
+Work Log:
+- Installé fake-indexeddb pour simuler IndexedDB dans jsdom
+- Créé src/test/offlineQueue.test.ts — 19 tests couvrant:
+  - cleanupExpiredMutations: mutations >24h, retryCount>=5, deux queues, vide
+  - retryFailedMutations: retryCount<5, retryCount>=5, pending non touché, queue RPC
+  - getFailedCount: vide, deux queues
+  - decrementLocalStock: décrement normal, floor 0, produit absent
+  - flushQueueWithMutex: concurrence, queue vide
+  - enqueueMutation: tables interdites, RPC interdites, tables autorisées, RPC autorisées
+- Créé src/test/offlineFallback.test.tsx — 8 tests:
+  - Titre/description offline, nom de page, boutons navigation, retry, mode online
+- Tous les tests passent: 27/27 ✅
+- Commité: "test: 27 tests unitaires offline"
+
+Stage Summary:
+- 27 tests unitaires ajoutés pour le module offline
+- Couverture: cleanupExpiredMutations, retryFailedMutations, getFailedCount, decrementLocalStock, flushQueueWithMutex, enqueueMutation, OfflineFallback
+- Fichiers créés: src/test/offlineQueue.test.ts, src/test/offlineFallback.test.tsx
+- Dépendance ajoutée: fake-indexeddb
