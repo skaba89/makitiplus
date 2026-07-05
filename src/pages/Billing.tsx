@@ -236,9 +236,9 @@ export default function Billing() {
   return (
     <DashboardLayout>
     <div className="space-y-6 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Abonnement & Facturation</h1>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold">Abonnement & Facturation</h1>
           <p className="text-muted-foreground">Gérez votre plan et suivez votre utilisation</p>
         </div>
         <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
@@ -544,7 +544,7 @@ export default function Billing() {
       {/* Manage Subscription — Stripe (when configured) */}
       {(subscription?.status === "active" || subscription?.status === "trialing") && isStripeConfigured && (
         <Card>
-          <CardContent className="flex items-center justify-between p-6">
+          <CardContent className="flex flex-wrap items-center justify-between p-6">
             <div>
               <h3 className="font-semibold text-lg">Gérer votre abonnement</h3>
               <p className="text-sm text-muted-foreground mt-1">
@@ -562,7 +562,7 @@ export default function Billing() {
       {/* Non-admin: Contact to upgrade */}
       {!isPlatformSuperAdmin && !isTenantAdmin && !isStripeConfigured && (
         <Card className="border-primary/50 bg-primary/5">
-          <CardContent className="flex items-center justify-between p-6">
+          <CardContent className="flex flex-wrap items-center justify-between p-6">
             <div>
               <h3 className="font-semibold text-lg">Améliorer votre plan</h3>
               <p className="text-sm text-muted-foreground mt-1">
@@ -580,7 +580,7 @@ export default function Billing() {
       {/* Stripe Checkout for upgrade */}
       {isStripeConfigured && !subscription && (
         <Card className="border-primary/50 bg-primary/5">
-          <CardContent className="flex items-center justify-between p-6">
+          <CardContent className="flex flex-wrap items-center justify-between p-6">
             <div>
               <h3 className="font-semibold text-lg">Choisissez un plan pour commencer</h3>
               <p className="text-sm text-muted-foreground mt-1">
@@ -596,7 +596,7 @@ export default function Billing() {
       )}
       {isStripeConfigured && planId === "croissance" && (
         <Card className="border-primary/50 bg-primary/5">
-          <CardContent className="flex items-center justify-between p-6">
+          <CardContent className="flex flex-wrap items-center justify-between p-6">
             <div>
               <h3 className="font-semibold text-lg">
                 Passez à Enterprise pour boutiques illimitées, API et support prioritaire

@@ -409,7 +409,7 @@ const PurchaseOrders = () => {
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">
                 Commandes Fournisseurs
               </h1>
               <p className="text-muted-foreground mt-1">
@@ -485,7 +485,7 @@ const PurchaseOrders = () => {
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-full sm:w-40">
                 <SelectValue placeholder="Statut" />
               </SelectTrigger>
               <SelectContent>
@@ -628,7 +628,7 @@ const PurchaseOrders = () => {
 
           {/* Create Order Dialog */}
           <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" aria-describedby={undefined}>
+            <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto" aria-describedby={undefined}>
               <DialogHeader>
                 <DialogTitle>Nouvelle commande fournisseur</DialogTitle>
                 <DialogDescription className="sr-only">
@@ -673,8 +673,8 @@ const PurchaseOrders = () => {
                     </Button>
                   </div>
                   {formItems.map((item, index) => (
-                    <div key={index} className="grid grid-cols-12 gap-2 items-end">
-                      <div className="col-span-4">
+                    <div key={index} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
+                      <div className="sm:col-span-4">
                         {index === 0 && <Label className="text-xs">Produit</Label>}
                         <Select
                           value={item.product_id || ""}
@@ -692,7 +692,7 @@ const PurchaseOrders = () => {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="col-span-2">
+                      <div className="sm:col-span-2">
                         {index === 0 && <Label className="text-xs">Qté</Label>}
                         <Input
                           type="number"
@@ -702,7 +702,7 @@ const PurchaseOrders = () => {
                           className="h-9 text-sm"
                         />
                       </div>
-                      <div className="col-span-3">
+                      <div className="sm:col-span-3">
                         {index === 0 && <Label className="text-xs">Prix unitaire</Label>}
                         <Input
                           type="number"
@@ -712,13 +712,13 @@ const PurchaseOrders = () => {
                           className="h-9 text-sm"
                         />
                       </div>
-                      <div className="col-span-2">
+                      <div className="sm:col-span-2">
                         {index === 0 && <Label className="text-xs">Total</Label>}
                         <div className="h-9 px-3 flex items-center text-sm font-medium bg-muted rounded-md">
                           {formatPrice(item.line_total)}
                         </div>
                       </div>
-                      <div className="col-span-1">
+                      <div className="sm:col-span-1">
                         <Button
                           variant="ghost"
                           size="icon"
@@ -779,13 +779,13 @@ const PurchaseOrders = () => {
 
           {/* Detail Dialog */}
           <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-            <DialogContent className="max-w-2xl" aria-describedby={undefined}>
+            <DialogContent className="sm:max-w-2xl" aria-describedby={undefined}>
               <DialogHeader>
                 <DialogTitle>Détails commande {selectedOrder?.order_number}</DialogTitle>
               </DialogHeader>
               {selectedOrder && (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                     <div>
                       <p className="text-muted-foreground">Fournisseur</p>
                       <p className="font-medium">{selectedOrder.supplier_name}</p>
@@ -848,7 +848,7 @@ const PurchaseOrders = () => {
 
           {/* Receive Order Dialog */}
           <Dialog open={isReceiveOpen} onOpenChange={setIsReceiveOpen}>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="sm:max-w-lg">
               <DialogHeader>
                 <DialogTitle>Réceptionner la commande</DialogTitle>
                 <DialogDescription>

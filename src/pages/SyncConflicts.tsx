@@ -158,7 +158,7 @@ const SyncConflicts = () => {
       <div className="space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-2xl lg:text-3xl font-bold flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold flex items-center gap-2">
               <GitMerge className="h-6 w-6 lg:h-7 lg:w-7 text-primary" />
               Conflits de synchronisation
             </h1>
@@ -203,7 +203,7 @@ const SyncConflicts = () => {
 
           <TabsContent value="diagnostic" className="mt-4 space-y-4">
             {/* Santé globale */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <Card>
                 <CardHeader className="pb-2">
                   <CardDescription className="flex items-center gap-1">
@@ -307,7 +307,7 @@ const SyncConflicts = () => {
                           )}
                         </button>
                         {isOpen && (
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 p-3 border-t bg-muted/20">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-3 border-t bg-muted/20">
                             <div>
                               <div className="text-xs font-semibold text-muted-foreground mb-1 flex items-center gap-1">
                                 <Smartphone className="h-3 w-3" /> AVANT — Local (offline)
@@ -384,7 +384,7 @@ const SyncConflicts = () => {
                                   {entityLabels[r.entity_type] ?? r.entity_type}
                                 </Badge>
                               </TableCell>
-                              <TableCell className="font-medium max-w-[200px] truncate">
+                              <TableCell className="font-medium sm:max-w-[200px] truncate">
                                 {r.entity_label || "—"}
                               </TableCell>
                               <TableCell className="hidden sm:table-cell">

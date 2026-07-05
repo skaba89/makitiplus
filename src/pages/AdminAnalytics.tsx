@@ -364,7 +364,7 @@ const AdminAnalytics = () => {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-foreground flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground flex items-center gap-2">
               <BarChart3 className="h-8 w-8 text-primary" />
               Analyse Multi-Magasins
             </h1>
@@ -372,9 +372,9 @@ const AdminAnalytics = () => {
               Vue globale et détaillée sur l'ensemble de vos magasins
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="w-full sm:w-[160px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -386,7 +386,7 @@ const AdminAnalytics = () => {
               </SelectContent>
             </Select>
             <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-full sm:w-[200px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -775,7 +775,7 @@ const AdminAnalytics = () => {
                               </TableCell>
                               <TableCell className="text-right text-muted-foreground">{mov.previous_quantity}</TableCell>
                               <TableCell className="text-right font-medium">{mov.new_quantity}</TableCell>
-                              <TableCell className="text-xs text-muted-foreground max-w-[150px] truncate">{mov.reason || "—"}</TableCell>
+                              <TableCell className="text-xs text-muted-foreground sm:max-w-[150px] truncate">{mov.reason || "—"}</TableCell>
                             </TableRow>
                           );
                         })}
