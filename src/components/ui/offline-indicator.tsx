@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useOnlineStatus } from "@/contexts/OfflineContext";
 import { getCacheAge, OFFLINE_STORES, type OfflineStoreName } from "@/lib/offlineQueue";
 import { cn } from "@/lib/utils";
-import { Wifi, WifiOff, RefreshCw, CloudOff, AlertTriangle } from "lucide-react";
+import { Wifi, WifiOff, RefreshCw, CloudOff, AlertTriangle, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -64,7 +64,7 @@ function useCacheStaleness() {
  * Shows online/offline state, pending mutation count, and cache staleness when offline.
  */
 export const OfflineIndicator = () => {
-  const { isOnline, isSyncing, pendingCount, lastSyncAt, triggerSync } = useOnlineStatus();
+  const { isOnline, isSyncing, pendingCount, failedCount, lastSyncAt, triggerSync, retryFailed } = useOnlineStatus();
   const { ageText, severity } = useCacheStaleness();
 
   const formatLastSync = (date: Date | null) => {
@@ -124,6 +124,19 @@ export const OfflineIndicator = () => {
         </TooltipContent>
       </Tooltip>
 
+      {isOnline && failedCount > 0 && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 px-2 text-xs gap-1 text-orange-600 border-orange-300 hover:bg-orange-50 dark:text-orange-400 dark:border-orange-700 dark:hover:bg-orange-950"
+          onClick={retryFailed}
+          disabled={isSyncing}
+        >
+          <RotateCcw className={cn("h-3 w-3", isSyncing && "animate-spin")} />
+          Réessayer ({failedCount})
+        </Button>
+      )}
+
       {isOnline && pendingCount > 0 && (
         <Button
           variant="ghost"
@@ -145,7 +158,7 @@ export const OfflineIndicator = () => {
  * M2 fix: Shows cache staleness warning when data is old.
  */
 export const OfflineBanner = () => {
-  const { isOnline, pendingCount } = useOnlineStatus();
+  const { isOnline, pendingCount, failedCount } = useOnlineStatus();
   const { ageText, severity } = useCacheStaleness();
 
   if (isOnline) return null;
@@ -178,6 +191,11 @@ export const OfflineBanner = () => {
             : "text-yellow-600 dark:text-yellow-400"
         )}>
           — {pendingCount} modification(s) en attente
+        </span>
+      )}
+      {failedCount > 0 && (
+        <span className="text-red-600 dark:text-red-400 font-medium ml-1">
+          — {failedCount} échouée(s)
         </span>
       )}
       {severity === "old" && ageText && (

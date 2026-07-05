@@ -657,3 +657,127 @@ export async function flushQueueWithMutex(): Promise<{ synced: number; failed: n
   }
 }
 
+// ---------------------------------------------------------------------------
+// Mutation cleanup & retry utilities
+// ---------------------------------------------------------------------------
+
+/**
+ * Remove failed mutations older than 24 hours from both queues.
+ *
+ * Without this, failed mutations accumulate indefinitely in IndexedDB,
+ * consuming storage and confusing the pending count. We keep failed
+ * mutations for 24h so the user can review them, then clean up.
+ *
+ * Also removes mutations that have exceeded the retry limit (retryCount >= 5)
+ * regardless of age — these are permanently stuck and should not persist.
+ */
+export async function cleanupExpiredMutations(): Promise<{ removed: number }> {
+  const db = await getDB();
+  const FAILED_RETENTION_MS = 24 * 60 * 60 * 1000; // 24h
+  const MAX_RETRIES = 5;
+  const now = Date.now();
+  let removed = 0;
+
+  const cleanStore = (storeName: StoreName): Promise<number> =>
+    new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, "readwrite");
+      const store = tx.objectStore(storeName);
+      const getAllReq = store.getAll();
+      getAllReq.onsuccess = () => {
+        const mutations = getAllReq.result as QueuedMutation[];
+        for (const m of mutations) {
+          if (m.status === "failed") {
+            const age = now - new Date(m.createdAt).getTime();
+            // Remove if older than retention period OR permanently stuck
+            if (age > FAILED_RETENTION_MS || m.retryCount >= MAX_RETRIES) {
+              store.delete(m.id as IDBValidKey);
+              removed++;
+            }
+          }
+        }
+      };
+      tx.oncomplete = () => resolve(removed);
+      tx.onerror = () => reject(tx.error);
+    });
+
+  await Promise.all([
+    cleanStore(STORES.MUTATION_QUEUE),
+    cleanStore(STORES.RPC_QUEUE),
+  ]);
+
+  if (removed > 0) {
+    logger.info(`[cleanupExpiredMutations] Removed ${removed} expired/failed mutation(s)`);
+  }
+
+  return { removed };
+}
+
+/**
+ * Reset failed mutations back to "pending" status so they can be retried
+ * on the next flush cycle.
+ *
+ * Only resets mutations that haven't exceeded the max retry count.
+ * Returns the count of mutations that were reset.
+ */
+export async function retryFailedMutations(): Promise<{ retried: number }> {
+  const db = await getDB();
+  const MAX_RETRIES = 5;
+  let retried = 0;
+
+  const resetStore = (storeName: StoreName): Promise<number> =>
+    new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, "readwrite");
+      const store = tx.objectStore(storeName);
+      const getAllReq = store.getAll();
+      getAllReq.onsuccess = () => {
+        const mutations = getAllReq.result as QueuedMutation[];
+        for (const m of mutations) {
+          if (m.status === "failed" && m.retryCount < MAX_RETRIES) {
+            m.status = "pending";
+            m.error = undefined;
+            store.put(m);
+            retried++;
+          }
+        }
+      };
+      tx.oncomplete = () => resolve(retried);
+      tx.onerror = () => reject(tx.error);
+    });
+
+  await Promise.all([
+    resetStore(STORES.MUTATION_QUEUE),
+    resetStore(STORES.RPC_QUEUE),
+  ]);
+
+  if (retried > 0) {
+    logger.info(`[retryFailedMutations] Reset ${retried} failed mutation(s) to pending`);
+  }
+
+  return { retried };
+}
+
+/**
+ * Get count of failed mutations across both queues.
+ * Used by UI to show a "retry" button when there are failed operations.
+ */
+export async function getFailedCount(): Promise<{ count: number }> {
+  const db = await getDB();
+
+  const countFailed = (storeName: StoreName): Promise<number> =>
+    new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, "readonly");
+      const store = tx.objectStore(storeName);
+      const index = store.index("status");
+      const request = index.count("failed");
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+
+  const [regular, rpc] = await Promise.all([
+    countFailed(STORES.MUTATION_QUEUE),
+    countFailed(STORES.RPC_QUEUE),
+  ]);
+
+  return { count: regular + rpc };
+}
+

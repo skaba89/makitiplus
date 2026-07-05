@@ -920,3 +920,35 @@ Stage Summary:
 - Total: 3 CRITIQUES + 4 HAUTES + 5 MOYENNES = 12 correctifs offline
 - Fichiers modifiés: offline-indicator.tsx, OfflineContext.tsx, offline.html (nouveau), vite.config.ts, POSCartContext.ts, offlineQueue.ts
 - Build: 0 erreurs TypeScript, Vite build OK
+
+---
+Task ID: 4
+Agent: main
+Task: Continuation audit offline — M4 (page fallback) + cleanup/retry mutations + UI retry
+
+Work Log:
+- Vérifié que H4, H5, M2, M3, M5 étaient déjà implémentés dans la session précédente
+- M4 fix: Créé page OfflineFallback.tsx — affichée quand un chunk lazy-loadé échoue hors-ligne
+  - Messages clairs en français, détection auto reconnexion, boutons navigation vers POS/Dashboard
+  - Modifié lazyWithRecovery() dans App.tsx: si !navigator.onLine → retourne OfflineFallback au lieu de reload infini
+- Ajouté 3 fonctions utilitaires dans offlineQueue.ts:
+  - cleanupExpiredMutations(): supprime les mutations "failed" de >24h ou retryCount>=5
+  - retryFailedMutations(): remet les mutations "failed" en "pending" pour un nouveau flush
+  - getFailedCount(): compte les mutations échouées dans les deux queues
+- Mis à jour OfflineContext.tsx:
+  - Ajouté failedCount + retryFailed au context
+  - refreshPendingCount() charge aussi failedCount
+  - Cleanup automatique des mutations expirées toutes les 30 minutes + au mount
+- Amélioré offline-indicator.tsx:
+  - Bouton "Réessayer (N)" quand des mutations ont échoué (orange, visible en ligne)
+  - Affichage du compte de mutations échouées dans l'OfflineBanner
+- Corrigé 2 bugs JSX (parenthèses manquantes dans blocs conditionnels)
+- Build vérifié: TypeScript 0 erreurs, Vite build OK (64 precache entries)
+
+Stage Summary:
+- M4 (page fallback offline) implémenté — finit la couverture des 13 vulnérabilités de l'audit
+- 3 nouvelles fonctions utilitaires pour la maintenance des mutations
+- UI enrichie avec retry des mutations échouées
+- Tous les 13 problèmes de l'audit offline sont maintenant traités (3 CRITIQUES + 5 HAUTES + 5 MOYENNES)
+- Fichiers créés: src/pages/OfflineFallback.tsx
+- Fichiers modifiés: App.tsx, offlineQueue.ts, OfflineContext.tsx, offline-indicator.tsx

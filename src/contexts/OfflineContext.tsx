@@ -7,8 +7,10 @@ interface OfflineContextType {
   isOnline: boolean;
   isSyncing: boolean;
   pendingCount: number;
+  failedCount: number;
   lastSyncAt: Date | null;
   triggerSync: () => Promise<void>;
+  retryFailed: () => Promise<void>;
 }
 
 const OfflineContext = createContext<OfflineContextType | undefined>(undefined);
@@ -33,15 +35,19 @@ export const OfflineProvider = ({ children }: { children: ReactNode }) => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const [failedCount, setFailedCount] = useState(0);
   const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
   const wasOfflineRef = useRef(false);
   const onlineStabilityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Update pending count from IndexedDB
+  // Update pending and failed counts from IndexedDB
   const refreshPendingCount = useCallback(async () => {
     try {
-      const { count } = await import("@/lib/offlineQueue").then((m) => m.getPendingCount());
+      const offlineQueue = await import("@/lib/offlineQueue");
+      const { count } = await offlineQueue.getPendingCount();
       setPendingCount(count);
+      const { count: failed } = await offlineQueue.getFailedCount();
+      setFailedCount(failed);
     } catch {
       // IndexedDB may not be available
     }
@@ -98,10 +104,24 @@ export const OfflineProvider = ({ children }: { children: ReactNode }) => {
     // Refresh count periodically
     const interval = setInterval(refreshPendingCount, 30000);
 
+    // Cleanup expired mutations on mount and every 30 minutes
+    const cleanupExpired = async () => {
+      try {
+        const { cleanupExpiredMutations } = await import("@/lib/offlineQueue");
+        await cleanupExpiredMutations();
+        await refreshPendingCount();
+      } catch {
+        // Best-effort
+      }
+    };
+    cleanupExpired();
+    const cleanupInterval = setInterval(cleanupExpired, 30 * 60 * 1000);
+
     return () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
       clearInterval(interval);
+      clearInterval(cleanupInterval);
       if (onlineStabilityTimerRef.current) {
         clearTimeout(onlineStabilityTimerRef.current);
       }
@@ -130,6 +150,33 @@ export const OfflineProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [isSyncing, isOnline, refreshPendingCount]);
 
+  // Retry failed mutations: reset them to pending and trigger a flush
+  const retryFailed = useCallback(async () => {
+    if (!isOnline) return;
+    try {
+      const { retryFailedMutations, flushQueueWithMutex } = await import("@/lib/offlineQueue");
+      const { retried } = await retryFailedMutations();
+      if (retried > 0) {
+        toast({
+          title: "Nouvelle tentative",
+          description: `${retried} opération(s) vont être retentées.`,
+        });
+        // Trigger a flush to process the retried mutations
+        const result = await flushQueueWithMutex();
+        if (result.synced > 0) {
+          setLastSyncAt(new Date());
+          toast({
+            title: "Synchronisation terminée",
+            description: `${result.synced} opération(s) synchronisée(s)${result.failed > 0 ? `, ${result.failed} échouée(s)` : ""}`,
+          });
+        }
+      }
+      await refreshPendingCount();
+    } catch (err) {
+      reportError(err instanceof Error ? err : new Error('[Offline] Retry failed: ' + String(err)));
+    }
+  }, [isOnline, refreshPendingCount]);
+
   // Stable ref to triggerSync so the auto-sync effect doesn't re-run on every isSyncing change
   const triggerSyncRef = useRef(triggerSync);
   triggerSyncRef.current = triggerSync;
@@ -147,8 +194,10 @@ export const OfflineProvider = ({ children }: { children: ReactNode }) => {
         isOnline,
         isSyncing,
         pendingCount,
+        failedCount,
         lastSyncAt,
         triggerSync,
+        retryFailed,
       }}
     >
       {children}

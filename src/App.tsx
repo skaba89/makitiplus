@@ -23,13 +23,16 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Products from "./pages/Products";
 import NotFound from "./pages/NotFound";
+import OfflineFallback from "./pages/OfflineFallback";
 
 /**
  * Lazy-loaded routes with automatic recovery for stale chunks.
  *
- * When a new deployment replaces JS chunk files, users with a cached old
- * index.html will get 404 errors on dynamic imports. This wrapper detects
- * that and force-reloads once to pick up the new index.html.
+ * Two failure modes:
+ * 1. OFFLINE: User has no internet and the chunk isn't cached yet.
+ *    → Show OfflineFallback component instead of reload loop.
+ * 2. STALE CHUNK: New deployment replaced chunk files, user has old index.html.
+ *    → Force-reload once to pick up the new index.html.
  */
 const STALE_CHUNK_KEY = "makitiplus_stale_reload";
 
@@ -38,6 +41,12 @@ function lazyWithRecovery<T extends React.ComponentType<unknown>>(
 ) {
   return lazy(() =>
     factory().catch((err) => {
+      // M4 fix: If offline, don't try to reload — show offline fallback instead
+      if (!navigator.onLine) {
+        // Return a component that renders OfflineFallback
+        return { default: OfflineFallback as unknown as T };
+      }
+
       // Chunk failed to load (likely 404 after new deployment)
       if (!sessionStorage.getItem(STALE_CHUNK_KEY)) {
         sessionStorage.setItem(STALE_CHUNK_KEY, "1");
