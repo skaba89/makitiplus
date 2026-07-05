@@ -146,10 +146,10 @@ export default function Billing() {
       setSelectedDuration("1_month");
       setPaymentRef("");
       setChangeReason("");
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: "Erreur",
-        description: err?.message || "Impossible de modifier l'abonnement.",
+        description: (err instanceof Error ? err.message : String(err)) || "Impossible de modifier l'abonnement.",
         variant: "destructive",
       });
     } finally {
@@ -197,10 +197,10 @@ export default function Billing() {
 
       queryClient.invalidateQueries({ queryKey: ["subscription"] });
       queryClient.invalidateQueries({ queryKey: ["plan-limit"] });
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: "Erreur",
-        description: err?.message || "Impossible de prolonger l'abonnement.",
+        description: (err instanceof Error ? err.message : String(err)) || "Impossible de prolonger l'abonnement.",
         variant: "destructive",
       });
     } finally {

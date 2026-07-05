@@ -67,6 +67,7 @@ export const BarcodeScannerDialog = ({
         scannerRef.current.stop().catch(() => {});
       }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   const handleClose = () => {

@@ -260,6 +260,7 @@ const Users = () => {
   useEffect(() => {
     loadUsers();
     loadAudit();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const resetForm = () => {

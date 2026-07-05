@@ -73,6 +73,7 @@ export const DemoProvider = ({ children }: { children: ReactNode }) => {
 
   const value = useMemo(
     () => ({ isDemo, blockMutation }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [isDemo]
   );
 

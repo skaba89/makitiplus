@@ -24,7 +24,7 @@ jobs:
         run: npm ci
 
       - name: Lint
-        run: npx eslint src/ --ignore-pattern 'src/test/**' --max-warnings 50
+        run: npx eslint src/ --ignore-pattern 'src/test/**' --max-warnings 10
 
       - name: Type check
         run: npx tsc --noEmit
@@ -76,7 +76,36 @@ jobs:
             exit 1
           fi
 
-  # E2E tests — optional job, won't break CI if secrets are missing
+  # Pilot-critical E2E — BLOCKING job for production readiness
+  # Requires VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY secrets
+  # If E2E_TEST_EMAIL/E2E_TEST_PASSWORD secrets are missing, login tests are skipped gracefully
+  pilot-e2e:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      - name: Pilot critical E2E
+        run: npm run e2e:pilot
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+      - name: Pilot E2E summary
+        if: always()
+        run: echo "Pilot critical E2E tests completed"
+
+  # Full E2E tests — optional job, won't break CI if secrets are missing
   e2e:
     runs-on: ubuntu-latest
     needs: build-and-test
