@@ -21,6 +21,14 @@ import { logger } from "@/lib/logger";
 export const OFFLINE_STORES = STORES;
 export type OfflineStoreName = StoreName;
 
+/**
+ * H4 fix: Maximum age for a queued mutation before it's considered stale.
+ * Mutations older than this are marked as failed during flush to prevent
+ * replaying outdated operations (e.g., inserting a product that was deleted
+ * 3 days ago). Set to 7 days.
+ */
+const MUTATION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
 export interface QueuedMutation {
   id: string;
   table: string;
@@ -218,6 +226,14 @@ async function flushMutationQueue(
       continue;
     }
 
+    // H4 fix: Skip mutations that are too old (stale)
+    const mutationAge = Date.now() - new Date(mutation.createdAt).getTime();
+    if (mutationAge > MUTATION_MAX_AGE_MS) {
+      await updateMutationStatus(mutation.id, "failed", `Mutation expirée (${Math.floor(mutationAge / (24 * 60 * 60 * 1000))}j) — trop ancienne pour être rejouée`, false);
+      failed++;
+      continue;
+    }
+
     // Security: Validate that the mutation belongs to the current user's organization
     if (mutation.organizationId && currentUserOrgId && mutation.organizationId !== currentUserOrgId) {
       await updateMutationStatus(mutation.id, "failed", "Organization mismatch — mutation rejected for security", false);
@@ -308,6 +324,14 @@ async function flushRPCQueue(
   for (const mutation of rpcMutations) {
     if (mutation.retryCount >= 5) {
       await updateMutationStatus(mutation.id, "failed", "Max retries exceeded", true);
+      failed++;
+      continue;
+    }
+
+    // H4 fix: Skip RPC mutations that are too old (stale)
+    const mutationAge = Date.now() - new Date(mutation.createdAt).getTime();
+    if (mutationAge > MUTATION_MAX_AGE_MS) {
+      await updateMutationStatus(mutation.id, "failed", `RPC expirée (${Math.floor(mutationAge / (24 * 60 * 60 * 1000))}j) — trop ancienne pour être rejouée`, true);
       failed++;
       continue;
     }

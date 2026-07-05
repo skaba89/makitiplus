@@ -886,3 +886,37 @@ Stage Summary:
 - 1 correctif MOYENNE priorité (accents)
 - Tous les fichiers modifiés compilent sans erreur
 - Fichiers modifiés: offlineQueue.ts, useOfflineSale.ts, useProductSearch.ts, ProductAutocomplete.tsx, POS.tsx, OfflineContext.tsx, useOfflineMutation.ts
+
+---
+Task ID: 4
+Agent: main
+Task: Correctifs MOYENNE + HAUTE restants du mode offline
+
+Work Log:
+- **M2 fix**: Indicateur de données périmées dans le cache offline
+  - Nouveau hook `useCacheStaleness()` dans offline-indicator.tsx
+  - OfflineIndicator affiche un warning ⚠ quand les données datent de +2h, orange si +1j
+  - OfflineBanner affiche l'âge des données et change de couleur (jaune → orange) selon la fraîcheur
+- **M3 fix**: OfflineContext — wasOffline reset trop tôt (connexion instable)
+  - Remplacé wasOffline state par wasOfflineRef (ref) pour éviter les re-rendus inutiles
+  - Ajouté un délai de stabilité de 5s (ONLINE_STABILITY_MS) avant de reset wasOffline
+  - Si la connexion re-drop pendant la fenêtre de stabilité, le flag reste actif → auto-sync se redéclenchera
+- **M4 fix**: Page fallback offline quand le SW n'a pas caché la page
+  - Créé `/public/offline.html` — page HTML autonome avec message "Vous êtes hors-ligne" + bouton Réessayer
+  - Config VitePWA: additionalManifestEntries pour precacher offline.html
+  - RuntimeCaching HTML navigations: ajout handlerDidError plugin qui sert /offline.html si NetworkFirst échoue
+- **M5 fix**: Cart persistence — alerte si IDB + LS échouent
+  - Nouvelle fonction `saveCartWithFallback()` avec chaîne IDB → localStorage → toast d'erreur
+  - Flag `cartPersistenceWarningShown` pour éviter le spam de toasts
+  - Tous les appels saveCartToDB().catch() remplacés par saveCartWithFallback()
+- **H4 fix**: Protection contre les mutations périmées (TTL)
+  - Constante MUTATION_MAX_AGE_MS = 7 jours
+  - flushMutationQueue et flushRPCQueue vérifient l'âge de chaque mutation
+  - Mutations trop anciennes sont marquées "failed" avec message explicatif
+- Build vérifié avec succès (TypeScript + Vite build OK, 0 erreurs, 64 precache entries)
+
+Stage Summary:
+- 5 correctifs supplémentaires appliqués (1 HAUTE + 4 MOYENNE)
+- Total: 3 CRITIQUES + 4 HAUTES + 5 MOYENNES = 12 correctifs offline
+- Fichiers modifiés: offline-indicator.tsx, OfflineContext.tsx, offline.html (nouveau), vite.config.ts, POSCartContext.ts, offlineQueue.ts
+- Build: 0 erreurs TypeScript, Vite build OK

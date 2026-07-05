@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from "react";
 import { toast } from "@/hooks/use-toast";
 import { reportError } from "@/lib/sentry";
+import { logger } from "@/lib/logger";
 
 interface OfflineContextType {
   isOnline: boolean;
@@ -20,12 +21,21 @@ export const useOnlineStatus = () => {
   return context;
 };
 
+/**
+ * M3 fix: Debounce threshold for "online" events.
+ * If the connection drops again within this window, we consider it unstable
+ * and don't reset wasOffline. This prevents missing the next offline→online
+ * transition on flaky connections (common on West African 3G/4G).
+ */
+const ONLINE_STABILITY_MS = 5000;
+
 export const OfflineProvider = ({ children }: { children: ReactNode }) => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
   const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
-  const [wasOffline, setWasOffline] = useState(false);
+  const wasOfflineRef = useRef(false);
+  const onlineStabilityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Update pending count from IndexedDB
   const refreshPendingCount = useCallback(async () => {
@@ -41,17 +51,37 @@ export const OfflineProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      if (wasOffline) {
+      if (wasOfflineRef.current) {
         toast({
           title: "Connexion rétablie",
           description: "Synchronisation des données en attente...",
         });
+
+        // M3 fix: Don't reset wasOffline immediately — wait for stability.
+        // If the connection drops again during the stability window,
+        // we'll still be in "wasOffline" state and the next recovery
+        // will trigger auto-sync again.
+        if (onlineStabilityTimerRef.current) {
+          clearTimeout(onlineStabilityTimerRef.current);
+        }
+        onlineStabilityTimerRef.current = setTimeout(() => {
+          wasOfflineRef.current = false;
+          onlineStabilityTimerRef.current = null;
+          logger.info("[Offline] Connection stable — resetting wasOffline flag");
+        }, ONLINE_STABILITY_MS);
       }
     };
 
     const handleOffline = () => {
       setIsOnline(false);
-      setWasOffline(true);
+      wasOfflineRef.current = true;
+
+      // Cancel any pending stability timer — connection is definitely not stable
+      if (onlineStabilityTimerRef.current) {
+        clearTimeout(onlineStabilityTimerRef.current);
+        onlineStabilityTimerRef.current = null;
+      }
+
       toast({
         variant: "destructive",
         title: "Mode hors-ligne",
@@ -72,8 +102,11 @@ export const OfflineProvider = ({ children }: { children: ReactNode }) => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
       clearInterval(interval);
+      if (onlineStabilityTimerRef.current) {
+        clearTimeout(onlineStabilityTimerRef.current);
+      }
     };
-  }, [wasOffline, refreshPendingCount]);
+  }, [refreshPendingCount]);
 
   const triggerSync = useCallback(async () => {
     if (isSyncing || !isOnline) return;
@@ -103,11 +136,10 @@ export const OfflineProvider = ({ children }: { children: ReactNode }) => {
 
   // Auto-sync when coming back online
   useEffect(() => {
-    if (isOnline && wasOffline) {
+    if (isOnline && wasOfflineRef.current) {
       triggerSyncRef.current();
-      setWasOffline(false);
     }
-  }, [isOnline, wasOffline]);
+  }, [isOnline]);
 
   return (
     <OfflineContext.Provider

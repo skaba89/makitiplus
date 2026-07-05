@@ -82,9 +82,15 @@ export default defineConfig(({ mode }) => ({
       workbox: {
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/~oauth/, /^\/api\//],
+        // M4 fix: Precache the offline fallback page so it's always available
+        additionalManifestEntries: [
+          { url: "/offline.html", revision: String(Date.now()) },
+        ],
         globPatterns: ["**/*.{js,css,html,svg,png,ico,webmanifest,woff2}"],
         runtimeCaching: [
-          // HTML navigations — NetworkFirst for fresh content
+          // HTML navigations — NetworkFirst with offline.html fallback
+          // M4 fix: If network is unreachable AND index.html isn't cached,
+          // show /offline.html instead of the browser's default error page
           {
             urlPattern: ({ request }) => request.mode === "navigate",
             handler: "NetworkFirst",
@@ -92,6 +98,16 @@ export default defineConfig(({ mode }) => ({
               cacheName: "html-navigations",
               networkTimeoutSeconds: 3,
               expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 7 },
+              plugins: [
+                {
+                  handlerDidError: async () => {
+                    // When NetworkFirst fails entirely (offline + no cache),
+                    // return the precached offline page instead of an error
+                    const response = await caches.match("/offline.html");
+                    return response || Response.error();
+                  },
+                },
+              ],
             },
           },
           // Static assets — CacheFirst for performance
