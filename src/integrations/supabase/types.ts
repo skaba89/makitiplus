@@ -1773,6 +1773,24 @@ export type Database = {
         }
         Returns: string
       }
+      delete_store: {
+        Args: { p_store_id: string }
+        Returns: {
+          success: boolean
+          store_id: string
+          store_name: string
+        }
+      }
+      delete_organization: {
+        Args: { p_organization_id: string }
+        Returns: {
+          success: boolean
+          organization_id: string
+          organization_name: string
+          deleted_stores: number
+          deleted_users: number
+        }
+      }
     }
     Enums: {
       app_role: "super_admin" | "admin" | "manager" | "vendeur" | "comptable"
