@@ -1,21 +1,29 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════
 # deploy-functions.sh — Déploie toutes les Edge Functions via Supabase CLI
-# 
+#
 # PRÉREQUIS :
 #   1. Installer la CLI : npm install -g supabase
 #   2. Se connecter     : supabase login
-#   3. Lier le projet   : supabase link --project-ref exxntkuursgwhxvehekr
+#   3. Lier le projet   : supabase link --project-ref <VOTRE_PROJECT_REF>
 #
 # UTILISATION :
 #   chmod +x deploy-functions.sh
-#   ./deploy-functions.sh              # Déploie TOUTES les fonctions
-#   ./deploy-functions.sh admin-create-user  # Déploie une seule fonction
+#   ./deploy-functions.sh                                    # Déploie TOUTES les fonctions
+#   ./deploy-functions.sh admin-create-user                  # Déploie une seule fonction
+#   SUPABASE_PROJECT_REF=xxx ./deploy-functions.sh           # Spécifie le project ref
 # ═══════════════════════════════════════════════════════════════════════════
 
 set -euo pipefail
 
-PROJECT_REF="exxntkuursgwhxvehekr"
+# Configurable via argument or environment variable
+PROJECT_REF="${SUPABASE_PROJECT_REF:-}"
+if [ -z "$PROJECT_REF" ]; then
+  echo "ERREUR : SUPABASE_PROJECT_REF non défini."
+  echo "Utilisation : SUPABASE_PROJECT_REF=xxx ./deploy-functions.sh"
+  echo "Ou exportez la variable : export SUPABASE_PROJECT_REF=xxx"
+  exit 1
+fi
 
 # Toutes les fonctions à déployer
 ALL_FUNCTIONS=(
@@ -74,7 +82,7 @@ FAILED=0
 
 for fn in "${FUNCTIONS[@]}"; do
   echo -e "${YELLOW}🚀 Déploiement de ${fn}...${NC}"
-  
+
   if supabase functions deploy "$fn" --project-ref "$PROJECT_REF"; then
     echo -e "${GREEN}✅ ${fn} déployée avec succès${NC}"
     ((SUCCESS++))

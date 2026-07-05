@@ -1,4 +1,7 @@
-project_id = "exxntkuursgwhxvehekr"
+# Supabase project configuration
+# Set project_id via: supabase link --project-ref <VOTRE_PROJECT_REF>
+# Or set the SUPABASE_PROJECT_REF environment variable before running scripts
+project_id = "VOTRE_PROJECT_REF"
 
 # Stripe webhook needs verify_jwt=false because Stripe sends
 # requests without a Supabase JWT (uses its own signature instead)
