@@ -1029,3 +1029,38 @@ Stage Summary:
 - Projet prêt pour lancement dans 1 magasin pilote
 - Fichiers créés: e2e/pilot-critical.spec.ts, 2 checklists, productionPilotReadiness.test.ts
 - Fichiers modifiés: render.yaml, ci.yml, package.json, eslint.config.js, Billing.tsx, 5 fichiers eslint-disable
+
+---
+Task ID: production-pilot-readiness
+Agent: main
+Task: Production Pilot Readiness — hotfix/production-pilot-readiness
+
+Work Log:
+- Créé la branche hotfix/production-pilot-readiness depuis main
+- Audité l'ensemble du codebase : render.yaml, ci.yml, E2E, billing, POS, offline
+- Découvert que la plupart des éléments étaient déjà en place (session précédente)
+- Identifié bug critique : useOfflineProductSearch utilisé mais pas importé dans ProductAutocomplete.tsx
+- Corrigé l'import manquant (ligne 11 du fichier)
+- Ajouté 7 tests de non-régression dans productionPilotReadiness.test.ts :
+  - ProductAutocomplete offline import (2 tests)
+  - Billing security invariants (5 tests)
+- Vérifié la sécurité billing (lecture seule) :
+  - super_admin-only manual plan change
+  - admin_update_organization_subscription RPC (pas de .from().update())
+  - OrganizationManagement super_admin guard
+  - p_duration (pas p_status)
+- Exécuté toutes les commandes obligatoires :
+  - npm ci ✅
+  - lint: 0 errors, 9 warnings (< 10) ✅
+  - typecheck: OK ✅
+  - build: OK ✅
+  - 444 tests passent ✅
+  - SQL migrations: 0 errors, 49 warnings ✅
+  - npm audit: 0 vulnerabilities ✅
+- Commité sur la branche hotfix/production-pilot-readiness
+
+Stage Summary:
+- Bug critique offline corrigé (useOfflineProductSearch import manquant)
+- 7 tests non-régression ajoutés (444 total, tous passent)
+- Tous les critères d'acceptation de la section 1-10 validés
+- Projet prêt pour lancement 1 magasin pilote
