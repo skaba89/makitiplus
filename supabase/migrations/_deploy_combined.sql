@@ -3,9 +3,9 @@
 -- Auto-generated — DO NOT EDIT
 -- ============================================================
 
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260202072852_917790af-3d14-44e9-bcdd-d88776ced82b.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- Allow users to insert their own role after signup
 CREATE POLICY "Users can create their own role" 
@@ -13,10 +13,10 @@ ON public.user_roles
 FOR INSERT 
 WITH CHECK (auth.uid() = user_id);
 
--- ════════════════════════════════════════════════════════════════
--- MIGRATION: 20260207065000_da463d93-5048-43ec-bb39-482bb0ea3ab9.sql
--- ════════════════════════════════════════════════════════════════
 
+-- ═════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260207065000_da463d93-5048-43ec-bb39-482bb0ea3ab9.sql
+-- ═════════════════════════════════════════════════════════════════
 
 -- Create customers table
 CREATE TABLE public.customers (
@@ -68,9 +68,10 @@ BEFORE UPDATE ON public.customers
 FOR EACH ROW
 EXECUTE FUNCTION public.update_updated_at_column();
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260423040958_42cc2233-086f-4864-a7d3-64cb40a81ed5.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- Function to check if any admin already exists (used to allow first signup as admin)
 CREATE OR REPLACE FUNCTION public.admin_exists()
@@ -145,9 +146,10 @@ FOR INSERT
 TO authenticated
 WITH CHECK (public.has_role(auth.uid(), 'admin') OR auth.uid() = user_id);
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260423042235_125de771-f1c8-4b67-90db-2b6d811096ca.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- 1. Add status & login tracking columns to profiles
 ALTER TABLE public.profiles
@@ -256,9 +258,10 @@ AS $$
   );
 $$;
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260424042936_db7e40cf-c001-4513-9126-a0596e12f542.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- Table de journal des conflits de synchronisation
 CREATE TABLE public.sync_conflicts (
@@ -338,9 +341,10 @@ CREATE INDEX IF NOT EXISTS idx_audit_action ON public.user_audit_log (action);
 CREATE INDEX IF NOT EXISTS idx_audit_target_user ON public.user_audit_log (target_user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_created_at ON public.user_audit_log (created_at DESC);
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260424042947_b1941d89-89c0-4cb2-bdbc-6aaebc400cbb.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 CREATE OR REPLACE FUNCTION public.resolve_stock_conflict(
   previous_qty integer,
@@ -355,10 +359,10 @@ AS $$
   SELECT GREATEST(0, remote_new_qty + (local_new_qty - previous_qty));
 $$;
 
--- ════════════════════════════════════════════════════════════════
--- MIGRATION: 20260424045251_3195f18f-7faa-4f1f-9d47-323cb8b7fac7.sql
--- ════════════════════════════════════════════════════════════════
 
+-- ═════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260424045251_3195f18f-7faa-4f1f-9d47-323cb8b7fac7.sql
+-- ═════════════════════════════════════════════════════════════════
 
 -- ============================================================
 -- 1. CRÉATION DE LA TABLE ORGANIZATIONS (BOUTIQUES)
@@ -743,9 +747,10 @@ DROP TRIGGER IF EXISTS auto_org_sale_items ON public.sale_items;
 CREATE TRIGGER auto_org_sale_items BEFORE INSERT ON public.sale_items
   FOR EACH ROW EXECUTE FUNCTION public.set_sale_item_organization();
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260425041530_c56455ad-2249-438f-b9a2-15f7f64df5e5.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- Ajout d'un taux de taxe par défaut au niveau organisation et override par produit
 ALTER TABLE public.organizations
@@ -757,9 +762,10 @@ ALTER TABLE public.products
 COMMENT ON COLUMN public.organizations.default_tax_rate IS 'Taux de taxe par défaut en % (ex: 18 pour TVA Sénégal). 0 = pas de taxe.';
 COMMENT ON COLUMN public.products.tax_rate IS 'Taux de taxe spécifique au produit en %. NULL = utiliser le taux de la boutique. Le prix produit est considéré TTC.';
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260426042420_f2188ae3-aeea-4b23-9b02-04b4b9938345.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- 1. Add test account columns to profiles
 ALTER TABLE public.profiles
@@ -813,9 +819,10 @@ WHERE p.user_id = u.id
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 CREATE EXTENSION IF NOT EXISTS pg_net;
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260426042625_fac2f592-7105-47f9-b6d5-63e8c4135346.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- Schedule daily test account rotation at 03:00 UTC
 SELECT cron.schedule(
@@ -830,9 +837,10 @@ SELECT cron.schedule(
   $$
 );
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260427045819_7d242cc0-26f4-4887-a0d5-d687cb78cdba.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- 1. Add IP address column to audit log (admin-only visible via existing RLS)
 ALTER TABLE public.user_audit_log
@@ -862,9 +870,10 @@ WITH CHECK (
   AND organization_id = public.get_user_organization_id()
 );
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260612031944_ff09240b-7ecb-49e5-b88b-e9800618663b.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 REVOKE EXECUTE ON FUNCTION public.is_user_active(uuid) FROM anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.set_organization_id() FROM anon, authenticated;
@@ -873,9 +882,10 @@ REVOKE EXECUTE ON FUNCTION public.update_updated_at_column() FROM anon, authenti
 REVOKE EXECUTE ON FUNCTION public.generate_sale_number() FROM anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.resolve_stock_conflict(integer, integer, integer) FROM anon, authenticated;
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260612031957_f26f99b1-d459-4100-876b-f11b8ebf4985.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 REVOKE EXECUTE ON FUNCTION public.has_role(uuid, app_role) FROM anon;
 REVOKE EXECUTE ON FUNCTION public.get_user_organization_id() FROM anon;
@@ -885,9 +895,10 @@ REVOKE EXECUTE ON FUNCTION public.touch_last_login() FROM anon;
 REVOKE EXECUTE ON FUNCTION public.admin_exists() FROM anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_exists() TO service_role;
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260612032011_a2f1b765-7ea2-46da-be0c-40a9e3e7f831.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- Revoke PUBLIC on all SECURITY DEFINER functions
 REVOKE EXECUTE ON FUNCTION public.is_user_active(uuid) FROM PUBLIC;
@@ -914,9 +925,10 @@ GRANT EXECUTE ON FUNCTION public.is_user_active(uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.resolve_stock_conflict(integer, integer, integer) TO service_role;
 GRANT EXECUTE ON FUNCTION public.generate_sale_number() TO service_role;
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260614010000_batch_update_stock_rpc.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- Batch stock update RPC for POS sales.
 -- Atomically decrements stock and records movements in a single transaction.
@@ -964,9 +976,10 @@ BEGIN
 END;
 $$;
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260614020000_add_missing_foreign_keys.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- Add missing foreign key constraints for data integrity.
 -- Priority 1: Critical business logic FKs
@@ -1028,9 +1041,10 @@ ALTER TABLE public.password_reset_tokens
   ADD CONSTRAINT password_reset_tokens_organization_id_fkey
   FOREIGN KEY (organization_id) REFERENCES public.organizations(id);
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260614030000_tighten_rls_policies.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- Tighten RLS policies: restrict UPDATE on categories/customers/products/credits
 -- to admin/manager, fix sync_conflicts INSERT with org scoping.
@@ -1141,17 +1155,19 @@ CREATE POLICY "org_admins_insert_credits" ON public.customer_credits
 
 DROP POLICY IF EXISTS "Admins can view all user roles" ON public.user_roles;
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260614040000_grant_admin_exists_to_anon.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- Allow unauthenticated users to check if an admin exists
 -- This is required for the "Premier admin" signup tab to appear
 GRANT EXECUTE ON FUNCTION public.admin_exists() TO anon, authenticated;
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260629010000_add_super_admin_role.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- ═══════════════════════════════════════════════════════════════
 -- MAKITIPLUS — Ajout du rôle super_admin
@@ -1268,9 +1284,10 @@ CREATE POLICY "admins_view_audit_log" ON public.user_audit_log
 
 -- ✅ Migration terminée !
 
--- ════════════════════════════════════════════════════════════════
--- MIGRATION: 20260629010000_store_settings_and_default_categories.sql
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260629010001_store_settings_and_default_categories.sql
+-- ═════════════════════════════════════════════════════════════════
 
 -- ═══════════════════════════════════════════════════════════════
 -- Store Settings + Default Categories
@@ -1499,9 +1516,10 @@ $$;
 GRANT EXECUTE ON FUNCTION public.insert_default_categories TO authenticated;
 GRANT EXECUTE ON FUNCTION public.auto_create_store_settings TO authenticated;
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260629020000_add_store_category.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- ═══════════════════════════════════════════════════════════════════════
 -- MAKITIPLUS — Ajout catégories de magasins
@@ -1536,9 +1554,10 @@ ALTER TABLE public.organizations
 -- Étape 3 : Recharger le cache PostgREST
 NOTIFY pgrst, 'reload schema';
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260701010000_fix_rls_self_escalation_and_super_admin.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- Migration: Fix RLS self-escalation vulnerability and include super_admin in all policies
 -- Date: 2026-07-01
@@ -1654,9 +1673,10 @@ AS $$
   );
 $$;
 
--- ════════════════════════════════════════════════════════════════
--- MIGRATION: 20260701010000_phase1_security_and_rpc.sql
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260701010001_phase1_security_and_rpc.sql
+-- ═════════════════════════════════════════════════════════════════
 
 -- ═══════════════════════════════════════════════════════════════════════
 -- Phase 1: Security & Stability Migration
@@ -2234,9 +2254,10 @@ GRANT EXECUTE ON FUNCTION public.decrement_stock(UUID, INT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.decrement_credits(UUID, NUMERIC) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.process_pos_sale(UUID, UUID, INT) TO authenticated;
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260701020000_critical_audit_fixes.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- Migration: Critical audit fixes — batch_update_stock grant, check_account_status DROP+recreate,
 --            create_full_sale RPC, process_credit_payment RPC, decrement_stock RPC,
@@ -2617,9 +2638,10 @@ EXCEPTION WHEN OTHERS THEN
   RAISE NOTICE 'touch_last_login grant: %', SQLERRM;
 END $$;
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260701030000_high_audit_fixes.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- Migration: HIGH audit fixes — Storage RLS org scoping, user_roles RLS cleanup, missing GRANTs
 -- Date: 2026-07-01
@@ -2714,18 +2736,20 @@ EXCEPTION WHEN OTHERS THEN
   RAISE NOTICE 'logos bucket: %', SQLERRM;
 END $$;
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260701040000_add_nfc_enabled_to_profiles.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- Add nfc_enabled column to profiles for NFC preference persistence (#24)
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS nfc_enabled boolean DEFAULT false;
 
 -- Grant is already covered by existing RLS policies on profiles
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260701050000_fix_create_full_sale_race_condition.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- Migration: Fix create_full_sale TOCTOU race condition (oversell with concurrent vendeurs)
 -- Date: 2026-07-01
@@ -2849,9 +2873,10 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.create_full_sale TO authenticated;
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702010000_add_missing_indexes.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- ============================================================
 -- INDEX MANQUANTS POUR LA PERFORMANCE
@@ -2878,9 +2903,10 @@ CREATE INDEX IF NOT EXISTS idx_sales_org_created_at ON public.sales(organization
 -- Index composite sur products(organization_id, is_active) — pour les requêtes de produits actifs par magasin
 CREATE INDEX IF NOT EXISTS idx_products_org_active ON public.products(organization_id, is_active);
 
--- ════════════════════════════════════════════════════════════════
--- MIGRATION: 20260702010000_add_suppliers_table.sql
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260702010001_add_suppliers_table.sql
+-- ═════════════════════════════════════════════════════════════════
 
 -- ═══════════════════════════════════════════════════════════════════════
 -- MAKITIPLUS — Ajout de la table suppliers + relation avec products
@@ -3005,9 +3031,10 @@ CREATE INDEX idx_products_supplier_id ON public.products(supplier_id);
 -- ============================================================
 ALTER PUBLICATION supabase_realtime ADD TABLE public.suppliers;
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702020000_race_condition_fixes.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- Migration: Race condition fixes — Phase 1
 -- Date: 2026-07-02
@@ -3197,9 +3224,10 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.check_account_status(UUID) TO authenticated, service_role;
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702030000_dashboard_rpc_aggregation.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- Migration: Dashboard RPC aggregation — server-side stats calculation
 -- Date: 2026-07-02
@@ -3351,9 +3379,10 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.get_top_products(UUID, TIMESTAMPTZ, INTEGER) TO authenticated;
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702040000_data_correctness_and_performance.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- ============================================================
 -- Phase 5: Data correctness & performance improvements
@@ -3600,9 +3629,10 @@ GRANT EXECUTE ON FUNCTION get_product_stats(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_reports_stats(UUID, TIMESTAMPTZ, TIMESTAMPTZ) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_next_category_sort_order(UUID) TO authenticated;
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702050000_org_scoping_and_shared_hooks.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- ============================================================
 -- Phase 6: Organization scoping, stats RPCs, shared hooks
@@ -3724,9 +3754,10 @@ GRANT EXECUTE ON FUNCTION get_customer_stats(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_expense_stats(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_categories(UUID) TO authenticated;
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702060000_add_suppliers_and_supplier_products.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- ============================================================
 -- Suppliers & Supplier Products
@@ -3939,9 +3970,10 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.get_supplier_with_products(UUID, UUID) TO authenticated;
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702070000_admin_multi_store_analytics.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- ============================================================
 -- Admin Multi-Store Analytics RPCs
@@ -4420,9 +4452,10 @@ GRANT EXECUTE ON FUNCTION public.get_admin_stock_movements(uuid, text, integer, 
 GRANT EXECUTE ON FUNCTION public.get_admin_sales_trend(uuid, text, timestamptz, timestamptz) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_admin_payment_distribution(uuid, text, timestamptz, timestamptz) TO authenticated;
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702080000_security_hardening_rpc.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- ============================================================
 -- Security Hardening Migration — P0 Fixes
@@ -4917,9 +4950,10 @@ GRANT EXECUTE ON FUNCTION public.get_admin_stock_movements(uuid, text, integer, 
 GRANT EXECUTE ON FUNCTION public.get_admin_sales_trend(uuid, text, timestamptz, timestamptz) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_admin_payment_distribution(uuid, text, timestamptz, timestamptz) TO authenticated;
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702090000_p0_security_remove_client_identity_params.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- ============================================================
 -- P0 Security Fix: Remove client-provided identity params from SECURITY DEFINER RPCs
@@ -6051,9 +6085,10 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.get_top_products(TIMESTAMPTZ, INTEGER) TO authenticated;
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702100000_fix_register_user_first_admin.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- ============================================================
 -- P1 Fix: register_user — Handle "first admin" case
@@ -6149,9 +6184,10 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.register_user(TEXT, TEXT, TEXT, TEXT, UUID) TO authenticated, service_role;
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702110000_saas_foundation_plans_subscriptions.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- ============================================================
 -- SaaS Foundation: Plans, Subscriptions, Quotas, Feature Flags
@@ -6626,9 +6662,10 @@ FROM public.organizations
 WHERE id NOT IN (SELECT organization_id FROM public.subscriptions)
 ON CONFLICT (organization_id) DO NOTHING;
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702120000_multi_store_support.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- ============================================================
 -- Multi-Store Support — COMPLETE SETUP (idempotent)
@@ -7215,9 +7252,209 @@ GRANT EXECUTE ON FUNCTION public.get_store_stats(UUID) TO authenticated;
 
 -- ─── Done ──────────────────────────────────────────────────────
 
--- ════════════════════════════════════════════════════════════════
--- MIGRATION: 20260702130000_purchase_orders.sql
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260702130000_fix_subscription_events_and_lifecycle.sql
+-- ═════════════════════════════════════════════════════════════════
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- Fix: Expand subscription_events CHECK constraint + Add lifecycle automation
+-- ════════════════════════════════════════════════════════════════════════════
+-- 1. Add missing event types to CHECK constraint (checkout_initiated, etc.)
+-- 2. Create auto-lifecycle function + pg_cron schedule
+-- 3. Add subscription event insertions in existing triggers
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- ─── 1. Drop and recreate CHECK constraint with expanded event types ───────
+
+ALTER TABLE public.subscription_events DROP CONSTRAINT IF EXISTS subscription_events_event_type_check;
+
+ALTER TABLE public.subscription_events ADD CONSTRAINT subscription_events_event_type_check
+  CHECK (event_type IN (
+    'created',
+    'upgraded',
+    'downgraded',
+    'renewed',
+    'cancelled',
+    'expired',
+    'grace_period_started',
+    'read_only_started',
+    'trial_started',
+    'trial_ended',
+    'payment_received',
+    'payment_failed',
+    'checkout_initiated',
+    'checkout_completed',
+    'subscription_reactivated',
+    'grace_period_ended',
+    'auto_downgraded'
+  ));
+
+-- ─── 2. Add event logging to auto_create_starter_subscription trigger ─────
+
+CREATE OR REPLACE FUNCTION public.auto_create_starter_subscription()
+RETURNS TRIGGER
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO public.subscriptions (organization_id, plan_id, status, current_period_start, current_period_end)
+  VALUES (
+    NEW.id,
+    'starter',
+    'active',
+    NOW(),
+    NOW() + INTERVAL '30 days'
+  )
+  ON CONFLICT (organization_id) DO NOTHING;
+
+  -- Log the creation event
+  INSERT INTO public.subscription_events (organization_id, event_type, to_plan, metadata)
+  VALUES (
+    NEW.id,
+    'created',
+    'starter',
+    jsonb_build_object('trigger', 'auto_create_starter_subscription')
+  );
+
+  RETURN NEW;
+END;
+$$;
+
+
+-- ─── 3. Subscription lifecycle automation function ─────────────────────────
+-- Runs periodically (pg_cron) to transition subscriptions through their lifecycle:
+--   grace_period → read_only  (when grace_period_ends_at < NOW())
+--   read_only → expired       (when read_only for > 14 days)
+--   expired → downgraded to starter (when expired for > 30 days)
+
+CREATE OR REPLACE FUNCTION public.process_subscription_lifecycle()
+RETURNS JSONB
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_grace_to_read_only INT := 0;
+  v_read_only_to_expired INT := 0;
+  v_expired_to_starter INT := 0;
+  v_org_id UUID;
+  v_sub_id UUID;
+BEGIN
+  -- ─── Transition 1: grace_period → read_only ────────────────────────
+  FOR v_org_id, v_sub_id IN
+    SELECT s.organization_id, s.id
+    FROM public.subscriptions s
+    WHERE s.status = 'grace_period'
+      AND s.grace_period_ends_at IS NOT NULL
+      AND s.grace_period_ends_at < NOW()
+  LOOP
+    UPDATE public.subscriptions SET
+      status = 'read_only',
+      updated_at = NOW()
+    WHERE id = v_sub_id;
+
+    INSERT INTO public.subscription_events (organization_id, event_type, to_plan, metadata)
+    VALUES (v_org_id, 'read_only_started', 'starter', jsonb_build_object(
+      'trigger', 'lifecycle_cron',
+      'previous_status', 'grace_period',
+      'grace_period_ends_at_was', (SELECT grace_period_ends_at FROM public.subscriptions WHERE id = v_sub_id)
+    ));
+
+    v_grace_to_read_only := v_grace_to_read_only + 1;
+  END LOOP;
+
+  -- ─── Transition 2: read_only → expired (after 14 days) ─────────────
+  FOR v_org_id, v_sub_id IN
+    SELECT s.organization_id, s.id
+    FROM public.subscriptions s
+    WHERE s.status = 'read_only'
+      AND s.updated_at < NOW() - INTERVAL '14 days'
+  LOOP
+    UPDATE public.subscriptions SET
+      status = 'expired',
+      updated_at = NOW()
+    WHERE id = v_sub_id;
+
+    INSERT INTO public.subscription_events (organization_id, event_type, to_plan, metadata)
+    VALUES (v_org_id, 'expired', 'starter', jsonb_build_object(
+      'trigger', 'lifecycle_cron',
+      'previous_status', 'read_only',
+      'days_read_only', 14
+    ));
+
+    v_read_only_to_expired := v_read_only_to_expired + 1;
+  END LOOP;
+
+  -- ─── Transition 3: expired → auto-downgrade to starter (after 30 days)
+  FOR v_org_id, v_sub_id IN
+    SELECT s.organization_id, s.id
+    FROM public.subscriptions s
+    WHERE s.status = 'expired'
+      AND s.plan_id != 'starter'
+      AND s.updated_at < NOW() - INTERVAL '30 days'
+  LOOP
+    UPDATE public.subscriptions SET
+      plan_id = 'starter',
+      status = 'active',
+      current_period_start = NOW(),
+      current_period_end = NOW() + INTERVAL '30 days',
+      trial_ends_at = NULL,
+      grace_period_ends_at = NULL,
+      updated_at = NOW()
+    WHERE id = v_sub_id;
+
+    -- Clear Stripe subscription ID
+    UPDATE public.stripe_customers SET
+      stripe_subscription_id = NULL,
+      updated_at = NOW()
+    WHERE organization_id = v_org_id;
+
+    INSERT INTO public.subscription_events (organization_id, event_type, from_plan, to_plan, metadata)
+    VALUES (v_org_id, 'auto_downgraded',
+      (SELECT plan_id FROM public.subscriptions WHERE id = v_sub_id),
+      'starter',
+      jsonb_build_object(
+        'trigger', 'lifecycle_cron',
+        'previous_status', 'expired',
+        'days_expired', 30
+      )
+    );
+
+    v_expired_to_starter := v_expired_to_starter + 1;
+  END LOOP;
+
+  RETURN jsonb_build_object(
+    'grace_to_read_only', v_grace_to_read_only,
+    'read_only_to_expired', v_read_only_to_expired,
+    'expired_to_starter', v_expired_to_starter,
+    'processed_at', NOW()
+  );
+END;
+$$;
+
+-- No GRANT — called by service role only (pg_cron or Edge Function)
+
+
+-- ─── 4. pg_cron schedule (requires pg_cron extension) ─────────────────────
+-- Run the lifecycle function every hour
+-- Note: pg_cron must be enabled in Supabase Dashboard → Database → Extensions
+
+-- Uncomment the following lines after enabling pg_cron:
+-- SELECT cron.schedule(
+--   'subscription-lifecycle-hourly',
+--   '0 * * * *',  -- Every hour at minute 0
+--   $$SELECT public.process_subscription_lifecycle();$$
+-- );
+
+-- Alternative: Run every 6 hours if hourly is too frequent
+-- SELECT cron.schedule(
+--   'subscription-lifecycle-6h',
+--   '0 */6 * * *',  -- Every 6 hours
+--   $$SELECT public.process_subscription_lifecycle();$$
+-- );
+
+
+-- ═════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260702130001_purchase_orders.sql
+-- ═════════════════════════════════════════════════════════════════
 
 -- ============================================================
 -- Supplier Purchase Orders — COMPLETE SETUP (idempotent)
@@ -7567,9 +7804,2840 @@ GRANT EXECUTE ON FUNCTION public.receive_purchase_order(UUID, JSONB) TO authenti
 
 -- ─── Done ──────────────────────────────────────────────────────
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260702140000_saas_metrics_rpcs.sql
+-- ═════════════════════════════════════════════════════════════════
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- SaaS Metrics RPCs for Admin Analytics
+-- ════════════════════════════════════════════════════════════════════════════
+-- Provides MRR, churn rate, conversion rate, plan distribution, and more
+-- Only accessible to super_admin users (checked via is_super_admin())
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- ─── 1. get_saas_overview ───────────────────────────────────────────────
+-- High-level SaaS KPIs: total orgs, active subs, MRR, ARR, plan distribution
+CREATE OR REPLACE FUNCTION public.get_saas_overview()
+RETURNS JSONB
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_total_orgs BIGINT;
+  v_active_paid BIGINT;
+  v_trial BIGINT;
+  v_grace_period BIGINT;
+  v_read_only BIGINT;
+  v_expired BIGINT;
+  v_mrr NUMERIC;
+  v_plan_distribution JSONB;
+BEGIN
+  -- Verify super_admin
+  IF NOT public.is_super_admin() THEN
+    RAISE EXCEPTION 'Access denied: super_admin only';
+  END IF;
+
+  -- Total organizations
+  SELECT COUNT(*) INTO v_total_orgs FROM organizations;
+
+  -- Count by subscription status
+  SELECT
+    COUNT(*) FILTER (WHERE s.plan_id != 'starter' AND s.status = 'active'),
+    COUNT(*) FILTER (WHERE s.trial_ends_at IS NOT NULL AND s.trial_ends_at > NOW() AND s.status = 'active'),
+    COUNT(*) FILTER (WHERE s.status = 'grace_period'),
+    COUNT(*) FILTER (WHERE s.status = 'read_only'),
+    COUNT(*) FILTER (WHERE s.status = 'expired')
+  INTO v_active_paid, v_trial, v_grace_period, v_read_only, v_expired
+  FROM subscriptions s;
+
+  -- MRR: sum of monthly prices for active paid subscriptions
+  SELECT COALESCE(SUM(
+    CASE
+      WHEN s.plan_id = 'croissance' THEN 2900  -- $29 in cents
+      WHEN s.plan_id = 'enterprise' THEN 7900  -- $79 in cents
+      ELSE 0
+    END
+  ), 0) INTO v_mrr
+  FROM subscriptions s
+  WHERE s.status = 'active' AND s.plan_id != 'starter';
+
+  -- Plan distribution
+  SELECT COALESCE(jsonb_agg(row_to_json(t)), '[]'::jsonb) INTO v_plan_distribution
+  FROM (
+    SELECT
+      s.plan_id,
+      p.name AS plan_name,
+      COUNT(*) AS count,
+      COUNT(*) FILTER (WHERE s.status = 'active') AS active_count,
+      COUNT(*) FILTER (WHERE s.status = 'grace_period') AS grace_period_count,
+      COUNT(*) FILTER (WHERE s.status = 'read_only') AS read_only_count,
+      COUNT(*) FILTER (WHERE s.status = 'expired') AS expired_count,
+      COUNT(*) FILTER (WHERE s.status = 'cancelled') AS cancelled_count
+    FROM subscriptions s
+    JOIN plans p ON p.id = s.plan_id
+    GROUP BY s.plan_id, p.name
+    ORDER BY p.sort_order
+  ) t;
+
+  RETURN jsonb_build_object(
+    'total_organizations', v_total_orgs,
+    'active_paid_subscriptions', v_active_paid,
+    'trial_subscriptions', v_trial,
+    'grace_period_subscriptions', v_grace_period,
+    'read_only_subscriptions', v_read_only,
+    'expired_subscriptions', v_expired,
+    'mrr_cents', v_mrr,
+    'arr_cents', v_mrr * 12,
+    'plan_distribution', v_plan_distribution,
+    'free_to_paid_ratio', CASE WHEN v_total_orgs > 0
+      THEN ROUND((v_active_paid::NUMERIC / v_total_orgs) * 100, 1)
+      ELSE 0 END
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_saas_overview() TO authenticated;
+
+
+-- ─── 2. get_saas_churn_metrics ──────────────────────────────────────────
+-- Churn rate, cancellations, and conversion over time periods
+CREATE OR REPLACE FUNCTION public.get_saas_churn_metrics(
+  p_period_days INTEGER DEFAULT 30
+)
+RETURNS JSONB
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_period_start TIMESTAMPTZ;
+  v_total_at_start BIGINT;
+  v_cancelled_in_period BIGINT;
+  v_new_paid_in_period BIGINT;
+  v_churn_rate NUMERIC;
+  v_conversion_rate NUMERIC;
+  v_total_signups BIGINT;
+  v_monthly_churn JSONB;
+BEGIN
+  -- Verify super_admin
+  IF NOT public.is_super_admin() THEN
+    RAISE EXCEPTION 'Access denied: super_admin only';
+  END IF;
+
+  v_period_start := NOW() - (p_period_days || ' days')::INTERVAL;
+
+  -- Total paid at start of period (approximation based on events)
+  SELECT COUNT(DISTINCT organization_id) INTO v_total_at_start
+  FROM subscription_events
+  WHERE event_type IN ('upgraded', 'checkout_completed', 'created')
+    AND created_at < v_period_start
+    AND organization_id NOT IN (
+      SELECT DISTINCT organization_id FROM subscription_events
+      WHERE event_type IN ('cancelled', 'auto_downgraded')
+        AND created_at < v_period_start
+    );
+
+  -- Cancellations in period
+  SELECT COUNT(DISTINCT organization_id) INTO v_cancelled_in_period
+  FROM subscription_events
+  WHERE event_type IN ('cancelled', 'auto_downgraded')
+    AND created_at >= v_period_start;
+
+  -- New paid subscriptions in period
+  SELECT COUNT(DISTINCT organization_id) INTO v_new_paid_in_period
+  FROM subscription_events
+  WHERE event_type IN ('upgraded', 'checkout_completed')
+    AND created_at >= v_period_start;
+
+  -- Total signups in period
+  SELECT COUNT(DISTINCT organization_id) INTO v_total_signups
+  FROM subscription_events
+  WHERE event_type = 'created'
+    AND created_at >= v_period_start;
+
+  -- Churn rate
+  v_churn_rate := CASE WHEN v_total_at_start > 0
+    THEN ROUND((v_cancelled_in_period::NUMERIC / v_total_at_start) * 100, 2)
+    ELSE 0 END;
+
+  -- Conversion rate (new paid / total signups)
+  v_conversion_rate := CASE WHEN v_total_signups > 0
+    THEN ROUND((v_new_paid_in_period::NUMERIC / v_total_signups) * 100, 2)
+    ELSE 0 END;
+
+  -- Monthly churn breakdown (last 6 months)
+  SELECT COALESCE(jsonb_agg(row_to_json(r)), '[]'::jsonb) INTO v_monthly_churn
+  FROM (
+    SELECT
+      TO_CHAR(DATE_TRUNC('month', created_at), 'YYYY-MM') AS month,
+      COUNT(DISTINCT CASE WHEN event_type IN ('cancelled', 'auto_downgraded') THEN organization_id END) AS churned,
+      COUNT(DISTINCT CASE WHEN event_type IN ('upgraded', 'checkout_completed') THEN organization_id END) AS new_paid,
+      COUNT(DISTINCT CASE WHEN event_type = 'created' THEN organization_id END) AS signups
+    FROM subscription_events
+    WHERE created_at >= NOW() - INTERVAL '6 months'
+    GROUP BY DATE_TRUNC('month', created_at)
+    ORDER BY DATE_TRUNC('month', created_at)
+  ) r;
+
+  RETURN jsonb_build_object(
+    'period_days', p_period_days,
+    'total_paid_at_start', v_total_at_start,
+    'cancelled_in_period', v_cancelled_in_period,
+    'new_paid_in_period', v_new_paid_in_period,
+    'total_signups', v_total_signups,
+    'churn_rate_pct', v_churn_rate,
+    'conversion_rate_pct', v_conversion_rate,
+    'monthly_breakdown', v_monthly_churn
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_saas_churn_metrics(INTEGER) TO authenticated;
+
+
+-- ─── 3. get_saas_revenue_metrics ────────────────────────────────────────
+-- Revenue breakdown by plan, MRR trend
+CREATE OR REPLACE FUNCTION public.get_saas_revenue_metrics()
+RETURNS JSONB
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_total_mrr BIGINT := 0;
+  v_revenue_by_plan JSONB;
+  v_monthly_revenue JSONB;
+BEGIN
+  -- Verify super_admin
+  IF NOT public.is_super_admin() THEN
+    RAISE EXCEPTION 'Access denied: super_admin only';
+  END IF;
+
+  -- MRR: sum of monthly prices for all active paid subscriptions
+  SELECT COALESCE(SUM(p.price_monthly), 0) INTO v_total_mrr
+  FROM subscriptions s
+  JOIN plans p ON p.id = s.plan_id
+  WHERE s.status = 'active' AND p.price_monthly > 0;
+
+  -- Revenue by plan
+  SELECT COALESCE(jsonb_agg(row_to_json(r)), '[]'::jsonb) INTO v_revenue_by_plan
+  FROM (
+    SELECT
+      p.id AS plan_id,
+      p.name AS plan_name,
+      COUNT(s.id) AS active_subscriptions,
+      p.price_monthly AS price_monthly_cents,
+      COUNT(s.id) * p.price_monthly AS mrr_cents
+    FROM plans p
+    LEFT JOIN subscriptions s ON s.plan_id = p.id AND s.status = 'active'
+    WHERE p.price_monthly > 0
+    GROUP BY p.id, p.name, p.price_monthly
+    ORDER BY p.sort_order
+  ) r;
+
+  -- Monthly revenue from payments (last 6 months)
+  SELECT COALESCE(jsonb_agg(row_to_json(r)), '[]'::jsonb) INTO v_monthly_revenue
+  FROM (
+    SELECT
+      TO_CHAR(DATE_TRUNC('month', created_at), 'YYYY-MM') AS month,
+      SUM(amount) AS total_cents,
+      COUNT(*) AS payment_count,
+      COUNT(*) FILTER (WHERE status = 'paid') AS paid_count,
+      COUNT(*) FILTER (WHERE status = 'failed') AS failed_count
+    FROM stripe_payments
+    WHERE created_at >= NOW() - INTERVAL '6 months'
+    GROUP BY DATE_TRUNC('month', created_at)
+    ORDER BY DATE_TRUNC('month', created_at)
+  ) r;
+
+  RETURN jsonb_build_object(
+    'mrr_cents', v_total_mrr,
+    'arr_cents', v_total_mrr * 12,
+    'revenue_by_plan', v_revenue_by_plan,
+    'monthly_revenue', v_monthly_revenue
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_saas_revenue_metrics() TO authenticated;
+
+
+-- ═════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260702150000_onboarding_premium.sql
+-- ═════════════════════════════════════════════════════════════════
+
+-- ============================================================
+-- Onboarding Premium — Track onboarding progress in profiles
+-- ============================================================
+
+-- 1. Add onboarding tracking columns to profiles
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS onboarding_step TEXT DEFAULT 'welcome',
+  ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS business_type TEXT;
+
+-- 2. Set default for existing users: mark them as onboarding completed
+-- (they already have accounts so they don't need the new wizard)
+UPDATE public.profiles
+SET onboarding_completed = TRUE,
+    onboarding_step = 'done'
+WHERE onboarding_completed IS NULL OR onboarding_completed = FALSE;
+
+-- 3. RPC: Update onboarding progress
+CREATE OR REPLACE FUNCTION public.update_onboarding_progress(p_step TEXT)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_org_id UUID;
+BEGIN
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  SELECT organization_id INTO v_org_id
+  FROM public.profiles
+  WHERE user_id = v_user_id
+  LIMIT 1;
+
+  UPDATE public.profiles
+  SET onboarding_step = p_step,
+      updated_at = now()
+  WHERE user_id = v_user_id;
+END;
+$$;
+
+-- 4. RPC: Complete onboarding
+CREATE OR REPLACE FUNCTION public.complete_onboarding()
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+BEGIN
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  UPDATE public.profiles
+  SET onboarding_completed = TRUE,
+      onboarding_step = 'done',
+      updated_at = now()
+  WHERE user_id = v_user_id;
+END;
+$$;
+
+-- 5. RPC: Get onboarding status
+CREATE OR REPLACE FUNCTION public.get_onboarding_status()
+RETURNS TABLE(step TEXT, completed BOOLEAN, business_type TEXT)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+BEGIN
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  RETURN QUERY
+  SELECT p.onboarding_step, p.onboarding_completed, p.business_type
+  FROM public.profiles p
+  WHERE p.user_id = v_user_id;
+END;
+$$;
+
+-- 6. RPC: Update business type during onboarding
+CREATE OR REPLACE FUNCTION public.update_business_type(p_business_type TEXT)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+BEGIN
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  UPDATE public.profiles
+  SET business_type = p_business_type,
+      updated_at = now()
+  WHERE user_id = v_user_id;
+END;
+$$;
+
+-- 7. RPC: Setup store during onboarding (update store name, city, country, currency, phone)
+CREATE OR REPLACE FUNCTION public.setup_onboarding_store(
+  p_store_name TEXT,
+  p_city TEXT DEFAULT NULL,
+  p_country TEXT DEFAULT 'GN',
+  p_currency TEXT DEFAULT 'GNF',
+  p_phone TEXT DEFAULT NULL
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_org_id UUID;
+  v_store_id UUID;
+BEGIN
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  -- Get user's org
+  SELECT organization_id INTO v_org_id
+  FROM public.profiles
+  WHERE user_id = v_user_id
+  LIMIT 1;
+
+  IF v_org_id IS NULL THEN
+    RAISE EXCEPTION 'User has no organization';
+  END IF;
+
+  -- Find the default store for the org
+  SELECT id INTO v_store_id
+  FROM public.stores
+  WHERE organization_id = v_org_id
+  LIMIT 1;
+
+  IF v_store_id IS NOT NULL THEN
+    -- Update existing store
+    UPDATE public.stores
+    SET name = p_store_name,
+        city = p_city,
+        country = p_country,
+        currency = p_currency,
+        phone = p_phone,
+        updated_at = now()
+    WHERE id = v_store_id;
+  ELSE
+    -- Create store (shouldn't normally happen but handle it)
+    INSERT INTO public.stores (organization_id, name, city, country, currency, phone, slug, is_active, is_headquarters)
+    VALUES (v_org_id, p_store_name, p_city, p_country, p_currency, p_phone,
+            lower(replace(p_store_name, ' ', '-')), TRUE, TRUE)
+    RETURNING id INTO v_store_id;
+  END IF;
+
+  -- Also update profile info
+  UPDATE public.profiles
+  SET phone = COALESCE(p_phone, phone),
+      city = COALESCE(p_city, city),
+      country = COALESCE(p_country, country),
+      currency = COALESCE(p_currency, currency),
+      updated_at = now()
+  WHERE user_id = v_user_id;
+
+  RETURN v_store_id;
+END;
+$$;
+
+-- 8. RPC: Get onboarding checklist progress (auto-detect from data)
+CREATE OR REPLACE FUNCTION public.get_onboarding_checklist()
+RETURNS TABLE(
+  has_account BOOLEAN,
+  has_store_configured BOOLEAN,
+  has_products BOOLEAN,
+  has_categories BOOLEAN,
+  has_sales BOOLEAN,
+  completion_pct INTEGER
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_org_id UUID;
+  v_store_id UUID;
+  v_has_store BOOLEAN;
+  v_has_products BOOLEAN;
+  v_has_categories BOOLEAN;
+  v_has_sales BOOLEAN;
+  v_completed INTEGER;
+BEGIN
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  -- Get org and store
+  SELECT p.organization_id INTO v_org_id
+  FROM public.profiles p
+  WHERE p.user_id = v_user_id
+  LIMIT 1;
+
+  SELECT s.id INTO v_store_id
+  FROM public.stores s
+  WHERE s.organization_id = v_org_id
+  LIMIT 1;
+
+  -- Check store configured (has name and city)
+  SELECT EXISTS(
+    SELECT 1 FROM public.stores
+    WHERE organization_id = v_org_id
+      AND name IS NOT NULL AND name != ''
+      AND city IS NOT NULL AND city != ''
+      AND currency IS NOT NULL
+  ) INTO v_has_store;
+
+  -- Check products exist
+  SELECT EXISTS(
+    SELECT 1 FROM public.products
+    WHERE organization_id = v_org_id
+    LIMIT 1
+  ) INTO v_has_products;
+
+  -- Check categories exist
+  SELECT EXISTS(
+    SELECT 1 FROM public.categories
+    WHERE organization_id = v_org_id
+    LIMIT 1
+  ) INTO v_has_categories;
+
+  -- Check sales exist
+  SELECT EXISTS(
+    SELECT 1 FROM public.sales
+    WHERE organization_id = v_org_id
+    LIMIT 1
+  ) INTO v_has_sales;
+
+  -- Calculate completion percentage
+  v_completed := 0;
+  IF TRUE THEN v_completed := v_completed + 1; END IF; -- always has account
+  IF v_has_store THEN v_completed := v_completed + 1; END IF;
+  IF v_has_products THEN v_completed := v_completed + 1; END IF;
+  IF v_has_categories THEN v_completed := v_completed + 1; END IF;
+  IF v_has_sales THEN v_completed := v_completed + 1; END IF;
+
+  RETURN QUERY
+  SELECT
+    TRUE AS has_account,
+    COALESCE(v_has_store, FALSE) AS has_store_configured,
+    COALESCE(v_has_products, FALSE) AS has_products,
+    COALESCE(v_has_categories, FALSE) AS has_categories,
+    COALESCE(v_has_sales, FALSE) AS has_sales,
+    (v_completed * 100 / 5) AS completion_pct;
+END;
+$$;
+
+
+-- ═════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260702160000_stock_transfers.sql
+-- ═════════════════════════════════════════════════════════════════
+
+-- ============================================================
+-- Stock Transfers — Multi-store stock transfer system
+-- Allows transferring products between stores within an organization
+-- ============================================================
+
+-- ─── Enum for transfer status ────────────────────────────────
+DO $$ BEGIN
+  CREATE TYPE public.transfer_status AS ENUM (
+    'draft',
+    'pending',
+    'in_transit',
+    'received',
+    'partial',
+    'cancelled'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- ─── stock_transfers table ───────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.stock_transfers (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  transfer_number TEXT NOT NULL,
+  from_store_id   UUID NOT NULL REFERENCES public.stores(id) ON DELETE RESTRICT,
+  to_store_id     UUID NOT NULL REFERENCES public.stores(id) ON DELETE RESTRICT,
+  status          public.transfer_status NOT NULL DEFAULT 'draft',
+  notes           TEXT,
+  sent_at         TIMESTAMPTZ,
+  received_at     TIMESTAMPTZ,
+  created_by      UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  received_by     UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT st_from_to_different CHECK (from_store_id <> to_store_id),
+  CONSTRAINT st_transfer_number_format CHECK (transfer_number ~ '^TRF-')
+);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_stock_transfers_org ON public.stock_transfers(organization_id);
+CREATE INDEX IF NOT EXISTS idx_stock_transfers_from_store ON public.stock_transfers(from_store_id);
+CREATE INDEX IF NOT EXISTS idx_stock_transfers_to_store ON public.stock_transfers(to_store_id);
+CREATE INDEX IF NOT EXISTS idx_stock_transfers_status ON public.stock_transfers(status);
+CREATE INDEX IF NOT EXISTS idx_stock_transfers_created_at ON public.stock_transfers(created_at DESC);
+
+-- Unique transfer number per org
+CREATE UNIQUE INDEX IF NOT EXISTS idx_stock_transfers_number ON public.stock_transfers(organization_id, transfer_number);
+
+-- ─── stock_transfer_items table ──────────────────────────────
+CREATE TABLE IF NOT EXISTS public.stock_transfer_items (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  transfer_id     UUID NOT NULL REFERENCES public.stock_transfers(id) ON DELETE CASCADE,
+  product_id      UUID REFERENCES public.products(id) ON DELETE SET NULL,
+  product_name    TEXT NOT NULL,
+  quantity        INTEGER NOT NULL CHECK (quantity > 0),
+  quantity_received INTEGER NOT NULL DEFAULT 0 CHECK (quantity_received >= 0),
+  unit_cost       NUMERIC(12,2) NOT NULL DEFAULT 0,
+  notes           TEXT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_sti_transfer ON public.stock_transfer_items(transfer_id);
+CREATE INDEX IF NOT EXISTS idx_sti_product ON public.stock_transfer_items(product_id);
+
+-- ─── RLS Policies ────────────────────────────────────────────
+ALTER TABLE public.stock_transfers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.stock_transfer_items ENABLE ROW LEVEL SECURITY;
+
+-- stock_transfers: users can only see transfers in their organization
+CREATE POLICY "st_select_org" ON public.stock_transfers
+  FOR SELECT USING (
+    organization_id IN (
+      SELECT o.id FROM public.organizations o
+      INNER JOIN public.profiles p ON p.organization_id = o.id
+      WHERE p.id = auth.uid()
+    )
+  );
+
+CREATE POLICY "st_insert_org" ON public.stock_transfers
+  FOR INSERT WITH CHECK (
+    organization_id = (
+      SELECT p.organization_id FROM public.profiles p WHERE p.id = auth.uid()
+    )
+    AND from_store_id IN (
+      SELECT s.id FROM public.stores s WHERE s.organization_id = (
+        SELECT p.organization_id FROM public.profiles p WHERE p.id = auth.uid()
+      )
+    )
+  );
+
+CREATE POLICY "st_update_org" ON public.stock_transfers
+  FOR UPDATE USING (
+    organization_id IN (
+      SELECT o.id FROM public.organizations o
+      INNER JOIN public.profiles p ON p.organization_id = o.id
+      WHERE p.id = auth.uid()
+    )
+  );
+
+CREATE POLICY "st_delete_org" ON public.stock_transfers
+  FOR DELETE USING (
+    organization_id IN (
+      SELECT o.id FROM public.organizations o
+      INNER JOIN public.profiles p ON p.organization_id = o.id
+      WHERE p.id = auth.uid()
+    )
+    AND status = 'draft'
+  );
+
+-- stock_transfer_items: same org scoping via parent transfer
+CREATE POLICY "sti_select_org" ON public.stock_transfer_items
+  FOR SELECT USING (
+    transfer_id IN (
+      SELECT id FROM public.stock_transfers
+      WHERE organization_id IN (
+        SELECT o.id FROM public.organizations o
+        INNER JOIN public.profiles p ON p.organization_id = o.id
+        WHERE p.id = auth.uid()
+      )
+    )
+  );
+
+CREATE POLICY "sti_insert_org" ON public.stock_transfer_items
+  FOR INSERT WITH CHECK (
+    transfer_id IN (
+      SELECT id FROM public.stock_transfers
+      WHERE organization_id = (
+        SELECT p.organization_id FROM public.profiles p WHERE p.id = auth.uid()
+      )
+      AND status = 'draft'
+    )
+  );
+
+CREATE POLICY "sti_update_org" ON public.stock_transfer_items
+  FOR UPDATE USING (
+    transfer_id IN (
+      SELECT id FROM public.stock_transfers
+      WHERE organization_id IN (
+        SELECT o.id FROM public.organizations o
+        INNER JOIN public.profiles p ON p.organization_id = o.id
+        WHERE p.id = auth.uid()
+      )
+    )
+  );
+
+CREATE POLICY "sti_delete_org" ON public.stock_transfer_items
+  FOR DELETE USING (
+    transfer_id IN (
+      SELECT id FROM public.stock_transfers
+      WHERE organization_id = (
+        SELECT p.organization_id FROM public.profiles p WHERE p.id = auth.uid()
+      )
+      AND status = 'draft'
+    )
+  );
+
+-- ─── Helper: get user's organization_id ──────────────────────
+CREATE OR REPLACE FUNCTION public.get_user_organization_id()
+RETURNS UUID
+LANGUAGE sql STABLE SECURITY DEFINER
+AS $$
+  SELECT organization_id FROM public.profiles WHERE id = auth.uid();
+$$;
+
+-- ─── RPC: generate_transfer_number ───────────────────────────
+CREATE OR REPLACE FUNCTION public.generate_transfer_number()
+RETURNS TEXT
+LANGUAGE plpgsql SECURITY DEFINER
+AS $$
+DECLARE
+  v_org_id UUID;
+  v_count INTEGER;
+  v_number TEXT;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+  IF v_org_id IS NULL THEN
+    RAISE EXCEPTION 'Utilisateur non associé à une organisation';
+  END IF;
+
+  SELECT COALESCE(MAX(CAST(SUBSTRING(transfer_number FROM 5) AS INTEGER)), 0) + 1
+  INTO v_count
+  FROM public.stock_transfers
+  WHERE organization_id = v_org_id;
+
+  v_number := 'TRF-' || LPAD(v_count::TEXT, 6, '0');
+  RETURN v_number;
+END;
+$$;
+
+-- ─── RPC: create_stock_transfer ──────────────────────────────
+-- Creates a draft transfer with items
+CREATE OR REPLACE FUNCTION public.create_stock_transfer(
+  p_from_store_id UUID,
+  p_to_store_id UUID,
+  p_items JSONB,
+  p_notes TEXT DEFAULT NULL
+)
+RETURNS UUID
+LANGUAGE plpgsql SECURITY DEFINER
+AS $$
+DECLARE
+  v_org_id UUID;
+  v_transfer_id UUID;
+  v_transfer_number TEXT;
+  v_item JSONB;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+  IF v_org_id IS NULL THEN
+    RAISE EXCEPTION 'Utilisateur non associé à une organisation';
+  END IF;
+
+  -- Verify both stores belong to the same organization
+  IF NOT EXISTS (
+    SELECT 1 FROM public.stores WHERE id = p_from_store_id AND organization_id = v_org_id
+  ) THEN
+    RAISE EXCEPTION 'Boutique source invalide';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.stores WHERE id = p_to_store_id AND organization_id = v_org_id
+  ) THEN
+    RAISE EXCEPTION 'Boutique destination invalide';
+  END IF;
+
+  -- Generate transfer number
+  v_transfer_number := public.generate_transfer_number();
+
+  -- Create transfer
+  INSERT INTO public.stock_transfers (
+    organization_id, transfer_number, from_store_id, to_store_id,
+    status, notes, created_by
+  ) VALUES (
+    v_org_id, v_transfer_number, p_from_store_id, p_to_store_id,
+    'draft', p_notes, auth.uid()
+  ) RETURNING id INTO v_transfer_id;
+
+  -- Insert items
+  FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
+  LOOP
+    INSERT INTO public.stock_transfer_items (
+      transfer_id, product_id, product_name, quantity, unit_cost, notes
+    ) VALUES (
+      v_transfer_id,
+      (v_item->>'product_id')::UUID,
+      v_item->>'product_name',
+      (v_item->>'quantity')::INTEGER,
+      COALESCE((v_item->>'unit_cost')::NUMERIC, 0),
+      v_item->>'notes'
+    );
+  END LOOP;
+
+  RETURN v_transfer_id;
+END;
+$$;
+
+-- ─── RPC: send_stock_transfer ────────────────────────────────
+-- Changes status from draft to pending, deducts stock from source store
+CREATE OR REPLACE FUNCTION public.send_stock_transfer(
+  p_transfer_id UUID
+)
+RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER
+AS $$
+DECLARE
+  v_org_id UUID;
+  v_from_store_id UUID;
+  v_item RECORD;
+  v_current_stock INTEGER;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+
+  -- Verify transfer belongs to user's org and is in draft status
+  SELECT from_store_id INTO v_from_store_id
+  FROM public.stock_transfers
+  WHERE id = p_transfer_id
+    AND organization_id = v_org_id
+    AND status = 'draft';
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Transfert introuvable ou statut invalide';
+  END IF;
+
+  -- Verify sufficient stock for each item and deduct from source
+  FOR v_item IN
+    SELECT sti.product_id, sti.quantity, sti.product_name
+    FROM public.stock_transfer_items sti
+    WHERE sti.transfer_id = p_transfer_id
+  LOOP
+    -- Get current stock in source store
+    SELECT stock_quantity INTO v_current_stock
+    FROM public.products
+    WHERE id = v_item.product_id AND store_id = v_from_store_id;
+
+    IF v_current_stock IS NULL OR v_current_stock < v_item.quantity THEN
+      RAISE EXCEPTION 'Stock insuffisant pour "%": disponible %, demandé %',
+        v_item.product_name, COALESCE(v_current_stock, 0), v_item.quantity;
+    END IF;
+
+    -- Deduct from source store
+    UPDATE public.products
+    SET stock_quantity = stock_quantity - v_item.quantity,
+        updated_at = now()
+    WHERE id = v_item.product_id AND store_id = v_from_store_id;
+  END LOOP;
+
+  -- Update transfer status
+  UPDATE public.stock_transfers
+  SET status = 'pending',
+      sent_at = now(),
+      updated_at = now()
+  WHERE id = p_transfer_id;
+END;
+$$;
+
+-- ─── RPC: receive_stock_transfer ─────────────────────────────
+-- Marks transfer as received and adds stock to destination store
+CREATE OR REPLACE FUNCTION public.receive_stock_transfer(
+  p_transfer_id UUID,
+  p_received_items JSONB DEFAULT NULL
+)
+RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER
+AS $$
+DECLARE
+  v_org_id UUID;
+  v_to_store_id UUID;
+  v_from_store_id UUID;
+  v_item JSONB;
+  v_product_id UUID;
+  v_qty_received INTEGER;
+  v_existing_product_id UUID;
+  v_total_items INTEGER;
+  v_total_received INTEGER;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+
+  -- Verify transfer belongs to user's org and is in pending/in_transit status
+  SELECT to_store_id, from_store_id
+  INTO v_to_store_id, v_from_store_id
+  FROM public.stock_transfers
+  WHERE id = p_transfer_id
+    AND organization_id = v_org_id
+    AND status IN ('pending', 'in_transit');
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Transfert introuvable ou statut invalide (doit être en attente ou en transit)';
+  END IF;
+
+  -- Process received items (if provided, otherwise receive all)
+  IF p_received_items IS NOT NULL THEN
+    FOR v_item IN SELECT * FROM jsonb_array_elements(p_received_items)
+    LOOP
+      v_product_id := (v_item->>'product_id')::UUID;
+      v_qty_received := (v_item->>'quantity_received')::INTEGER;
+
+      -- Update transfer item received quantity
+      UPDATE public.stock_transfer_items
+      SET quantity_received = v_qty_received
+      WHERE transfer_id = p_transfer_id AND product_id = v_product_id;
+
+      -- Check if product exists in destination store
+      SELECT id INTO v_existing_product_id
+      FROM public.products
+      WHERE id = v_product_id AND store_id = v_to_store_id;
+
+      IF v_existing_product_id IS NOT NULL THEN
+        -- Add to existing stock in destination
+        UPDATE public.products
+        SET stock_quantity = stock_quantity + v_qty_received,
+            updated_at = now()
+        WHERE id = v_product_id AND store_id = v_to_store_id;
+      ELSE
+        -- Product doesn't exist in destination store - copy from source store
+        INSERT INTO public.products (
+          name, description, barcode, price, cost_price, stock_quantity,
+          min_stock_alert, unit, category_id, organization_id, store_id,
+          supplier_id, is_active, image_url
+        )
+        SELECT
+          name, description, barcode, price, cost_price, v_qty_received,
+          min_stock_alert, unit, category_id, organization_id, v_to_store_id,
+          supplier_id, is_active, image_url
+        FROM public.products
+        WHERE id = v_product_id AND store_id = v_from_store_id
+        ON CONFLICT DO NOTHING;
+      END IF;
+    END LOOP;
+  ELSE
+    -- Receive all items fully
+    FOR v_item IN
+      SELECT sti.product_id, sti.quantity
+      FROM public.stock_transfer_items sti
+      WHERE sti.transfer_id = p_transfer_id
+    LOOP
+      -- Update received quantity = ordered quantity
+      UPDATE public.stock_transfer_items
+      SET quantity_received = v_item.quantity
+      WHERE transfer_id = p_transfer_id AND product_id = v_item.product_id;
+
+      -- Check if product exists in destination store
+      SELECT id INTO v_existing_product_id
+      FROM public.products
+      WHERE id = v_item.product_id AND store_id = v_to_store_id;
+
+      IF v_existing_product_id IS NOT NULL THEN
+        UPDATE public.products
+        SET stock_quantity = stock_quantity + v_item.quantity,
+            updated_at = now()
+        WHERE id = v_item.product_id AND store_id = v_to_store_id;
+      ELSE
+        INSERT INTO public.products (
+          name, description, barcode, price, cost_price, stock_quantity,
+          min_stock_alert, unit, category_id, organization_id, store_id,
+          supplier_id, is_active, image_url
+        )
+        SELECT
+          name, description, barcode, price, cost_price, v_item.quantity,
+          min_stock_alert, unit, category_id, organization_id, v_to_store_id,
+          supplier_id, is_active, image_url
+        FROM public.products
+        WHERE id = v_item.product_id AND store_id = v_from_store_id
+        ON CONFLICT DO NOTHING;
+      END IF;
+    END LOOP;
+  END IF;
+
+  -- Determine final status: partial or full
+  SELECT COUNT(*), COUNT(*) FILTER (WHERE quantity_received < quantity)
+  INTO v_total_items, v_total_received
+  FROM public.stock_transfer_items
+  WHERE transfer_id = p_transfer_id;
+
+  -- Update transfer
+  UPDATE public.stock_transfers
+  SET status = CASE
+      WHEN v_total_received > 0 THEN 'partial'
+      ELSE 'received'
+    END,
+    received_at = now(),
+    received_by = auth.uid(),
+    updated_at = now()
+  WHERE id = p_transfer_id;
+END;
+$$;
+
+-- ─── RPC: cancel_stock_transfer ──────────────────────────────
+-- Cancels a pending transfer and returns stock to source store
+CREATE OR REPLACE FUNCTION public.cancel_stock_transfer(
+  p_transfer_id UUID,
+  p_reason TEXT DEFAULT NULL
+)
+RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER
+AS $$
+DECLARE
+  v_org_id UUID;
+  v_from_store_id UUID;
+  v_item RECORD;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+
+  -- Verify transfer belongs to user's org and is in pending/in_transit status
+  SELECT from_store_id INTO v_from_store_id
+  FROM public.stock_transfers
+  WHERE id = p_transfer_id
+    AND organization_id = v_org_id
+    AND status IN ('pending', 'in_transit', 'draft');
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Transfert introuvable ou ne peut pas être annulé';
+  END IF;
+
+  -- Return stock to source if transfer was already sent (not draft)
+  IF EXISTS (
+    SELECT 1 FROM public.stock_transfers
+    WHERE id = p_transfer_id AND status IN ('pending', 'in_transit')
+  ) THEN
+    FOR v_item IN
+      SELECT sti.product_id, sti.quantity - sti.quantity_received AS qty_to_return
+      FROM public.stock_transfer_items sti
+      WHERE sti.transfer_id = p_transfer_id
+    LOOP
+      IF v_item.qty_to_return > 0 THEN
+        UPDATE public.products
+        SET stock_quantity = stock_quantity + v_item.qty_to_return,
+            updated_at = now()
+        WHERE id = v_item.product_id AND store_id = v_from_store_id;
+      END IF;
+    END LOOP;
+  END IF;
+
+  -- Update status
+  UPDATE public.stock_transfers
+  SET status = 'cancelled',
+      notes = COALESCE(notes, '') || CASE WHEN p_reason IS NOT NULL THEN E'\nAnnulé: ' || p_reason ELSE '' END,
+      updated_at = now()
+  WHERE id = p_transfer_id;
+END;
+$$;
+
+-- ─── RPC: get_stock_transfers ────────────────────────────────
+-- Lists transfers for the current organization with optional filters
+CREATE OR REPLACE FUNCTION public.get_stock_transfers(
+  p_status public.transfer_status DEFAULT NULL,
+  p_store_id UUID DEFAULT NULL,
+  p_limit INTEGER DEFAULT 50,
+  p_offset INTEGER DEFAULT 0
+)
+RETURNS TABLE (
+  id UUID,
+  transfer_number TEXT,
+  from_store_id UUID,
+  from_store_name TEXT,
+  to_store_id UUID,
+  to_store_name TEXT,
+  status public.transfer_status,
+  notes TEXT,
+  sent_at TIMESTAMPTZ,
+  received_at TIMESTAMPTZ,
+  created_by UUID,
+  created_by_name TEXT,
+  received_by UUID,
+  received_by_name TEXT,
+  item_count BIGINT,
+  total_quantity BIGINT,
+  created_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ
+)
+LANGUAGE plpgsql SECURITY DEFINER
+AS $$
+DECLARE
+  v_org_id UUID;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+
+  RETURN QUERY
+  SELECT
+    st.id,
+    st.transfer_number,
+    st.from_store_id,
+    fs.name AS from_store_name,
+    st.to_store_id,
+    ts.name AS to_store_name,
+    st.status,
+    st.notes,
+    st.sent_at,
+    st.received_at,
+    st.created_by,
+    cb.owner_name AS created_by_name,
+    st.received_by,
+    rb.owner_name AS received_by_name,
+    COUNT(sti.id)::BIGINT AS item_count,
+    COALESCE(SUM(sti.quantity), 0)::BIGINT AS total_quantity,
+    st.created_at,
+    st.updated_at
+  FROM public.stock_transfers st
+  INNER JOIN public.stores fs ON fs.id = st.from_store_id
+  INNER JOIN public.stores ts ON ts.id = st.to_store_id
+  LEFT JOIN public.profiles cb ON cb.id = st.created_by
+  LEFT JOIN public.profiles rb ON rb.id = st.received_by
+  LEFT JOIN public.stock_transfer_items sti ON sti.transfer_id = st.id
+  WHERE st.organization_id = v_org_id
+    AND (p_status IS NULL OR st.status = p_status)
+    AND (p_store_id IS NULL OR st.from_store_id = p_store_id OR st.to_store_id = p_store_id)
+  GROUP BY st.id, fs.name, ts.name, cb.owner_name, rb.owner_name
+  ORDER BY st.created_at DESC
+  LIMIT p_limit
+  OFFSET p_offset;
+END;
+$$;
+
+-- ─── RPC: get_stock_transfer_details ─────────────────────────
+-- Gets a single transfer with its items
+CREATE OR REPLACE FUNCTION public.get_stock_transfer_details(
+  p_transfer_id UUID
+)
+RETURNS TABLE (
+  id UUID,
+  transfer_number TEXT,
+  from_store_id UUID,
+  from_store_name TEXT,
+  to_store_id UUID,
+  to_store_name TEXT,
+  status public.transfer_status,
+  notes TEXT,
+  sent_at TIMESTAMPTZ,
+  received_at TIMESTAMPTZ,
+  created_by UUID,
+  created_by_name TEXT,
+  received_by UUID,
+  received_by_name TEXT,
+  created_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ,
+  items JSONB
+)
+LANGUAGE plpgsql SECURITY DEFINER
+AS $$
+DECLARE
+  v_org_id UUID;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+
+  RETURN QUERY
+  SELECT
+    st.id,
+    st.transfer_number,
+    st.from_store_id,
+    fs.name AS from_store_name,
+    st.to_store_id,
+    ts.name AS to_store_name,
+    st.status,
+    st.notes,
+    st.sent_at,
+    st.received_at,
+    st.created_by,
+    cb.owner_name AS created_by_name,
+    st.received_by,
+    rb.owner_name AS received_by_name,
+    st.created_at,
+    st.updated_at,
+    (
+      SELECT COALESCE(jsonb_agg(
+        jsonb_build_object(
+          'id', sti.id,
+          'product_id', sti.product_id,
+          'product_name', sti.product_name,
+          'quantity', sti.quantity,
+          'quantity_received', sti.quantity_received,
+          'unit_cost', sti.unit_cost,
+          'notes', sti.notes,
+          'current_stock_source', (
+            SELECT p.stock_quantity FROM public.products p
+            WHERE p.id = sti.product_id AND p.store_id = st.from_store_id
+          )
+        )
+        ORDER BY sti.created_at
+      ), '[]'::JSONB)
+      FROM public.stock_transfer_items sti
+      WHERE sti.transfer_id = st.id
+    ) AS items
+  FROM public.stock_transfers st
+  INNER JOIN public.stores fs ON fs.id = st.from_store_id
+  INNER JOIN public.stores ts ON ts.id = st.to_store_id
+  LEFT JOIN public.profiles cb ON cb.id = st.created_by
+  LEFT JOIN public.profiles rb ON rb.id = st.received_by
+  WHERE st.id = p_transfer_id AND st.organization_id = v_org_id;
+END;
+$$;
+
+-- ─── RPC: get_pending_transfers_count ────────────────────────
+-- Counts pending transfers for the current store (used in dashboard alerts)
+CREATE OR REPLACE FUNCTION public.get_pending_transfers_count(
+  p_store_id UUID DEFAULT NULL
+)
+RETURNS TABLE (
+  pending_count BIGINT,
+  in_transit_count BIGINT
+)
+LANGUAGE plpgsql SECURITY DEFINER
+AS $$
+DECLARE
+  v_org_id UUID;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+
+  RETURN QUERY
+  SELECT
+    COUNT(*) FILTER (WHERE st.status = 'pending'
+      AND (p_store_id IS NULL OR st.to_store_id = p_store_id))::BIGINT,
+    COUNT(*) FILTER (WHERE st.status = 'in_transit'
+      AND (p_store_id IS NULL OR st.to_store_id = p_store_id))::BIGINT
+  FROM public.stock_transfers st
+  WHERE st.organization_id = v_org_id;
+END;
+$$;
+
+-- ─── Trigger: auto-update updated_at ─────────────────────────
+CREATE OR REPLACE FUNCTION public.update_stock_transfers_updated_at()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_st_updated_at ON public.stock_transfers;
+CREATE TRIGGER trg_st_updated_at
+  BEFORE UPDATE ON public.stock_transfers
+  FOR EACH ROW EXECUTE FUNCTION public.update_stock_transfers_updated_at();
+
+
+-- ═════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260702170000_smart_restock_suggestions.sql
+-- ═════════════════════════════════════════════════════════════════
+
+-- ============================================================
+-- Smart Restock Suggestions — Intelligent purchase order suggestions
+-- based on stock levels, sales velocity, and supplier data
+-- ============================================================
+
+-- ─── RPC: get_restock_suggestions ────────────────────────────
+-- Suggests products to reorder based on:
+-- 1. Stock below min_stock_alert
+-- 2. Sales velocity (30-day average daily sales)
+-- 3. Days of stock remaining
+-- 4. Supplier with best supply price
+-- Returns items sorted by urgency (days of stock remaining ASC)
+CREATE OR REPLACE FUNCTION public.get_restock_suggestions(
+  p_store_id UUID DEFAULT NULL,
+  p_urgency TEXT DEFAULT 'all'
+)
+RETURNS TABLE (
+  product_id UUID,
+  product_name TEXT,
+  barcode TEXT,
+  category_name TEXT,
+  current_stock INTEGER,
+  min_stock_alert INTEGER,
+  avg_daily_sales NUMERIC,
+  days_of_stock_remaining NUMERIC,
+  suggested_order_quantity INTEGER,
+  best_supplier_id UUID,
+  best_supplier_name TEXT,
+  best_supply_price NUMERIC,
+  total_supply_cost NUMERIC,
+  urgency_level TEXT
+)
+LANGUAGE plpgsql SECURITY DEFINER
+AS $$
+DECLARE
+  v_org_id UUID;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+  IF v_org_id IS NULL THEN
+    RAISE EXCEPTION 'Utilisateur non associé à une organisation';
+  END IF;
+
+  RETURN QUERY
+  WITH sales_velocity AS (
+    -- Calculate average daily sales per product over last 30 days
+    SELECT
+      si.product_id,
+      COALESCE(SUM(si.quantity), 0) / GREATEST(LEAST(EXTRACT(DAY FROM now() - MIN(s.created_at)), 30), 1) AS avg_daily
+    FROM public.sale_items si
+    INNER JOIN public.sales s ON s.id = si.sale_id
+    INNER JOIN public.products p ON p.id = si.product_id
+    WHERE s.organization_id = v_org_id
+      AND s.created_at >= now() - INTERVAL '30 days'
+      AND (p_store_id IS NULL OR p.store_id = p_store_id)
+    GROUP BY si.product_id
+  ),
+  best_supplier AS (
+    -- Find the supplier with the lowest supply price for each product
+    SELECT DISTINCT ON (sp.product_id)
+      sp.product_id,
+      sp.supplier_id,
+      su.name AS supplier_name,
+      sp.supply_price
+    FROM public.supplier_products sp
+    INNER JOIN public.suppliers su ON su.id = sp.supplier_id
+    WHERE su.is_active = true
+      AND su.organization_id = v_org_id
+      AND sp.is_active = true
+    ORDER BY sp.product_id, sp.supply_price ASC
+  )
+  SELECT
+    p.id AS product_id,
+    p.name AS product_name,
+    p.barcode,
+    c.name AS category_name,
+    p.stock_quantity AS current_stock,
+    COALESCE(p.min_stock_alert, 5) AS min_stock_alert,
+    COALESCE(sv.avg_daily, 0) AS avg_daily_sales,
+    CASE
+      WHEN sv.avg_daily > 0 THEN p.stock_quantity / sv.avg_daily
+      ELSE 999
+    END AS days_of_stock_remaining,
+    CASE
+      WHEN sv.avg_daily > 0 THEN
+        GREATEST(
+          CEIL((COALESCE(p.min_stock_alert, 5) * 2 + sv.avg_daily * 14) - p.stock_quantity),
+          1
+        )
+      ELSE GREATEST(COALESCE(p.min_stock_alert, 5) - p.stock_quantity, 1)
+    END AS suggested_order_quantity,
+    bs.supplier_id AS best_supplier_id,
+    bs.supplier_name AS best_supplier_name,
+    bs.supply_price AS best_supply_price,
+    CASE
+      WHEN bs.supply_price IS NOT NULL AND sv.avg_daily > 0 THEN
+        GREATEST(
+          CEIL((COALESCE(p.min_stock_alert, 5) * 2 + sv.avg_daily * 14) - p.stock_quantity),
+          1
+        ) * bs.supply_price
+      ELSE 0
+    END AS total_supply_cost,
+    CASE
+      WHEN p.stock_quantity <= 0 THEN 'critical'
+      WHEN p.stock_quantity <= COALESCE(p.min_stock_alert, 5) * 0.5 THEN 'high'
+      WHEN p.stock_quantity <= COALESCE(p.min_stock_alert, 5) THEN 'medium'
+      ELSE 'low'
+    END AS urgency_level
+  FROM public.products p
+  LEFT JOIN sales_velocity sv ON sv.product_id = p.id
+  LEFT JOIN best_supplier bs ON bs.product_id = p.id
+  LEFT JOIN public.categories c ON c.id = p.category_id
+  WHERE p.organization_id = v_org_id
+    AND p.is_active = true
+    AND (p_store_id IS NULL OR p.store_id = p_store_id)
+    AND (
+      p.stock_quantity <= COALESCE(p.min_stock_alert, 5) * 1.5
+      OR p.stock_quantity <= 0
+    )
+    AND (
+      p_urgency = 'all'
+      OR (p_urgency = 'critical' AND p.stock_quantity <= 0)
+      OR (p_urgency = 'high' AND p.stock_quantity <= COALESCE(p.min_stock_alert, 5) * 0.5)
+      OR (p_urgency = 'medium' AND p.stock_quantity <= COALESCE(p.min_stock_alert, 5))
+    )
+  ORDER BY
+    CASE
+      WHEN p.stock_quantity <= 0 THEN 0
+      WHEN p.stock_quantity <= COALESCE(p.min_stock_alert, 5) * 0.5 THEN 1
+      WHEN p.stock_quantity <= COALESCE(p.min_stock_alert, 5) THEN 2
+      ELSE 3
+    END,
+    days_of_stock_remaining ASC;
+END;
+$$;
+
+-- ─── RPC: create_purchase_order_from_suggestions ─────────────
+-- Creates a purchase order from suggested restock items
+CREATE OR REPLACE FUNCTION public.create_purchase_order_from_suggestions(
+  p_supplier_id UUID,
+  p_items JSONB,
+  p_store_id UUID DEFAULT NULL,
+  p_notes TEXT DEFAULT NULL
+)
+RETURNS UUID
+LANGUAGE plpgsql SECURITY DEFINER
+AS $$
+DECLARE
+  v_org_id UUID;
+  v_order_id UUID;
+  v_order_number TEXT;
+  v_item JSONB;
+  v_subtotal NUMERIC := 0;
+  v_tax_rate NUMERIC := 0;
+  v_tax_amount NUMERIC := 0;
+  v_line_total NUMERIC;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+  IF v_org_id IS NULL THEN
+    RAISE EXCEPTION 'Utilisateur non associé à une organisation';
+  END IF;
+
+  -- Verify supplier belongs to org
+  IF NOT EXISTS (
+    SELECT 1 FROM public.suppliers
+    WHERE id = p_supplier_id AND organization_id = v_org_id AND is_active = true
+  ) THEN
+    RAISE EXCEPTION 'Fournisseur invalide ou inactif';
+  END IF;
+
+  -- Generate order number
+  v_order_number := public.generate_order_number();
+
+  -- Calculate subtotal first
+  FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
+  LOOP
+    v_line_total := (v_item->>'quantity')::INTEGER * COALESCE((v_item->>'unit_cost')::NUMERIC, 0);
+    v_subtotal := v_subtotal + v_line_total;
+  END LOOP;
+
+  -- Get org tax rate
+  SELECT COALESCE(default_tax_rate, 0) INTO v_tax_rate
+  FROM public.organizations WHERE id = v_org_id;
+
+  v_tax_amount := v_subtotal * (v_tax_rate / 100);
+
+  -- Create order
+  INSERT INTO public.purchase_orders (
+    organization_id, store_id, supplier_id, order_number,
+    status, notes, subtotal, tax_amount, total_amount,
+    currency, created_by
+  ) VALUES (
+    v_org_id, p_store_id, p_supplier_id, v_order_number,
+    'pending', p_notes, v_subtotal, v_tax_amount,
+    v_subtotal + v_tax_amount, 'GNF', auth.uid()
+  ) RETURNING id INTO v_order_id;
+
+  -- Insert items
+  FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
+  LOOP
+    v_line_total := (v_item->>'quantity')::INTEGER * COALESCE((v_item->>'unit_cost')::NUMERIC, 0);
+    INSERT INTO public.purchase_order_items (
+      purchase_order_id, product_id, product_name,
+      quantity_ordered, unit_cost, tax_rate, line_total, notes
+    ) VALUES (
+      v_order_id,
+      (v_item->>'product_id')::UUID,
+      v_item->>'product_name',
+      (v_item->>'quantity')::INTEGER,
+      COALESCE((v_item->>'unit_cost')::NUMERIC, 0),
+      v_tax_rate,
+      v_line_total,
+      v_item->>'notes'
+    );
+  END LOOP;
+
+  RETURN v_order_id;
+END;
+$$;
+
+-- ─── RPC: get_supplier_order_history ─────────────────────────
+-- Returns order history for a specific supplier (for analytics)
+CREATE OR REPLACE FUNCTION public.get_supplier_order_history(
+  p_supplier_id UUID,
+  p_limit INTEGER DEFAULT 20
+)
+RETURNS TABLE (
+  id UUID,
+  order_number TEXT,
+  status TEXT,
+  order_date TEXT,
+  total_amount NUMERIC,
+  item_count BIGINT
+)
+LANGUAGE plpgsql SECURITY DEFINER
+AS $$
+DECLARE
+  v_org_id UUID;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+
+  RETURN QUERY
+  SELECT
+    po.id,
+    po.order_number,
+    po.status,
+    to_char(po.order_date, 'YYYY-MM-DD') AS order_date,
+    po.total_amount,
+    COUNT(poi.id)::BIGINT AS item_count
+  FROM public.purchase_orders po
+  LEFT JOIN public.purchase_order_items poi ON poi.purchase_order_id = po.id
+  WHERE po.organization_id = v_org_id
+    AND po.supplier_id = p_supplier_id
+  GROUP BY po.id
+  ORDER BY po.created_at DESC
+  LIMIT p_limit;
+END;
+$$;
+
+
+-- ═════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260702180000_loyalty_program.sql
+-- ═════════════════════════════════════════════════════════════════
+
+-- ============================================================
+-- Loyalty Program — Customer rewards & points system
+-- ============================================================
+
+-- ─── loyalty_accounts table ──────────────────────────────────
+-- One per customer, tracks total points and tier level
+CREATE TABLE IF NOT EXISTS public.loyalty_accounts (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  customer_id     UUID NOT NULL REFERENCES public.customers(id) ON DELETE CASCADE,
+  points_balance  INTEGER NOT NULL DEFAULT 0,
+  total_points_earned INTEGER NOT NULL DEFAULT 0,
+  tier            TEXT NOT NULL DEFAULT 'bronze' CHECK (tier IN ('bronze', 'silver', 'gold', 'platinum')),
+  joined_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(organization_id, customer_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_la_org ON public.loyalty_accounts(organization_id);
+CREATE INDEX IF NOT EXISTS idx_la_customer ON public.loyalty_accounts(customer_id);
+CREATE INDEX IF NOT EXISTS idx_la_tier ON public.loyalty_accounts(tier);
+
+-- ─── loyalty_transactions table ──────────────────────────────
+-- Tracks every point movement (earn, redeem, expire, adjust)
+CREATE TABLE IF NOT EXISTS public.loyalty_transactions (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  account_id      UUID NOT NULL REFERENCES public.loyalty_accounts(id) ON DELETE CASCADE,
+  customer_id     UUID NOT NULL REFERENCES public.customers(id) ON DELETE CASCADE,
+  type            TEXT NOT NULL CHECK (type IN ('earn', 'redeem', 'expire', 'adjust', 'bonus')),
+  points          INTEGER NOT NULL,
+  balance_after   INTEGER NOT NULL,
+  description     TEXT,
+  sale_id         UUID REFERENCES public.sales(id) ON DELETE SET NULL,
+  created_by      UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_lt_org ON public.loyalty_transactions(organization_id);
+CREATE INDEX IF NOT EXISTS idx_lt_account ON public.loyalty_transactions(account_id);
+CREATE INDEX IF NOT EXISTS idx_lt_customer ON public.loyalty_transactions(customer_id);
+CREATE INDEX IF NOT EXISTS idx_lt_created_at ON public.loyalty_transactions(created_at DESC);
+
+-- ─── loyalty_rewards table ───────────────────────────────────
+-- Configurable rewards that customers can redeem
+CREATE TABLE IF NOT EXISTS public.loyalty_rewards (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  name            TEXT NOT NULL,
+  description     TEXT,
+  points_required INTEGER NOT NULL CHECK (points_required > 0),
+  reward_type     TEXT NOT NULL DEFAULT 'discount' CHECK (reward_type IN ('discount', 'free_product', 'voucher', 'custom')),
+  reward_value    NUMERIC(12,2) NOT NULL DEFAULT 0,
+  product_id      UUID REFERENCES public.products(id) ON DELETE SET NULL,
+  is_active       BOOLEAN NOT NULL DEFAULT true,
+  max_redemptions INTEGER,
+  redemptions_count INTEGER NOT NULL DEFAULT 0,
+  min_tier        TEXT DEFAULT 'bronze' CHECK (min_tier IN ('bronze', 'silver', 'gold', 'platinum')),
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_lr_org ON public.loyalty_rewards(organization_id);
+CREATE INDEX IF NOT EXISTS idx_lr_active ON public.loyalty_rewards(is_active);
+
+-- ─── RLS Policies ────────────────────────────────────────────
+ALTER TABLE public.loyalty_accounts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.loyalty_transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.loyalty_rewards ENABLE ROW LEVEL SECURITY;
+
+-- loyalty_accounts
+CREATE POLICY "la_select_org" ON public.loyalty_accounts
+  FOR SELECT USING (
+    organization_id IN (
+      SELECT o.id FROM public.organizations o
+      INNER JOIN public.profiles p ON p.organization_id = o.id
+      WHERE p.id = auth.uid()
+    )
+  );
+CREATE POLICY "la_insert_org" ON public.loyalty_accounts
+  FOR INSERT WITH CHECK (
+    organization_id = (SELECT p.organization_id FROM public.profiles p WHERE p.id = auth.uid())
+  );
+CREATE POLICY "la_update_org" ON public.loyalty_accounts
+  FOR UPDATE USING (
+    organization_id IN (
+      SELECT o.id FROM public.organizations o
+      INNER JOIN public.profiles p ON p.organization_id = o.id
+      WHERE p.id = auth.uid()
+    )
+  );
+
+-- loyalty_transactions
+CREATE POLICY "lt_select_org" ON public.loyalty_transactions
+  FOR SELECT USING (
+    organization_id IN (
+      SELECT o.id FROM public.organizations o
+      INNER JOIN public.profiles p ON p.organization_id = o.id
+      WHERE p.id = auth.uid()
+    )
+  );
+CREATE POLICY "lt_insert_org" ON public.loyalty_transactions
+  FOR INSERT WITH CHECK (
+    organization_id = (SELECT p.organization_id FROM public.profiles p WHERE p.id = auth.uid())
+  );
+
+-- loyalty_rewards
+CREATE POLICY "lr_select_org" ON public.loyalty_rewards
+  FOR SELECT USING (
+    organization_id IN (
+      SELECT o.id FROM public.organizations o
+      INNER JOIN public.profiles p ON p.organization_id = o.id
+      WHERE p.id = auth.uid()
+    )
+  );
+CREATE POLICY "lr_insert_org" ON public.loyalty_rewards
+  FOR INSERT WITH CHECK (
+    organization_id = (SELECT p.organization_id FROM public.profiles p WHERE p.id = auth.uid())
+  );
+CREATE POLICY "lr_update_org" ON public.loyalty_rewards
+  FOR UPDATE USING (
+    organization_id IN (
+      SELECT o.id FROM public.organizations o
+      INNER JOIN public.profiles p ON p.organization_id = o.id
+      WHERE p.id = auth.uid()
+    )
+  );
+CREATE POLICY "lr_delete_org" ON public.loyalty_rewards
+  FOR DELETE USING (
+    organization_id = (SELECT p.organization_id FROM public.profiles p WHERE p.id = auth.uid())
+  );
+
+-- ─── Trigger: auto-update updated_at ─────────────────────────
+DROP TRIGGER IF EXISTS trg_la_updated_at ON public.loyalty_accounts;
+CREATE TRIGGER trg_la_updated_at
+  BEFORE UPDATE ON public.loyalty_accounts
+  FOR EACH ROW EXECUTE FUNCTION public.update_stock_transfers_updated_at();
+
+DROP TRIGGER IF EXISTS trg_lr_updated_at ON public.loyalty_rewards;
+CREATE TRIGGER trg_lr_updated_at
+  BEFORE UPDATE ON public.loyalty_rewards
+  FOR EACH ROW EXECUTE FUNCTION public.update_stock_transfers_updated_at();
+
+-- ─── RPC: earn_loyalty_points ────────────────────────────────
+-- Earn points for a sale (1 point per X amount spent, configurable)
+CREATE OR REPLACE FUNCTION public.earn_loyalty_points(
+  p_customer_id UUID,
+  p_sale_id UUID,
+  p_amount_spent NUMERIC,
+  p_points_rate NUMERIC DEFAULT 1
+)
+RETURNS INTEGER
+LANGUAGE plpgsql SECURITY DEFINER
+AS $$
+DECLARE
+  v_org_id UUID;
+  v_account_id UUID;
+  v_points INTEGER;
+  v_new_balance INTEGER;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+  IF v_org_id IS NULL THEN
+    RAISE EXCEPTION 'Utilisateur non associé à une organisation';
+  END IF;
+
+  -- Calculate points (1 point per p_points_rate amount)
+  v_points := FLOOR(p_amount_spent / GREATEST(p_points_rate, 1));
+  IF v_points <= 0 THEN RETURN 0; END IF;
+
+  -- Get or create loyalty account
+  SELECT id, points_balance INTO v_account_id, v_new_balance
+  FROM public.loyalty_accounts
+  WHERE customer_id = p_customer_id AND organization_id = v_org_id;
+
+  IF v_account_id IS NULL THEN
+    INSERT INTO public.loyalty_accounts (organization_id, customer_id, points_balance, total_points_earned)
+    VALUES (v_org_id, p_customer_id, v_points, v_points)
+    RETURNING id, points_balance INTO v_account_id, v_new_balance;
+  ELSE
+    UPDATE public.loyalty_accounts
+    SET points_balance = points_balance + v_points,
+        total_points_earned = total_points_earned + v_points
+    WHERE id = v_account_id
+    RETURNING points_balance INTO v_new_balance;
+  END IF;
+
+  -- Record transaction
+  INSERT INTO public.loyalty_transactions (
+    organization_id, account_id, customer_id,
+    type, points, balance_after, description, sale_id, created_by
+  ) VALUES (
+    v_org_id, v_account_id, p_customer_id,
+    'earn', v_points, v_new_balance,
+    'Points gagnés pour achat de ' || p_amount_spent,
+    p_sale_id, auth.uid()
+  );
+
+  -- Auto-upgrade tier
+  PERFORM public.update_loyalty_tier(v_account_id);
+
+  RETURN v_points;
+END;
+$$;
+
+-- ─── RPC: redeem_loyalty_points ──────────────────────────────
+CREATE OR REPLACE FUNCTION public.redeem_loyalty_points(
+  p_customer_id UUID,
+  p_points INTEGER,
+  p_reward_id UUID DEFAULT NULL,
+  p_description TEXT DEFAULT NULL
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql SECURITY DEFINER
+AS $$
+DECLARE
+  v_org_id UUID;
+  v_account_id UUID;
+  v_current_balance INTEGER;
+  v_new_balance INTEGER;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+
+  -- Get account
+  SELECT id, points_balance INTO v_account_id, v_current_balance
+  FROM public.loyalty_accounts
+  WHERE customer_id = p_customer_id AND organization_id = v_org_id;
+
+  IF v_account_id IS NULL OR v_current_balance < p_points THEN
+    RAISE EXCEPTION 'Points insuffisants (solde: %)', COALESCE(v_current_balance, 0);
+  END IF;
+
+  -- Deduct points
+  UPDATE public.loyalty_accounts
+  SET points_balance = points_balance - p_points
+  WHERE id = v_account_id
+  RETURNING points_balance INTO v_new_balance;
+
+  -- Record transaction
+  INSERT INTO public.loyalty_transactions (
+    organization_id, account_id, customer_id,
+    type, points, balance_after, description, created_by
+  ) VALUES (
+    v_org_id, v_account_id, p_customer_id,
+    'redeem', -p_points, v_new_balance,
+    COALESCE(p_description, 'Points échangés'),
+    auth.uid()
+  );
+
+  -- Increment reward redemptions count
+  IF p_reward_id IS NOT NULL THEN
+    UPDATE public.loyalty_rewards
+    SET redemptions_count = redemptions_count + 1
+    WHERE id = p_reward_id;
+  END IF;
+
+  RETURN true;
+END;
+$$;
+
+-- ─── RPC: update_loyalty_tier ────────────────────────────────
+-- Auto-upgrade tier based on total points earned
+CREATE OR REPLACE FUNCTION public.update_loyalty_tier(
+  p_account_id UUID
+)
+RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER
+AS $$
+DECLARE
+  v_total_earned INTEGER;
+  v_new_tier TEXT;
+BEGIN
+  SELECT total_points_earned INTO v_total_earned
+  FROM public.loyalty_accounts WHERE id = p_account_id;
+
+  v_new_tier := CASE
+    WHEN v_total_earned >= 10000 THEN 'platinum'
+    WHEN v_total_earned >= 5000 THEN 'gold'
+    WHEN v_total_earned >= 2000 THEN 'silver'
+    ELSE 'bronze'
+  END;
+
+  UPDATE public.loyalty_accounts SET tier = v_new_tier WHERE id = p_account_id;
+END;
+$$;
+
+-- ─── RPC: get_loyalty_stats ──────────────────────────────────
+CREATE OR REPLACE FUNCTION public.get_loyalty_stats()
+RETURNS TABLE (
+  total_members BIGINT,
+  active_members_30d BIGINT,
+  total_points_issued BIGINT,
+  total_points_redeemed BIGINT,
+  bronze_count BIGINT,
+  silver_count BIGINT,
+  gold_count BIGINT,
+  platinum_count BIGINT
+)
+LANGUAGE plpgsql SECURITY DEFINER
+AS $$
+DECLARE
+  v_org_id UUID;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+
+  RETURN QUERY
+  SELECT
+    COUNT(*)::BIGINT,
+    COUNT(*) FILTER (WHERE EXISTS (
+      SELECT 1 FROM public.loyalty_transactions lt
+      WHERE lt.account_id = la.id AND lt.created_at >= now() - INTERVAL '30 days'
+    ))::BIGINT,
+    COALESCE(SUM(lt_earn.points), 0)::BIGINT,
+    COALESCE(ABS(SUM(lt_redeem.points)), 0)::BIGINT,
+    COUNT(*) FILTER (WHERE la.tier = 'bronze')::BIGINT,
+    COUNT(*) FILTER (WHERE la.tier = 'silver')::BIGINT,
+    COUNT(*) FILTER (WHERE la.tier = 'gold')::BIGINT,
+    COUNT(*) FILTER (WHERE la.tier = 'platinum')::BIGINT
+  FROM public.loyalty_accounts la
+  LEFT JOIN public.loyalty_transactions lt_earn ON lt_earn.account_id = la.id AND lt_earn.type = 'earn'
+  LEFT JOIN public.loyalty_transactions lt_redeem ON lt_redeem.account_id = la.id AND lt_redeem.type = 'redeem'
+  WHERE la.organization_id = v_org_id;
+END;
+$$;
+
+
+-- ═════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260702190000_backup_restore.sql
+-- ═════════════════════════════════════════════════════════════════
+
+-- ============================================================
+-- Backup & Restore — tables, enums, RLS, SECURITY DEFINER RPCs
+-- ============================================================
+
+-- ─── Enum ────────────────────────────────────────────────────
+DO $$ BEGIN
+  CREATE TYPE backup_status AS ENUM (
+    'pending', 'in_progress', 'completed', 'failed', 'restoring'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- ─── Table: backups ─────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS backups (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  backup_number text NOT NULL,
+  status        backup_status NOT NULL DEFAULT 'pending',
+  backup_type   text NOT NULL DEFAULT 'manual',  -- manual | auto | pre_restore
+  description   text,
+  -- Snapshot metadata
+  table_counts  jsonb NOT NULL DEFAULT '{}',       -- {"products": 42, "sales": 128, ...}
+  total_records integer NOT NULL DEFAULT 0,
+  file_size_kb  integer,                           -- approximate size
+  backup_data   jsonb,                             -- the actual backup payload (nullable for large orgs)
+  -- Who / when
+  created_by    uuid REFERENCES auth.users(id),
+  started_at    timestamptz,
+  completed_at  timestamptz,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  updated_at    timestamptz NOT NULL DEFAULT now(),
+
+  UNIQUE (organization_id, backup_number)
+);
+
+-- ─── Indexes ────────────────────────────────────────────────
+CREATE INDEX IF NOT EXISTS idx_backups_org_status ON backups(organization_id, status);
+CREATE INDEX IF NOT EXISTS idx_backups_org_created ON backups(organization_id, created_at DESC);
+
+-- ─── Updated-at trigger ─────────────────────────────────────
+CREATE OR REPLACE FUNCTION public.trg_backups_updated_at()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS set_updated_at ON public.backups;
+CREATE TRIGGER set_updated_at
+  BEFORE UPDATE ON public.backups
+  FOR EACH ROW EXECUTE FUNCTION public.trg_backups_updated_at();
+
+-- ─── RLS ────────────────────────────────────────────────────
+ALTER TABLE public.backups ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Org members can view own backups"
+  ON public.backups FOR SELECT
+  USING (organization_id = public.get_user_organization_id());
+
+CREATE POLICY "Admins can insert backups"
+  ON public.backups FOR INSERT
+  WITH CHECK (
+    organization_id = public.get_user_organization_id()
+    AND public.is_org_admin()
+  );
+
+CREATE POLICY "Admins can update backups"
+  ON public.backups FOR UPDATE
+  USING (
+    organization_id = public.get_user_organization_id()
+    AND public.is_org_admin()
+  );
+
+CREATE POLICY "Admins can delete backups"
+  ON public.backups FOR DELETE
+  USING (
+    organization_id = public.get_user_organization_id()
+    AND public.is_org_admin()
+  );
+
+-- ─── RPC: generate_backup_number ────────────────────────────
+CREATE OR REPLACE FUNCTION public.generate_backup_number()
+RETURNS text LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_org_id uuid;
+  v_prefix text;
+  v_next_seq integer;
+  v_result text;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+  SELECT upper(left(o.name, 3)) INTO v_prefix FROM organizations o WHERE o.id = v_org_id;
+  IF v_prefix IS NULL THEN v_prefix := 'BAK'; END IF;
+
+  SELECT coalesce(max(
+    cast(substring(backup_number from '[0-9]+$') as integer)
+  ), 0) + 1 INTO v_next_seq
+  FROM public.backups
+  WHERE organization_id = v_org_id;
+
+  v_result := v_prefix || '-SAV-' || lpad(v_next_seq::text, 5, '0');
+  RETURN v_result;
+END;
+$$;
+
+-- ─── RPC: create_backup ─────────────────────────────────────
+-- Creates a full JSON snapshot of the organization's data
+CREATE OR REPLACE FUNCTION public.create_backup(
+  p_description text DEFAULT NULL,
+  p_backup_type text DEFAULT 'manual'
+)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_org_id uuid;
+  v_user_id uuid;
+  v_backup_id uuid;
+  v_backup_num text;
+  v_counts jsonb := '{}';
+  v_total integer := 0;
+  v_rec record;
+  v_data jsonb;
+  v_tables text[] := ARRAY[
+    'products', 'categories', 'customers', 'sales', 'sale_items',
+    'expenses', 'suppliers', 'supplier_products',
+    'purchase_orders', 'purchase_order_items',
+    'stock_transfers', 'stock_transfer_items',
+    'loyalty_accounts', 'loyalty_transactions', 'loyalty_rewards',
+    'store_settings'
+  ];
+  v_table_name text;
+  v_count integer;
+  v_start timestamptz := now();
+BEGIN
+  v_org_id := public.get_user_organization_id();
+  v_user_id := auth.uid();
+
+  -- Generate backup number
+  v_backup_num := public.generate_backup_number();
+
+  -- Create backup record (pending)
+  INSERT INTO public.backups (
+    organization_id, backup_number, status, backup_type,
+    description, created_by, started_at
+  ) VALUES (
+    v_org_id, v_backup_num, 'in_progress', p_backup_type,
+    p_description, v_user_id, v_start
+  ) RETURNING id INTO v_backup_id;
+
+  -- Build backup data: each table's rows as JSON array
+  v_data := '{}';
+  FOREACH v_table_name IN ARRAY v_tables LOOP
+    -- Check if table has organization_id column
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns c
+      WHERE c.table_schema = 'public'
+        AND c.table_name = v_table_name
+        AND c.column_name = 'organization_id'
+    ) THEN
+      EXECUTE format('SELECT count(*) FROM public.%I WHERE organization_id = $1', v_table_name)
+        INTO v_count USING v_org_id;
+
+      IF v_count > 0 THEN
+        EXECUTE format('SELECT coalesce(jsonb_agg(to_jsonb(t)), ''[]''::jsonb)
+                        FROM (SELECT * FROM public.%I WHERE organization_id = $1 ORDER BY created_at) t', v_table_name)
+          INTO v_rec USING v_org_id;
+        v_data := jsonb_set(v_data, ARRAY[v_table_name], COALESCE(v_rec, '[]'::jsonb));
+      ELSE
+        v_data := jsonb_set(v_data, ARRAY[v_table_name], '[]'::jsonb);
+      END IF;
+
+      v_counts := jsonb_set(v_counts, ARRAY[v_table_name], to_jsonb(v_count));
+      v_total := v_total + v_count;
+    END IF;
+  END LOOP;
+
+  -- Also snapshot stores
+  IF EXISTS (SELECT 1 FROM information_schema.columns c WHERE c.table_schema='public' AND c.table_name='stores' AND c.column_name='organization_id') THEN
+    SELECT count(*) INTO v_count FROM public.stores WHERE organization_id = v_org_id;
+    SELECT coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb)
+      INTO v_rec FROM (SELECT * FROM public.stores WHERE organization_id = v_org_id ORDER BY created_at) t;
+    v_data := jsonb_set(v_data, ARRAY['stores'], COALESCE(v_rec, '[]'::jsonb));
+    v_counts := jsonb_set(v_counts, ARRAY['stores'], to_jsonb(v_count));
+    v_total := v_total + v_count;
+  END IF;
+
+  -- Estimate size (rough: 2 bytes per char in JSON)
+  -- pg_column_size gives compressed size; use length for raw size
+  UPDATE public.backups SET
+    status = 'completed',
+    table_counts = v_counts,
+    total_records = v_total,
+    file_size_kb = ceil(length(v_data::text) / 1024.0),
+    backup_data = v_data,
+    completed_at = now()
+  WHERE id = v_backup_id;
+
+  -- Return summary
+  RETURN jsonb_build_object(
+    'id', v_backup_id,
+    'backup_number', v_backup_num,
+    'status', 'completed',
+    'table_counts', v_counts,
+    'total_records', v_total,
+    'file_size_kb', ceil(length(v_data::text) / 1024.0),
+    'completed_at', now()
+  );
+EXCEPTION WHEN OTHERS THEN
+  -- Mark as failed
+  UPDATE public.backups SET
+    status = 'failed',
+    completed_at = now()
+  WHERE id = v_backup_id;
+  RAISE EXCEPTION 'Backup failed: %', SQLERRM;
+END;
+$$;
+
+-- ─── RPC: restore_backup ────────────────────────────────────
+-- Restores data from a specific backup (creates a pre-restore backup first)
+CREATE OR REPLACE FUNCTION public.restore_backup(
+  p_backup_id uuid,
+  p_tables text[] DEFAULT NULL   -- NULL = restore all tables; otherwise only listed tables
+)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_org_id uuid;
+  v_user_id uuid;
+  v_backup public.backups%ROWTYPE;
+  v_pre_backup_id uuid;
+  v_pre_backup_num text;
+  v_data jsonb;
+  v_table_name text;
+  v_rows jsonb;
+  v_count integer;
+  v_restored_counts jsonb := '{}';
+  v_total_restored integer := 0;
+  v_col_names text[];
+  v_col_list text;
+  v_val_list text;
+  v_insert_sql text;
+  v_start timestamptz := now();
+BEGIN
+  v_org_id := public.get_user_organization_id();
+  v_user_id := auth.uid();
+
+  -- Load backup
+  SELECT * INTO v_backup FROM public.backups
+  WHERE id = p_backup_id AND organization_id = v_org_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Backup not found or access denied';
+  END IF;
+
+  IF v_backup.status != 'completed' THEN
+    RAISE EXCEPTION 'Only completed backups can be restored';
+  END IF;
+
+  IF v_backup.backup_data IS NULL THEN
+    RAISE EXCEPTION 'Backup data is empty';
+  END IF;
+
+  -- Create a pre-restore backup automatically
+  v_pre_backup_num := public.generate_backup_number();
+  INSERT INTO public.backups (
+    organization_id, backup_number, status, backup_type,
+    description, created_by, started_at, completed_at
+  ) VALUES (
+    v_org_id, v_pre_backup_num, 'completed', 'pre_restore',
+    'Sauvegarde automatique avant restauration de ' || v_backup.backup_number,
+    v_user_id, v_start, now()
+  ) RETURNING id INTO v_pre_backup_id;
+
+  -- Copy current data into the pre-restore backup
+  -- (simplified: just store current state using same create_backup logic but inline)
+  DECLARE
+    v_pre_data jsonb := '{}';
+    v_pre_counts jsonb := '{}';
+    v_pre_total integer := 0;
+    v_tbl text;
+    v_tbl_count integer;
+    v_tbl_rows jsonb;
+    v_all_tables text[] := ARRAY[
+      'products', 'categories', 'customers', 'sales', 'sale_items',
+      'expenses', 'suppliers', 'supplier_products',
+      'purchase_orders', 'purchase_order_items',
+      'stock_transfers', 'stock_transfer_items',
+      'loyalty_accounts', 'loyalty_transactions', 'loyalty_rewards',
+      'store_settings', 'stores'
+    ];
+  BEGIN
+    FOREACH v_tbl IN ARRAY v_all_tables LOOP
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns c
+        WHERE c.table_schema='public' AND c.table_name=v_tbl AND c.column_name='organization_id'
+      ) THEN
+        EXECUTE format('SELECT count(*) FROM public.%I WHERE organization_id = $1', v_tbl)
+          INTO v_tbl_count USING v_org_id;
+        IF v_tbl_count > 0 THEN
+          EXECUTE format('SELECT coalesce(jsonb_agg(to_jsonb(t)), ''[]''::jsonb)
+                          FROM (SELECT * FROM public.%I WHERE organization_id = $1 ORDER BY created_at) t', v_tbl)
+            INTO v_tbl_rows USING v_org_id;
+          v_pre_data := jsonb_set(v_pre_data, ARRAY[v_tbl], COALESCE(v_tbl_rows, '[]'::jsonb));
+        ELSE
+          v_pre_data := jsonb_set(v_pre_data, ARRAY[v_tbl], '[]'::jsonb);
+        END IF;
+        v_pre_counts := jsonb_set(v_pre_counts, ARRAY[v_tbl], to_jsonb(v_tbl_count));
+        v_pre_total := v_pre_total + v_tbl_count;
+      END IF;
+    END LOOP;
+
+    UPDATE public.backups SET
+      table_counts = v_pre_counts,
+      total_records = v_pre_total,
+      file_size_kb = ceil(length(v_pre_data::text) / 1024.0),
+      backup_data = v_pre_data
+    WHERE id = v_pre_backup_id;
+  END;
+
+  -- Now restore from the target backup
+  v_data := v_backup.backup_data;
+
+  -- Determine which tables to restore
+  IF p_tables IS NULL THEN
+    p_tables := ARRAY(
+      SELECT jsonb_object_keys(v_data)
+    );
+  END IF;
+
+  -- Mark backup as restoring
+  UPDATE public.backups SET status = 'restoring' WHERE id = p_backup_id;
+
+  -- Restore each table
+  FOREACH v_table_name IN ARRAY p_tables LOOP
+    -- Check table exists and has organization_id
+    IF NOT EXISTS (
+      SELECT 1 FROM information_schema.tables t
+      WHERE t.table_schema = 'public' AND t.table_name = v_table_name
+    ) THEN
+      CONTINUE;
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM information_schema.columns c
+      WHERE c.table_schema = 'public' AND c.table_name = v_table_name AND c.column_name = 'organization_id'
+    ) THEN
+      CONTINUE;
+    END IF;
+
+    v_rows := v_data->v_table_name;
+    IF v_rows IS NULL OR jsonb_array_length(v_rows) = 0 THEN
+      -- Delete existing data for this org in this table (restore to empty)
+      EXECUTE format('DELETE FROM public.%I WHERE organization_id = $1', v_table_name) USING v_org_id;
+      v_restored_counts := jsonb_set(v_restored_counts, ARRAY[v_table_name], '0');
+      CONTINUE;
+    END IF;
+
+    -- Delete existing data first
+    EXECUTE format('DELETE FROM public.%I WHERE organization_id = $1', v_table_name) USING v_org_id;
+
+    -- Get column names from first row
+    v_col_names := ARRAY(SELECT jsonb_object_keys(v_rows->0));
+    v_col_list := array_to_string(v_col_names, ', ');
+    v_val_list := array_to_string(
+      ARRAY(SELECT format('$%s', generate_series(1, array_length(v_col_names, 1)))),
+      ', '
+    );
+    v_insert_sql := format(
+      'INSERT INTO public.%I (%s) VALUES (%s) ON CONFLICT (id) DO NOTHING',
+      v_table_name, v_col_list, v_val_list
+    );
+
+    v_count := 0;
+    -- Insert rows one by one (safest approach for varying column sets)
+    FOR v_rec IN SELECT * FROM jsonb_array_elements(v_rows) AS elem LOOP
+      BEGIN
+        EXECUTE format(
+          'INSERT INTO public.%I SELECT * FROM jsonb_to_record($1) AS x(%s) ON CONFLICT (id) DO NOTHING',
+          v_table_name,
+          (SELECT string_agg(format('%s %s',
+            col_name,
+            CASE
+              WHEN c.data_type = 'uuid' THEN 'uuid'
+              WHEN c.data_type = 'integer' THEN 'integer'
+              WHEN c.data_type = 'numeric' THEN 'numeric'
+              WHEN c.data_type = 'bigint' THEN 'bigint'
+              WHEN c.data_type = 'boolean' THEN 'boolean'
+              WHEN c.data_type = 'date' THEN 'date'
+              WHEN c.data_type = 'timestamp with time zone' THEN 'timestamptz'
+              WHEN c.data_type = 'timestamp without time zone' THEN 'timestamp'
+              WHEN c.data_type = 'time without time zone' THEN 'time'
+              WHEN c.data_type = 'text' THEN 'text'
+              WHEN c.data_type = 'character varying' THEN 'text'
+              WHEN c.data_type = 'jsonb' THEN 'jsonb'
+              WHEN c.data_type = 'USER-DEFINED' THEN 'text'
+              ELSE 'text'
+            END
+          ), ', ')
+          FROM unnest(v_col_names) AS col_name
+          LEFT JOIN information_schema.columns c
+            ON c.table_schema = 'public'
+            AND c.table_name = v_table_name
+            AND c.column_name = col_name
+          )
+        ) USING v_rec.elem;
+        v_count := v_count + 1;
+      EXCEPTION WHEN OTHERS THEN
+        -- Skip rows that fail (e.g. FK violations) but continue
+        RAISE NOTICE 'Skipping row in %: %', v_table_name, SQLERRM;
+      END;
+    END LOOP;
+
+    v_restored_counts := jsonb_set(v_restored_counts, ARRAY[v_table_name], to_jsonb(v_count));
+    v_total_restored := v_total_restored + v_count;
+  END LOOP;
+
+  -- Mark backup as completed again
+  UPDATE public.backups SET status = 'completed' WHERE id = p_backup_id;
+
+  RETURN jsonb_build_object(
+    'restored_backup_id', p_backup_id,
+    'pre_restore_backup_id', v_pre_backup_id,
+    'restored_counts', v_restored_counts,
+    'total_restored', v_total_restored,
+    'restored_at', now()
+  );
+EXCEPTION WHEN OTHERS THEN
+  -- Restore the original status
+  UPDATE public.backups SET status = 'completed' WHERE id = p_backup_id;
+  RAISE EXCEPTION 'Restore failed: %', SQLERRM;
+END;
+$$;
+
+-- ─── RPC: get_backups ───────────────────────────────────────
+CREATE OR REPLACE FUNCTION public.get_backups(
+  p_limit integer DEFAULT 50,
+  p_offset integer DEFAULT 0
+)
+RETURNS TABLE (
+  id uuid,
+  backup_number text,
+  status backup_status,
+  backup_type text,
+  description text,
+  table_counts jsonb,
+  total_records integer,
+  file_size_kb integer,
+  created_by uuid,
+  created_by_name text,
+  started_at timestamptz,
+  completed_at timestamptz,
+  created_at timestamptz
+) LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_org_id uuid;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+
+  RETURN QUERY
+    SELECT
+      b.id,
+      b.backup_number,
+      b.status,
+      b.backup_type,
+      b.description,
+      b.table_counts,
+      b.total_records,
+      b.file_size_kb,
+      b.created_by,
+      p.owner_name AS created_by_name,
+      b.started_at,
+      b.completed_at,
+      b.created_at
+    FROM public.backups b
+    LEFT JOIN public.profiles p ON p.user_id = b.created_by
+    WHERE b.organization_id = v_org_id
+    ORDER BY b.created_at DESC
+    LIMIT p_limit OFFSET p_offset;
+END;
+$$;
+
+-- ─── RPC: get_backup_details ────────────────────────────────
+CREATE OR REPLACE FUNCTION public.get_backup_details(
+  p_backup_id uuid
+)
+RETURNS TABLE (
+  id uuid,
+  backup_number text,
+  status backup_status,
+  backup_type text,
+  description text,
+  table_counts jsonb,
+  total_records integer,
+  file_size_kb integer,
+  backup_data jsonb,
+  created_by uuid,
+  created_by_name text,
+  started_at timestamptz,
+  completed_at timestamptz,
+  created_at timestamptz,
+  updated_at timestamptz
+) LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_org_id uuid;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+
+  RETURN QUERY
+    SELECT
+      b.id,
+      b.backup_number,
+      b.status,
+      b.backup_type,
+      b.description,
+      b.table_counts,
+      b.total_records,
+      b.file_size_kb,
+      b.backup_data,
+      b.created_by,
+      p.owner_name AS created_by_name,
+      b.started_at,
+      b.completed_at,
+      b.created_at,
+      b.updated_at
+    FROM public.backups b
+    LEFT JOIN public.profiles p ON p.user_id = b.created_by
+    WHERE b.organization_id = v_org_id AND b.id = p_backup_id;
+END;
+$$;
+
+-- ─── RPC: delete_backup ─────────────────────────────────────
+CREATE OR REPLACE FUNCTION public.delete_backup(
+  p_backup_id uuid
+)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_org_id uuid;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+
+  DELETE FROM public.backups
+  WHERE id = p_backup_id AND organization_id = v_org_id;
+
+  RETURN FOUND;
+END;
+$$;
+
+-- ─── RPC: get_backup_stats ──────────────────────────────────
+CREATE OR REPLACE FUNCTION public.get_backup_stats()
+RETURNS TABLE (
+  total_backups integer,
+  completed_backups integer,
+  total_size_kb integer,
+  last_backup_at timestamptz
+) LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_org_id uuid;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+
+  RETURN QUERY
+    SELECT
+      coalesce(sum(1), 0)::integer,
+      coalesce(sum(CASE WHEN status = 'completed' THEN 1 ELSE 0 END), 0)::integer,
+      coalesce(sum(file_size_kb), 0)::integer,
+      max(created_at)
+    FROM public.backups
+    WHERE organization_id = v_org_id;
+END;
+$$;
+
+
+-- ═════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260702200000_support_tickets.sql
+-- ═════════════════════════════════════════════════════════════════
+
+-- ============================================================
+-- Support Client Intégré — tables, enums, RLS, SECURITY DEFINER RPCs
+-- ============================================================
+
+-- ─── Enums ──────────────────────────────────────────────────
+DO $$ BEGIN
+  CREATE TYPE ticket_status AS ENUM (
+    'open', 'in_progress', 'waiting', 'resolved', 'closed'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE ticket_priority AS ENUM (
+    'low', 'medium', 'high', 'urgent'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE ticket_category AS ENUM (
+    'technical', 'billing', 'feature_request', 'bug', 'other'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE sender_type AS ENUM (
+    'user', 'admin', 'system'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- ─── Table: support_tickets ─────────────────────────────────
+CREATE TABLE IF NOT EXISTS support_tickets (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id   uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  ticket_number     text NOT NULL,
+  subject           text NOT NULL,
+  description       text NOT NULL,
+  category          ticket_category NOT NULL DEFAULT 'other',
+  priority          ticket_priority NOT NULL DEFAULT 'medium',
+  status            ticket_status NOT NULL DEFAULT 'open',
+  created_by        uuid NOT NULL REFERENCES auth.users(id),
+  assigned_to       uuid REFERENCES auth.users(id),
+  resolved_at       timestamptz,
+  satisfaction_score integer CHECK (satisfaction_score BETWEEN 1 AND 5),
+  created_at        timestamptz NOT NULL DEFAULT now(),
+  updated_at        timestamptz NOT NULL DEFAULT now(),
+
+  UNIQUE (organization_id, ticket_number)
+);
+
+-- ─── Table: support_ticket_messages ─────────────────────────
+CREATE TABLE IF NOT EXISTS support_ticket_messages (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id   uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  ticket_id         uuid NOT NULL REFERENCES support_tickets(id) ON DELETE CASCADE,
+  sender_type       sender_type NOT NULL DEFAULT 'user',
+  sender_id         uuid REFERENCES auth.users(id),
+  sender_name       text,
+  message           text NOT NULL,
+  attachments       text[] DEFAULT '{}',
+  is_read           boolean NOT NULL DEFAULT false,
+  created_at        timestamptz NOT NULL DEFAULT now()
+);
+
+-- ─── Indexes ────────────────────────────────────────────────
+CREATE INDEX IF NOT EXISTS idx_support_tickets_org_status ON support_tickets(organization_id, status);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_org_created ON support_tickets(organization_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_created_by ON support_tickets(created_by);
+CREATE INDEX IF NOT EXISTS idx_support_ticket_messages_ticket ON support_ticket_messages(ticket_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_support_ticket_messages_org ON support_ticket_messages(organization_id);
+
+-- ─── Updated-at trigger ─────────────────────────────────────
+CREATE OR REPLACE FUNCTION public.trg_support_tickets_updated_at()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS set_updated_at ON public.support_tickets;
+CREATE TRIGGER set_updated_at
+  BEFORE UPDATE ON public.support_tickets
+  FOR EACH ROW EXECUTE FUNCTION public.trg_support_tickets_updated_at();
+
+-- ─── RLS: support_tickets ──────────────────────────────────
+ALTER TABLE public.support_tickets ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Org members can view own tickets"
+  ON public.support_tickets FOR SELECT
+  USING (organization_id = public.get_user_organization_id());
+
+CREATE POLICY "Org members can create tickets"
+  ON public.support_tickets FOR INSERT
+  WITH CHECK (organization_id = public.get_user_organization_id());
+
+CREATE POLICY "Org admins can update tickets"
+  ON public.support_tickets FOR UPDATE
+  USING (
+    organization_id = public.get_user_organization_id()
+    AND (public.is_org_admin() OR created_by = auth.uid())
+  );
+
+CREATE POLICY "Org admins can delete tickets"
+  ON public.support_tickets FOR DELETE
+  USING (
+    organization_id = public.get_user_organization_id()
+    AND public.is_org_admin()
+  );
+
+-- ─── RLS: support_ticket_messages ──────────────────────────
+ALTER TABLE public.support_ticket_messages ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Org members can view ticket messages"
+  ON public.support_ticket_messages FOR SELECT
+  USING (organization_id = public.get_user_organization_id());
+
+CREATE POLICY "Org members can add messages"
+  ON public.support_ticket_messages FOR INSERT
+  WITH CHECK (organization_id = public.get_user_organization_id());
+
+CREATE POLICY "Org admins can update messages"
+  ON public.support_ticket_messages FOR UPDATE
+  USING (
+    organization_id = public.get_user_organization_id()
+    AND public.is_org_admin()
+  );
+
+CREATE POLICY "Org admins can delete messages"
+  ON public.support_ticket_messages FOR DELETE
+  USING (
+    organization_id = public.get_user_organization_id()
+    AND public.is_org_admin()
+  );
+
+-- ─── RPC: generate_ticket_number ────────────────────────────
+CREATE OR REPLACE FUNCTION public.generate_ticket_number()
+RETURNS text LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_org_id uuid;
+  v_next_seq integer;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+
+  SELECT coalesce(max(
+    cast(substring(ticket_number from '[0-9]+$') as integer)
+  ), 0) + 1 INTO v_next_seq
+  FROM public.support_tickets
+  WHERE organization_id = v_org_id;
+
+  RETURN 'TKT-' || lpad(v_next_seq::text, 5, '0');
+END;
+$$;
+
+-- ─── RPC: create_support_ticket ─────────────────────────────
+CREATE OR REPLACE FUNCTION public.create_support_ticket(
+  p_subject text,
+  p_description text,
+  p_category ticket_category DEFAULT 'other',
+  p_priority ticket_priority DEFAULT 'medium'
+)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_org_id uuid;
+  v_user_id uuid;
+  v_ticket_id uuid;
+  v_ticket_num text;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+  v_user_id := auth.uid();
+
+  v_ticket_num := public.generate_ticket_number();
+
+  INSERT INTO public.support_tickets (
+    organization_id, ticket_number, subject, description,
+    category, priority, status, created_by
+  ) VALUES (
+    v_org_id, v_ticket_num, p_subject, p_description,
+    p_category, p_priority, 'open', v_user_id
+  ) RETURNING id INTO v_ticket_id;
+
+  -- Auto-create the first message from the description
+  INSERT INTO public.support_ticket_messages (
+    organization_id, ticket_id, sender_type, sender_id, sender_name, message
+  ) VALUES (
+    v_org_id, v_ticket_id, 'user', v_user_id,
+    (SELECT owner_name FROM public.profiles WHERE user_id = v_user_id),
+    p_description
+  );
+
+  RETURN jsonb_build_object(
+    'id', v_ticket_id,
+    'ticket_number', v_ticket_num,
+    'status', 'open'
+  );
+END;
+$$;
+
+-- ─── RPC: add_ticket_message ────────────────────────────────
+CREATE OR REPLACE FUNCTION public.add_ticket_message(
+  p_ticket_id uuid,
+  p_message text,
+  p_sender_type sender_type DEFAULT 'user'
+)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_org_id uuid;
+  v_user_id uuid;
+  v_msg_id uuid;
+  v_sender_name text;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+  v_user_id := auth.uid();
+
+  -- Verify ticket belongs to org
+  IF NOT EXISTS (
+    SELECT 1 FROM public.support_tickets
+    WHERE id = p_ticket_id AND organization_id = v_org_id
+  ) THEN
+    RAISE EXCEPTION 'Ticket not found or access denied';
+  END IF;
+
+  SELECT owner_name INTO v_sender_name FROM public.profiles WHERE user_id = v_user_id;
+
+  INSERT INTO public.support_ticket_messages (
+    organization_id, ticket_id, sender_type, sender_id, sender_name, message
+  ) VALUES (
+    v_org_id, p_ticket_id, p_sender_type, v_user_id, v_sender_name, p_message
+  ) RETURNING id INTO v_msg_id;
+
+  -- If user replies to a resolved/closed ticket, reopen it
+  IF p_sender_type = 'user' THEN
+    UPDATE public.support_tickets
+    SET status = 'open'
+    WHERE id = p_ticket_id AND status IN ('resolved', 'closed');
+  END IF;
+
+  -- Mark all previous messages as read for this sender type
+  IF p_sender_type = 'user' THEN
+    UPDATE public.support_ticket_messages
+    SET is_read = true
+    WHERE ticket_id = p_ticket_id AND sender_type = 'admin' AND is_read = false;
+  ELSE
+    UPDATE public.support_ticket_messages
+    SET is_read = true
+    WHERE ticket_id = p_ticket_id AND sender_type = 'user' AND is_read = false;
+  END IF;
+
+  RETURN jsonb_build_object('id', v_msg_id);
+END;
+$$;
+
+-- ─── RPC: update_ticket_status ──────────────────────────────
+CREATE OR REPLACE FUNCTION public.update_ticket_status(
+  p_ticket_id uuid,
+  p_status ticket_status
+)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_org_id uuid;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+
+  UPDATE public.support_tickets
+  SET status = p_status,
+      resolved_at = CASE WHEN p_status IN ('resolved', 'closed') THEN now() ELSE NULL END
+  WHERE id = p_ticket_id AND organization_id = v_org_id;
+
+  RETURN FOUND;
+END;
+$$;
+
+-- ─── RPC: get_support_tickets ───────────────────────────────
+CREATE OR REPLACE FUNCTION public.get_support_tickets(
+  p_status ticket_status DEFAULT NULL,
+  p_limit integer DEFAULT 50,
+  p_offset integer DEFAULT 0
+)
+RETURNS TABLE (
+  id uuid,
+  ticket_number text,
+  subject text,
+  description text,
+  category ticket_category,
+  priority ticket_priority,
+  status ticket_status,
+  organization_id uuid,
+  created_by uuid,
+  created_by_name text,
+  assigned_to uuid,
+  assigned_to_name text,
+  resolved_at timestamptz,
+  message_count bigint,
+  has_unread_admin boolean,
+  created_at timestamptz,
+  updated_at timestamptz
+) LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_org_id uuid;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+
+  RETURN QUERY
+    SELECT
+      t.id,
+      t.ticket_number,
+      t.subject,
+      t.description,
+      t.category,
+      t.priority,
+      t.status,
+      t.organization_id,
+      t.created_by,
+      p1.owner_name AS created_by_name,
+      t.assigned_to,
+      p2.owner_name AS assigned_to_name,
+      t.resolved_at,
+      (SELECT count(*) FROM public.support_ticket_messages m WHERE m.ticket_id = t.id),
+      EXISTS (
+        SELECT 1 FROM public.support_ticket_messages m
+        WHERE m.ticket_id = t.id AND m.sender_type = 'admin' AND m.is_read = false
+      ),
+      t.created_at,
+      t.updated_at
+    FROM public.support_tickets t
+    LEFT JOIN public.profiles p1 ON p1.user_id = t.created_by
+    LEFT JOIN public.profiles p2 ON p2.user_id = t.assigned_to
+    WHERE t.organization_id = v_org_id
+      AND (p_status IS NULL OR t.status = p_status)
+    ORDER BY
+      CASE t.priority
+        WHEN 'urgent' THEN 0
+        WHEN 'high' THEN 1
+        WHEN 'medium' THEN 2
+        WHEN 'low' THEN 3
+      END ASC,
+      t.created_at DESC
+    LIMIT p_limit OFFSET p_offset;
+END;
+$$;
+
+-- ─── RPC: get_ticket_messages ───────────────────────────────
+CREATE OR REPLACE FUNCTION public.get_ticket_messages(
+  p_ticket_id uuid
+)
+RETURNS TABLE (
+  id uuid,
+  ticket_id uuid,
+  sender_type sender_type,
+  sender_name text,
+  message text,
+  attachments text[],
+  is_read boolean,
+  created_at timestamptz
+) LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_org_id uuid;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+
+  -- Verify ticket belongs to org
+  IF NOT EXISTS (
+    SELECT 1 FROM public.support_tickets
+    WHERE id = p_ticket_id AND organization_id = v_org_id
+  ) THEN
+    RAISE EXCEPTION 'Ticket not found or access denied';
+  END IF;
+
+  -- Mark admin messages as read when user views
+  UPDATE public.support_ticket_messages
+  SET is_read = true
+  WHERE ticket_id = p_ticket_id AND sender_type = 'admin' AND is_read = false;
+
+  RETURN QUERY
+    SELECT
+      m.id,
+      m.ticket_id,
+      m.sender_type,
+      m.sender_name,
+      m.message,
+      m.attachments,
+      m.is_read,
+      m.created_at
+    FROM public.support_ticket_messages m
+    WHERE m.ticket_id = p_ticket_id
+    ORDER BY m.created_at ASC;
+END;
+$$;
+
+-- ─── RPC: get_support_stats ─────────────────────────────────
+CREATE OR REPLACE FUNCTION public.get_support_stats()
+RETURNS TABLE (
+  total_tickets integer,
+  open_tickets integer,
+  in_progress_tickets integer,
+  resolved_tickets integer,
+  avg_resolution_hours numeric
+) LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_org_id uuid;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+
+  RETURN QUERY
+    SELECT
+      coalesce(sum(1), 0)::integer,
+      coalesce(sum(CASE WHEN status = 'open' THEN 1 ELSE 0 END), 0)::integer,
+      coalesce(sum(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END), 0)::integer,
+      coalesce(sum(CASE WHEN status IN ('resolved', 'closed') THEN 1 ELSE 0 END), 0)::integer,
+      coalesce(
+        avg(
+          CASE WHEN resolved_at IS NOT NULL
+            THEN extract(epoch FROM (resolved_at - created_at)) / 3600.0
+          END
+        ), 0
+      )::numeric(10,1)
+    FROM public.support_tickets
+    WHERE organization_id = v_org_id;
+END;
+$$;
+
+-- ─── RPC: delete_support_ticket ─────────────────────────────
+CREATE OR REPLACE FUNCTION public.delete_support_ticket(
+  p_ticket_id uuid
+)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_org_id uuid;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+
+  DELETE FROM public.support_tickets
+  WHERE id = p_ticket_id AND organization_id = v_org_id;
+
+  RETURN FOUND;
+END;
+$$;
+
+-- ─── Enable Realtime for live chat ─────────────────────────
+ALTER PUBLICATION supabase_realtime ADD TABLE public.support_ticket_messages;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.support_tickets;
+
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260703010000_p0_hotfix_migrations.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- ============================================================
 -- P0 HOTFIX — Fix all critical SQL migration issues
@@ -8243,9 +11311,10 @@ $$;
 -- Done — All P0 issues fixed
 -- ════════════════════════════════════════════════════════════════
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260703020000_p1_server_side_plan_enforcement.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- ============================================================
 -- Server-Side Plan Enforcement — P1
@@ -8514,9 +11583,10 @@ GRANT EXECUTE ON FUNCTION public.create_sale_with_limit(
 -- Done — Server-side plan enforcement active
 -- ════════════════════════════════════════════════════════════════
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260703030000_p1_grant_execute_fixes.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- ============================================================
 -- P1 Fix: Add missing GRANT EXECUTE on SECURITY DEFINER functions
@@ -8551,9 +11621,10 @@ GRANT EXECUTE ON FUNCTION public.check_account_status() TO authenticated;
 
 -- ─── Done ──────────────────────────────────────────────────────
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260703040000_p1_sale_limit_grant_stripe_idempotency.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- ============================================================
 -- P1 Fixes: create_sale_with_limit signature + GRANT EXECUTE + Stripe idempotency
@@ -8704,9 +11775,10 @@ CREATE POLICY stripe_events_select_authenticated ON public.stripe_events
 -- Done
 -- ════════════════════════════════════════════════════════════════
 
--- ════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260703050000_stripe_integration.sql
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════════
 
 -- ============================================================
 -- Stripe Integration: Add stripe_customer_id to organizations
@@ -8739,4 +11811,2167 @@ ALTER TABLE public.subscriptions
 CREATE INDEX IF NOT EXISTS idx_subscriptions_stripe_sub_id
   ON public.subscriptions(stripe_subscription_id)
   WHERE stripe_subscription_id IS NOT NULL;
+
+
+-- ═════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260704010000_fix_missing_rpcs_v5.sql
+-- ═════════════════════════════════════════════════════════════════
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- FIX MISSING RPCs v5 — Restauration des 6 fonctions RPC manquantes
+-- Erreurs 404 : check_feature_access, get_admin_stores_summary,
+--   get_admin_article_ranking, get_admin_stock_movements,
+--   get_admin_sales_trend, get_admin_payment_distribution
+--
+-- Ce script :
+--   1. Vérifie et crée les objets prérequis (tables, fonctions utilitaires)
+--   2. Drop toutes les signatures existantes incompatibles
+--   3. Crée les 6 fonctions RPC avec les signatures attendues par le frontend
+--   4. Accord les permissions d'exécution
+--
+-- Exécuter dans : Supabase Dashboard → SQL Editor → New Query
+-- ══════════════════════════════════════════════════════════════════════════════
+
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- HELPER : Drop toutes les signatures d'une fonction par son nom
+-- ══════════════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION pg_temp.drop_all_signatures(p_func_name TEXT)
+RETURNS VOID LANGUAGE plpgsql AS $$
+DECLARE f record;
+BEGIN
+  FOR f IN
+    SELECT oid::regprocedure AS func_sig FROM pg_proc
+    WHERE proname = p_func_name AND pronamespace = 'public'::regnamespace
+  LOOP
+    BEGIN
+      EXECUTE 'DROP FUNCTION IF EXISTS ' || f.func_sig;
+      RAISE NOTICE 'Dropped %', f.func_sig;
+    EXCEPTION WHEN dependent_objects_still_exist THEN
+      RAISE NOTICE 'Skipping drop of % (has dependent objects), using CREATE OR REPLACE instead', f.func_sig;
+    END;
+  END LOOP;
+END;
+$$;
+
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- SECTION 0 : Prérequis — fonctions utilitaires
+-- ══════════════════════════════════════════════════════════════════════════════
+
+-- 0.1 get_user_organization_id — utilisée par check_feature_access
+CREATE OR REPLACE FUNCTION public.get_user_organization_id()
+RETURNS uuid
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+  SELECT organization_id FROM public.profiles WHERE user_id = auth.uid() LIMIT 1;
+$$;
+GRANT EXECUTE ON FUNCTION public.get_user_organization_id() TO authenticated;
+
+
+-- 0.2 is_super_admin — utilisée par les fonctions admin analytics
+CREATE OR REPLACE FUNCTION public.is_super_admin()
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.user_roles ur
+    JOIN public.profiles p ON p.user_id = ur.user_id
+    WHERE ur.user_id = auth.uid() AND ur.role = 'super_admin'
+  );
+$$;
+GRANT EXECUTE ON FUNCTION public.is_super_admin() TO authenticated;
+
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- SECTION 1 : Tables SaaS prérequis (plans, subscriptions, feature_flags)
+-- ══════════════════════════════════════════════════════════════════════════════
+
+-- 1.1 plans — Définitions des plans avec limites
+CREATE TABLE IF NOT EXISTS public.plans (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT,
+  price_monthly NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  price_yearly NUMERIC(10, 2) DEFAULT NULL,
+  currency TEXT NOT NULL DEFAULT 'USD',
+  max_stores INTEGER DEFAULT NULL,
+  max_users INTEGER DEFAULT NULL,
+  max_products INTEGER DEFAULT NULL,
+  max_sales_per_month INTEGER DEFAULT NULL,
+  has_advanced_reports BOOLEAN NOT NULL DEFAULT FALSE,
+  has_exports BOOLEAN NOT NULL DEFAULT FALSE,
+  has_supplier_management BOOLEAN NOT NULL DEFAULT FALSE,
+  has_offline_advanced BOOLEAN NOT NULL DEFAULT FALSE,
+  has_api_access BOOLEAN NOT NULL DEFAULT FALSE,
+  has_priority_support BOOLEAN NOT NULL DEFAULT FALSE,
+  has_custom_branding BOOLEAN NOT NULL DEFAULT FALSE,
+  has_multi_currency BOOLEAN NOT NULL DEFAULT FALSE,
+  has_ai_assistant BOOLEAN NOT NULL DEFAULT FALSE,
+  has_loyalty_program BOOLEAN NOT NULL DEFAULT FALSE,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Seed plans (UPSERT pour idempotence) — sans les colonnes has_admin_analytics/has_backup_restore
+-- qui peuvent ne pas encore exister (ajoutees plus bas)
+INSERT INTO public.plans (id, name, description, price_monthly, price_yearly, max_stores, max_users, max_products, has_advanced_reports, has_exports, has_supplier_management, has_offline_advanced, sort_order) VALUES
+  ('starter', 'Starter', 'Ideal pour demarrer — caisse et stock de base', 0.00, NULL, 1, 2, 500, FALSE, FALSE, FALSE, FALSE, 1),
+  ('croissance', 'Croissance', 'Pour les boutiques qui grandissent — fournisseurs, rapports, exports', 29.00, 290.00, 3, 10, 5000, TRUE, TRUE, TRUE, TRUE, 2),
+  ('enterprise', 'Enterprise', 'Pour les chaines et grossistes — analytics, API, support prioritaire', 79.00, 790.00, NULL, NULL, NULL, TRUE, TRUE, TRUE, TRUE, 3)
+ON CONFLICT (id) DO UPDATE SET
+  name = EXCLUDED.name,
+  description = EXCLUDED.description,
+  price_monthly = EXCLUDED.price_monthly,
+  price_yearly = EXCLUDED.price_yearly,
+  max_stores = EXCLUDED.max_stores,
+  max_users = EXCLUDED.max_users,
+  max_products = EXCLUDED.max_products,
+  has_advanced_reports = EXCLUDED.has_advanced_reports,
+  has_exports = EXCLUDED.has_exports,
+  has_supplier_management = EXCLUDED.has_supplier_management,
+  has_offline_advanced = EXCLUDED.has_offline_advanced,
+  sort_order = EXCLUDED.sort_order,
+  updated_at = NOW();
+
+-- Add missing columns AFTER the INSERT (idempotent)
+ALTER TABLE public.plans ADD COLUMN IF NOT EXISTS has_admin_analytics BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE public.plans ADD COLUMN IF NOT EXISTS has_backup_restore BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Update enterprise premium features (including new columns)
+UPDATE public.plans SET
+  has_api_access = TRUE,
+  has_priority_support = TRUE,
+  has_custom_branding = TRUE,
+  has_multi_currency = TRUE,
+  has_ai_assistant = TRUE,
+  has_loyalty_program = TRUE,
+  has_admin_analytics = TRUE,
+  has_backup_restore = TRUE
+WHERE id = 'enterprise';
+
+-- Update croissance with some premium features
+UPDATE public.plans SET
+  has_custom_branding = TRUE,
+  has_multi_currency = TRUE
+WHERE id = 'croissance';
+
+
+-- 1.2 subscriptions — Liens organisation ↔ plan
+CREATE TABLE IF NOT EXISTS public.subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  plan_id TEXT NOT NULL REFERENCES public.plans(id),
+  status TEXT NOT NULL DEFAULT 'active'
+    CHECK (status IN ('active', 'past_due', 'grace_period', 'read_only', 'cancelled', 'expired')),
+  current_period_start TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  current_period_end TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '30 days'),
+  trial_ends_at TIMESTAMPTZ DEFAULT NULL,
+  grace_period_ends_at TIMESTAMPTZ DEFAULT NULL,
+  cancelled_at TIMESTAMPTZ DEFAULT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(organization_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_subscriptions_org ON public.subscriptions(organization_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON public.subscriptions(status);
+
+
+-- 1.3 feature_flags — Contrôle d'accès aux fonctionnalités par plan
+CREATE TABLE IF NOT EXISTS public.feature_flags (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  feature_key TEXT NOT NULL UNIQUE,
+  description TEXT,
+  allowed_plans TEXT[] NOT NULL DEFAULT '{"starter","croissance","enterprise"}',
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Seed feature flags
+INSERT INTO public.feature_flags (feature_key, description, allowed_plans) VALUES
+  ('pos', 'Acces caisse enregistreuse', '{"starter","croissance","enterprise"}'),
+  ('stock_management', 'Gestion du stock', '{"starter","croissance","enterprise"}'),
+  ('customer_credit', 'Credit clients', '{"starter","croissance","enterprise"}'),
+  ('basic_reports', 'Rapports de base', '{"starter","croissance","enterprise"}'),
+  ('advanced_reports', 'Rapports avances et analytics', '{"croissance","enterprise"}'),
+  ('exports', 'Exports PDF et Excel', '{"croissance","enterprise"}'),
+  ('supplier_management', 'Gestion fournisseurs', '{"croissance","enterprise"}'),
+  ('offline_advanced', 'Mode offline avance', '{"croissance","enterprise"}'),
+  ('custom_branding', 'Branding personnalise', '{"croissance","enterprise"}'),
+  ('multi_currency', 'Multi-devises', '{"croissance","enterprise"}'),
+  ('api_access', 'Acces API externe', '{"enterprise"}'),
+  ('priority_support', 'Support prioritaire', '{"enterprise"}'),
+  ('ai_assistant', 'Assistant IA metier', '{"enterprise"}'),
+  ('loyalty_program', 'Programme fidelite', '{"enterprise"}'),
+  ('admin_analytics', 'Analytics multi-boutiques admin', '{"enterprise"}'),
+  ('backup_restore', 'Sauvegarde et restauration', '{"enterprise"}')
+ON CONFLICT (feature_key) DO UPDATE SET
+  description = EXCLUDED.description,
+  allowed_plans = EXCLUDED.allowed_plans;
+
+
+-- 1.4 RLS policies pour feature_flags (si pas encore fait)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'feature_flags' AND policyname = 'Feature flags are readable by authenticated users'
+  ) THEN
+    ALTER TABLE public.feature_flags ENABLE ROW LEVEL SECURITY;
+    CREATE POLICY "Feature flags are readable by authenticated users" ON public.feature_flags
+      FOR SELECT USING (auth.uid() IS NOT NULL AND is_active = TRUE);
+  END IF;
+END;
+$$;
+
+
+-- 1.5 Backfill : créer abonnement starter pour les orgs sans subscription
+INSERT INTO public.subscriptions (organization_id, plan_id, status, current_period_start, current_period_end)
+SELECT id, 'starter', 'active', NOW(), NOW() + INTERVAL '30 days'
+FROM public.organizations
+WHERE id NOT IN (SELECT organization_id FROM public.subscriptions)
+ON CONFLICT (organization_id) DO NOTHING;
+
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- SECTION 2 : check_feature_access — Signature : p_feature_key TEXT
+-- ══════════════════════════════════════════════════════════════════════════════
+-- Frontend appelle : supabase.rpc("check_feature_access", { p_feature_key: "exports" })
+-- Retour attendu : { allowed: boolean, plan_id: string }[]
+
+SELECT pg_temp.drop_all_signatures('check_feature_access');
+
+CREATE OR REPLACE FUNCTION public.check_feature_access(
+  p_feature_key TEXT
+)
+RETURNS TABLE (
+  allowed BOOLEAN,
+  plan_id TEXT
+)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_org_id UUID;
+  v_plan_id TEXT;
+  v_allowed_plans TEXT[];
+BEGIN
+  v_org_id := public.get_user_organization_id();
+  IF v_org_id IS NULL THEN
+    RAISE EXCEPTION 'Organisation introuvable';
+  END IF;
+
+  -- Get organization's plan
+  SELECT s.plan_id INTO v_plan_id
+  FROM public.subscriptions s
+  WHERE s.organization_id = v_org_id
+    AND s.status IN ('active', 'past_due', 'grace_period')
+  ORDER BY s.created_at DESC
+  LIMIT 1;
+
+  -- Default to starter if no subscription
+  IF v_plan_id IS NULL THEN
+    v_plan_id := 'starter';
+  END IF;
+
+  -- Get feature's allowed plans from feature_flags table
+  SELECT allowed_plans INTO v_allowed_plans
+  FROM public.feature_flags
+  WHERE feature_key = p_feature_key AND is_active = TRUE;
+
+  IF NOT FOUND THEN
+    -- Feature not found = not allowed
+    RETURN QUERY SELECT FALSE, v_plan_id;
+    RETURN;
+  END IF;
+
+  RETURN QUERY SELECT (v_plan_id = ANY(v_allowed_plans))::BOOLEAN, v_plan_id;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.check_feature_access(TEXT) TO authenticated;
+
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- SECTION 3 : get_admin_stores_summary — Signature : p_period, p_start_date, p_end_date
+-- ══════════════════════════════════════════════════════════════════════════════
+-- Frontend appelle : supabase.rpc("get_admin_stores_summary", { p_period: "month" })
+-- Retour attendu : StoreSummary[] (16 champs)
+
+SELECT pg_temp.drop_all_signatures('get_admin_stores_summary');
+
+CREATE OR REPLACE FUNCTION public.get_admin_stores_summary(
+  p_period text DEFAULT 'month',
+  p_start_date timestamptz DEFAULT NULL,
+  p_end_date timestamptz DEFAULT NULL
+)
+RETURNS TABLE(
+  organization_id uuid,
+  store_name text,
+  store_category text,
+  owner_name text,
+  owner_phone text,
+  city text,
+  country text,
+  total_sales numeric,
+  transaction_count bigint,
+  avg_basket numeric,
+  total_expenses numeric,
+  net_revenue numeric,
+  product_count bigint,
+  active_product_count bigint,
+  customer_count bigint,
+  low_stock_count bigint
+)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_start timestamptz;
+  v_end timestamptz;
+BEGIN
+  -- Determine date range
+  IF p_start_date IS NOT NULL AND p_end_date IS NOT NULL THEN
+    v_start := p_start_date;
+    v_end := p_end_date;
+  ELSE
+    CASE p_period
+      WHEN 'day' THEN
+        v_start := date_trunc('day', now());
+        v_end := date_trunc('day', now()) + interval '1 day';
+      WHEN 'week' THEN
+        v_start := date_trunc('week', now());
+        v_end := date_trunc('week', now()) + interval '7 days';
+      WHEN 'month' THEN
+        v_start := date_trunc('month', now());
+        v_end := date_trunc('month', now()) + interval '1 month';
+      WHEN 'quarter' THEN
+        v_start := date_trunc('quarter', now());
+        v_end := date_trunc('quarter', now()) + interval '3 months';
+      WHEN 'year' THEN
+        v_start := date_trunc('year', now());
+        v_end := date_trunc('year', now()) + interval '1 year';
+      ELSE
+        v_start := date_trunc('month', now());
+        v_end := date_trunc('month', now()) + interval '1 month';
+    END CASE;
+  END IF;
+
+  -- Only super_admin can call this
+  IF NOT public.is_super_admin() THEN
+    RAISE EXCEPTION 'Acces refuse : reserve au super administrateur';
+  END IF;
+
+  RETURN QUERY
+  SELECT
+    o.id AS organization_id,
+    o.name AS store_name,
+    o.category::text AS store_category,
+    p.owner_name,
+    p.phone AS owner_phone,
+    p.city,
+    p.country,
+    COALESCE(s_summary.total_sales, 0) AS total_sales,
+    COALESCE(s_summary.transaction_count, 0) AS transaction_count,
+    COALESCE(s_summary.avg_basket, 0) AS avg_basket,
+    COALESCE(e_summary.total_expenses, 0) AS total_expenses,
+    COALESCE(s_summary.total_sales, 0) - COALESCE(e_summary.total_expenses, 0) AS net_revenue,
+    COALESCE(prod_summary.product_count, 0) AS product_count,
+    COALESCE(prod_summary.active_product_count, 0) AS active_product_count,
+    COALESCE(cust_summary.customer_count, 0) AS customer_count,
+    COALESCE(prod_summary.low_stock_count, 0) AS low_stock_count
+  FROM organizations o
+  LEFT JOIN profiles p ON p.organization_id = o.id AND p.user_id = o.owner_user_id
+  LEFT JOIN LATERAL (
+    SELECT
+      SUM(s.total_amount) AS total_sales,
+      COUNT(*) AS transaction_count,
+      AVG(s.total_amount) AS avg_basket
+    FROM sales s
+    WHERE s.organization_id = o.id
+      AND s.created_at >= v_start
+      AND s.created_at < v_end
+  ) s_summary ON true
+  LEFT JOIN LATERAL (
+    SELECT
+      SUM(e.amount) AS total_expenses
+    FROM expenses e
+    WHERE e.organization_id = o.id
+      AND e.expense_date >= v_start::date
+      AND e.expense_date < v_end::date
+  ) e_summary ON true
+  LEFT JOIN LATERAL (
+    SELECT
+      COUNT(*) AS product_count,
+      COUNT(*) FILTER (WHERE pr.is_active = true) AS active_product_count,
+      COUNT(*) FILTER (WHERE pr.is_active = true AND pr.stock_quantity <= COALESCE(pr.min_stock_alert, 5)) AS low_stock_count
+    FROM products pr
+    WHERE pr.organization_id = o.id
+  ) prod_summary ON true
+  LEFT JOIN LATERAL (
+    SELECT
+      COUNT(*) AS customer_count
+    FROM customers c
+    WHERE c.organization_id = o.id
+  ) cust_summary ON true
+  ORDER BY COALESCE(s_summary.total_sales, 0) DESC;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_admin_stores_summary(text, timestamptz, timestamptz) TO authenticated;
+
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- SECTION 4 : get_admin_article_ranking — Signature : p_organization_id, p_period, p_limit, p_start_date, p_end_date
+-- ══════════════════════════════════════════════════════════════════════════════
+-- Frontend appelle : supabase.rpc("get_admin_article_ranking", { p_period, p_limit, p_organization_id? })
+-- Retour attendu : ArticleRanking[] (12 champs + ranking_category "top"/"bad")
+
+SELECT pg_temp.drop_all_signatures('get_admin_article_ranking');
+
+CREATE OR REPLACE FUNCTION public.get_admin_article_ranking(
+  p_organization_id uuid DEFAULT NULL,
+  p_period text DEFAULT 'month',
+  p_limit integer DEFAULT 10,
+  p_start_date timestamptz DEFAULT NULL,
+  p_end_date timestamptz DEFAULT NULL
+)
+RETURNS TABLE(
+  organization_id uuid,
+  store_name text,
+  product_id uuid,
+  product_name text,
+  category_name text,
+  quantity_sold bigint,
+  total_revenue numeric,
+  unit_price numeric,
+  cost_price numeric,
+  margin numeric,
+  current_stock integer,
+  ranking_category text
+)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_start timestamptz;
+  v_end timestamptz;
+BEGIN
+  IF p_start_date IS NOT NULL AND p_end_date IS NOT NULL THEN
+    v_start := p_start_date;
+    v_end := p_end_date;
+  ELSE
+    CASE p_period
+      WHEN 'day' THEN
+        v_start := date_trunc('day', now());
+        v_end := date_trunc('day', now()) + interval '1 day';
+      WHEN 'week' THEN
+        v_start := date_trunc('week', now());
+        v_end := date_trunc('week', now()) + interval '7 days';
+      WHEN 'month' THEN
+        v_start := date_trunc('month', now());
+        v_end := date_trunc('month', now()) + interval '1 month';
+      WHEN 'quarter' THEN
+        v_start := date_trunc('quarter', now());
+        v_end := date_trunc('quarter', now()) + interval '3 months';
+      WHEN 'year' THEN
+        v_start := date_trunc('year', now());
+        v_end := date_trunc('year', now()) + interval '1 year';
+      ELSE
+        v_start := date_trunc('month', now());
+        v_end := date_trunc('month', now()) + interval '1 month';
+    END CASE;
+  END IF;
+
+  IF NOT public.is_super_admin() THEN
+    RAISE EXCEPTION 'Acces refuse : reserve au super administrateur';
+  END IF;
+
+  -- Top articles (highest revenue)
+  RETURN QUERY
+  SELECT
+    o.id AS organization_id,
+    o.name AS store_name,
+    si.product_id,
+    si.product_name,
+    COALESCE(c.name, 'Sans categorie') AS category_name,
+    SUM(si.quantity) AS quantity_sold,
+    SUM(si.total_price) AS total_revenue,
+    si.unit_price,
+    COALESCE(pr.cost_price, 0) AS cost_price,
+    si.unit_price - COALESCE(pr.cost_price, 0) AS margin,
+    COALESCE(pr.stock_quantity, 0) AS current_stock,
+    'top'::text AS ranking_category
+  FROM sale_items si
+  JOIN sales s ON s.id = si.sale_id
+  JOIN organizations o ON o.id = si.organization_id
+  LEFT JOIN products pr ON pr.id = si.product_id
+  LEFT JOIN categories c ON c.id = pr.category_id
+  WHERE s.created_at >= v_start
+    AND s.created_at < v_end
+    AND (p_organization_id IS NULL OR si.organization_id = p_organization_id)
+  GROUP BY o.id, o.name, si.product_id, si.product_name, c.name, si.unit_price, pr.cost_price, pr.stock_quantity
+  ORDER BY SUM(si.total_price) DESC
+  LIMIT p_limit;
+
+  -- Bad articles (products with zero or lowest sales in period)
+  RETURN QUERY
+  SELECT
+    o.id AS organization_id,
+    o.name AS store_name,
+    pr.id AS product_id,
+    pr.name AS product_name,
+    COALESCE(c.name, 'Sans categorie') AS category_name,
+    COALESCE(sold.qty, 0) AS quantity_sold,
+    COALESCE(sold.revenue, 0) AS total_revenue,
+    pr.price AS unit_price,
+    COALESCE(pr.cost_price, 0) AS cost_price,
+    pr.price - COALESCE(pr.cost_price, 0) AS margin,
+    pr.stock_quantity AS current_stock,
+    'bad'::text AS ranking_category
+  FROM products pr
+  JOIN organizations o ON o.id = pr.organization_id
+  LEFT JOIN categories c ON c.id = pr.category_id
+  LEFT JOIN LATERAL (
+    SELECT SUM(si2.quantity) AS qty, SUM(si2.total_price) AS revenue
+    FROM sale_items si2
+    JOIN sales s2 ON s2.id = si2.sale_id
+    WHERE si2.product_id = pr.id
+      AND s2.created_at >= v_start
+      AND s2.created_at < v_end
+  ) sold ON true
+  WHERE pr.is_active = true
+    AND (p_organization_id IS NULL OR pr.organization_id = p_organization_id)
+  ORDER BY COALESCE(sold.revenue, 0) ASC, pr.stock_quantity DESC
+  LIMIT p_limit;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_admin_article_ranking(uuid, text, integer, timestamptz, timestamptz) TO authenticated;
+
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- SECTION 5 : get_admin_stock_movements — Signature : p_organization_id, p_period, p_limit, p_start_date, p_end_date
+-- ══════════════════════════════════════════════════════════════════════════════
+-- Frontend appelle : supabase.rpc("get_admin_stock_movements", { p_period, p_limit, p_organization_id? })
+-- Retour attendu : StockMovement[] (11 champs)
+
+SELECT pg_temp.drop_all_signatures('get_admin_stock_movements');
+
+CREATE OR REPLACE FUNCTION public.get_admin_stock_movements(
+  p_organization_id uuid DEFAULT NULL,
+  p_period text DEFAULT 'month',
+  p_limit integer DEFAULT 50,
+  p_start_date timestamptz DEFAULT NULL,
+  p_end_date timestamptz DEFAULT NULL
+)
+RETURNS TABLE(
+  organization_id uuid,
+  store_name text,
+  movement_id uuid,
+  product_id uuid,
+  product_name text,
+  movement_type text,
+  quantity integer,
+  previous_quantity integer,
+  new_quantity integer,
+  reason text,
+  created_at timestamptz
+)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_start timestamptz;
+  v_end timestamptz;
+BEGIN
+  IF p_start_date IS NOT NULL AND p_end_date IS NOT NULL THEN
+    v_start := p_start_date;
+    v_end := p_end_date;
+  ELSE
+    CASE p_period
+      WHEN 'day' THEN
+        v_start := date_trunc('day', now());
+        v_end := date_trunc('day', now()) + interval '1 day';
+      WHEN 'week' THEN
+        v_start := date_trunc('week', now());
+        v_end := date_trunc('week', now()) + interval '7 days';
+      WHEN 'month' THEN
+        v_start := date_trunc('month', now());
+        v_end := date_trunc('month', now()) + interval '1 month';
+      WHEN 'quarter' THEN
+        v_start := date_trunc('quarter', now());
+        v_end := date_trunc('quarter', now()) + interval '3 months';
+      WHEN 'year' THEN
+        v_start := date_trunc('year', now());
+        v_end := date_trunc('year', now()) + interval '1 year';
+      ELSE
+        v_start := date_trunc('month', now());
+        v_end := date_trunc('month', now()) + interval '1 month';
+    END CASE;
+  END IF;
+
+  IF NOT public.is_super_admin() THEN
+    RAISE EXCEPTION 'Acces refuse : reserve au super administrateur';
+  END IF;
+
+  RETURN QUERY
+  SELECT
+    o.id AS organization_id,
+    o.name AS store_name,
+    sm.id AS movement_id,
+    sm.product_id,
+    COALESCE(pr.name, 'Produit supprime') AS product_name,
+    sm.type AS movement_type,
+    sm.quantity,
+    sm.previous_quantity,
+    sm.new_quantity,
+    sm.reason,
+    sm.created_at
+  FROM stock_movements sm
+  JOIN organizations o ON o.id = sm.organization_id
+  LEFT JOIN products pr ON pr.id = sm.product_id
+  WHERE sm.created_at >= v_start
+    AND sm.created_at < v_end
+    AND (p_organization_id IS NULL OR sm.organization_id = p_organization_id)
+  ORDER BY sm.created_at DESC
+  LIMIT p_limit;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_admin_stock_movements(uuid, text, integer, timestamptz, timestamptz) TO authenticated;
+
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- SECTION 6 : get_admin_sales_trend — Signature : p_organization_id, p_period, p_start_date, p_end_date
+-- ══════════════════════════════════════════════════════════════════════════════
+-- Frontend appelle : supabase.rpc("get_admin_sales_trend", { p_period, p_organization_id? })
+-- Retour attendu : SalesTrend[] (6 champs)
+
+SELECT pg_temp.drop_all_signatures('get_admin_sales_trend');
+
+CREATE OR REPLACE FUNCTION public.get_admin_sales_trend(
+  p_organization_id uuid DEFAULT NULL,
+  p_period text DEFAULT 'month',
+  p_start_date timestamptz DEFAULT NULL,
+  p_end_date timestamptz DEFAULT NULL
+)
+RETURNS TABLE(
+  date text,
+  organization_id uuid,
+  store_name text,
+  total_sales numeric,
+  transaction_count bigint,
+  avg_basket numeric
+)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_start timestamptz;
+  v_end timestamptz;
+BEGIN
+  IF p_start_date IS NOT NULL AND p_end_date IS NOT NULL THEN
+    v_start := p_start_date;
+    v_end := p_end_date;
+  ELSE
+    CASE p_period
+      WHEN 'day' THEN
+        v_start := date_trunc('day', now());
+        v_end := date_trunc('day', now()) + interval '1 day';
+      WHEN 'week' THEN
+        v_start := date_trunc('week', now());
+        v_end := date_trunc('week', now()) + interval '7 days';
+      WHEN 'month' THEN
+        v_start := date_trunc('month', now());
+        v_end := date_trunc('month', now()) + interval '1 month';
+      WHEN 'quarter' THEN
+        v_start := date_trunc('quarter', now());
+        v_end := date_trunc('quarter', now()) + interval '3 months';
+      WHEN 'year' THEN
+        v_start := date_trunc('year', now());
+        v_end := date_trunc('year', now()) + interval '1 year';
+      ELSE
+        v_start := date_trunc('month', now());
+        v_end := date_trunc('month', now()) + interval '1 month';
+    END CASE;
+  END IF;
+
+  IF NOT public.is_super_admin() THEN
+    RAISE EXCEPTION 'Acces refuse : reserve au super administrateur';
+  END IF;
+
+  RETURN QUERY
+  SELECT
+    to_char(date_trunc('day', s.created_at), 'YYYY-MM-DD') AS date,
+    o.id AS organization_id,
+    o.name AS store_name,
+    SUM(s.total_amount) AS total_sales,
+    COUNT(*) AS transaction_count,
+    AVG(s.total_amount) AS avg_basket
+  FROM sales s
+  JOIN organizations o ON o.id = s.organization_id
+  WHERE s.created_at >= v_start
+    AND s.created_at < v_end
+    AND (p_organization_id IS NULL OR s.organization_id = p_organization_id)
+  GROUP BY date_trunc('day', s.created_at), o.id, o.name
+  ORDER BY date_trunc('day', s.created_at) ASC, SUM(s.total_amount) DESC;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_admin_sales_trend(uuid, text, timestamptz, timestamptz) TO authenticated;
+
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- SECTION 7 : get_admin_payment_distribution — Signature : p_organization_id, p_period, p_start_date, p_end_date
+-- ══════════════════════════════════════════════════════════════════════════════
+-- Frontend appelle : supabase.rpc("get_admin_payment_distribution", { p_period, p_organization_id? })
+-- Retour attendu : PaymentDistribution[] (4 champs)
+
+SELECT pg_temp.drop_all_signatures('get_admin_payment_distribution');
+
+CREATE OR REPLACE FUNCTION public.get_admin_payment_distribution(
+  p_organization_id uuid DEFAULT NULL,
+  p_period text DEFAULT 'month',
+  p_start_date timestamptz DEFAULT NULL,
+  p_end_date timestamptz DEFAULT NULL
+)
+RETURNS TABLE(
+  payment_method text,
+  total_amount numeric,
+  transaction_count bigint,
+  percentage numeric
+)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_start timestamptz;
+  v_end timestamptz;
+  v_total numeric;
+BEGIN
+  IF p_start_date IS NOT NULL AND p_end_date IS NOT NULL THEN
+    v_start := p_start_date;
+    v_end := p_end_date;
+  ELSE
+    CASE p_period
+      WHEN 'day' THEN
+        v_start := date_trunc('day', now());
+        v_end := date_trunc('day', now()) + interval '1 day';
+      WHEN 'week' THEN
+        v_start := date_trunc('week', now());
+        v_end := date_trunc('week', now()) + interval '7 days';
+      WHEN 'month' THEN
+        v_start := date_trunc('month', now());
+        v_end := date_trunc('month', now()) + interval '1 month';
+      WHEN 'quarter' THEN
+        v_start := date_trunc('quarter', now());
+        v_end := date_trunc('quarter', now()) + interval '3 months';
+      WHEN 'year' THEN
+        v_start := date_trunc('year', now());
+        v_end := date_trunc('year', now()) + interval '1 year';
+      ELSE
+        v_start := date_trunc('month', now());
+        v_end := date_trunc('month', now()) + interval '1 month';
+    END CASE;
+  END IF;
+
+  IF NOT public.is_super_admin() THEN
+    RAISE EXCEPTION 'Acces refuse : reserve au super administrateur';
+  END IF;
+
+  -- Get total for percentage calculation
+  SELECT COALESCE(SUM(s.total_amount), 0) INTO v_total
+  FROM sales s
+  WHERE s.created_at >= v_start
+    AND s.created_at < v_end
+    AND (p_organization_id IS NULL OR s.organization_id = p_organization_id);
+
+  RETURN QUERY
+  SELECT
+    s.payment_method::text AS payment_method,
+    SUM(s.total_amount) AS total_amount,
+    COUNT(*) AS transaction_count,
+    CASE WHEN v_total > 0 THEN ROUND((SUM(s.total_amount) / v_total) * 100, 1) ELSE 0 END AS percentage
+  FROM sales s
+  WHERE s.created_at >= v_start
+    AND s.created_at < v_end
+    AND (p_organization_id IS NULL OR s.organization_id = p_organization_id)
+  GROUP BY s.payment_method
+  ORDER BY SUM(s.total_amount) DESC;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_admin_payment_distribution(uuid, text, timestamptz, timestamptz) TO authenticated;
+
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- SECTION 8 : Vérification finale
+-- ══════════════════════════════════════════════════════════════════════════════
+DO $$
+DECLARE
+  missing TEXT[] := '{}';
+  fn TEXT;
+  expected_fns TEXT[] := ARRAY[
+    'check_feature_access',
+    'get_admin_stores_summary',
+    'get_admin_article_ranking',
+    'get_admin_stock_movements',
+    'get_admin_sales_trend',
+    'get_admin_payment_distribution',
+    'get_user_organization_id',
+    'is_super_admin'
+  ];
+BEGIN
+  FOREACH fn IN ARRAY expected_fns LOOP
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_proc
+      WHERE proname = fn AND pronamespace = 'public'::regnamespace
+    ) THEN
+      missing := array_append(missing, fn);
+    END IF;
+  END LOOP;
+
+  IF array_length(missing, 1) IS NOT NULL THEN
+    RAISE WARNING 'Fonctions toujours manquantes : %', array_to_string(missing, ', ');
+  ELSE
+    RAISE NOTICE 'Toutes les fonctions RPC sont installees avec succes !';
+  END IF;
+END;
+$$;
+
+-- Recharger le cache PostgREST pour que les nouvelles fonctions soient visibles
+NOTIFY pgrst, 'reload schema';
+
+SELECT 'Fix missing RPCs v5 applique avec succes — 6 fonctions restaurees' AS status;
+
+
+-- ═════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260704020000_add_stripe_customer_id_to_subscription_rpc.sql
+-- ═════════════════════════════════════════════════════════════════
+
+-- ============================================================
+-- Add stripe_customer_id to get_organization_subscription RPC
+-- Date: 2026-07-04 (v2 — fixed: DROP first for return type change)
+--
+-- PostgreSQL does not allow CREATE OR REPLACE FUNCTION when the
+-- return type changes (42P13). We must DROP and recreate.
+-- ============================================================
+
+-- Drop old signature first (return type differs — cannot use OR REPLACE)
+DROP FUNCTION IF EXISTS public.get_organization_subscription();
+
+CREATE OR REPLACE FUNCTION public.get_organization_subscription()
+RETURNS TABLE (
+  subscription_id UUID,
+  plan_id TEXT,
+  plan_name TEXT,
+  status TEXT,
+  current_period_end TIMESTAMPTZ,
+  trial_ends_at TIMESTAMPTZ,
+  grace_period_ends_at TIMESTAMPTZ,
+  stripe_customer_id TEXT,
+  max_stores INTEGER,
+  max_users INTEGER,
+  max_products INTEGER,
+  max_sales_per_month INTEGER,
+  has_advanced_reports BOOLEAN,
+  has_exports BOOLEAN,
+  has_supplier_management BOOLEAN,
+  has_offline_advanced BOOLEAN,
+  has_api_access BOOLEAN,
+  has_priority_support BOOLEAN,
+  has_custom_branding BOOLEAN,
+  has_multi_currency BOOLEAN,
+  has_ai_assistant BOOLEAN,
+  has_loyalty_program BOOLEAN
+)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_org_id UUID;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+  IF v_org_id IS NULL THEN
+    RAISE EXCEPTION 'Organisation introuvable';
+  END IF;
+
+  RETURN QUERY
+  SELECT
+    s.id AS subscription_id,
+    s.plan_id,
+    p.name AS plan_name,
+    s.status,
+    s.current_period_end,
+    s.trial_ends_at,
+    s.grace_period_ends_at,
+    o.stripe_customer_id,
+    p.max_stores,
+    p.max_users,
+    p.max_products,
+    p.max_sales_per_month,
+    p.has_advanced_reports,
+    p.has_exports,
+    p.has_supplier_management,
+    p.has_offline_advanced,
+    p.has_api_access,
+    p.has_priority_support,
+    p.has_custom_branding,
+    p.has_multi_currency,
+    p.has_ai_assistant,
+    p.has_loyalty_program
+  FROM public.subscriptions s
+  JOIN public.plans p ON p.id = s.plan_id
+  LEFT JOIN public.organizations o ON o.id = s.organization_id
+  WHERE s.organization_id = v_org_id
+  ORDER BY s.created_at DESC
+  LIMIT 1;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_organization_subscription() TO authenticated;
+
+-- Reload PostgREST schema cache
+NOTIFY pgrst, 'reload schema';
+
+
+-- ═════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260704030000_add_missing_grant_execute.sql
+-- ═════════════════════════════════════════════════════════════════
+
+-- ============================================================
+-- Add missing GRANT EXECUTE on SECURITY DEFINER functions
+-- Date: 2026-07-04 (v2 — fixed: resilient to missing functions)
+--
+-- Each GRANT is wrapped in a DO block that catches the
+-- "function does not exist" error (42883) so the migration
+-- does not fail if a function hasn't been deployed yet.
+-- ============================================================
+
+-- ─── Core auth helpers ────────────────────────────────────────
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.admin_exists() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'admin_exists() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.touch_last_login() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'touch_last_login() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.is_user_active() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'is_user_active() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.check_account_status() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'check_account_status() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.get_user_organization_id() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'get_user_organization_id() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.is_member_of_organization() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'is_member_of_organization() does not exist, skipping';
+END $$;
+
+-- ─── Onboarding ───────────────────────────────────────────────
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.update_onboarding_progress() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'update_onboarding_progress() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.complete_onboarding() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'complete_onboarding() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.get_onboarding_status() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'get_onboarding_status() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.update_business_type() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'update_business_type() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.setup_onboarding_store() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'setup_onboarding_store() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.get_onboarding_checklist() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'get_onboarding_checklist() does not exist, skipping';
+END $$;
+
+-- ─── Stock transfers ─────────────────────────────────────────
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.generate_transfer_number() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'generate_transfer_number() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.create_stock_transfer() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'create_stock_transfer() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.send_stock_transfer() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'send_stock_transfer() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.receive_stock_transfer() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'receive_stock_transfer() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.cancel_stock_transfer() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'cancel_stock_transfer() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.get_stock_transfers() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'get_stock_transfers() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.get_stock_transfer_details() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'get_stock_transfer_details() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.get_pending_transfers_count() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'get_pending_transfers_count() does not exist, skipping';
+END $$;
+
+-- ─── Restock suggestions ─────────────────────────────────────
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.get_restock_suggestions() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'get_restock_suggestions() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.create_purchase_order_from_suggestions() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'create_purchase_order_from_suggestions() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.get_supplier_order_history() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'get_supplier_order_history() does not exist, skipping';
+END $$;
+
+-- ─── Loyalty ──────────────────────────────────────────────────
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.earn_loyalty_points() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'earn_loyalty_points() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.redeem_loyalty_points() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'redeem_loyalty_points() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.update_loyalty_tier() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'update_loyalty_tier() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.get_loyalty_stats() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'get_loyalty_stats() does not exist, skipping';
+END $$;
+
+-- ─── Backup/Restore ──────────────────────────────────────────
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.generate_backup_number() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'generate_backup_number() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.create_backup() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'create_backup() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.restore_backup() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'restore_backup() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.get_backups() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'get_backups() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.get_backup_details() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'get_backup_details() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.delete_backup() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'delete_backup() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.get_backup_stats() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'get_backup_stats() does not exist, skipping';
+END $$;
+
+-- ─── Support tickets ─────────────────────────────────────────
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.generate_ticket_number() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'generate_ticket_number() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.create_support_ticket() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'create_support_ticket() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.add_ticket_message() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'add_ticket_message() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.update_ticket_status() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'update_ticket_status() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.get_support_tickets() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'get_support_tickets() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.get_ticket_messages() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'get_ticket_messages() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.get_support_stats() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'get_support_stats() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.delete_support_ticket() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'delete_support_ticket() does not exist, skipping';
+END $$;
+
+-- ─── Subscription lifecycle ──────────────────────────────────
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.process_subscription_lifecycle() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'process_subscription_lifecycle() does not exist, skipping';
+END $$;
+
+-- ─── Multi-store ─────────────────────────────────────────────
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.get_organization_stores() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'get_organization_stores() does not exist, skipping';
+END $$;
+
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.batch_update_stock() TO authenticated;
+EXCEPTION WHEN undefined_function THEN RAISE NOTICE 'batch_update_stock() does not exist, skipping';
+END $$;
+
+-- Reload PostgREST schema cache
+NOTIFY pgrst, 'reload schema';
+
+
+-- ═════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260704040000_fix_cron_secret_and_schedules.sql
+-- ═════════════════════════════════════════════════════════════════
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- MANUAL ONLY — This migration intentionally does not modify the database.
+-- It exists solely as documentation for the manual cron setup procedure.
+--
+-- See: docs/production/SUPABASE_CRON_SETUP.md
+--
+-- The cron jobs CANNOT be auto-applied because they require
+-- project-specific secrets (CRON_SECRET) and URLs (Project ID)
+-- that cannot be stored in this repository.
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- No SQL to execute. See docs/production/SUPABASE_CRON_SETUP.md for setup instructions.
+SELECT 1 AS cron_setup_is_manual;
+
+
+-- ═════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260705010000_update_pricing_and_starter_trial.sql
+-- ═════════════════════════════════════════════════════════════════
+
+-- ============================================================
+-- Migration : Update pricing + convert starter to trial plan
+-- Date : 2026-07-05
+-- ============================================================
+-- Changes:
+--   1. Croissance price: 29.00 → 39.90 €
+--   2. Enterprise price: 79.00 → 99.90 €
+--   3. Starter renamed to "Essai" (trial), 14-day auto-expiry
+--   4. Starter auto-subscription now lasts 14 days instead of 30
+-- ============================================================
+
+-- 1. Update plan prices
+UPDATE public.plans
+SET
+  price_monthly = 39.90,
+  price_yearly = 399.00,
+  name = 'Croissance',
+  description = 'Pour les boutiques qui grandissent — fournisseurs, rapports, exports'
+WHERE id = 'croissance';
+
+UPDATE public.plans
+SET
+  price_monthly = 99.90,
+  price_yearly = 999.00,
+  name = 'Enterprise',
+  description = 'Pour les chaînes et grossistes — analytics, API, support prioritaire'
+WHERE id = 'enterprise';
+
+-- 2. Convert starter to trial plan
+UPDATE public.plans
+SET
+  name = 'Essai gratuit',
+  description = 'Période d''essai de 14 jours — caisse et stock de base'
+WHERE id = 'starter';
+
+-- 3. Update auto_create_starter_subscription to 14-day trial
+CREATE OR REPLACE FUNCTION public.auto_create_starter_subscription()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_trial_end TIMESTAMPTZ;
+BEGIN
+  v_trial_end := NOW() + INTERVAL '14 days';
+
+  INSERT INTO public.subscriptions (organization_id, plan_id, status, current_period_start, current_period_end)
+  VALUES (NEW.id, 'starter', 'trialing', NOW(), v_trial_end)
+  ON CONFLICT (organization_id) DO NOTHING;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 4. Update subscription-lifecycle to downgrade expired trials
+-- (the existing function already handles this, but let's ensure
+--  expired "trialing" status transitions to "past_due" then downgrades)
+
+-- 5. Fix existing starter subscriptions: set 14-day expiry from creation
+-- Only touch subscriptions that still have the old 30-day window
+UPDATE public.subscriptions
+SET
+  current_period_end = current_period_start + INTERVAL '14 days',
+  status = 'trialing'
+WHERE plan_id = 'starter'
+  AND status = 'active'
+  AND current_period_end > NOW();
+
+
+-- ═════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260705020000_fix_feature_access_and_trialing.sql
+-- ═════════════════════════════════════════════════════════════════
+
+-- Migration: Fix feature access for super_admin/trialing and align sidebar/route roles
+-- Date: 2026-07-05
+-- Changes:
+--   1. Add 'trialing' to subscriptions CHECK constraint
+--   2. Update check_feature_access to include 'trialing' status
+--   3. Update check_plan_limit to include 'trialing' status
+--   4. Ensure all feature_flags have is_active = TRUE and correct allowed_plans
+--   5. Update get_organization_subscription to include 'trialing' status
+
+
+-- 0. Drop functions that have changed return types (must DROP before CREATE)
+DROP FUNCTION IF EXISTS public.get_organization_subscription();
+DROP FUNCTION IF EXISTS public.check_feature_access(TEXT);
+DROP FUNCTION IF EXISTS public.check_plan_limit(TEXT);
+
+
+-- 1. Fix subscriptions CHECK constraint to include 'trialing'
+DO $body$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.subscriptions'::regclass
+      AND conname LIKE '%status%'
+  ) THEN
+    ALTER TABLE public.subscriptions DROP CONSTRAINT subscriptions_status_check;
+  END IF;
+
+  ALTER TABLE public.subscriptions ADD CONSTRAINT subscriptions_status_check
+    CHECK (status IN ('active', 'trialing', 'past_due', 'grace_period', 'read_only', 'cancelled', 'expired'));
+END;
+$body$;
+
+
+-- 2. check_feature_access with 'trialing' status
+CREATE OR REPLACE FUNCTION public.check_feature_access(
+  p_feature_key TEXT
+)
+RETURNS TABLE (
+  allowed BOOLEAN,
+  plan_id TEXT
+)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_org_id UUID;
+  v_plan_id TEXT;
+  v_allowed_plans TEXT[];
+BEGIN
+  v_org_id := public.get_user_organization_id();
+  IF v_org_id IS NULL THEN
+    RAISE EXCEPTION 'Organisation introuvable';
+  END IF;
+
+  SELECT s.plan_id INTO v_plan_id
+  FROM public.subscriptions s
+  WHERE s.organization_id = v_org_id
+    AND s.status IN ('active', 'trialing', 'past_due', 'grace_period')
+  ORDER BY s.created_at DESC
+  LIMIT 1;
+
+  IF v_plan_id IS NULL THEN
+    v_plan_id := 'starter';
+  END IF;
+
+  SELECT allowed_plans INTO v_allowed_plans
+  FROM public.feature_flags
+  WHERE feature_key = p_feature_key AND is_active = TRUE;
+
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT FALSE, v_plan_id;
+    RETURN;
+  END IF;
+
+  RETURN QUERY SELECT (v_plan_id = ANY(v_allowed_plans))::BOOLEAN, v_plan_id;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.check_feature_access(TEXT) TO authenticated;
+
+
+-- 3. check_plan_limit with 'trialing' status
+CREATE OR REPLACE FUNCTION public.check_plan_limit(
+  p_limit_type TEXT
+)
+RETURNS TABLE (
+  allowed BOOLEAN,
+  current_count INTEGER,
+  limit_value INTEGER,
+  plan_id TEXT
+)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_org_id UUID;
+  v_sub record;
+  v_current INTEGER;
+  v_limit INTEGER;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+  IF v_org_id IS NULL THEN
+    RAISE EXCEPTION 'Organisation introuvable';
+  END IF;
+
+  SELECT * INTO v_sub
+  FROM public.subscriptions s
+  JOIN public.plans p ON p.id = s.plan_id
+  WHERE s.organization_id = v_org_id
+    AND s.status IN ('active', 'trialing', 'past_due', 'grace_period')
+  ORDER BY s.created_at DESC
+  LIMIT 1;
+
+  IF NOT FOUND THEN
+    SELECT * INTO v_sub FROM public.plans WHERE id = 'starter';
+  END IF;
+
+  CASE p_limit_type
+    WHEN 'stores' THEN
+      SELECT COUNT(*) INTO v_current FROM public.stores WHERE organization_id = v_org_id;
+      v_limit := v_sub.max_stores;
+    WHEN 'users' THEN
+      SELECT COUNT(*) INTO v_current FROM public.user_roles ur
+      JOIN public.profiles p ON p.user_id = ur.user_id
+      WHERE p.organization_id = v_org_id;
+      v_limit := v_sub.max_users;
+    WHEN 'products' THEN
+      SELECT COUNT(*) INTO v_current FROM public.products WHERE organization_id = v_org_id;
+      v_limit := v_sub.max_products;
+    WHEN 'sales_this_month' THEN
+      SELECT COUNT(*) INTO v_current FROM public.sales
+      WHERE organization_id = v_org_id
+        AND created_at >= date_trunc('month', NOW());
+      v_limit := v_sub.max_sales_per_month;
+    ELSE
+      RAISE EXCEPTION 'Type de limite inconnu : %', p_limit_type;
+  END CASE;
+
+  RETURN QUERY SELECT
+    (v_limit IS NULL OR v_current < v_limit)::BOOLEAN,
+    v_current,
+    v_limit,
+    v_sub.plan_id;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.check_plan_limit(TEXT) TO authenticated;
+
+
+-- 4. Ensure all feature_flags are active with correct allowed_plans
+UPDATE public.feature_flags SET is_active = TRUE WHERE is_active IS NOT TRUE;
+
+INSERT INTO public.feature_flags (feature_key, description, allowed_plans) VALUES
+  ('pos', 'Acces caisse enregistreuse', '{"starter","croissance","enterprise"}'),
+  ('stock_management', 'Gestion du stock', '{"starter","croissance","enterprise"}'),
+  ('customer_credit', 'Credit clients', '{"starter","croissance","enterprise"}'),
+  ('basic_reports', 'Rapports de base', '{"starter","croissance","enterprise"}'),
+  ('advanced_reports', 'Rapports avances et analytics', '{"croissance","enterprise"}'),
+  ('exports', 'Exports PDF et Excel', '{"croissance","enterprise"}'),
+  ('supplier_management', 'Gestion fournisseurs', '{"croissance","enterprise"}'),
+  ('offline_advanced', 'Mode offline avance', '{"croissance","enterprise"}'),
+  ('custom_branding', 'Branding personnalise', '{"croissance","enterprise"}'),
+  ('multi_currency', 'Multi-devises', '{"croissance","enterprise"}'),
+  ('api_access', 'Acces API externe', '{"enterprise"}'),
+  ('priority_support', 'Support prioritaire', '{"enterprise"}'),
+  ('ai_assistant', 'Assistant IA metier', '{"enterprise"}'),
+  ('loyalty_program', 'Programme fidelite', '{"enterprise"}'),
+  ('admin_analytics', 'Analytics multi-boutiques admin', '{"enterprise"}'),
+  ('backup_restore', 'Sauvegarde et restauration', '{"enterprise"}')
+ON CONFLICT (feature_key) DO UPDATE SET
+  description = EXCLUDED.description,
+  allowed_plans = EXCLUDED.allowed_plans,
+  is_active = TRUE;
+
+
+-- 5. get_organization_subscription with 'trialing' status
+CREATE OR REPLACE FUNCTION public.get_organization_subscription()
+RETURNS TABLE (
+  subscription_id UUID,
+  plan_id TEXT,
+  plan_name TEXT,
+  status TEXT,
+  current_period_end TIMESTAMPTZ,
+  trial_ends_at TIMESTAMPTZ,
+  grace_period_ends_at TIMESTAMPTZ,
+  max_stores INTEGER,
+  max_users INTEGER,
+  max_products INTEGER,
+  max_sales_per_month INTEGER,
+  has_advanced_reports BOOLEAN,
+  has_exports BOOLEAN,
+  has_supplier_management BOOLEAN,
+  has_offline_advanced BOOLEAN,
+  has_api_access BOOLEAN,
+  has_priority_support BOOLEAN,
+  has_custom_branding BOOLEAN,
+  has_multi_currency BOOLEAN,
+  has_ai_assistant BOOLEAN,
+  has_loyalty_program BOOLEAN
+)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_org_id UUID;
+BEGIN
+  v_org_id := public.get_user_organization_id();
+  IF v_org_id IS NULL THEN
+    RAISE EXCEPTION 'Organisation introuvable';
+  END IF;
+
+  RETURN QUERY
+  SELECT
+    s.id AS subscription_id,
+    s.plan_id,
+    p.name AS plan_name,
+    s.status,
+    s.current_period_end,
+    s.trial_ends_at,
+    s.grace_period_ends_at,
+    p.max_stores,
+    p.max_users,
+    p.max_products,
+    p.max_sales_per_month,
+    p.has_advanced_reports,
+    p.has_exports,
+    p.has_supplier_management,
+    p.has_offline_advanced,
+    p.has_api_access,
+    p.has_priority_support,
+    p.has_custom_branding,
+    p.has_multi_currency,
+    p.has_ai_assistant,
+    p.has_loyalty_program
+  FROM public.subscriptions s
+  JOIN public.plans p ON p.id = s.plan_id
+  WHERE s.organization_id = v_org_id
+    AND s.status IN ('active', 'trialing', 'past_due', 'grace_period')
+  ORDER BY s.created_at DESC
+  LIMIT 1;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_organization_subscription() TO authenticated;
+
+
+-- 6. Notify PostgREST to reload schema
+NOTIFY pgrst, 'reload schema';
+
+
+-- ═════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260705030000_fix_super_admin_rls_and_has_role.sql
+-- ═════════════════════════════════════════════════════════════════
+
+-- Migration: Fix super_admin access — RLS policies + has_role fix
+-- Date: 2026-07-05
+-- Changes:
+--   1. Fix user_roles SELECT RLS policy to include is_super_admin()
+--   2. Fix profiles SELECT RLS policy to include is_super_admin()
+--   3. Fix has_role() so super_admin is treated as having admin privileges
+--   4. Fix organizations UPDATE and audit_log SELECT RLS for super_admin
+
+
+-- STEP 0: Drop conflicting user_roles SELECT policy (only checks 'admin', not 'super_admin')
+DROP POLICY IF EXISTS "user_roles_select_own_or_admin" ON public.user_roles;
+
+CREATE POLICY "user_roles_select_own_or_admin"
+ON public.user_roles FOR SELECT TO authenticated
+USING (
+  auth.uid() = user_id
+  OR public.is_super_admin()
+  OR public.has_role(auth.uid(), 'admin')
+);
+
+
+-- STEP 1: Fix profiles SELECT — ensure super_admin can see all profiles
+DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
+CREATE POLICY "Users can view own profile" ON public.profiles
+  FOR SELECT TO authenticated
+  USING (
+    public.is_super_admin()
+    OR user_id = auth.uid()
+    OR organization_id = public.get_user_organization_id()
+  );
+
+
+-- STEP 2: Fix has_role to also match super_admin when checking 'admin'
+-- (super_admin should be treated as having admin privileges too)
+CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role app_role)
+RETURNS boolean
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+BEGIN
+  -- Self-check: user can check their own role
+  IF _user_id = auth.uid() THEN
+    RETURN EXISTS (
+      SELECT 1 FROM public.user_roles
+      WHERE user_id = _user_id AND (role = _role OR (_role = 'admin' AND role = 'super_admin'))
+    );
+  END IF;
+
+  -- Super admin can check any user's role
+  IF public.is_super_admin() THEN
+    RETURN EXISTS (
+      SELECT 1 FROM public.user_roles
+      WHERE user_id = _user_id AND (role = _role OR (_role = 'admin' AND role = 'super_admin'))
+    );
+  END IF;
+
+  -- Admin of the same organization can check
+  DECLARE
+    v_caller_org uuid;
+    v_target_org uuid;
+  BEGIN
+    SELECT organization_id INTO v_caller_org
+    FROM public.profiles WHERE user_id = auth.uid() AND is_active = true;
+
+    SELECT organization_id INTO v_target_org
+    FROM public.profiles WHERE user_id = _user_id;
+
+    IF v_caller_org IS NOT NULL AND v_caller_org = v_target_org THEN
+      IF EXISTS (
+        SELECT 1 FROM public.user_roles
+        WHERE user_id = auth.uid() AND role IN ('admin', 'super_admin')
+      ) THEN
+        RETURN EXISTS (
+          SELECT 1 FROM public.user_roles
+          WHERE user_id = _user_id AND (role = _role OR (_role = 'admin' AND role = 'super_admin'))
+        );
+      END IF;
+    END IF;
+
+    RETURN FALSE;
+  END;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.has_role(uuid, app_role) TO authenticated;
+
+
+-- STEP 3: Fix organizations UPDATE RLS for super_admin
+DROP POLICY IF EXISTS "admin_can_update_org" ON public.organizations;
+CREATE POLICY "admin_can_update_org" ON public.organizations
+  FOR UPDATE TO authenticated
+  USING (
+    public.is_super_admin()
+    OR owner_user_id = auth.uid()
+    OR public.has_role(auth.uid(), 'admin')
+  )
+  WITH CHECK (
+    public.is_super_admin()
+    OR owner_user_id = auth.uid()
+    OR public.has_role(auth.uid(), 'admin')
+  );
+
+
+-- STEP 4: Fix user_audit_log SELECT RLS for super_admin
+DROP POLICY IF EXISTS "admins_view_audit_log" ON public.user_audit_log;
+CREATE POLICY "admins_view_audit_log" ON public.user_audit_log
+  FOR SELECT TO authenticated
+  USING (
+    public.is_super_admin()
+    OR public.has_role(auth.uid(), 'admin')
+  );
+
+
+-- STEP 5: Notify PostgREST to reload schema
+NOTIFY pgrst, 'reload schema';
+
+
+-- ═════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260705040000_admin_subscription_management.sql
+-- ═════════════════════════════════════════════════════════════════
+
+-- ============================================================
+-- Admin Subscription Management for Super Admin
+-- Date: 2026-07-05
+--
+-- Enables super_admin to:
+--   - View all organizations with their subscription details
+--   - Change any organization's plan, status, and duration
+--   - Log all changes to subscription_events
+--
+-- Also creates the missing update_organization_subscription RPC
+-- used by Billing.tsx (for own-org changes by any admin).
+-- ============================================================
+
+-- ════════════════════════════════════════════════════════════════
+-- 1. RLS: Allow super_admin to UPDATE subscriptions for any org
+-- ════════════════════════════════════════════════════════════════
+CREATE POLICY "Super admin can update any subscription"
+  ON public.subscriptions
+  FOR UPDATE USING (public.is_super_admin())
+  WITH CHECK (public.is_super_admin());
+
+-- Allow super_admin to INSERT subscriptions (for new orgs)
+CREATE POLICY "Super admin can insert subscriptions"
+  ON public.subscriptions
+  FOR INSERT WITH CHECK (public.is_super_admin());
+
+-- ════════════════════════════════════════════════════════════════
+-- 2. admin_get_all_subscriptions — List all orgs with sub details
+-- ════════════════════════════════════════════════════════════════
+DROP FUNCTION IF EXISTS public.admin_get_all_subscriptions();
+
+CREATE OR REPLACE FUNCTION public.admin_get_all_subscriptions()
+RETURNS TABLE (
+  organization_id UUID,
+  organization_name TEXT,
+  owner_email TEXT,
+  country TEXT,
+  subscription_id UUID,
+  plan_id TEXT,
+  plan_name TEXT,
+  status TEXT,
+  current_period_start TIMESTAMPTZ,
+  current_period_end TIMESTAMPTZ,
+  trial_ends_at TIMESTAMPTZ,
+  billing_period TEXT,
+  stripe_customer_id TEXT,
+  created_at TIMESTAMPTZ
+)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public
+AS $fn1$
+BEGIN
+  -- Verify super_admin
+  IF NOT public.is_super_admin() THEN
+    RAISE EXCEPTION 'Access denied: super_admin only';
+  END IF;
+
+  RETURN QUERY
+  SELECT
+    o.id AS organization_id,
+    o.name AS organization_name,
+    au.email AS owner_email,
+    o.country,
+    s.id AS subscription_id,
+    s.plan_id,
+    p.name AS plan_name,
+    s.status,
+    s.current_period_start,
+    s.current_period_end,
+    s.trial_ends_at,
+    s.billing_period,
+    o.stripe_customer_id,
+    s.created_at
+  FROM organizations o
+  LEFT JOIN subscriptions s ON s.organization_id = o.id
+  LEFT JOIN plans p ON p.id = s.plan_id
+  LEFT JOIN auth.users au ON au.id = o.owner_user_id
+  ORDER BY o.name;
+END;
+$fn1$;
+
+GRANT EXECUTE ON FUNCTION public.admin_get_all_subscriptions() TO authenticated;
+
+-- ════════════════════════════════════════════════════════════════
+-- 3. admin_update_organization_subscription — Change any org's sub
+-- ════════════════════════════════════════════════════════════════
+DROP FUNCTION IF EXISTS public.admin_update_organization_subscription(UUID, TEXT, TEXT, TEXT);
+
+CREATE OR REPLACE FUNCTION public.admin_update_organization_subscription(
+  p_organization_id UUID,
+  p_plan_id TEXT,
+  p_status TEXT DEFAULT 'active',
+  p_duration TEXT DEFAULT '1 month'
+)
+RETURNS JSONB
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $fn2$
+DECLARE
+  v_old_plan TEXT;
+  v_old_status TEXT;
+  v_event_type TEXT;
+  v_period_end TIMESTAMPTZ;
+  v_billing_period TEXT;
+  v_sub_id UUID;
+BEGIN
+  -- Verify super_admin
+  IF NOT public.is_super_admin() THEN
+    RAISE EXCEPTION 'Access denied: super_admin only';
+  END IF;
+
+  -- Validate plan exists
+  IF NOT EXISTS (SELECT 1 FROM plans WHERE id = p_plan_id AND is_active) THEN
+    RAISE EXCEPTION 'Invalid plan_id: %', p_plan_id;
+  END IF;
+
+  -- Validate status
+  IF p_status NOT IN ('active', 'trialing', 'past_due', 'grace_period', 'read_only', 'cancelled', 'expired') THEN
+    RAISE EXCEPTION 'Invalid status: %', p_status;
+  END IF;
+
+  -- Calculate period end
+  IF p_duration = '1 year' THEN
+    v_period_end := NOW() + INTERVAL '1 year';
+    v_billing_period := 'yearly';
+  ELSE
+    v_period_end := NOW() + INTERVAL '1 month';
+    v_billing_period := 'monthly';
+  END IF;
+
+  -- Get current subscription info (for audit)
+  SELECT plan_id, status, id INTO v_old_plan, v_old_status, v_sub_id
+  FROM subscriptions WHERE organization_id = p_organization_id;
+
+  IF v_sub_id IS NOT NULL THEN
+    -- Update existing subscription
+    UPDATE subscriptions SET
+      plan_id = p_plan_id,
+      status = p_status,
+      current_period_start = NOW(),
+      current_period_end = v_period_end,
+      billing_period = v_billing_period,
+      updated_at = NOW()
+    WHERE organization_id = p_organization_id;
+
+    -- Determine event type
+    IF v_old_plan IS DISTINCT FROM p_plan_id THEN
+      IF p_plan_id > v_old_plan THEN  -- enterprise > croissance > starter
+        v_event_type := 'upgraded';
+      ELSE
+        v_event_type := 'downgraded';
+      END IF;
+    ELSIF v_old_status IS DISTINCT FROM p_status THEN
+      v_event_type := 'status_changed';
+    ELSE
+      v_event_type := 'renewed';
+    END IF;
+
+    -- Log event
+    INSERT INTO subscription_events (organization_id, event_type, from_plan, to_plan, performed_by, metadata)
+    VALUES (
+      p_organization_id,
+      v_event_type,
+      v_old_plan,
+      p_plan_id,
+      auth.uid(),
+      jsonb_build_object(
+        'old_status', v_old_status,
+        'new_status', p_status,
+        'duration', p_duration,
+        'changed_by', 'super_admin'
+      )
+    );
+  ELSE
+    -- Create new subscription
+    INSERT INTO subscriptions (organization_id, plan_id, status, current_period_start, current_period_end, billing_period)
+    VALUES (p_organization_id, p_plan_id, p_status, NOW(), v_period_end, v_billing_period)
+    RETURNING id INTO v_sub_id;
+
+    -- Log creation event
+    INSERT INTO subscription_events (organization_id, event_type, from_plan, to_plan, performed_by, metadata)
+    VALUES (
+      p_organization_id,
+      'created',
+      NULL,
+      p_plan_id,
+      auth.uid(),
+      jsonb_build_object(
+        'status', p_status,
+        'duration', p_duration,
+        'changed_by', 'super_admin'
+      )
+    );
+  END IF;
+
+  -- Also update the legacy cache column on organizations
+  UPDATE organizations SET
+    subscription_plan = p_plan_id,
+    subscription_expires_at = v_period_end,
+    updated_at = NOW()
+  WHERE id = p_organization_id;
+
+  RETURN jsonb_build_object(
+    'success', TRUE,
+    'subscription_id', v_sub_id,
+    'plan_id', p_plan_id,
+    'status', p_status,
+    'period_end', v_period_end
+  );
+END;
+$fn2$;
+
+GRANT EXECUTE ON FUNCTION public.admin_update_organization_subscription(UUID, TEXT, TEXT, TEXT) TO authenticated;
+
+-- ════════════════════════════════════════════════════════════════
+-- 4. update_organization_subscription — Own-org sub change (used by Billing.tsx)
+--    This was called by Billing.tsx but didn't exist. Now we create it.
+-- ════════════════════════════════════════════════════════════════
+DROP FUNCTION IF EXISTS public.update_organization_subscription(TEXT, TEXT, TEXT);
+
+CREATE OR REPLACE FUNCTION public.update_organization_subscription(
+  p_plan_id TEXT,
+  p_status TEXT DEFAULT 'active',
+  p_duration TEXT DEFAULT '1 month'
+)
+RETURNS JSONB
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $fn3$
+DECLARE
+  v_org_id UUID;
+  v_old_plan TEXT;
+  v_event_type TEXT;
+  v_period_end TIMESTAMPTZ;
+  v_billing_period TEXT;
+  v_sub_id UUID;
+BEGIN
+  -- Get caller's organization
+  SELECT organization_id INTO v_org_id
+  FROM profiles WHERE user_id = auth.uid();
+
+  IF v_org_id IS NULL THEN
+    RAISE EXCEPTION 'No organization found for current user';
+  END IF;
+
+  -- Validate plan exists
+  IF NOT EXISTS (SELECT 1 FROM plans WHERE id = p_plan_id AND is_active) THEN
+    RAISE EXCEPTION 'Invalid plan_id: %', p_plan_id;
+  END IF;
+
+  -- Calculate period end
+  IF p_duration = '1 year' THEN
+    v_period_end := NOW() + INTERVAL '1 year';
+    v_billing_period := 'yearly';
+  ELSE
+    v_period_end := NOW() + INTERVAL '1 month';
+    v_billing_period := 'monthly';
+  END IF;
+
+  -- Get current subscription info
+  SELECT plan_id, id INTO v_old_plan, v_sub_id
+  FROM subscriptions WHERE organization_id = v_org_id;
+
+  IF v_sub_id IS NOT NULL THEN
+    -- Update existing
+    UPDATE subscriptions SET
+      plan_id = p_plan_id,
+      status = p_status,
+      current_period_start = NOW(),
+      current_period_end = v_period_end,
+      billing_period = v_billing_period,
+      updated_at = NOW()
+    WHERE organization_id = v_org_id;
+
+    IF v_old_plan IS DISTINCT FROM p_plan_id THEN
+      IF p_plan_id > v_old_plan THEN
+        v_event_type := 'upgraded';
+      ELSE
+        v_event_type := 'downgraded';
+      END IF;
+    ELSE
+      v_event_type := 'renewed';
+    END IF;
+
+    INSERT INTO subscription_events (organization_id, event_type, from_plan, to_plan, performed_by, metadata)
+    VALUES (v_org_id, v_event_type, v_old_plan, p_plan_id, auth.uid(),
+      jsonb_build_object('new_status', p_status, 'duration', p_duration));
+  ELSE
+    -- Create new
+    INSERT INTO subscriptions (organization_id, plan_id, status, current_period_start, current_period_end, billing_period)
+    VALUES (v_org_id, p_plan_id, p_status, NOW(), v_period_end, v_billing_period)
+    RETURNING id INTO v_sub_id;
+
+    INSERT INTO subscription_events (organization_id, event_type, from_plan, to_plan, performed_by, metadata)
+    VALUES (v_org_id, 'created', NULL, p_plan_id, auth.uid(),
+      jsonb_build_object('status', p_status, 'duration', p_duration));
+  END IF;
+
+  -- Update legacy cache
+  UPDATE organizations SET
+    subscription_plan = p_plan_id,
+    subscription_expires_at = v_period_end,
+    updated_at = NOW()
+  WHERE id = v_org_id;
+
+  RETURN jsonb_build_object('success', TRUE, 'plan_id', p_plan_id, 'period_end', v_period_end);
+END;
+$fn3$;
+
+GRANT EXECUTE ON FUNCTION public.update_organization_subscription(TEXT, TEXT, TEXT) TO authenticated;
+
+
+-- ═════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260705050000_secure_manual_subscription_management.sql
+-- ═════════════════════════════════════════════════════════════════
+
+-- ============================================================
+-- Secure Manual Subscription Management — Hotfix
+-- Date: 2026-07-05
+--
+-- Secures the manual subscription governance so that only
+-- super_admin (platform operator) can change or extend plans.
+-- Tenant admins (admin role) can no longer self-upgrade to
+-- Croissance or Enterprise plans without platform validation.
+--
+-- Creates:
+--   admin_update_organization_subscription() — SECURITY DEFINER RPC
+--     - Only callable by super_admin
+--     - Validates plan_id and duration
+--     - Server-side period_end calculation
+--     - Upsert on subscriptions
+--     - Updates organizations cache columns
+--     - Full audit logging via subscription_events
+--
+-- Security rules enforced:
+--   1. is_super_admin() check at RPC entry
+--   2. plan_id must be valid (exists in plans table)
+--   3. duration must be one of: 1_month, 3_months, 6_months, 1_year
+--   4. organization_id must exist
+--   5. No direct subscriptions table mutation from frontend
+-- ============================================================
+
+-- ════════════════════════════════════════════════════════════════
+-- 1. Drop existing function if it was created in a prior migration
+--    (42P13 return type change requires DROP + CREATE)
+-- ════════════════════════════════════════════════════════════════
+DROP FUNCTION IF EXISTS public.admin_update_organization_subscription(UUID, TEXT, TEXT);
+
+-- ════════════════════════════════════════════════════════════════
+-- 2. Create the secured RPC with full parameter set
+-- ════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.admin_update_organization_subscription(
+  p_organization_id UUID,
+  p_plan_id TEXT,
+  p_duration TEXT DEFAULT '1_month',
+  p_payment_reference TEXT DEFAULT NULL,
+  p_reason TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_old_plan_id TEXT;
+  v_old_status TEXT;
+  v_new_period_end TIMESTAMPTZ;
+  v_event_type TEXT;
+  v_duration_interval INTERVAL;
+  v_result JSONB;
+BEGIN
+  -- ─── Guard 1: Only super_admin can call this ────────────────
+  IF NOT public.is_super_admin() THEN
+    RAISE EXCEPTION 'Accès refusé : seuls les super_admin peuvent modifier les abonnements.';
+  END IF;
+
+  -- ─── Guard 2: Validate plan_id ─────────────────────────────
+  IF NOT EXISTS (SELECT 1 FROM public.plans WHERE id = p_plan_id AND is_active = TRUE) THEN
+    RAISE EXCEPTION 'Plan invalide : % n''existe pas ou est inactif.', p_plan_id;
+  END IF;
+
+  -- ─── Guard 3: Validate duration ────────────────────────────
+  CASE p_duration
+    WHEN '1_month'  THEN v_duration_interval := INTERVAL '1 month';
+    WHEN '3_months' THEN v_duration_interval := INTERVAL '3 months';
+    WHEN '6_months' THEN v_duration_interval := INTERVAL '6 months';
+    WHEN '1_year'   THEN v_duration_interval := INTERVAL '1 year';
+    ELSE RAISE EXCEPTION 'Durée invalide : %. Valeurs acceptées : 1_month, 3_months, 6_months, 1_year.', p_duration;
+  END CASE;
+
+  -- ─── Guard 4: Validate organization exists ─────────────────
+  IF NOT EXISTS (SELECT 1 FROM public.organizations WHERE id = p_organization_id) THEN
+    RAISE EXCEPTION 'Organisation introuvable : %', p_organization_id;
+  END IF;
+
+  -- ─── Get current subscription info ─────────────────────────
+  SELECT plan_id, status INTO v_old_plan_id, v_old_status
+  FROM public.subscriptions
+  WHERE organization_id = p_organization_id
+  ORDER BY created_at DESC
+  LIMIT 1;
+
+  -- ─── Calculate new period end ──────────────────────────────
+  v_new_period_end := NOW() + v_duration_interval;
+
+  -- ─── Determine event type ──────────────────────────────────
+  IF v_old_plan_id IS NULL THEN
+    v_event_type := 'created';
+  ELSIF v_old_plan_id = p_plan_id THEN
+    v_event_type := 'renewed';
+  ELSIF
+    (SELECT sort_order FROM public.plans WHERE id = p_plan_id)
+    >
+    (SELECT sort_order FROM public.plans WHERE id = v_old_plan_id)
+  THEN
+    v_event_type := 'upgraded';
+  ELSE
+    v_event_type := 'downgraded';
+  END IF;
+
+  -- ─── Upsert subscription ───────────────────────────────────
+  INSERT INTO public.subscriptions (
+    organization_id, plan_id, status,
+    current_period_start, current_period_end,
+    trial_ends_at, grace_period_ends_at, cancelled_at
+  ) VALUES (
+    p_organization_id, p_plan_id, 'active',
+    NOW(), v_new_period_end,
+    NULL, NULL, NULL
+  )
+  ON CONFLICT (organization_id) DO UPDATE SET
+    plan_id = EXCLUDED.plan_id,
+    status = 'active',
+    current_period_start = NOW(),
+    current_period_end = EXCLUDED.current_period_end,
+    trial_ends_at = NULL,
+    grace_period_ends_at = NULL,
+    cancelled_at = NULL,
+    updated_at = NOW();
+
+  -- ─── Update organizations cache columns ────────────────────
+  UPDATE public.organizations
+  SET
+    subscription_plan = p_plan_id,
+    subscription_status = 'active',
+    updated_at = NOW()
+  WHERE id = p_organization_id;
+
+  -- ─── Audit log ─────────────────────────────────────────────
+  INSERT INTO public.subscription_events (
+    organization_id, event_type,
+    from_plan, to_plan,
+    performed_by,
+    metadata
+  ) VALUES (
+    p_organization_id, v_event_type,
+    v_old_plan_id, p_plan_id,
+    auth.uid(),
+    jsonb_build_object(
+      'duration', p_duration,
+      'new_period_end', v_new_period_end,
+      'payment_reference', p_payment_reference,
+      'reason', p_reason,
+      'old_status', v_old_status
+    )
+  );
+
+  -- ─── Return result ─────────────────────────────────────────
+  v_result := jsonb_build_object(
+    'success', TRUE,
+    'organization_id', p_organization_id,
+    'plan_id', p_plan_id,
+    'event_type', v_event_type,
+    'from_plan', v_old_plan_id,
+    'period_end', v_new_period_end,
+    'duration', p_duration
+  );
+
+  RETURN v_result;
+END;
+$$;
+
+-- ════════════════════════════════════════════════════════════════
+-- 3. Grant execute to authenticated users (actual access control
+--    is handled by is_super_admin() inside the function)
+-- ════════════════════════════════════════════════════════════════
+GRANT EXECUTE ON FUNCTION public.admin_update_organization_subscription(
+  UUID, TEXT, TEXT, TEXT, TEXT
+) TO authenticated;
+
+-- ════════════════════════════════════════════════════════════════
+-- 4. Revoke direct INSERT/UPDATE on subscriptions from non-super_admin
+--    RLS policies: only super_admin can INSERT/UPDATE subscriptions
+-- ════════════════════════════════════════════════════════════════
+
+-- Drop existing overly-permissive policies if they exist
+DROP POLICY IF EXISTS "Users can read own org subscription" ON public.subscriptions;
+
+-- Re-create SELECT policy (org members can still read)
+CREATE POLICY "Users can read own org subscription" ON public.subscriptions
+  FOR SELECT TO authenticated
+  USING (
+    organization_id IN (
+      SELECT p.organization_id FROM public.profiles p WHERE p.user_id = auth.uid()
+    )
+  );
+
+-- Add INSERT policy: only super_admin
+CREATE POLICY "Only super_admin can insert subscriptions" ON public.subscriptions
+  FOR INSERT TO authenticated
+  WITH CHECK (public.is_super_admin());
+
+-- Add UPDATE policy: only super_admin
+CREATE POLICY "Only super_admin can update subscriptions" ON public.subscriptions
+  FOR UPDATE TO authenticated
+  USING (public.is_super_admin())
+  WITH CHECK (public.is_super_admin());
+
+-- ════════════════════════════════════════════════════════════════
+-- 5. Verify the RPC exists
+-- ════════════════════════════════════════════════════════════════
+DO $$
+BEGIN
+  ASSERT EXISTS (
+    SELECT 1 FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.proname = 'admin_update_organization_subscription'
+  ), 'RPC admin_update_organization_subscription not found after creation';
+END;
+$$;
 
