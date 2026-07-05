@@ -45,7 +45,7 @@ import { usePOSProducts, ProductWithCategory as POSProduct } from "@/hooks/usePO
 import { useOfflineSale } from "@/hooks/useOfflineSale";
 import { useOnlineStatus } from "@/contexts/OfflineContext";
 import { OfflineIndicator, OfflineBanner } from "@/components/ui/offline-indicator";
-import { lookupBarcode } from "@/hooks/useProductSearch";
+import { useProductSearch, lookupBarcode, lookupBarcodeOffline } from "@/hooks/useProductSearch";
 import { useCategories } from "@/hooks/useCategories";
 import { POSProductGridSkeleton, POSProductListSkeleton, POSCartSkeleton } from "@/components/pos/POSSkeletons";
 
@@ -157,9 +157,11 @@ const POS = () => {
   }, [removeItem]);
 
   const handleBarcodeScan = async (barcode: string) => {
-    // Recherche serveur du produit par code-barres
+    // C3 fix: Use offline barcode lookup when offline
     try {
-      const found = await lookupBarcode(barcode, profile?.organization_id);
+      const found = isOnline
+        ? await lookupBarcode(barcode, profile?.organization_id)
+        : await lookupBarcodeOffline(barcode);
       if (found) {
         addToCart(found as Product);
       } else {

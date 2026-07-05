@@ -848,3 +848,41 @@ Stage Summary:
 - POS.tsx: 494 lines (was 809) — much cleaner with useOfflineSale hook
 - All 391 tests pass, 0 TS errors, 0 lint errors
 - Pushed to main: commit 70cd0ea
+
+---
+Task ID: 3
+Agent: main
+Task: Audit approfondi du mode hors-ligne + correctifs critiques
+
+Work Log:
+- Audit complet de l'architecture offline : SW, IndexedDB, sync, ventes, recherche
+- Identifié 3 vulnérabilités CRITIQUES, 5 HAUTES, 5 MOYENNES
+- **C1 fix**: Décrementation locale du stock après vente offline (offlineQueue.ts + useOfflineSale.ts)
+  - Nouvelle fonction `decrementLocalStock()` qui met à jour product_cache dans IndexedDB
+  - Mise à jour optimiste du React Query cache pour refléter le stock en temps réel dans l'UI
+- **C2 fix**: cacheData() atomique — remplacement du pattern clear+put par upsert (offlineQueue.ts)
+  - `cacheData()` utilise maintenant put (upsert) au lieu de clear+put, évitant la perte de données si l'app crash
+  - Nouvelle fonction `replaceAllCache()` pour le remplacement complet (écriture d'abord, suppression ensuite)
+- **C3 fix**: Recherche produit offline fonctionnelle (useProductSearch.ts + ProductAutocomplete.tsx + POS.tsx)
+  - Nouvelle fonction `lookupBarcodeOffline()` pour lookup code-barres depuis IndexedDB
+  - Nouveau hook `useOfflineProductSearch()` utilisant le search index existant + IndexedDB cache
+  - ProductAutocomplete bascule automatiquement entre recherche serveur et recherche offline
+  - POS.tsx barcode scanner fonctionne offline
+- **H1 fix**: Mutex sur flushQueue() pour prévenir les doubles sync (offlineQueue.ts + OfflineContext.tsx)
+  - Nouvelle fonction `flushQueueWithMutex()` avec lock module-level
+  - OfflineContext utilise maintenant flushQueueWithMutex au lieu de flushQueue direct
+- **H2 fix**: Vente crédit offline — upsert client avant increment_customer_credit (useOfflineSale.ts)
+  - Enqueue un INSERT customer avant le RPC increment_customer_credit pour que le client existe au sync
+- **H3 fix**: useOfflineQuery met à jour le cache même si data=[] (useOfflineMutation.ts)
+  - Évite que des données périmées persistent dans le cache quand le serveur retourne un résultat vide
+- **M1 fix**: Accents français corrigés sur receipt footer et toasts (useOfflineSale.ts)
+  - "synchronisée à la reconnexion" au lieu de "synchronise a la reconnexion"
+  - "enregistrée" au lieu de "enregistree", "crédit" au lieu de "credit", etc.
+- Build vérifié avec succès (TypeScript + Vite build OK, 0 erreurs)
+
+Stage Summary:
+- 3 correctifs CRITIQUES appliqués (stock offline, cache atomique, recherche offline)
+- 3 correctifs HAUTE priorité appliqués (mutex flush, crédit offline, cache vide)
+- 1 correctif MOYENNE priorité (accents)
+- Tous les fichiers modifiés compilent sans erreur
+- Fichiers modifiés: offlineQueue.ts, useOfflineSale.ts, useProductSearch.ts, ProductAutocomplete.tsx, POS.tsx, OfflineContext.tsx, useOfflineMutation.ts

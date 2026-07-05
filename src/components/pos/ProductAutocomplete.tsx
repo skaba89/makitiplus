@@ -8,7 +8,8 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { useOrgTaxRate } from "@/hooks/useOrgTaxRate";
 import { computeTax } from "@/lib/taxUtils";
 import { cn } from "@/lib/utils";
-import { useProductSearch, lookupBarcode } from "@/hooks/useProductSearch";
+import { useProductSearch, lookupBarcode, lookupBarcodeOffline } from "@/hooks/useProductSearch";
+import { useOnlineStatus } from "@/contexts/OfflineContext";
 import { reportError } from "@/lib/sentry";
 
 type Product = Database["public"]["Tables"]["products"]["Row"] & {
@@ -30,6 +31,9 @@ interface ProductAutocompleteProps {
 /** Debounce delay in ms for server-side search */
 const DEBOUNCE_MS = 200;
 
+/** Debounce delay for offline search (faster — no network) */
+const OFFLINE_DEBOUNCE_MS = 50;
+
 export const ProductAutocomplete = ({
   onSelect,
   placeholder = "Rechercher par nom ou code-barres...",
@@ -38,6 +42,7 @@ export const ProductAutocomplete = ({
 }: ProductAutocompleteProps) => {
   const { formatPrice } = useCurrency();
   const orgTaxRate = useOrgTaxRate();
+  const { isOnline } = useOnlineStatus();
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -46,19 +51,26 @@ export const ProductAutocomplete = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
-  // Debounce the search query before hitting the server
+  // Debounce the search query — faster debounce when offline (no network wait)
   useEffect(() => {
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     debounceTimerRef.current = setTimeout(() => {
       setDebouncedQuery(query);
-    }, DEBOUNCE_MS);
+    }, isOnline ? DEBOUNCE_MS : OFFLINE_DEBOUNCE_MS);
     return () => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     };
-  }, [query]);
+  }, [query, isOnline]);
 
-  // Server-side search
-  const { data: matches = [], isLoading: isSearching } = useProductSearch(debouncedQuery, 8);
+  // Server-side search (only when online)
+  const onlineResult = useProductSearch(debouncedQuery, 8);
+
+  // Offline search from IndexedDB cache
+  const offlineResult = useOfflineProductSearch(isOnline ? "" : debouncedQuery, 8);
+
+  // Use online results when online, offline results when offline
+  const matches = isOnline ? (onlineResult.data ?? []) : (offlineResult ?? []);
+  const isSearching = isOnline ? onlineResult.isLoading : false;
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -93,11 +105,14 @@ export const ProductAutocomplete = ({
 
   const handleKeyDown = useCallback(async (e: React.KeyboardEvent) => {
     if (!open || matches.length === 0) {
-      // Exact barcode match on Enter — server-side lookup
+      // Exact barcode match on Enter
       if (e.key === "Enter" && query.trim()) {
         e.preventDefault();
         try {
-          const found = await lookupBarcode(query.trim(), organizationId);
+          // C3 fix: Use offline barcode lookup when offline
+          const found = isOnline
+            ? await lookupBarcode(query.trim(), organizationId)
+            : await lookupBarcodeOffline(query.trim());
           if (found && found.stock_quantity > 0) {
             handleAdd(found as Product, true);
           }

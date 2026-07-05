@@ -394,20 +394,69 @@ export async function flushQueue(): Promise<{ synced: number; failed: number }> 
 
 /**
  * Cache data to IndexedDB for offline access.
+ *
+ * FIX (C2): Uses upsert (put) instead of clear+put to avoid data loss
+ * if the app crashes between clear and put. Each entry is upserted
+ * individually, so a crash mid-write only loses the entries not yet written —
+ * previously cached entries remain intact.
+ *
+ * For full replacement (e.g. refreshing the entire product catalog),
+ * use `replaceAllCache()` instead.
  */
 export async function cacheData<T extends { id: string }>(
   storeName: OfflineStoreName,
   data: T[]
 ): Promise<void> {
   const db = await getDB();
+  const timestamp = new Date().toISOString();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(storeName, "readwrite");
     const store = tx.objectStore(storeName);
-    // Clear existing and put all new data
-    store.clear();
     for (const entry of data) {
-      store.put({ ...entry, _cachedAt: new Date().toISOString() });
+      store.put({ ...entry, _cachedAt: timestamp });
     }
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+/**
+ * Replace ALL data in a cache store atomically.
+ *
+ * This is the safe version of the old clear+put pattern:
+ * 1. Write all new entries first (upsert)
+ * 2. Delete any entries whose IDs are NOT in the new dataset
+ * This ensures the store is never empty mid-transaction.
+ */
+export async function replaceAllCache<T extends { id: string }>(
+  storeName: OfflineStoreName,
+  data: T[]
+): Promise<void> {
+  const db = await getDB();
+  const timestamp = new Date().toISOString();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, "readwrite");
+    const store = tx.objectStore(storeName);
+
+    // Collect IDs of incoming data for stale cleanup
+    const incomingIds = new Set(data.map((d) => d.id));
+
+    // Upsert all new entries first
+    for (const entry of data) {
+      store.put({ ...entry, _cachedAt: timestamp });
+    }
+
+    // Remove stale entries (IDs not in the new dataset)
+    const getAllReq = store.getAll();
+    getAllReq.onsuccess = () => {
+      const existing = getAllReq.result as (T & { _cachedAt?: string })[];
+      for (const entry of existing) {
+        if (!incomingIds.has(entry.id)) {
+          store.delete(entry.id as IDBValidKey);
+        }
+      }
+    };
+
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
@@ -480,6 +529,52 @@ export async function clearCache(storeName: OfflineStoreName): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Offline stock decrement (C1 fix)
+// ---------------------------------------------------------------------------
+
+/**
+ * Decrement stock_quantity for sold products in the local product cache.
+ *
+ * When a sale is made offline, the server-side stock decrement won't happen
+ * until sync. This function updates the local IndexedDB product cache so
+ * that subsequent offline sales see the reduced stock, preventing
+ * double-selling items that are actually out of stock.
+ *
+ * This is a best-effort optimistic update — the server's
+ * `create_sale_with_limit` RPC is the source of truth at sync time.
+ */
+export async function decrementLocalStock(
+  saleItems: Array<{ product_id: string; quantity: number }>
+): Promise<void> {
+  try {
+    const db = await getDB();
+    const tx = db.transaction(STORES.PRODUCT_CACHE, "readwrite");
+    const store = tx.objectStore(STORES.PRODUCT_CACHE);
+
+    for (const item of saleItems) {
+      const getReq = store.get(item.product_id);
+      getReq.onsuccess = () => {
+        const product = getReq.result as Record<string, unknown> | undefined;
+        if (product && typeof product.stock_quantity === "number") {
+          product.stock_quantity = Math.max(0, product.stock_quantity - item.quantity);
+          store.put(product);
+        }
+      };
+    }
+
+    tx.oncomplete = () => {
+      logger.info(`[OfflineStock] Decremented local stock for ${saleItems.length} item(s)`);
+    };
+    tx.onerror = () => {
+      logger.warn("[OfflineStock] Failed to decrement local stock", tx.error);
+    };
+  } catch (e) {
+    // Best-effort — never block a sale
+    logger.warn("[OfflineStock] decrementLocalStock failed (non-blocking)", e);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Convenience: Enqueue an RPC mutation
 // ---------------------------------------------------------------------------
 
@@ -502,3 +597,39 @@ export async function enqueueRPCMutation(params: {
     organizationId: params.organizationId,
   });
 }
+
+// ---------------------------------------------------------------------------
+// Flush mutex (H1 fix)
+// ---------------------------------------------------------------------------
+
+let flushInProgress = false;
+
+/**
+ * Check if a flush is currently in progress.
+ * Used by OfflineContext to prevent concurrent flush operations.
+ */
+export function isFlushInProgress(): boolean {
+  return flushInProgress;
+}
+
+/**
+ * Wraps flushQueue with a mutex to prevent concurrent flushes.
+ *
+ * Without this, the auto-sync on "online" event and a manual
+ * "Synchroniser" button click could both call flushQueue()
+ * simultaneously, leading to duplicate mutations being replayed.
+ */
+export async function flushQueueWithMutex(): Promise<{ synced: number; failed: number }> {
+  if (flushInProgress) {
+    logger.info("[flushQueue] Flush already in progress — skipping");
+    return { synced: 0, failed: 0 };
+  }
+
+  flushInProgress = true;
+  try {
+    return await flushQueue();
+  } finally {
+    flushInProgress = false;
+  }
+}
+

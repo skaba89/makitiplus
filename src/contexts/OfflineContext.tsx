@@ -79,8 +79,9 @@ export const OfflineProvider = ({ children }: { children: ReactNode }) => {
     if (isSyncing || !isOnline) return;
     setIsSyncing(true);
     try {
-      const { flushQueue } = await import("@/lib/offlineQueue");
-      const result = await flushQueue();
+      // H1 fix: Use mutex-protected flush to prevent concurrent sync operations
+      const { flushQueueWithMutex } = await import("@/lib/offlineQueue");
+      const result = await flushQueueWithMutex();
       if (result.synced > 0) {
         setLastSyncAt(new Date());
         toast({

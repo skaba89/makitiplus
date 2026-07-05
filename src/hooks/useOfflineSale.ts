@@ -26,7 +26,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDemo } from "@/contexts/DemoContext";
 import { useOnlineStatus } from "@/contexts/OfflineContext";
-import { enqueueRPCMutation, cacheData, OFFLINE_STORES } from "@/lib/offlineQueue";
+import { enqueueRPCMutation, enqueueMutation, cacheData, decrementLocalStock, OFFLINE_STORES } from "@/lib/offlineQueue";
 import { useOrgTaxRate } from "@/hooks/useOrgTaxRate";
 import { computeTax } from "@/lib/taxUtils";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -254,8 +254,25 @@ export function useOfflineSale(options?: {
         organizationId: orgId ?? undefined,
       });
 
-      // If credit sale, also enqueue increment_customer_credit
+      // If credit sale, also enqueue customer upsert + increment_customer_credit
+      // H2 fix: Enqueue a customer upsert FIRST so the customer exists in the DB
+      // when increment_customer_credit is replayed at sync time.
       if (paymentMethod === "credit" && totalAmount > 0 && customerPhone) {
+        // 1. Enqueue customer upsert (ensure customer exists before credit)
+        await enqueueMutation({
+          table: "customers",
+          operation: "INSERT",
+          data: {
+            name: customerName || customerPhone,
+            phone: customerPhone,
+            organization_id: orgId,
+          },
+          filter: undefined,
+          userId: user?.id,
+          organizationId: orgId ?? undefined,
+        });
+
+        // 2. Enqueue increment_customer_credit (will run AFTER customer upsert)
         await enqueueRPCMutation({
           rpcName: "increment_customer_credit",
           data: {
@@ -269,6 +286,11 @@ export function useOfflineSale(options?: {
           organizationId: orgId ?? undefined,
         });
       }
+
+      // C1 fix: Decrement local stock in IndexedDB so subsequent offline sales
+      // see the updated stock_quantity and can't double-sell the same items.
+      // This is best-effort — the server's create_sale_with_limit is the truth at sync.
+      await decrementLocalStock(saleItems);
 
       // Cache the sale locally for receipt generation
       const saleId = `offline_${finalSaleNumber}`;
@@ -343,23 +365,42 @@ export function useOfflineSale(options?: {
         showLogo: settings?.receipt_show_logo ?? true,
         showTax: settings?.receipt_show_tax ?? true,
         footerText: result.offline
-          ? `HORS-LIGNE — Sera synchronise a la reconnexion\n${settings?.receipt_footer || ""}`
+          ? `HORS-LIGNE — Sera synchronisée à la reconnexion\n${settings?.receipt_footer || ""}`
           : settings?.receipt_footer || undefined,
         organizationId: profile?.organization_id ?? undefined,
         taxRate: orgTaxRate,
       };
 
+      // C1 fix: Optimistically update product stock in React Query cache
+      // so the POS product grid reflects reduced stock immediately after an offline sale.
+      if (result.offline) {
+        queryClient.setQueriesData<{ data: Array<Record<string, unknown>> }>({ queryKey: ["products"] }, (old) => {
+          if (!old?.data) return old;
+          const soldMap = new Map(cart.map((item) => [item.product.id, item.quantity]));
+          return {
+            ...old,
+            data: old.data.map((product) => {
+              const qty = soldMap.get(product.id as string);
+              if (qty && typeof product.stock_quantity === "number") {
+                return { ...product, stock_quantity: Math.max(0, product.stock_quantity - qty) };
+              }
+              return product;
+            }),
+          };
+        });
+      }
+
       // Clear cart AFTER receipt data is computed
       clearCart();
 
-      // Invalidate queries so product stock counts refresh
+      // Invalidate queries so product stock counts refresh (server fetch when online)
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["sales"] });
 
       if (result.offline) {
         toast({
-          title: "Vente enregistree hors-ligne",
-          description: `Vente ${result.sale.sale_number} enregistree. Elle sera synchronisee a la reconnexion.`,
+          title: "Vente enregistrée hors-ligne",
+          description: `Vente ${result.sale.sale_number} enregistrée. Elle sera synchronisée à la reconnexion.`,
           duration: 5000,
         });
       }
@@ -367,8 +408,8 @@ export function useOfflineSale(options?: {
       if (result.creditUpdateFailed && !result.offline) {
         toast({
           variant: "destructive",
-          title: "Vente enregistree, credit en attente",
-          description: "La vente est validee mais la mise a jour du credit client a echoue. Verifiez les credits du client.",
+          title: "Vente enregistrée, crédit en attente",
+          description: "La vente est validée mais la mise à jour du crédit client a échoué. Vérifiez les crédits du client.",
           duration: 8000,
         });
       }
