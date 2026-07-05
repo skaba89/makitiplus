@@ -53,3 +53,5 @@ android/.gradle
 android/app/src/main/assets/public
 ios/App/App/public
 tool-results/
+.vite/
+api_result.json
