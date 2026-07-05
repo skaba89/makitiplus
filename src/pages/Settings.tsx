@@ -161,7 +161,7 @@ const Settings = () => {
       <div className="space-y-6 max-w-4xl mx-auto">
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-bold">Paramètres</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Paramètres</h1>
           <p className="text-muted-foreground">
             Configurez les informations de votre boutique
           </p>
@@ -225,7 +225,7 @@ const Settings = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="business_name">Nom de la boutique</Label>
                       <Input
@@ -281,7 +281,7 @@ const Settings = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Pays</Label>
                       <Select

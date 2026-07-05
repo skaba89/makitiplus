@@ -638,7 +638,7 @@ const Users = () => {
                           <TableHead className="hidden sm:table-cell">Téléphone</TableHead>
                           <TableHead>Rôle</TableHead>
                           <TableHead>Statut</TableHead>
-                          <TableHead className="hidden md:table-cell">Dernière connexion</TableHead>
+                          <TableHead className="hidden sm:table-cell">Dernière connexion</TableHead>
                           <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -685,7 +685,7 @@ const Users = () => {
                                   </Badge>
                                 )}
                               </TableCell>
-                              <TableCell className="hidden md:table-cell">
+                              <TableCell className="hidden sm:table-cell">
                                 <span className="flex items-center gap-1 text-sm text-muted-foreground">
                                   <Clock className="h-3 w-3" />
                                   {formatDate(u.last_login_at)}
@@ -795,7 +795,7 @@ const Users = () => {
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               <Button
                 type="button"
                 variant={resetMode === "email" ? "default" : "outline"}

@@ -196,7 +196,7 @@ export default function OrganizationManagement() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
               <Building2 className="h-6 w-6" />
               Gestion des Organisations
             </h1>
@@ -212,7 +212,7 @@ export default function OrganizationManagement() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
           <Card>
             <CardContent className="pt-6">
               <div className="text-2xl font-bold">{stats.total}</div>
@@ -277,11 +277,11 @@ export default function OrganizationManagement() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Organisation</TableHead>
-                      <TableHead>Propriétaire</TableHead>
+                      <TableHead className="hidden sm:table-cell">Propriétaire</TableHead>
                       <TableHead>Plan</TableHead>
                       <TableHead>Statut</TableHead>
-                      <TableHead>Expire le</TableHead>
-                      <TableHead>Paiement</TableHead>
+                      <TableHead className="hidden sm:table-cell">Expire le</TableHead>
+                      <TableHead className="hidden md:table-cell">Paiement</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -308,7 +308,7 @@ export default function OrganizationManagement() {
                                 )}
                               </div>
                             </TableCell>
-                            <TableCell className="text-sm">{org.owner_email || "—"}</TableCell>
+                            <TableCell className="text-sm hidden sm:table-cell">{org.owner_email || "—"}</TableCell>
                             <TableCell>
                               <Badge variant="outline">
                                 {org.plan_name || "Aucun"}
@@ -319,12 +319,12 @@ export default function OrganizationManagement() {
                                 {statusInfo.label}
                               </Badge>
                             </TableCell>
-                            <TableCell className="text-sm">
+                            <TableCell className="text-sm hidden sm:table-cell">
                               {org.current_period_end
                                 ? new Date(org.current_period_end).toLocaleDateString("fr-FR")
                                 : "—"}
                             </TableCell>
-                            <TableCell className="text-sm">
+                            <TableCell className="text-sm hidden md:table-cell">
                               {org.stripe_customer_id ? (
                                 <Badge variant="secondary" className="text-xs">Stripe</Badge>
                               ) : (
