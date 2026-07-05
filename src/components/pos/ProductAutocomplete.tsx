@@ -8,7 +8,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { useOrgTaxRate } from "@/hooks/useOrgTaxRate";
 import { computeTax } from "@/lib/taxUtils";
 import { cn } from "@/lib/utils";
-import { useProductSearch, lookupBarcode, lookupBarcodeOffline } from "@/hooks/useProductSearch";
+import { useProductSearch, useOfflineProductSearch, lookupBarcode, lookupBarcodeOffline } from "@/hooks/useProductSearch";
 import { useOnlineStatus } from "@/contexts/OfflineContext";
 import { reportError } from "@/lib/sentry";
 

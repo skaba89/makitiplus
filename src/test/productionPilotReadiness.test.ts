@@ -160,7 +160,63 @@ describe("Pilot Readiness: POS/Offline invariants", () => {
 });
 
 // ════════════════════════════════════════════════════════════════
-// 6. Checklist docs exist
+// 6. ProductAutocomplete — offline search import (hotfix regression guard)
+// ════════════════════════════════════════════════════════════════
+describe("Pilot Readiness: ProductAutocomplete offline import", () => {
+  let autocomplete: string;
+  beforeAll(() => {
+    autocomplete = readFile("src/components/pos/ProductAutocomplete.tsx");
+  });
+
+  it("imports useOfflineProductSearch from useProductSearch", () => {
+    // Regression guard: useOfflineProductSearch was used but not imported,
+    // causing a ReferenceError when offline. This test ensures it stays imported.
+    expect(autocomplete).toMatch(/import.*useOfflineProductSearch.*from.*useProductSearch/);
+  });
+
+  it("uses useOfflineProductSearch for offline search", () => {
+    expect(autocomplete).toContain("useOfflineProductSearch(");
+  });
+});
+
+// ════════════════════════════════════════════════════════════════
+// 7. Billing security — super_admin-only subscription mutations
+// ════════════════════════════════════════════════════════════════
+describe("Pilot Readiness: Billing security invariants", () => {
+  let billing: string;
+  let orgMgmt: string;
+  beforeAll(() => {
+    billing = readFile("src/pages/Billing.tsx");
+    orgMgmt = readFile("src/pages/OrganizationManagement.tsx");
+  });
+
+  it("Billing.tsx only shows manual plan change to super_admin", () => {
+    expect(billing).toContain('userRole === "super_admin"');
+  });
+
+  it("Billing.tsx uses admin_update_organization_subscription RPC (no direct .from().update())", () => {
+    expect(billing).toContain("admin_update_organization_subscription");
+    // Should NOT have a fallback direct update on subscriptions table
+    expect(billing).not.toMatch(/\.from\(["']subscriptions["']\)\.update/);
+  });
+
+  it("OrganizationManagement.tsx guards access to super_admin only", () => {
+    expect(orgMgmt).toContain('userRole !== "super_admin"');
+  });
+
+  it("OrganizationManagement.tsx sends p_duration (not p_status)", () => {
+    // The RPC receives p_duration, NOT p_status
+    expect(orgMgmt).toContain("p_duration");
+    expect(orgMgmt).not.toContain("p_status");
+  });
+
+  it("OrganizationManagement.tsx uses admin_update_organization_subscription RPC", () => {
+    expect(orgMgmt).toContain("admin_update_organization_subscription");
+  });
+});
+
+// ════════════════════════════════════════════════════════════════
+// 8. Checklist docs exist
 // ════════════════════════════════════════════════════════════════
 describe("Pilot Readiness: Documentation", () => {
   it("PILOT_STORE_CHECKLIST.md exists", () => {
