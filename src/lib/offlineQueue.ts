@@ -21,6 +21,14 @@ import { logger } from "@/lib/logger";
 export const OFFLINE_STORES = STORES;
 export type OfflineStoreName = StoreName;
 
+/**
+ * H4 fix: Maximum age for a queued mutation before it's considered stale.
+ * Mutations older than this are marked as failed during flush to prevent
+ * replaying outdated operations (e.g., inserting a product that was deleted
+ * 3 days ago). Set to 7 days.
+ */
+const MUTATION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
 export interface QueuedMutation {
   id: string;
   table: string;
@@ -218,6 +226,14 @@ async function flushMutationQueue(
       continue;
     }
 
+    // H4 fix: Skip mutations that are too old (stale)
+    const mutationAge = Date.now() - new Date(mutation.createdAt).getTime();
+    if (mutationAge > MUTATION_MAX_AGE_MS) {
+      await updateMutationStatus(mutation.id, "failed", `Mutation expirée (${Math.floor(mutationAge / (24 * 60 * 60 * 1000))}j) — trop ancienne pour être rejouée`, false);
+      failed++;
+      continue;
+    }
+
     // Security: Validate that the mutation belongs to the current user's organization
     if (mutation.organizationId && currentUserOrgId && mutation.organizationId !== currentUserOrgId) {
       await updateMutationStatus(mutation.id, "failed", "Organization mismatch — mutation rejected for security", false);
@@ -312,6 +328,14 @@ async function flushRPCQueue(
       continue;
     }
 
+    // H4 fix: Skip RPC mutations that are too old (stale)
+    const mutationAge = Date.now() - new Date(mutation.createdAt).getTime();
+    if (mutationAge > MUTATION_MAX_AGE_MS) {
+      await updateMutationStatus(mutation.id, "failed", `RPC expirée (${Math.floor(mutationAge / (24 * 60 * 60 * 1000))}j) — trop ancienne pour être rejouée`, true);
+      failed++;
+      continue;
+    }
+
     // Security: Validate org and user
     if (mutation.organizationId && currentUserOrgId && mutation.organizationId !== currentUserOrgId) {
       await updateMutationStatus(mutation.id, "failed", "Organization mismatch — RPC rejected for security", true);
@@ -394,20 +418,69 @@ export async function flushQueue(): Promise<{ synced: number; failed: number }> 
 
 /**
  * Cache data to IndexedDB for offline access.
+ *
+ * FIX (C2): Uses upsert (put) instead of clear+put to avoid data loss
+ * if the app crashes between clear and put. Each entry is upserted
+ * individually, so a crash mid-write only loses the entries not yet written —
+ * previously cached entries remain intact.
+ *
+ * For full replacement (e.g. refreshing the entire product catalog),
+ * use `replaceAllCache()` instead.
  */
 export async function cacheData<T extends { id: string }>(
   storeName: OfflineStoreName,
   data: T[]
 ): Promise<void> {
   const db = await getDB();
+  const timestamp = new Date().toISOString();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(storeName, "readwrite");
     const store = tx.objectStore(storeName);
-    // Clear existing and put all new data
-    store.clear();
     for (const entry of data) {
-      store.put({ ...entry, _cachedAt: new Date().toISOString() });
+      store.put({ ...entry, _cachedAt: timestamp });
     }
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+/**
+ * Replace ALL data in a cache store atomically.
+ *
+ * This is the safe version of the old clear+put pattern:
+ * 1. Write all new entries first (upsert)
+ * 2. Delete any entries whose IDs are NOT in the new dataset
+ * This ensures the store is never empty mid-transaction.
+ */
+export async function replaceAllCache<T extends { id: string }>(
+  storeName: OfflineStoreName,
+  data: T[]
+): Promise<void> {
+  const db = await getDB();
+  const timestamp = new Date().toISOString();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, "readwrite");
+    const store = tx.objectStore(storeName);
+
+    // Collect IDs of incoming data for stale cleanup
+    const incomingIds = new Set(data.map((d) => d.id));
+
+    // Upsert all new entries first
+    for (const entry of data) {
+      store.put({ ...entry, _cachedAt: timestamp });
+    }
+
+    // Remove stale entries (IDs not in the new dataset)
+    const getAllReq = store.getAll();
+    getAllReq.onsuccess = () => {
+      const existing = getAllReq.result as (T & { _cachedAt?: string })[];
+      for (const entry of existing) {
+        if (!incomingIds.has(entry.id)) {
+          store.delete(entry.id as IDBValidKey);
+        }
+      }
+    };
+
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
@@ -480,6 +553,52 @@ export async function clearCache(storeName: OfflineStoreName): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Offline stock decrement (C1 fix)
+// ---------------------------------------------------------------------------
+
+/**
+ * Decrement stock_quantity for sold products in the local product cache.
+ *
+ * When a sale is made offline, the server-side stock decrement won't happen
+ * until sync. This function updates the local IndexedDB product cache so
+ * that subsequent offline sales see the reduced stock, preventing
+ * double-selling items that are actually out of stock.
+ *
+ * This is a best-effort optimistic update — the server's
+ * `create_sale_with_limit` RPC is the source of truth at sync time.
+ */
+export async function decrementLocalStock(
+  saleItems: Array<{ product_id: string; quantity: number }>
+): Promise<void> {
+  try {
+    const db = await getDB();
+    const tx = db.transaction(STORES.PRODUCT_CACHE, "readwrite");
+    const store = tx.objectStore(STORES.PRODUCT_CACHE);
+
+    for (const item of saleItems) {
+      const getReq = store.get(item.product_id);
+      getReq.onsuccess = () => {
+        const product = getReq.result as Record<string, unknown> | undefined;
+        if (product && typeof product.stock_quantity === "number") {
+          product.stock_quantity = Math.max(0, product.stock_quantity - item.quantity);
+          store.put(product);
+        }
+      };
+    }
+
+    tx.oncomplete = () => {
+      logger.info(`[OfflineStock] Decremented local stock for ${saleItems.length} item(s)`);
+    };
+    tx.onerror = () => {
+      logger.warn("[OfflineStock] Failed to decrement local stock", tx.error);
+    };
+  } catch (e) {
+    // Best-effort — never block a sale
+    logger.warn("[OfflineStock] decrementLocalStock failed (non-blocking)", e);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Convenience: Enqueue an RPC mutation
 // ---------------------------------------------------------------------------
 
@@ -502,3 +621,163 @@ export async function enqueueRPCMutation(params: {
     organizationId: params.organizationId,
   });
 }
+
+// ---------------------------------------------------------------------------
+// Flush mutex (H1 fix)
+// ---------------------------------------------------------------------------
+
+let flushInProgress = false;
+
+/**
+ * Check if a flush is currently in progress.
+ * Used by OfflineContext to prevent concurrent flush operations.
+ */
+export function isFlushInProgress(): boolean {
+  return flushInProgress;
+}
+
+/**
+ * Wraps flushQueue with a mutex to prevent concurrent flushes.
+ *
+ * Without this, the auto-sync on "online" event and a manual
+ * "Synchroniser" button click could both call flushQueue()
+ * simultaneously, leading to duplicate mutations being replayed.
+ */
+export async function flushQueueWithMutex(): Promise<{ synced: number; failed: number }> {
+  if (flushInProgress) {
+    logger.info("[flushQueue] Flush already in progress — skipping");
+    return { synced: 0, failed: 0 };
+  }
+
+  flushInProgress = true;
+  try {
+    return await flushQueue();
+  } finally {
+    flushInProgress = false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Mutation cleanup & retry utilities
+// ---------------------------------------------------------------------------
+
+/**
+ * Remove failed mutations older than 24 hours from both queues.
+ *
+ * Without this, failed mutations accumulate indefinitely in IndexedDB,
+ * consuming storage and confusing the pending count. We keep failed
+ * mutations for 24h so the user can review them, then clean up.
+ *
+ * Also removes mutations that have exceeded the retry limit (retryCount >= 5)
+ * regardless of age — these are permanently stuck and should not persist.
+ */
+export async function cleanupExpiredMutations(): Promise<{ removed: number }> {
+  const db = await getDB();
+  const FAILED_RETENTION_MS = 24 * 60 * 60 * 1000; // 24h
+  const MAX_RETRIES = 5;
+  const now = Date.now();
+  let removed = 0;
+
+  const cleanStore = (storeName: StoreName): Promise<number> =>
+    new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, "readwrite");
+      const store = tx.objectStore(storeName);
+      const getAllReq = store.getAll();
+      getAllReq.onsuccess = () => {
+        const mutations = getAllReq.result as QueuedMutation[];
+        for (const m of mutations) {
+          if (m.status === "failed") {
+            const age = now - new Date(m.createdAt).getTime();
+            // Remove if older than retention period OR permanently stuck
+            if (age > FAILED_RETENTION_MS || m.retryCount >= MAX_RETRIES) {
+              store.delete(m.id as IDBValidKey);
+              removed++;
+            }
+          }
+        }
+      };
+      tx.oncomplete = () => resolve(removed);
+      tx.onerror = () => reject(tx.error);
+    });
+
+  await Promise.all([
+    cleanStore(STORES.MUTATION_QUEUE),
+    cleanStore(STORES.RPC_QUEUE),
+  ]);
+
+  if (removed > 0) {
+    logger.info(`[cleanupExpiredMutations] Removed ${removed} expired/failed mutation(s)`);
+  }
+
+  return { removed };
+}
+
+/**
+ * Reset failed mutations back to "pending" status so they can be retried
+ * on the next flush cycle.
+ *
+ * Only resets mutations that haven't exceeded the max retry count.
+ * Returns the count of mutations that were reset.
+ */
+export async function retryFailedMutations(): Promise<{ retried: number }> {
+  const db = await getDB();
+  const MAX_RETRIES = 5;
+  let retried = 0;
+
+  const resetStore = (storeName: StoreName): Promise<number> =>
+    new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, "readwrite");
+      const store = tx.objectStore(storeName);
+      const getAllReq = store.getAll();
+      getAllReq.onsuccess = () => {
+        const mutations = getAllReq.result as QueuedMutation[];
+        for (const m of mutations) {
+          if (m.status === "failed" && m.retryCount < MAX_RETRIES) {
+            m.status = "pending";
+            m.error = undefined;
+            store.put(m);
+            retried++;
+          }
+        }
+      };
+      tx.oncomplete = () => resolve(retried);
+      tx.onerror = () => reject(tx.error);
+    });
+
+  await Promise.all([
+    resetStore(STORES.MUTATION_QUEUE),
+    resetStore(STORES.RPC_QUEUE),
+  ]);
+
+  if (retried > 0) {
+    logger.info(`[retryFailedMutations] Reset ${retried} failed mutation(s) to pending`);
+  }
+
+  return { retried };
+}
+
+/**
+ * Get count of failed mutations across both queues.
+ * Used by UI to show a "retry" button when there are failed operations.
+ */
+export async function getFailedCount(): Promise<{ count: number }> {
+  const db = await getDB();
+
+  const countFailed = (storeName: StoreName): Promise<number> =>
+    new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, "readonly");
+      const store = tx.objectStore(storeName);
+      const index = store.index("status");
+      const request = index.count("failed");
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+
+  const [regular, rpc] = await Promise.all([
+    countFailed(STORES.MUTATION_QUEUE),
+    countFailed(STORES.RPC_QUEUE),
+  ]);
+
+  return { count: regular + rpc };
+}
+

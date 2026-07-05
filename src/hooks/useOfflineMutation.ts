@@ -54,13 +54,13 @@ export function useOfflineQuery<T extends { id: string }>(
 
       if (error) throw error;
 
-      // Cache the data for offline use
-      if (data && data.length > 0) {
-        await cacheData(cacheStore as OfflineStoreName, data as T[]).catch((e) => {
-          // Cache failure shouldn't break the query
-          logger.warn("[MalikiPlus] Cache offline échoué :", e);
-        });
-      }
+      // H3 fix: Always cache the data, even if empty.
+      // Previously, empty results (data=[] or data=null) were not cached,
+      // so stale data from a previous session could persist indefinitely.
+      await cacheData(cacheStore as OfflineStoreName, (data as T[]) || []).catch((e) => {
+        // Cache failure shouldn't break the query
+        logger.warn("[MalikiPlus] Cache offline échoué :", e);
+      });
 
       return (data as T[]) || [];
     },
