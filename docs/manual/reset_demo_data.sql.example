@@ -1,0 +1,16 @@
+-- DANGER: script manuel de reset démo.
+-- NE JAMAIS exécuter en production.
+-- NE PAS placer dans supabase/migrations.
+-- À utiliser uniquement sur une base locale ou staging jetable.
+--
+-- Ce fichier ne contient volontairement aucune commande destructive prête à exécuter.
+-- L'ancienne migration de nettoyage global a été retirée de supabase/migrations.
+-- Toute procédure de reset doit être écrite et revue manuellement, avec backup,
+-- validation de l'environnement, et confirmation humaine avant exécution.
+--
+-- Procédure recommandée hors production :
+-- 1. Créer un backup vérifié.
+-- 2. Confirmer que la base est locale ou staging jetable.
+-- 3. Préparer un script ciblé et relu en revue de code.
+-- 4. Exécuter uniquement sur la base jetable.
+-- 5. Vérifier les compteurs et l'intégrité après reset.
