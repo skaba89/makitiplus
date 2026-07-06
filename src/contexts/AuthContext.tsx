@@ -184,7 +184,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       // Track last login (best-effort, non-blocking)
-      supabase.rpc("touch_last_login").then(({ error }) => {
+      Promise.resolve(supabase.rpc("touch_last_login")).then(({ error }) => {
         if (error && (error.code === '42501' || error.message?.includes('not allowed'))) {
           // touch_last_login non autorisée — silencieux, non critique
         }
@@ -193,11 +193,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
 
       // Log login activity (best-effort)
-      supabase.rpc("log_user_activity", {
+      Promise.resolve(supabase.rpc("log_user_activity", {
         p_action: 'login',
         p_description: 'Connexion',
         p_metadata: { user_agent: navigator.userAgent.substring(0, 200) }
-      }).catch(() => {});
+      })).catch(() => {});
     }
 
     return { error: null };
@@ -314,17 +314,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signOut = async () => {
     // Track logout time before signing out (best-effort)
     if (user) {
-      supabase.rpc("log_user_activity", {
+      Promise.resolve(supabase.rpc("log_user_activity", {
         p_action: 'logout',
         p_description: 'Déconnexion',
-      }).catch(() => {});
+      })).catch(() => {});
 
-      supabase
-        .from("profiles")
-        .update({ last_logout_at: new Date().toISOString() })
-        .eq("user_id", user.id)
-        .then(() => {})
-        .catch(() => {});
+      Promise.resolve(
+        supabase
+          .from("profiles")
+          .update({ last_logout_at: new Date().toISOString() })
+          .eq("user_id", user.id)
+      ).catch(() => {});
     }
     await supabase.auth.signOut();
     setUser(null);
