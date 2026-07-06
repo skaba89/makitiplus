@@ -57,6 +57,7 @@ import { fr } from "date-fns/locale";
 import { SupplierDetailDialog } from "@/components/suppliers/SupplierDetailDialog";
 import { Supplier, SupplierUpdateParams } from "@/types";
 import { reportError } from "@/lib/sentry";
+import { extractErrorMessage } from "@/lib/extractErrorMessage";
 import { FeatureGate } from "@/components/saas/PlanLimitGuard";
 import { Lock } from "lucide-react";
 
@@ -150,7 +151,7 @@ const Suppliers = () => {
       resetForm();
     },
     onError: (error: unknown) => {
-      const msg = error instanceof Error ? error.message : String(error);
+      const msg = extractErrorMessage(error);
       reportError(error, { action: 'create_supplier' });
       toast({
         variant: "destructive",
@@ -178,7 +179,7 @@ const Suppliers = () => {
       resetForm();
     },
     onError: (error: unknown) => {
-      const msg = error instanceof Error ? error.message : String(error);
+      const msg = extractErrorMessage(error);
       reportError(error, { action: 'update_supplier', supplierId: selectedSupplier?.id });
       toast({
         variant: "destructive",
@@ -205,7 +206,7 @@ const Suppliers = () => {
       setSelectedSupplier(null);
     },
     onError: (error: unknown) => {
-      const msg = error instanceof Error ? error.message : String(error);
+      const msg = extractErrorMessage(error);
       reportError(error, { action: 'delete_supplier', supplierId: selectedSupplier?.id });
       toast({
         variant: "destructive",

@@ -40,26 +40,11 @@ import { ProductWithCategory, AdjustStockRpcRow, MANAGEMENT_ROLES } from "@/type
 import { PlanLimitGuard, FeatureGate } from "@/components/saas/PlanLimitGuard";
 import { useDemo } from "@/contexts/DemoContext";
 import { reportError } from "@/lib/sentry";
+import { extractErrorMessage } from "@/lib/extractErrorMessage";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
 type ProductInsert = Database["public"]["Tables"]["products"]["Insert"];
 type ProductWithCat = ProductWithCategory;
-
-/**
- * Extract a human-readable message from Supabase/Postgrest errors.
- * Supabase RPC errors are PostgrestError objects {message, code, details, hint},
- * NOT native Error instances. String(error) gives "[object Object]".
- */
-function extractErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  if (typeof error === 'object' && error !== null) {
-    const errObj = error as Record<string, unknown>;
-    if (typeof errObj.message === 'string') return errObj.message;
-    if (typeof errObj.msg === 'string') return errObj.msg;
-    return JSON.stringify(error);
-  }
-  return String(error);
-}
 
 const Products = () => {
   const { user, profile, userRole } = useAuth();
@@ -164,8 +149,7 @@ const Products = () => {
       setIsFormOpen(false);
     },
     onError: (error: unknown) => {
-      // Supabase RPC errors are PostgrestError objects {message, code, details, hint}
-      // not native Error instances, so String(error) gives [object Object]
+      // Supabase RPC errors are PostgrestError objects — extractErrorMessage handles them
       const msg = extractErrorMessage(error);
       const isPlanLimit = msg.includes('Limite') || msg.includes('plan') || msg.includes('Upgrad');
       const isRlsError = msg.includes('policy') || msg.includes('row-level') || msg.includes('violates') || msg.includes('409');
@@ -288,7 +272,7 @@ const Products = () => {
         title: "Erreur",
         description: "Impossible d'ajuster le stock",
       });
-      reportError(error instanceof Error ? error : new Error(String(error)));
+      reportError(error instanceof Error ? error : new Error(extractErrorMessage(error)));
     },
   });
 

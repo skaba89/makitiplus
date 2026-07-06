@@ -31,7 +31,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@components/ui/select";
+} from "@/components/ui/select";
 import {
   Loader2,
   BarChart3,
@@ -50,6 +50,7 @@ import {
 import { useState, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { AlertTriangle as AlertIcon } from "lucide-react";
+import { extractErrorMessage } from "@/lib/extractErrorMessage";
 import { startOfDay, startOfWeek, startOfMonth, subMonths, format } from "date-fns";
 
 // ─── Types ────────────────────────────────────────────────────
@@ -287,7 +288,7 @@ export default function SellerActivity() {
             <div className="text-center">
               <AlertTriangle className="h-10 w-10 text-destructive mx-auto mb-3" />
               <p className="text-destructive font-medium">Erreur de chargement</p>
-              <p className="text-sm text-muted-foreground">{(error as Error).message}</p>
+              <p className="text-sm text-muted-foreground">{extractErrorMessage(error)}</p>
             </div>
           </div>
         ) : (

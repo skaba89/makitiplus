@@ -3,6 +3,7 @@ import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
 import { setSentryUserContext, clearSentryUserContext, reportError } from "@/lib/sentry";
+import { extractErrorMessage } from "@/lib/extractErrorMessage";
 import { isAdminRole } from "@/types";
 import { logger } from "@/lib/logger";
 
@@ -82,7 +83,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         });
       }
     } catch (error) {
-      reportError(error instanceof Error ? error : new Error(String(error)));
+      reportError(error instanceof Error ? error : new Error(extractErrorMessage(error)));
     }
   };
 

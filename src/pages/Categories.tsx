@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { reportError } from "@/lib/sentry";
+import { extractErrorMessage } from "@/lib/extractErrorMessage";
 import { Plus, FolderOpen, Pencil, Trash2, Loader2, Search, ArrowUpDown, Tag, Package } from "lucide-react";
 import { CategoryIcon } from "@/components/ui/category-icon";
 import { MANAGEMENT_ROLES } from "@/types";
@@ -124,7 +125,7 @@ const Categories = () => {
     },
     onError: (error) => {
       reportError(error);
-      const msg = error instanceof Error ? error.message : String(error);
+      const msg = extractErrorMessage(error);
       const isRlsError = msg.includes('policy') || msg.includes('row-level') || msg.includes('violates');
       toast({
         variant: "destructive",
@@ -155,7 +156,7 @@ const Categories = () => {
     },
     onError: (error) => {
       reportError(error);
-      const msg = error instanceof Error ? error.message : String(error);
+      const msg = extractErrorMessage(error);
       const isRlsError = msg.includes('policy') || msg.includes('row-level') || msg.includes('violates');
       toast({
         variant: "destructive",
@@ -179,7 +180,7 @@ const Categories = () => {
     },
     onError: (error) => {
       reportError(error);
-      const msg = error instanceof Error ? error.message : String(error);
+      const msg = extractErrorMessage(error);
       const isRlsError = msg.includes('policy') || msg.includes('row-level') || msg.includes('violates');
       toast({
         variant: "destructive",

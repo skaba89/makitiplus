@@ -51,6 +51,7 @@ import {
 import { Loader2, Building2, CreditCard, Search, Edit, RefreshCw, AlertTriangle, Trash2 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { extractErrorMessage } from "@/lib/extractErrorMessage";
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -82,19 +83,6 @@ const STATUS_STYLES: Record<string, { label: string; variant: "default" | "secon
   cancelled: { label: "Annulé", variant: "destructive" },
   expired: { label: "Expiré", variant: "destructive" },
 };
-
-// ─── Helper: extract error message from Supabase PostgrestError ──
-
-function extractErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "object" && error !== null) {
-    const errObj = error as Record<string, unknown>;
-    if (typeof errObj.message === "string") return errObj.message;
-    if (typeof errObj.msg === "string") return errObj.msg;
-    return JSON.stringify(error);
-  }
-  return String(error);
-}
 
 // ─── Component ────────────────────────────────────────────────
 
@@ -331,7 +319,7 @@ export default function OrganizationManagement() {
                 <div className="text-center">
                   <AlertTriangle className="h-10 w-10 text-destructive mx-auto mb-3" />
                   <p className="text-destructive font-medium">Erreur de chargement</p>
-                  <p className="text-sm text-muted-foreground">{(error as Error).message}</p>
+                  <p className="text-sm text-muted-foreground">{extractErrorMessage(error)}</p>
                 </div>
               </div>
             ) : (

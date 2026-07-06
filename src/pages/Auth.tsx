@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PasswordStrengthMeter } from "@/components/users/PasswordStrengthMeter";
 import { checkPassword } from "@/lib/passwordPolicy";
 import { reportError } from "@/lib/sentry";
+import { extractErrorMessage } from "@/lib/extractErrorMessage";
 import { EdgeFunctionResponse, ADMIN_ROLES } from "@/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
@@ -157,7 +158,7 @@ const Auth = () => {
         navigate("/dashboard");
       }
     } catch (error) {
-      reportError(error instanceof Error ? error : new Error(String(error)));
+      reportError(error instanceof Error ? error : new Error(extractErrorMessage(error)));
       toast({
         variant: "destructive",
         title: "Erreur",
@@ -232,7 +233,7 @@ const Auth = () => {
         navigate("/dashboard");
       }
     } catch (error) {
-      reportError(error instanceof Error ? error : new Error(String(error)));
+      reportError(error instanceof Error ? error : new Error(extractErrorMessage(error)));
       toast({
         variant: "destructive",
         title: "Erreur",

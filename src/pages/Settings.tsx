@@ -27,6 +27,7 @@ import { TaxSettingsCard } from "@/components/settings/TaxSettingsCard";
 import { FeatureGate } from "@/components/saas/PlanLimitGuard";
 import { SubscriptionCard } from "@/components/settings/SubscriptionCard";
 import { reportError } from "@/lib/sentry";
+import { extractErrorMessage } from "@/lib/extractErrorMessage";
 
 const Settings = () => {
   const { user, profile, refreshProfile } = useAuth();
@@ -100,7 +101,7 @@ const Settings = () => {
         title: "Erreur",
         description: "Impossible de sauvegarder les paramètres",
       });
-      reportError(error instanceof Error ? error : new Error(String(error)));
+      reportError(error instanceof Error ? error : new Error(extractErrorMessage(error)));
     },
   });
 
@@ -119,7 +120,7 @@ const Settings = () => {
         const ndef = new NDEFReaderCtor();
         await ndef.scan();
       } catch (error) {
-        reportError(error instanceof Error ? error : new Error(String(error)));
+        reportError(error instanceof Error ? error : new Error(extractErrorMessage(error)));
         toast({
           variant: "destructive",
           title: "Erreur NFC",
@@ -145,7 +146,7 @@ const Settings = () => {
           : "Le paiement sans contact a été désactivé",
       });
     } catch (error) {
-      reportError(error instanceof Error ? error : new Error(String(error)));
+      reportError(error instanceof Error ? error : new Error(extractErrorMessage(error)));
       toast({
         variant: "destructive",
         title: "Erreur",

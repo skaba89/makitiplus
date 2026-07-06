@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider, QueryCache, MutationCache, QueryErrorResetBoundary } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { SentryErrorBoundary, reportError } from "@/lib/sentry";
+import { extractErrorMessage } from "@/lib/extractErrorMessage";
 import { ADMIN_ROLES, INVENTORY_ROLES, FINANCIAL_ROLES, POS_ROLES, STORE_ROLES, MANAGEMENT_ROLES } from "@/types";
 import { toast as sonnerToast } from "sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -141,7 +142,7 @@ class PageErrorBoundary extends Component<{ children: ReactNode }, { hasError: b
 
 /** Smart retry: more retries for network errors, none for 4xx client errors or auth failures */
 function smartRetry(failureCount: number, error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
+  const message = extractErrorMessage(error);
 
   // Never retry auth failures — refresh token is dead, retrying makes it worse
   if (/Refresh Token Not Found|Invalid Refresh Token|JWTExpired|JWT invalid/i.test(message)) return false;
@@ -178,7 +179,7 @@ function shouldShowError(message: string): boolean {
 const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error: unknown) => {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = extractErrorMessage(error);
       // Suppress noise from offline/background requests — only when actually offline
       if (!navigator.onLine && (message.includes('Failed to fetch') || message.includes('NetworkError'))) return;
       if (!shouldShowError(message)) return;
@@ -190,7 +191,7 @@ const queryClient = new QueryClient({
   }),
   mutationCache: new MutationCache({
     onError: (error: unknown) => {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = extractErrorMessage(error);
       if (!shouldShowError(message)) return;
       sonnerToast.error('Erreur', {
         description: message.length > 120 ? message.slice(0, 120) + '…' : message,

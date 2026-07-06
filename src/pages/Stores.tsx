@@ -51,6 +51,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { reportError } from "@/lib/sentry";
+import { extractErrorMessage } from "@/lib/extractErrorMessage";
 import { StoresPageSkeleton } from "@/components/skeletons/PageSkeletons";
 import {
   Store,
@@ -265,8 +266,8 @@ const Stores = () => {
       setDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["stores"] });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      reportError(error instanceof Error ? error : new Error(String(error)));
+      const message = extractErrorMessage(error);
+      reportError(error instanceof Error ? error : new Error(message));
       const isPlanLimit = message.includes('Limite') || message.includes('plan') || message.includes('Upgrad') || message.includes('Upgradez');
       toast({
         variant: "destructive",
@@ -328,8 +329,8 @@ const Stores = () => {
       setAdminDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["stores"] });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      reportError(error instanceof Error ? error : new Error(String(error)));
+      const message = extractErrorMessage(error);
+      reportError(error instanceof Error ? error : new Error(message));
       toast({ variant: "destructive", title: "Erreur", description: message });
     } finally {
       setCreatingAdmin(false);
@@ -352,8 +353,8 @@ const Stores = () => {
       toast({ title: "Organisation supprimée", description: `"${storeToDelete.name}" et tous ses magasins ont été supprimés.` });
       queryClient.invalidateQueries({ queryKey: ["stores"] });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      reportError(error instanceof Error ? error : new Error(String(error)));
+      const message = extractErrorMessage(error);
+      reportError(error instanceof Error ? error : new Error(message));
       // Handle permission errors
       const isPermissionDenied = message.includes('Accès refusé') || message.includes('super administrateur');
       const isNotFound = message.includes('introuvable');
