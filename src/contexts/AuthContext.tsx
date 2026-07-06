@@ -190,6 +190,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }).catch(() => {
         // Best-effort: ne pas crasher si le RPC est indisponible
       });
+
+      // Log login activity (best-effort)
+      supabase.rpc("log_user_activity", {
+        p_action: 'login',
+        p_description: 'Connexion',
+        p_metadata: { user_agent: navigator.userAgent.substring(0, 200) }
+      }).catch(() => {});
     }
 
     return { error: null };
@@ -304,6 +311,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
+    // Track logout time before signing out (best-effort)
+    if (user) {
+      supabase.rpc("log_user_activity", {
+        p_action: 'logout',
+        p_description: 'Déconnexion',
+      }).catch(() => {});
+
+      supabase
+        .from("profiles")
+        .update({ last_logout_at: new Date().toISOString() })
+        .eq("user_id", user.id)
+        .then(() => {})
+        .catch(() => {});
+    }
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);

@@ -74,6 +74,7 @@ const Onboarding = lazyWithRecovery(() => import("./pages/Onboarding"));
 const PurchaseOrders = lazyWithRecovery(() => import("./pages/PurchaseOrders"));
 const AIAssistant = lazyWithRecovery(() => import("./pages/AIAssistant"));
 const OrganizationManagement = lazyWithRecovery(() => import("./pages/OrganizationManagement"));
+const SellerActivity = lazyWithRecovery(() => import("./pages/SellerActivity"));
 
 /** Minimal loading spinner for lazy-loaded routes */
 const PageLoader = () => (
@@ -333,6 +334,14 @@ const App = () => {
               element={
                 <ProtectedRoute allowedRoles={STORE_ROLES}>
                   <SafePage><AdminAnalytics /></SafePage>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/seller-activity"
+              element={
+                <ProtectedRoute allowedRoles={ADMIN_ROLES}>
+                  <SafePage><SellerActivity /></SafePage>
                 </ProtectedRoute>
               }
             />

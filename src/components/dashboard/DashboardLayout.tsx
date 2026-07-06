@@ -38,6 +38,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { MobileBottomNav } from "./MobileBottomNav";
 import { ALL_ROLES, ADMIN_ROLES, MANAGEMENT_ROLES, INVENTORY_ROLES, FINANCIAL_ROLES, POS_ROLES, STORE_ROLES } from "@/types";
+import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import { OfflineIndicator, OfflineBanner } from "@/components/ui/offline-indicator";
 import { PWAInstallPrompt } from "@/components/ui/pwa-install-prompt";
 import { StoreSwitcher } from "@/components/shared/StoreSwitcher";
@@ -50,6 +51,9 @@ interface DashboardLayoutProps {
 
 export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const { user, userRole, profile, signOut } = useAuth();
+
+  // Auto sign-out after 5 minutes of inactivity
+  useInactivityTimeout();
   const { branding } = useBranding();
   const { settings } = useThemeSettings();
   const location = useLocation();
@@ -134,6 +138,12 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       name: "Utilisateurs",
       href: "/dashboard/users",
       icon: Shield,
+      roles: ADMIN_ROLES,
+    },
+    {
+      name: "Activité Vendeurs",
+      href: "/dashboard/seller-activity",
+      icon: BarChart3,
       roles: ADMIN_ROLES,
     },
     {

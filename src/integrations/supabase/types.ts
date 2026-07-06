@@ -591,6 +591,8 @@ export type Database = {
           is_test_account: boolean
           language: string | null
           last_login_at: string | null
+          last_logout_at: string | null
+          last_seen_at: string | null
           nfc_enabled: boolean | null
           organization_id: string | null
           current_store_id: string | null
@@ -619,6 +621,8 @@ export type Database = {
           is_test_account?: boolean
           language?: string | null
           last_login_at?: string | null
+          last_logout_at?: string | null
+          last_seen_at?: string | null
           nfc_enabled?: boolean | null
           organization_id?: string | null
           current_store_id?: string | null
@@ -647,6 +651,8 @@ export type Database = {
           is_test_account?: boolean
           language?: string | null
           last_login_at?: string | null
+          last_logout_at?: string | null
+          last_seen_at?: string | null
           nfc_enabled?: boolean | null
           organization_id?: string | null
           current_store_id?: string | null
@@ -662,6 +668,51 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_activity_logs: {
+        Row: {
+          id: string
+          user_id: string
+          organization_id: string | null
+          action: string
+          description: string | null
+          metadata: Json | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          organization_id?: string | null
+          action: string
+          description?: string | null
+          metadata?: Json | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          organization_id?: string | null
+          action?: string
+          description?: string | null
+          metadata?: Json | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_activity_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_activity_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       sale_items: {
         Row: {
@@ -1809,6 +1860,47 @@ export type Database = {
           deleted_stores: number
           deleted_users: number
         }
+      }
+      get_seller_performance: {
+        Args: {
+          p_period_start?: string | null
+          p_period_end?: string | null
+        }
+        Returns: {
+          user_id: string
+          seller_name: string
+          role: string
+          total_sales: number
+          total_revenue: number
+          avg_sale_amount: number
+          last_login_at: string | null
+          last_logout_at: string | null
+          last_seen_at: string | null
+          is_active: boolean
+        }[]
+      }
+      get_seller_activities: {
+        Args: {
+          p_user_id?: string | null
+          p_limit?: number
+        }
+        Returns: {
+          id: string
+          user_id: string
+          seller_name: string
+          action: string
+          description: string | null
+          metadata: Json | null
+          created_at: string
+        }[]
+      }
+      log_user_activity: {
+        Args: {
+          p_action: string
+          p_description?: string | null
+          p_metadata?: Json | null
+        }
+        Returns: string
       }
     }
     Enums: {
