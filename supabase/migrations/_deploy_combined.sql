@@ -3,6 +3,7 @@
 -- Auto-generated — DO NOT EDIT
 -- ============================================================
 
+
 -- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260202072852_917790af-3d14-44e9-bcdd-d88776ced82b.sql
 -- ═════════════════════════════════════════════════════════════════
@@ -17,6 +18,7 @@ WITH CHECK (auth.uid() = user_id);
 -- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260207065000_da463d93-5048-43ec-bb39-482bb0ea3ab9.sql
 -- ═════════════════════════════════════════════════════════════════
+
 
 -- Create customers table
 CREATE TABLE public.customers (
@@ -67,6 +69,7 @@ CREATE TRIGGER update_customers_updated_at
 BEFORE UPDATE ON public.customers
 FOR EACH ROW
 EXECUTE FUNCTION public.update_updated_at_column();
+
 
 
 -- ═════════════════════════════════════════════════════════════════
@@ -363,6 +366,7 @@ $$;
 -- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260424045251_3195f18f-7faa-4f1f-9d47-323cb8b7fac7.sql
 -- ═════════════════════════════════════════════════════════════════
+
 
 -- ============================================================
 -- 1. CRÉATION DE LA TABLE ORGANIZATIONS (BOUTIQUES)
@@ -748,6 +752,7 @@ CREATE TRIGGER auto_org_sale_items BEFORE INSERT ON public.sale_items
   FOR EACH ROW EXECUTE FUNCTION public.set_sale_item_organization();
 
 
+
 -- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260425041530_c56455ad-2249-438f-b9a2-15f7f64df5e5.sql
 -- ═════════════════════════════════════════════════════════════════
@@ -871,6 +876,7 @@ WITH CHECK (
 );
 
 
+
 -- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260612031944_ff09240b-7ecb-49e5-b88b-e9800618663b.sql
 -- ═════════════════════════════════════════════════════════════════
@@ -977,6 +983,7 @@ END;
 $$;
 
 
+
 -- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260614020000_add_missing_foreign_keys.sql
 -- ═════════════════════════════════════════════════════════════════
@@ -1040,6 +1047,7 @@ ALTER TABLE public.stock_movements
 ALTER TABLE public.password_reset_tokens
   ADD CONSTRAINT password_reset_tokens_organization_id_fkey
   FOREIGN KEY (organization_id) REFERENCES public.organizations(id);
+
 
 
 -- ═════════════════════════════════════════════════════════════════
@@ -1156,6 +1164,7 @@ CREATE POLICY "org_admins_insert_credits" ON public.customer_credits
 DROP POLICY IF EXISTS "Admins can view all user roles" ON public.user_roles;
 
 
+
 -- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260614040000_grant_admin_exists_to_anon.sql
 -- ═════════════════════════════════════════════════════════════════
@@ -1163,6 +1172,7 @@ DROP POLICY IF EXISTS "Admins can view all user roles" ON public.user_roles;
 -- Allow unauthenticated users to check if an admin exists
 -- This is required for the "Premier admin" signup tab to appear
 GRANT EXECUTE ON FUNCTION public.admin_exists() TO anon, authenticated;
+
 
 
 -- ═════════════════════════════════════════════════════════════════
@@ -1283,6 +1293,7 @@ CREATE POLICY "admins_view_audit_log" ON public.user_audit_log
   );
 
 -- ✅ Migration terminée !
+
 
 
 -- ═════════════════════════════════════════════════════════════════
@@ -1517,6 +1528,7 @@ GRANT EXECUTE ON FUNCTION public.insert_default_categories TO authenticated;
 GRANT EXECUTE ON FUNCTION public.auto_create_store_settings TO authenticated;
 
 
+
 -- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260629020000_add_store_category.sql
 -- ═════════════════════════════════════════════════════════════════
@@ -1553,6 +1565,7 @@ ALTER TABLE public.organizations
 
 -- Étape 3 : Recharger le cache PostgREST
 NOTIFY pgrst, 'reload schema';
+
 
 
 -- ═════════════════════════════════════════════════════════════════
@@ -1672,6 +1685,7 @@ AS $$
     SELECT 1 FROM profiles WHERE user_id = check_user_id
   );
 $$;
+
 
 
 -- ═════════════════════════════════════════════════════════════════
@@ -2255,6 +2269,7 @@ GRANT EXECUTE ON FUNCTION public.decrement_credits(UUID, NUMERIC) TO authenticat
 GRANT EXECUTE ON FUNCTION public.process_pos_sale(UUID, UUID, INT) TO authenticated;
 
 
+
 -- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260701020000_critical_audit_fixes.sql
 -- ═════════════════════════════════════════════════════════════════
@@ -2639,6 +2654,7 @@ EXCEPTION WHEN OTHERS THEN
 END $$;
 
 
+
 -- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260701030000_high_audit_fixes.sql
 -- ═════════════════════════════════════════════════════════════════
@@ -2737,6 +2753,7 @@ EXCEPTION WHEN OTHERS THEN
 END $$;
 
 
+
 -- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260701040000_add_nfc_enabled_to_profiles.sql
 -- ═════════════════════════════════════════════════════════════════
@@ -2745,6 +2762,7 @@ END $$;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS nfc_enabled boolean DEFAULT false;
 
 -- Grant is already covered by existing RLS policies on profiles
+
 
 
 -- ═════════════════════════════════════════════════════════════════
@@ -2874,6 +2892,7 @@ $$;
 GRANT EXECUTE ON FUNCTION public.create_full_sale TO authenticated;
 
 
+
 -- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702010000_add_missing_indexes.sql
 -- ═════════════════════════════════════════════════════════════════
@@ -2902,6 +2921,7 @@ CREATE INDEX IF NOT EXISTS idx_sales_org_created_at ON public.sales(organization
 
 -- Index composite sur products(organization_id, is_active) — pour les requêtes de produits actifs par magasin
 CREATE INDEX IF NOT EXISTS idx_products_org_active ON public.products(organization_id, is_active);
+
 
 
 -- ═════════════════════════════════════════════════════════════════
@@ -3030,6 +3050,7 @@ CREATE INDEX idx_products_supplier_id ON public.products(supplier_id);
 -- 6. REALTIME — activer pour la table suppliers
 -- ============================================================
 ALTER PUBLICATION supabase_realtime ADD TABLE public.suppliers;
+
 
 
 -- ═════════════════════════════════════════════════════════════════
@@ -3225,6 +3246,7 @@ $$;
 GRANT EXECUTE ON FUNCTION public.check_account_status(UUID) TO authenticated, service_role;
 
 
+
 -- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702030000_dashboard_rpc_aggregation.sql
 -- ═════════════════════════════════════════════════════════════════
@@ -3378,6 +3400,7 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.get_top_products(UUID, TIMESTAMPTZ, INTEGER) TO authenticated;
+
 
 
 -- ═════════════════════════════════════════════════════════════════
@@ -3630,6 +3653,7 @@ GRANT EXECUTE ON FUNCTION get_reports_stats(UUID, TIMESTAMPTZ, TIMESTAMPTZ) TO a
 GRANT EXECUTE ON FUNCTION get_next_category_sort_order(UUID) TO authenticated;
 
 
+
 -- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702050000_org_scoping_and_shared_hooks.sql
 -- ═════════════════════════════════════════════════════════════════
@@ -3753,6 +3777,7 @@ $$;
 GRANT EXECUTE ON FUNCTION get_customer_stats(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_expense_stats(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_categories(UUID) TO authenticated;
+
 
 
 -- ═════════════════════════════════════════════════════════════════
@@ -3969,6 +3994,7 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.get_supplier_with_products(UUID, UUID) TO authenticated;
+
 
 
 -- ═════════════════════════════════════════════════════════════════
@@ -4451,6 +4477,7 @@ GRANT EXECUTE ON FUNCTION public.get_admin_article_ranking(uuid, text, integer, 
 GRANT EXECUTE ON FUNCTION public.get_admin_stock_movements(uuid, text, integer, timestamptz, timestamptz) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_admin_sales_trend(uuid, text, timestamptz, timestamptz) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_admin_payment_distribution(uuid, text, timestamptz, timestamptz) TO authenticated;
+
 
 
 -- ═════════════════════════════════════════════════════════════════
@@ -4949,6 +4976,7 @@ GRANT EXECUTE ON FUNCTION public.get_admin_article_ranking(uuid, text, integer, 
 GRANT EXECUTE ON FUNCTION public.get_admin_stock_movements(uuid, text, integer, timestamptz, timestamptz) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_admin_sales_trend(uuid, text, timestamptz, timestamptz) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_admin_payment_distribution(uuid, text, timestamptz, timestamptz) TO authenticated;
+
 
 
 -- ═════════════════════════════════════════════════════════════════
@@ -6086,6 +6114,7 @@ $$;
 GRANT EXECUTE ON FUNCTION public.get_top_products(TIMESTAMPTZ, INTEGER) TO authenticated;
 
 
+
 -- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702100000_fix_register_user_first_admin.sql
 -- ═════════════════════════════════════════════════════════════════
@@ -6185,6 +6214,7 @@ $$;
 GRANT EXECUTE ON FUNCTION public.register_user(TEXT, TEXT, TEXT, TEXT, UUID) TO authenticated, service_role;
 
 
+
 -- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702110000_saas_foundation_plans_subscriptions.sql
 -- ═════════════════════════════════════════════════════════════════
@@ -6236,8 +6266,8 @@ CREATE TABLE IF NOT EXISTS public.plans (
 
 -- Seed default plans
 INSERT INTO public.plans (id, name, description, price_monthly, price_yearly, max_stores, max_users, max_products, has_advanced_reports, has_exports, has_supplier_management, has_offline_advanced, sort_order) VALUES
-  ('starter', 'Starter', 'Idéal pour démarrer — caisse et stock de base', 0.00, NULL, 1, 2, 500, FALSE, FALSE, FALSE, FALSE, 1),
-  ('croissance', 'Croissance', 'Pour les boutiques qui grandissent — fournisseurs, rapports, exports', 29.00, 290.00, 3, 10, 5000, TRUE, TRUE, TRUE, TRUE, 2),
+  ('starter', 'Starter', 'Idéal pour démarrer — caisse et stock de base', 0.00, NULL, 1, 2, 2000, FALSE, FALSE, FALSE, FALSE, 1),
+  ('croissance', 'Croissance', 'Pour les boutiques qui grandissent — fournisseurs, rapports, exports', 29.00, 290.00, 3, 10, 10000, TRUE, TRUE, TRUE, TRUE, 2),
   ('enterprise', 'Enterprise', 'Pour les chaînes et grossistes — analytics, API, support prioritaire', 79.00, 790.00, NULL, NULL, NULL, TRUE, TRUE, TRUE, TRUE, 3)
 ON CONFLICT (id) DO UPDATE SET
   name = EXCLUDED.name,
@@ -6661,6 +6691,7 @@ SELECT id, 'starter', 'active', NOW(), NOW() + INTERVAL '30 days'
 FROM public.organizations
 WHERE id NOT IN (SELECT organization_id FROM public.subscriptions)
 ON CONFLICT (organization_id) DO NOTHING;
+
 
 
 -- ═════════════════════════════════════════════════════════════════
@@ -7253,6 +7284,7 @@ GRANT EXECUTE ON FUNCTION public.get_store_stats(UUID) TO authenticated;
 -- ─── Done ──────────────────────────────────────────────────────
 
 
+
 -- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702130000_fix_subscription_events_and_lifecycle.sql
 -- ═════════════════════════════════════════════════════════════════
@@ -7450,6 +7482,7 @@ $$;
 --   '0 */6 * * *',  -- Every 6 hours
 --   $$SELECT public.process_subscription_lifecycle();$$
 -- );
+
 
 
 -- ═════════════════════════════════════════════════════════════════
@@ -7805,6 +7838,7 @@ GRANT EXECUTE ON FUNCTION public.receive_purchase_order(UUID, JSONB) TO authenti
 -- ─── Done ──────────────────────────────────────────────────────
 
 
+
 -- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702140000_saas_metrics_rpcs.sql
 -- ═════════════════════════════════════════════════════════════════
@@ -8056,6 +8090,7 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.get_saas_revenue_metrics() TO authenticated;
+
 
 
 -- ═════════════════════════════════════════════════════════════════
@@ -8322,6 +8357,7 @@ END;
 $$;
 
 
+
 -- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702160000_stock_transfers.sql
 -- ═════════════════════════════════════════════════════════════════
@@ -8349,8 +8385,8 @@ CREATE TABLE IF NOT EXISTS public.stock_transfers (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
   transfer_number TEXT NOT NULL,
-  from_store_id   UUID NOT NULL REFERENCES public.stores(id) ON DELETE RESTRICT,
-  to_store_id     UUID NOT NULL REFERENCES public.stores(id) ON DELETE RESTRICT,
+  from_store_id   UUID NOT NULL REFERENCES public.stores(id) ON DELETE SET NULL,
+  to_store_id     UUID NOT NULL REFERENCES public.stores(id) ON DELETE SET NULL,
   status          public.transfer_status NOT NULL DEFAULT 'draft',
   notes           TEXT,
   sent_at         TIMESTAMPTZ,
@@ -9019,6 +9055,7 @@ CREATE TRIGGER trg_st_updated_at
   FOR EACH ROW EXECUTE FUNCTION public.update_stock_transfers_updated_at();
 
 
+
 -- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702170000_smart_restock_suggestions.sql
 -- ═════════════════════════════════════════════════════════════════
@@ -9280,6 +9317,7 @@ BEGIN
   LIMIT p_limit;
 END;
 $$;
+
 
 
 -- ═════════════════════════════════════════════════════════════════
@@ -9609,6 +9647,7 @@ BEGIN
   WHERE la.organization_id = v_org_id;
 END;
 $$;
+
 
 
 -- ═════════════════════════════════════════════════════════════════
@@ -10185,6 +10224,7 @@ END;
 $$;
 
 
+
 -- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260702200000_support_tickets.sql
 -- ═════════════════════════════════════════════════════════════════
@@ -10633,6 +10673,7 @@ $$;
 -- ─── Enable Realtime for live chat ─────────────────────────
 ALTER PUBLICATION supabase_realtime ADD TABLE public.support_ticket_messages;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.support_tickets;
+
 
 
 -- ═════════════════════════════════════════════════════════════════
@@ -11312,6 +11353,7 @@ $$;
 -- ════════════════════════════════════════════════════════════════
 
 
+
 -- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260703020000_p1_server_side_plan_enforcement.sql
 -- ═════════════════════════════════════════════════════════════════
@@ -11584,6 +11626,7 @@ GRANT EXECUTE ON FUNCTION public.create_sale_with_limit(
 -- ════════════════════════════════════════════════════════════════
 
 
+
 -- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260703030000_p1_grant_execute_fixes.sql
 -- ═════════════════════════════════════════════════════════════════
@@ -11620,6 +11663,7 @@ GRANT EXECUTE ON FUNCTION public.is_user_active() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.check_account_status() TO authenticated;
 
 -- ─── Done ──────────────────────────────────────────────────────
+
 
 
 -- ═════════════════════════════════════════════════════════════════
@@ -11776,6 +11820,7 @@ CREATE POLICY stripe_events_select_authenticated ON public.stripe_events
 -- ════════════════════════════════════════════════════════════════
 
 
+
 -- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260703050000_stripe_integration.sql
 -- ═════════════════════════════════════════════════════════════════
@@ -11811,6 +11856,7 @@ ALTER TABLE public.subscriptions
 CREATE INDEX IF NOT EXISTS idx_subscriptions_stripe_sub_id
   ON public.subscriptions(stripe_subscription_id)
   WHERE stripe_subscription_id IS NOT NULL;
+
 
 
 -- ═════════════════════════════════════════════════════════════════
@@ -12642,6 +12688,7 @@ NOTIFY pgrst, 'reload schema';
 SELECT 'Fix missing RPCs v5 applique avec succes — 6 fonctions restaurees' AS status;
 
 
+
 -- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260704020000_add_stripe_customer_id_to_subscription_rpc.sql
 -- ═════════════════════════════════════════════════════════════════
@@ -12729,6 +12776,7 @@ GRANT EXECUTE ON FUNCTION public.get_organization_subscription() TO authenticate
 
 -- Reload PostgREST schema cache
 NOTIFY pgrst, 'reload schema';
+
 
 
 -- ═════════════════════════════════════════════════════════════════
@@ -12982,6 +13030,7 @@ END $$;
 NOTIFY pgrst, 'reload schema';
 
 
+
 -- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260704040000_fix_cron_secret_and_schedules.sql
 -- ═════════════════════════════════════════════════════════════════
@@ -12999,6 +13048,7 @@ NOTIFY pgrst, 'reload schema';
 
 -- No SQL to execute. See docs/production/SUPABASE_CRON_SETUP.md for setup instructions.
 SELECT 1 AS cron_setup_is_manual;
+
 
 
 -- ═════════════════════════════════════════════════════════════════
@@ -13069,6 +13119,7 @@ SET
 WHERE plan_id = 'starter'
   AND status = 'active'
   AND current_period_end > NOW();
+
 
 
 -- ═════════════════════════════════════════════════════════════════
@@ -13322,6 +13373,7 @@ GRANT EXECUTE ON FUNCTION public.get_organization_subscription() TO authenticate
 NOTIFY pgrst, 'reload schema';
 
 
+
 -- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260705030000_fix_super_admin_rls_and_has_role.sql
 -- ═════════════════════════════════════════════════════════════════
@@ -13440,6 +13492,7 @@ CREATE POLICY "admins_view_audit_log" ON public.user_audit_log
 
 -- STEP 5: Notify PostgREST to reload schema
 NOTIFY pgrst, 'reload schema';
+
 
 
 -- ═════════════════════════════════════════════════════════════════
@@ -13659,100 +13712,8 @@ $fn2$;
 GRANT EXECUTE ON FUNCTION public.admin_update_organization_subscription(UUID, TEXT, TEXT, TEXT) TO authenticated;
 
 -- ════════════════════════════════════════════════════════════════
--- 4. update_organization_subscription — Own-org sub change (used by Billing.tsx)
---    This was called by Billing.tsx but didn't exist. Now we create it.
--- ════════════════════════════════════════════════════════════════
-DROP FUNCTION IF EXISTS public.update_organization_subscription(TEXT, TEXT, TEXT);
+-- Unsafe own-organization subscription RPC removed. Use admin_update_organization_subscription only.
 
-CREATE OR REPLACE FUNCTION public.update_organization_subscription(
-  p_plan_id TEXT,
-  p_status TEXT DEFAULT 'active',
-  p_duration TEXT DEFAULT '1 month'
-)
-RETURNS JSONB
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
-AS $fn3$
-DECLARE
-  v_org_id UUID;
-  v_old_plan TEXT;
-  v_event_type TEXT;
-  v_period_end TIMESTAMPTZ;
-  v_billing_period TEXT;
-  v_sub_id UUID;
-BEGIN
-  -- Get caller's organization
-  SELECT organization_id INTO v_org_id
-  FROM profiles WHERE user_id = auth.uid();
-
-  IF v_org_id IS NULL THEN
-    RAISE EXCEPTION 'No organization found for current user';
-  END IF;
-
-  -- Validate plan exists
-  IF NOT EXISTS (SELECT 1 FROM plans WHERE id = p_plan_id AND is_active) THEN
-    RAISE EXCEPTION 'Invalid plan_id: %', p_plan_id;
-  END IF;
-
-  -- Calculate period end
-  IF p_duration = '1 year' THEN
-    v_period_end := NOW() + INTERVAL '1 year';
-    v_billing_period := 'yearly';
-  ELSE
-    v_period_end := NOW() + INTERVAL '1 month';
-    v_billing_period := 'monthly';
-  END IF;
-
-  -- Get current subscription info
-  SELECT plan_id, id INTO v_old_plan, v_sub_id
-  FROM subscriptions WHERE organization_id = v_org_id;
-
-  IF v_sub_id IS NOT NULL THEN
-    -- Update existing
-    UPDATE subscriptions SET
-      plan_id = p_plan_id,
-      status = p_status,
-      current_period_start = NOW(),
-      current_period_end = v_period_end,
-      billing_period = v_billing_period,
-      updated_at = NOW()
-    WHERE organization_id = v_org_id;
-
-    IF v_old_plan IS DISTINCT FROM p_plan_id THEN
-      IF p_plan_id > v_old_plan THEN
-        v_event_type := 'upgraded';
-      ELSE
-        v_event_type := 'downgraded';
-      END IF;
-    ELSE
-      v_event_type := 'renewed';
-    END IF;
-
-    INSERT INTO subscription_events (organization_id, event_type, from_plan, to_plan, performed_by, metadata)
-    VALUES (v_org_id, v_event_type, v_old_plan, p_plan_id, auth.uid(),
-      jsonb_build_object('new_status', p_status, 'duration', p_duration));
-  ELSE
-    -- Create new
-    INSERT INTO subscriptions (organization_id, plan_id, status, current_period_start, current_period_end, billing_period)
-    VALUES (v_org_id, p_plan_id, p_status, NOW(), v_period_end, v_billing_period)
-    RETURNING id INTO v_sub_id;
-
-    INSERT INTO subscription_events (organization_id, event_type, from_plan, to_plan, performed_by, metadata)
-    VALUES (v_org_id, 'created', NULL, p_plan_id, auth.uid(),
-      jsonb_build_object('status', p_status, 'duration', p_duration));
-  END IF;
-
-  -- Update legacy cache
-  UPDATE organizations SET
-    subscription_plan = p_plan_id,
-    subscription_expires_at = v_period_end,
-    updated_at = NOW()
-  WHERE id = v_org_id;
-
-  RETURN jsonb_build_object('success', TRUE, 'plan_id', p_plan_id, 'period_end', v_period_end);
-END;
-$fn3$;
-
-GRANT EXECUTE ON FUNCTION public.update_organization_subscription(TEXT, TEXT, TEXT) TO authenticated;
 
 
 -- ═════════════════════════════════════════════════════════════════
@@ -13975,6 +13936,7 @@ BEGIN
   ), 'RPC admin_update_organization_subscription not found after creation';
 END;
 $$;
+
 
 
 -- ═════════════════════════════════════════════════════════════════
@@ -14321,29 +14283,52 @@ GRANT EXECUTE ON FUNCTION public.delete_organization(UUID) TO authenticated;
 NOTIFY pgrst, 'reload schema';
 
 
+
 -- ═════════════════════════════════════════════════════════════════
--- MIGRATION: 20260706040000_fix_delete_organization_check_constraint.sql
+-- MIGRATION: 20260706020000_increase_product_limits.sql
 -- ═════════════════════════════════════════════════════════════════
 
--- Fix: delete_organization 400 error caused by CHECK constraint on
--- subscription_events.event_type missing 'store_deleted' and
--- 'organization_deleted'. Also replaces both RPCs with resilient
--- versions using dynamic SQL for optional tables.
+-- ============================================================
+-- Fix: Increase product limits + fix [object Object] error
+-- Date: 2026-07-06
+--
+-- Problems fixed:
+--   1. Starter plan max_products=500 is too low for real businesses
+--      → Increased to 2000
+--   2. Croissance plan max_products=5000 → Increased to 10000
+--   3. Frontend bug: [object Object] in error toast (separate code fix)
+--
+-- Run this in Supabase SQL Editor to update limits immediately.
+-- ============================================================
 
--- 1. Expand subscription_events CHECK constraint
-ALTER TABLE public.subscription_events DROP CONSTRAINT IF EXISTS subscription_events_event_type_check;
+UPDATE public.plans
+SET max_products = 2000
+WHERE id = 'starter';
 
-ALTER TABLE public.subscription_events ADD CONSTRAINT subscription_events_event_type_check
-  CHECK (event_type IN (
-    'created', 'upgraded', 'downgraded', 'renewed', 'cancelled',
-    'expired', 'grace_period_started', 'read_only_started',
-    'trial_started', 'trial_ended', 'payment_received', 'payment_failed',
-    'checkout_initiated', 'checkout_completed', 'subscription_reactivated',
-    'grace_period_ended', 'auto_downgraded',
-    'store_deleted', 'organization_deleted'
-  ));
+UPDATE public.plans
+SET max_products = 10000
+WHERE id = 'croissance';
 
--- 2. Replace delete_organization() with resilient version (dynamic SQL for optional tables)
+-- Verify
+SELECT id, name, max_products FROM public.plans ORDER BY sort_order;
+
+NOTIFY pgrst, 'reload schema';
+
+
+
+-- ═════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260706030000_fix_delete_organization_no_stores.sql
+-- ═════════════════════════════════════════════════════════════════
+
+-- ============================================================
+-- Fix: Make delete_organization work without stores table
+-- Date: 2026-07-06
+--
+-- Problem: delete_organization references public.stores which
+-- doesn't exist yet on the remote DB, causing 400 errors.
+-- Fix: Use dynamic SQL with existence checks for optional tables.
+-- ============================================================
+
 CREATE OR REPLACE FUNCTION public.delete_organization(p_organization_id UUID)
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -14357,39 +14342,259 @@ DECLARE
   v_user_count INTEGER := 0;
   v_subscription_plan TEXT;
 BEGIN
+  -- Check if the organization exists
   SELECT name, owner_user_id INTO v_org_name, v_owner_user_id
-  FROM public.organizations WHERE id = p_organization_id;
+  FROM public.organizations
+  WHERE id = p_organization_id;
+
   IF v_org_name IS NULL THEN
     RAISE EXCEPTION 'Organisation introuvable : %', p_organization_id;
   END IF;
+
+  -- Only super_admin can delete organizations
   IF NOT public.is_super_admin() THEN
     RAISE EXCEPTION 'Accès refusé : seul un super administrateur peut supprimer une organisation.';
   END IF;
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'stores') THEN
-    EXECUTE 'SELECT COUNT(*) FROM public.stores WHERE organization_id = $1' INTO v_store_count USING p_organization_id;
+
+  -- Gather stats for audit before deletion (use dynamic SQL to handle missing tables)
+  -- stores table
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'stores'
+  ) THEN
+    EXECUTE 'SELECT COUNT(*) FROM public.stores WHERE organization_id = $1'
+      INTO v_store_count USING p_organization_id;
   END IF;
-  SELECT COUNT(*) INTO v_user_count FROM public.profiles WHERE organization_id = p_organization_id;
-  SELECT subscription_plan INTO v_subscription_plan FROM public.organizations WHERE id = p_organization_id;
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'subscription_events') THEN
-    INSERT INTO public.subscription_events (organization_id, event_type, from_plan, to_plan, performed_by, metadata)
-    VALUES (p_organization_id, 'organization_deleted', v_subscription_plan, NULL, auth.uid(),
-      jsonb_build_object('organization_id', p_organization_id, 'organization_name', v_org_name,
-        'owner_user_id', v_owner_user_id, 'store_count', v_store_count, 'user_count', v_user_count, 'deleted_by', 'super_admin'));
+
+  -- profiles count
+  SELECT COUNT(*) INTO v_user_count
+  FROM public.profiles
+  WHERE organization_id = p_organization_id;
+
+  -- subscription_plan
+  SELECT subscription_plan INTO v_subscription_plan
+  FROM public.organizations
+  WHERE id = p_organization_id;
+
+  -- Log the deletion BEFORE actually deleting (so the org still exists for the FK)
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'subscription_events'
+  ) THEN
+    INSERT INTO public.subscription_events (
+      organization_id, event_type, from_plan, to_plan, performed_by, metadata
+    ) VALUES (
+      p_organization_id,
+      'organization_deleted',
+      v_subscription_plan, NULL,
+      auth.uid(),
+      jsonb_build_object(
+        'organization_id', p_organization_id,
+        'organization_name', v_org_name,
+        'owner_user_id', v_owner_user_id,
+        'store_count', v_store_count,
+        'user_count', v_user_count,
+        'deleted_by', 'super_admin'
+      )
+    );
   END IF;
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_audit_log') THEN
-    EXECUTE format('INSERT INTO public.user_audit_log (actor_id, action, details) VALUES ($1, $2, $3)')
-    USING auth.uid(), 'delete_organization', jsonb_build_object('organization_id', p_organization_id,
-      'organization_name', v_org_name, 'store_count', v_store_count, 'user_count', v_user_count);
+
+  -- Also log to user_audit_log if it exists (using dynamic SQL)
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'user_audit_log'
+  ) THEN
+    EXECUTE format(
+      'INSERT INTO public.user_audit_log (actor_id, action, details) VALUES ($1, $2, $3)'
+    ) USING auth.uid(), 'delete_organization', jsonb_build_object(
+      'organization_id', p_organization_id,
+      'organization_name', v_org_name,
+      'store_count', v_store_count,
+      'user_count', v_user_count
+    );
   END IF;
+
+  -- Delete the organization (CASCADE will handle stores, subscriptions, etc.)
   DELETE FROM public.organizations WHERE id = p_organization_id;
-  RETURN jsonb_build_object('success', TRUE, 'organization_id', p_organization_id,
-    'organization_name', v_org_name, 'deleted_stores', v_store_count, 'deleted_users', v_user_count);
+
+  RETURN jsonb_build_object(
+    'success', TRUE,
+    'organization_id', p_organization_id,
+    'organization_name', v_org_name,
+    'deleted_stores', v_store_count,
+    'deleted_users', v_user_count
+  );
 END;
 $$;
 
+-- Re-grant execute
 GRANT EXECUTE ON FUNCTION public.delete_organization(UUID) TO authenticated;
 
+-- Reload schema cache
+NOTIFY pgrst, 'reload schema';
+
+
+
+-- ═════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260706040000_fix_delete_organization_check_constraint.sql
+-- ═════════════════════════════════════════════════════════════════
+
+-- ============================================================
+-- Fix: delete_organization 400 error + CHECK constraint
+-- Date: 2026-07-06
+--
+-- Root cause:
+--   subscription_events.event_type CHECK constraint does NOT include
+--   'store_deleted' or 'organization_deleted', so the INSERT in
+--   delete_organization() and delete_store() fails with a CHECK
+--   violation → PostgREST returns 400.
+--
+-- Also:
+--   - Replaces delete_organization() with the resilient version from
+--     20260706030000 (dynamic SQL for optional tables like stores,
+--     subscription_events, user_audit_log)
+--   - Improves delete_store() similarly with conditional logging
+-- ============================================================
+
+-- ════════════════════════════════════════════════════════════════
+-- 1. Expand subscription_events CHECK constraint
+--    Add: 'store_deleted', 'organization_deleted'
+-- ════════════════════════════════════════════════════════════════
+ALTER TABLE public.subscription_events DROP CONSTRAINT IF EXISTS subscription_events_event_type_check;
+
+ALTER TABLE public.subscription_events ADD CONSTRAINT subscription_events_event_type_check
+  CHECK (event_type IN (
+    'created',
+    'upgraded',
+    'downgraded',
+    'renewed',
+    'cancelled',
+    'expired',
+    'grace_period_started',
+    'read_only_started',
+    'trial_started',
+    'trial_ended',
+    'payment_received',
+    'payment_failed',
+    'checkout_initiated',
+    'checkout_completed',
+    'subscription_reactivated',
+    'grace_period_ended',
+    'auto_downgraded',
+    'store_deleted',
+    'organization_deleted'
+  ));
+
+-- ════════════════════════════════════════════════════════════════
+-- 2. Replace delete_organization() with resilient version
+--    Uses dynamic SQL for optional tables (stores, subscription_events,
+--    user_audit_log) to avoid errors when tables don't exist yet
+-- ════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.delete_organization(p_organization_id UUID)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_org_name TEXT;
+  v_owner_user_id UUID;
+  v_store_count INTEGER := 0;
+  v_user_count INTEGER := 0;
+  v_subscription_plan TEXT;
+BEGIN
+  -- Check if the organization exists
+  SELECT name, owner_user_id INTO v_org_name, v_owner_user_id
+  FROM public.organizations
+  WHERE id = p_organization_id;
+
+  IF v_org_name IS NULL THEN
+    RAISE EXCEPTION 'Organisation introuvable : %', p_organization_id;
+  END IF;
+
+  -- Only super_admin can delete organizations
+  IF NOT public.is_super_admin() THEN
+    RAISE EXCEPTION 'Accès refusé : seul un super administrateur peut supprimer une organisation.';
+  END IF;
+
+  -- Gather stats for audit before deletion (dynamic SQL for optional tables)
+
+  -- stores count (may not exist yet)
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'stores'
+  ) THEN
+    EXECUTE 'SELECT COUNT(*) FROM public.stores WHERE organization_id = $1'
+      INTO v_store_count USING p_organization_id;
+  END IF;
+
+  -- profiles count
+  SELECT COUNT(*) INTO v_user_count
+  FROM public.profiles
+  WHERE organization_id = p_organization_id;
+
+  -- subscription_plan
+  SELECT subscription_plan INTO v_subscription_plan
+  FROM public.organizations
+  WHERE id = p_organization_id;
+
+  -- Log the deletion BEFORE actually deleting (conditional on subscription_events existing)
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'subscription_events'
+  ) THEN
+    INSERT INTO public.subscription_events (
+      organization_id, event_type, from_plan, to_plan, performed_by, metadata
+    ) VALUES (
+      p_organization_id,
+      'organization_deleted',
+      v_subscription_plan, NULL,
+      auth.uid(),
+      jsonb_build_object(
+        'organization_id', p_organization_id,
+        'organization_name', v_org_name,
+        'owner_user_id', v_owner_user_id,
+        'store_count', v_store_count,
+        'user_count', v_user_count,
+        'deleted_by', 'super_admin'
+      )
+    );
+  END IF;
+
+  -- Also log to user_audit_log if it exists
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'user_audit_log'
+  ) THEN
+    EXECUTE format(
+      'INSERT INTO public.user_audit_log (actor_id, action, details) VALUES ($1, $2, $3)'
+    ) USING auth.uid(), 'delete_organization', jsonb_build_object(
+      'organization_id', p_organization_id,
+      'organization_name', v_org_name,
+      'store_count', v_store_count,
+      'user_count', v_user_count
+    );
+  END IF;
+
+  -- Delete the organization (CASCADE will handle stores, subscriptions, etc.)
+  DELETE FROM public.organizations WHERE id = p_organization_id;
+
+  RETURN jsonb_build_object(
+    'success', TRUE,
+    'organization_id', p_organization_id,
+    'organization_name', v_org_name,
+    'deleted_stores', v_store_count,
+    'deleted_users', v_user_count
+  );
+END;
+$$;
+
+-- Re-grant execute
+GRANT EXECUTE ON FUNCTION public.delete_organization(UUID) TO authenticated;
+
+-- ════════════════════════════════════════════════════════════════
 -- 3. Improve delete_store() with conditional subscription_events logging
+-- ════════════════════════════════════════════════════════════════
 CREATE OR REPLACE FUNCTION public.delete_store(p_store_id UUID)
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -14397,61 +14602,162 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_org_id UUID; v_store_name TEXT; v_is_super_admin BOOLEAN; v_user_org_id UUID;
+  v_org_id UUID;
+  v_store_name TEXT;
+  v_is_super_admin BOOLEAN;
+  v_user_org_id UUID;
 BEGIN
-  SELECT organization_id, name INTO v_org_id, v_store_name FROM public.stores WHERE id = p_store_id;
-  IF v_org_id IS NULL THEN RAISE EXCEPTION 'Magasin introuvable : %', p_store_id; END IF;
-  SELECT organization_id INTO v_user_org_id FROM public.profiles WHERE user_id = auth.uid();
+  -- Check if the store exists and get its org
+  SELECT organization_id, name INTO v_org_id, v_store_name
+  FROM public.stores
+  WHERE id = p_store_id;
+
+  IF v_org_id IS NULL THEN
+    RAISE EXCEPTION 'Magasin introuvable : %', p_store_id;
+  END IF;
+
+  -- Get caller's org
+  SELECT organization_id INTO v_user_org_id
+  FROM public.profiles
+  WHERE user_id = auth.uid();
+
+  -- Check if super_admin
   v_is_super_admin := public.is_super_admin();
+
+  -- Authorization: super_admin can delete any store, admin can delete own org's stores
   IF NOT v_is_super_admin THEN
     IF v_user_org_id IS NULL OR v_user_org_id != v_org_id THEN
       RAISE EXCEPTION 'Accès refusé : vous ne pouvez supprimer que les magasins de votre organisation.';
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role IN ('admin')) THEN
+
+    -- Check if caller is at least admin of the org
+    IF NOT EXISTS (
+      SELECT 1 FROM public.user_roles ur
+      WHERE ur.user_id = auth.uid() AND ur.role IN ('admin')
+    ) THEN
       RAISE EXCEPTION 'Accès refusé : seuls les administrateurs peuvent supprimer des magasins.';
     END IF;
   END IF;
-  IF EXISTS (SELECT 1 FROM public.stores WHERE organization_id = v_org_id AND is_headquarters = true AND id = p_store_id) THEN
+
+  -- Prevent deletion of the last/headquarters store
+  IF EXISTS (
+    SELECT 1 FROM public.stores
+    WHERE organization_id = v_org_id
+    AND is_headquarters = true
+    AND id = p_store_id
+  ) THEN
+    -- Count total stores for this org
     IF (SELECT COUNT(*) FROM public.stores WHERE organization_id = v_org_id) <= 1 THEN
       RAISE EXCEPTION 'Impossible de supprimer le magasin principal. C''est le seul magasin de l''organisation.';
     END IF;
   END IF;
+
+  -- Delete the store (FK SET NULL on related tables will handle orphaning)
   DELETE FROM public.stores WHERE id = p_store_id;
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'subscription_events') THEN
-    INSERT INTO public.subscription_events (organization_id, event_type, from_plan, to_plan, performed_by, metadata)
-    VALUES (v_org_id, 'store_deleted', NULL, NULL, auth.uid(),
-      jsonb_build_object('store_id', p_store_id, 'store_name', v_store_name,
-        'deleted_by', CASE WHEN v_is_super_admin THEN 'super_admin' ELSE 'admin' END));
+
+  -- Log the deletion in subscription_events for audit (conditional)
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'subscription_events'
+  ) THEN
+    INSERT INTO public.subscription_events (
+      organization_id, event_type, from_plan, to_plan, performed_by, metadata
+    ) VALUES (
+      v_org_id,
+      'store_deleted',
+      NULL, NULL,
+      auth.uid(),
+      jsonb_build_object(
+        'store_id', p_store_id,
+        'store_name', v_store_name,
+        'deleted_by', CASE WHEN v_is_super_admin THEN 'super_admin' ELSE 'admin' END
+      )
+    );
   END IF;
-  RETURN jsonb_build_object('success', TRUE, 'store_id', p_store_id, 'store_name', v_store_name);
+
+  RETURN jsonb_build_object(
+    'success', TRUE,
+    'store_id', p_store_id,
+    'store_name', v_store_name
+  );
 END;
 $$;
 
+-- Re-grant execute
 GRANT EXECUTE ON FUNCTION public.delete_store(UUID) TO authenticated;
 
+-- ════════════════════════════════════════════════════════════════
+-- 4. Reload PostgREST schema cache
+-- ════════════════════════════════════════════════════════════════
 NOTIFY pgrst, 'reload schema';
+
 
 
 -- ═════════════════════════════════════════════════════════════════
 -- MIGRATION: 20260706050000_comprehensive_audit_fix.sql
 -- ═════════════════════════════════════════════════════════════════
 
--- 1. Add missing columns
-ALTER TABLE public.organizations ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT DEFAULT NULL;
-ALTER TABLE public.organizations ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'active';
-ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS billing_period TEXT DEFAULT 'monthly' CHECK (billing_period IN ('monthly', 'yearly'));
-ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT DEFAULT NULL;
+-- ============================================================
+-- Comprehensive Audit Fix: All broken RPCs and missing columns
+-- Date: 2026-07-06
+--
+-- Issues fixed:
+--   1. admin_get_all_subscriptions references columns that may not
+--      exist on remote DB (s.billing_period, o.stripe_customer_id)
+--      → "structure of query does not match function result type"
+--   2. admin_update_organization_subscription references
+--      subscription_status column which was NEVER added to
+--      organizations table → 400 error on every plan change
+--   3. touch_last_login may lack GRANT EXECUTE → 400 on login
+--   4. admin_get_all_subscriptions doesn't include delete capability
+--
+-- Strategy:
+--   - Add all missing columns with ADD COLUMN IF NOT EXISTS
+--   - Drop and recreate broken functions
+--   - Grant proper permissions
+-- ============================================================
 
--- 2. Recreate admin_get_all_subscriptions with dynamic SQL for optional columns
+-- ════════════════════════════════════════════════════════════════
+-- 1. Add missing columns to organizations
+-- ════════════════════════════════════════════════════════════════
+ALTER TABLE public.organizations
+  ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT DEFAULT NULL;
+
+ALTER TABLE public.organizations
+  ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'active';
+
+-- ════════════════════════════════════════════════════════════════
+-- 2. Add missing columns to subscriptions
+-- ════════════════════════════════════════════════════════════════
+ALTER TABLE public.subscriptions
+  ADD COLUMN IF NOT EXISTS billing_period TEXT DEFAULT 'monthly'
+  CHECK (billing_period IN ('monthly', 'yearly'));
+
+ALTER TABLE public.subscriptions
+  ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT DEFAULT NULL;
+
+-- ════════════════════════════════════════════════════════════════
+-- 3. Fix admin_get_all_subscriptions — recreate with safe columns
+--    Uses dynamic SQL to check for optional columns at runtime
+-- ════════════════════════════════════════════════════════════════
 DROP FUNCTION IF EXISTS public.admin_get_all_subscriptions();
 
 CREATE OR REPLACE FUNCTION public.admin_get_all_subscriptions()
 RETURNS TABLE (
-  organization_id UUID, organization_name TEXT, owner_email TEXT, country TEXT,
-  subscription_id UUID, plan_id TEXT, plan_name TEXT, status TEXT,
-  current_period_start TIMESTAMPTZ, current_period_end TIMESTAMPTZ,
-  trial_ends_at TIMESTAMPTZ, billing_period TEXT,
-  stripe_customer_id TEXT, created_at TIMESTAMPTZ
+  organization_id UUID,
+  organization_name TEXT,
+  owner_email TEXT,
+  country TEXT,
+  subscription_id UUID,
+  plan_id TEXT,
+  plan_name TEXT,
+  status TEXT,
+  current_period_start TIMESTAMPTZ,
+  current_period_end TIMESTAMPTZ,
+  trial_ends_at TIMESTAMPTZ,
+  billing_period TEXT,
+  stripe_customer_id TEXT,
+  created_at TIMESTAMPTZ
 )
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public
 AS $fn1$
@@ -14459,67 +14765,323 @@ DECLARE
   v_has_billing_period BOOLEAN;
   v_has_stripe_customer_id BOOLEAN;
 BEGIN
-  IF NOT public.is_super_admin() THEN RAISE EXCEPTION 'Access denied: super_admin only'; END IF;
-  SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'subscriptions' AND column_name = 'billing_period') INTO v_has_billing_period;
-  SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'organizations' AND column_name = 'stripe_customer_id') INTO v_has_stripe_customer_id;
+  -- Verify super_admin
+  IF NOT public.is_super_admin() THEN
+    RAISE EXCEPTION 'Access denied: super_admin only';
+  END IF;
+
+  -- Check which optional columns exist at runtime
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'subscriptions' AND column_name = 'billing_period'
+  ) INTO v_has_billing_period;
+
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'organizations' AND column_name = 'stripe_customer_id'
+  ) INTO v_has_stripe_customer_id;
+
+  -- Build and execute the query dynamically
   IF v_has_billing_period AND v_has_stripe_customer_id THEN
-    RETURN QUERY EXECUTE 'SELECT o.id, o.name, au.email, o.country, s.id, s.plan_id, p.name, s.status, s.current_period_start, s.current_period_end, s.trial_ends_at, s.billing_period, o.stripe_customer_id, s.created_at FROM organizations o LEFT JOIN subscriptions s ON s.organization_id = o.id LEFT JOIN plans p ON p.id = s.plan_id LEFT JOIN auth.users au ON au.id = o.owner_user_id ORDER BY o.name';
-  ELSIF v_has_billing_period THEN
-    RETURN QUERY EXECUTE 'SELECT o.id, o.name, au.email, o.country, s.id, s.plan_id, p.name, s.status, s.current_period_start, s.current_period_end, s.trial_ends_at, s.billing_period, NULL::TEXT, s.created_at FROM organizations o LEFT JOIN subscriptions s ON s.organization_id = o.id LEFT JOIN plans p ON p.id = s.plan_id LEFT JOIN auth.users au ON au.id = o.owner_user_id ORDER BY o.name';
-  ELSIF v_has_stripe_customer_id THEN
-    RETURN QUERY EXECUTE 'SELECT o.id, o.name, au.email, o.country, s.id, s.plan_id, p.name, s.status, s.current_period_start, s.current_period_end, s.trial_ends_at, NULL::TEXT, o.stripe_customer_id, s.created_at FROM organizations o LEFT JOIN subscriptions s ON s.organization_id = o.id LEFT JOIN plans p ON p.id = s.plan_id LEFT JOIN auth.users au ON au.id = o.owner_user_id ORDER BY o.name';
+    RETURN QUERY EXECUTE '
+      SELECT
+        o.id AS organization_id,
+        o.name AS organization_name,
+        au.email AS owner_email,
+        o.country,
+        s.id AS subscription_id,
+        s.plan_id,
+        p.name AS plan_name,
+        s.status,
+        s.current_period_start,
+        s.current_period_end,
+        s.trial_ends_at,
+        s.billing_period,
+        o.stripe_customer_id,
+        s.created_at
+      FROM organizations o
+      LEFT JOIN subscriptions s ON s.organization_id = o.id
+      LEFT JOIN plans p ON p.id = s.plan_id
+      LEFT JOIN auth.users au ON au.id = o.owner_user_id
+      ORDER BY o.name
+    ';
+  ELSIF v_has_billing_period AND NOT v_has_stripe_customer_id THEN
+    RETURN QUERY EXECUTE '
+      SELECT
+        o.id AS organization_id,
+        o.name AS organization_name,
+        au.email AS owner_email,
+        o.country,
+        s.id AS subscription_id,
+        s.plan_id,
+        p.name AS plan_name,
+        s.status,
+        s.current_period_start,
+        s.current_period_end,
+        s.trial_ends_at,
+        s.billing_period,
+        NULL::TEXT AS stripe_customer_id,
+        s.created_at
+      FROM organizations o
+      LEFT JOIN subscriptions s ON s.organization_id = o.id
+      LEFT JOIN plans p ON p.id = s.plan_id
+      LEFT JOIN auth.users au ON au.id = o.owner_user_id
+      ORDER BY o.name
+    ';
+  ELSIF NOT v_has_billing_period AND v_has_stripe_customer_id THEN
+    RETURN QUERY EXECUTE '
+      SELECT
+        o.id AS organization_id,
+        o.name AS organization_name,
+        au.email AS owner_email,
+        o.country,
+        s.id AS subscription_id,
+        s.plan_id,
+        p.name AS plan_name,
+        s.status,
+        s.current_period_start,
+        s.current_period_end,
+        s.trial_ends_at,
+        NULL::TEXT AS billing_period,
+        o.stripe_customer_id,
+        s.created_at
+      FROM organizations o
+      LEFT JOIN subscriptions s ON s.organization_id = o.id
+      LEFT JOIN plans p ON p.id = s.plan_id
+      LEFT JOIN auth.users au ON au.id = o.owner_user_id
+      ORDER BY o.name
+    ';
   ELSE
-    RETURN QUERY EXECUTE 'SELECT o.id, o.name, au.email, o.country, s.id, s.plan_id, p.name, s.status, s.current_period_start, s.current_period_end, s.trial_ends_at, NULL::TEXT, NULL::TEXT, s.created_at FROM organizations o LEFT JOIN subscriptions s ON s.organization_id = o.id LEFT JOIN plans p ON p.id = s.plan_id LEFT JOIN auth.users au ON au.id = o.owner_user_id ORDER BY o.name';
+    RETURN QUERY EXECUTE '
+      SELECT
+        o.id AS organization_id,
+        o.name AS organization_name,
+        au.email AS owner_email,
+        o.country,
+        s.id AS subscription_id,
+        s.plan_id,
+        p.name AS plan_name,
+        s.status,
+        s.current_period_start,
+        s.current_period_end,
+        s.trial_ends_at,
+        NULL::TEXT AS billing_period,
+        NULL::TEXT AS stripe_customer_id,
+        s.created_at
+      FROM organizations o
+      LEFT JOIN subscriptions s ON s.organization_id = o.id
+      LEFT JOIN plans p ON p.id = s.plan_id
+      LEFT JOIN auth.users au ON au.id = o.owner_user_id
+      ORDER BY o.name
+    ';
   END IF;
 END;
 $fn1$;
 
 GRANT EXECUTE ON FUNCTION public.admin_get_all_subscriptions() TO authenticated;
 
--- 3. Fix admin_update_organization_subscription (remove subscription_status reference)
+-- ════════════════════════════════════════════════════════════════
+-- 4. Fix admin_update_organization_subscription — remove reference
+--    to non-existent subscription_status column
+-- ════════════════════════════════════════════════════════════════
 CREATE OR REPLACE FUNCTION public.admin_update_organization_subscription(
-  p_organization_id UUID, p_plan_id TEXT, p_duration TEXT DEFAULT '1_month',
-  p_payment_reference TEXT DEFAULT NULL, p_reason TEXT DEFAULT NULL
+  p_organization_id UUID,
+  p_plan_id TEXT,
+  p_duration TEXT DEFAULT '1_month',
+  p_payment_reference TEXT DEFAULT NULL,
+  p_reason TEXT DEFAULT NULL
 )
-RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
-  v_old_plan_id TEXT; v_old_status TEXT; v_new_period_end TIMESTAMPTZ; v_event_type TEXT; v_duration_interval INTERVAL; v_result JSONB;
+  v_old_plan_id TEXT;
+  v_old_status TEXT;
+  v_new_period_end TIMESTAMPTZ;
+  v_event_type TEXT;
+  v_duration_interval INTERVAL;
+  v_result JSONB;
 BEGIN
-  IF NOT public.is_super_admin() THEN RAISE EXCEPTION 'Accès refusé : seuls les super_admin peuvent modifier les abonnements.'; END IF;
-  IF NOT EXISTS (SELECT 1 FROM public.plans WHERE id = p_plan_id AND is_active = TRUE) THEN RAISE EXCEPTION 'Plan invalide : %', p_plan_id; END IF;
-  CASE p_duration WHEN '1_month' THEN v_duration_interval := INTERVAL '1 month'; WHEN '3_months' THEN v_duration_interval := INTERVAL '3 months'; WHEN '6_months' THEN v_duration_interval := INTERVAL '6 months'; WHEN '1_year' THEN v_duration_interval := INTERVAL '1 year'; ELSE RAISE EXCEPTION 'Durée invalide : %', p_duration; END CASE;
-  IF NOT EXISTS (SELECT 1 FROM public.organizations WHERE id = p_organization_id) THEN RAISE EXCEPTION 'Organisation introuvable : %', p_organization_id; END IF;
-  SELECT plan_id, status INTO v_old_plan_id, v_old_status FROM public.subscriptions WHERE organization_id = p_organization_id ORDER BY created_at DESC LIMIT 1;
+  -- Guard: Only super_admin can call this
+  IF NOT public.is_super_admin() THEN
+    RAISE EXCEPTION 'Accès refusé : seuls les super_admin peuvent modifier les abonnements.';
+  END IF;
+
+  -- Validate plan_id
+  IF NOT EXISTS (SELECT 1 FROM public.plans WHERE id = p_plan_id AND is_active = TRUE) THEN
+    RAISE EXCEPTION 'Plan invalide : % n''existe pas ou est inactif.', p_plan_id;
+  END IF;
+
+  -- Validate duration
+  CASE p_duration
+    WHEN '1_month'  THEN v_duration_interval := INTERVAL '1 month';
+    WHEN '3_months' THEN v_duration_interval := INTERVAL '3 months';
+    WHEN '6_months' THEN v_duration_interval := INTERVAL '6 months';
+    WHEN '1_year'   THEN v_duration_interval := INTERVAL '1 year';
+    ELSE RAISE EXCEPTION 'Durée invalide : %. Valeurs acceptées : 1_month, 3_months, 6_months, 1_year.', p_duration;
+  END CASE;
+
+  -- Validate organization exists
+  IF NOT EXISTS (SELECT 1 FROM public.organizations WHERE id = p_organization_id) THEN
+    RAISE EXCEPTION 'Organisation introuvable : %', p_organization_id;
+  END IF;
+
+  -- Get current subscription info
+  SELECT plan_id, status INTO v_old_plan_id, v_old_status
+  FROM public.subscriptions
+  WHERE organization_id = p_organization_id
+  ORDER BY created_at DESC
+  LIMIT 1;
+
+  -- Calculate new period end
   v_new_period_end := NOW() + v_duration_interval;
-  IF v_old_plan_id IS NULL THEN v_event_type := 'created'; ELSIF v_old_plan_id = p_plan_id THEN v_event_type := 'renewed'; ELSIF (SELECT sort_order FROM public.plans WHERE id = p_plan_id) > (SELECT sort_order FROM public.plans WHERE id = v_old_plan_id) THEN v_event_type := 'upgraded'; ELSE v_event_type := 'downgraded'; END IF;
-  INSERT INTO public.subscriptions (organization_id, plan_id, status, current_period_start, current_period_end, trial_ends_at, grace_period_ends_at, cancelled_at) VALUES (p_organization_id, p_plan_id, 'active', NOW(), v_new_period_end, NULL, NULL, NULL) ON CONFLICT (organization_id) DO UPDATE SET plan_id = EXCLUDED.plan_id, status = 'active', current_period_start = NOW(), current_period_end = EXCLUDED.current_period_end, trial_ends_at = NULL, grace_period_ends_at = NULL, cancelled_at = NULL, updated_at = NOW();
-  UPDATE public.organizations SET subscription_plan = p_plan_id, subscription_expires_at = v_new_period_end, updated_at = NOW() WHERE id = p_organization_id;
-  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'organizations' AND column_name = 'subscription_status') THEN UPDATE public.organizations SET subscription_status = 'active' WHERE id = p_organization_id; END IF;
-  INSERT INTO public.subscription_events (organization_id, event_type, from_plan, to_plan, performed_by, metadata) VALUES (p_organization_id, v_event_type, v_old_plan_id, p_plan_id, auth.uid(), jsonb_build_object('duration', p_duration, 'new_period_end', v_new_period_end, 'payment_reference', p_payment_reference, 'reason', p_reason, 'old_status', v_old_status));
-  v_result := jsonb_build_object('success', TRUE, 'organization_id', p_organization_id, 'plan_id', p_plan_id, 'event_type', v_event_type, 'from_plan', v_old_plan_id, 'period_end', v_new_period_end, 'duration', p_duration);
+
+  -- Determine event type
+  IF v_old_plan_id IS NULL THEN
+    v_event_type := 'created';
+  ELSIF v_old_plan_id = p_plan_id THEN
+    v_event_type := 'renewed';
+  ELSIF
+    (SELECT sort_order FROM public.plans WHERE id = p_plan_id)
+    >
+    (SELECT sort_order FROM public.plans WHERE id = v_old_plan_id)
+  THEN
+    v_event_type := 'upgraded';
+  ELSE
+    v_event_type := 'downgraded';
+  END IF;
+
+  -- Upsert subscription
+  INSERT INTO public.subscriptions (
+    organization_id, plan_id, status,
+    current_period_start, current_period_end,
+    trial_ends_at, grace_period_ends_at, cancelled_at
+  ) VALUES (
+    p_organization_id, p_plan_id, 'active',
+    NOW(), v_new_period_end,
+    NULL, NULL, NULL
+  )
+  ON CONFLICT (organization_id) DO UPDATE SET
+    plan_id = EXCLUDED.plan_id,
+    status = 'active',
+    current_period_start = NOW(),
+    current_period_end = EXCLUDED.current_period_end,
+    trial_ends_at = NULL,
+    grace_period_ends_at = NULL,
+    cancelled_at = NULL,
+    updated_at = NOW();
+
+  -- Update organizations cache columns (WITHOUT subscription_status which may not exist)
+  UPDATE public.organizations
+  SET
+    subscription_plan = p_plan_id,
+    subscription_expires_at = v_new_period_end,
+    updated_at = NOW()
+  WHERE id = p_organization_id;
+
+  -- Also set subscription_status if the column exists
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'organizations' AND column_name = 'subscription_status'
+  ) THEN
+    UPDATE public.organizations
+    SET subscription_status = 'active'
+    WHERE id = p_organization_id;
+  END IF;
+
+  -- Audit log
+  INSERT INTO public.subscription_events (
+    organization_id, event_type,
+    from_plan, to_plan,
+    performed_by,
+    metadata
+  ) VALUES (
+    p_organization_id, v_event_type,
+    v_old_plan_id, p_plan_id,
+    auth.uid(),
+    jsonb_build_object(
+      'duration', p_duration,
+      'new_period_end', v_new_period_end,
+      'payment_reference', p_payment_reference,
+      'reason', p_reason,
+      'old_status', v_old_status
+    )
+  );
+
+  -- Return result
+  v_result := jsonb_build_object(
+    'success', TRUE,
+    'organization_id', p_organization_id,
+    'plan_id', p_plan_id,
+    'event_type', v_event_type,
+    'from_plan', v_old_plan_id,
+    'period_end', v_new_period_end,
+    'duration', p_duration
+  );
+
   RETURN v_result;
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.admin_update_organization_subscription(UUID, TEXT, TEXT, TEXT, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_update_organization_subscription(
+  UUID, TEXT, TEXT, TEXT, TEXT
+) TO authenticated;
 
--- 4. Ensure touch_last_login has GRANT EXECUTE
+-- ════════════════════════════════════════════════════════════════
+-- 5. Ensure touch_last_login has GRANT EXECUTE
+-- ════════════════════════════════════════════════════════════════
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public' AND p.proname = 'touch_last_login') THEN
+  -- Only grant if the function exists
+  IF EXISTS (
+    SELECT 1 FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public' AND p.proname = 'touch_last_login'
+  ) THEN
     GRANT EXECUTE ON FUNCTION public.touch_last_login() TO authenticated;
   ELSE
-    CREATE OR REPLACE FUNCTION public.touch_last_login() RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $inner$ BEGIN UPDATE public.profiles SET last_login_at = now() WHERE user_id = auth.uid(); END; $inner$;
+    -- Create the function if it doesn't exist
+    CREATE OR REPLACE FUNCTION public.touch_last_login()
+    RETURNS void
+    LANGUAGE plpgsql
+    SECURITY DEFINER
+    SET search_path = public
+    AS $inner$
+    BEGIN
+      UPDATE public.profiles
+      SET last_login_at = now()
+      WHERE user_id = auth.uid();
+    END;
+    $inner$;
+
     GRANT EXECUTE ON FUNCTION public.touch_last_login() TO authenticated;
   END IF;
 END $$;
 
--- 5. Indexes
-CREATE INDEX IF NOT EXISTS idx_organizations_stripe_customer_id ON public.organizations(stripe_customer_id) WHERE stripe_customer_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_subscriptions_stripe_sub_id ON public.subscriptions(stripe_subscription_id) WHERE stripe_subscription_id IS NOT NULL;
+-- ════════════════════════════════════════════════════════════════
+-- 6. Ensure indexes exist for new columns
+-- ════════════════════════════════════════════════════════════════
+CREATE INDEX IF NOT EXISTS idx_organizations_stripe_customer_id
+  ON public.organizations(stripe_customer_id)
+  WHERE stripe_customer_id IS NOT NULL;
 
+CREATE INDEX IF NOT EXISTS idx_subscriptions_stripe_sub_id
+  ON public.subscriptions(stripe_subscription_id)
+  WHERE stripe_subscription_id IS NOT NULL;
+
+-- ════════════════════════════════════════════════════════════════
+-- 7. Reload PostgREST schema cache
+-- ════════════════════════════════════════════════════════════════
 NOTIFY pgrst, 'reload schema';
+
+
+
+-- ═════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260706060000_user_activity_tracking.sql
+-- ═════════════════════════════════════════════════════════════════
+
 -- ============================================================
 -- Feature: User Activity Tracking & Seller Performance
 -- Date: 2026-07-06
@@ -14754,3 +15316,1170 @@ GRANT EXECUTE ON FUNCTION public.log_user_activity(TEXT, TEXT, JSONB) TO authent
 -- 6. Reload PostgREST schema cache
 -- ════════════════════════════════════════════════════════════════
 NOTIFY pgrst, 'reload schema';
+
+
+
+-- ═════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260706100000_create_first_organization_rpc.sql
+-- ═════════════════════════════════════════════════════════════════
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- MIGRATION: Create First Organization RPC
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- Purpose: Allow users without an organization to create their first org + store
+-- This is needed after database cleanup or for new super_admin users
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+CREATE OR REPLACE FUNCTION public.create_first_organization(
+  p_org_name TEXT,
+  p_store_name TEXT,
+  p_store_slug TEXT,
+  p_store_category public.store_category DEFAULT 'epicerie',
+  p_country TEXT DEFAULT 'GN',
+  p_currency TEXT DEFAULT 'GNF'
+)
+RETURNS JSONB
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_user_id UUID;
+  v_org_id UUID;
+  v_store_id UUID;
+  v_existing_org UUID;
+BEGIN
+  v_user_id := auth.uid();
+  
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Non authentifié';
+  END IF;
+  
+  -- Check if user already has an organization
+  SELECT organization_id INTO v_existing_org
+  FROM public.profiles WHERE user_id = v_user_id;
+  
+  IF v_existing_org IS NOT NULL THEN
+    -- User already has an org, just create a store
+    INSERT INTO public.stores (
+      organization_id, name, slug, country, currency, category
+    ) VALUES (
+      v_existing_org, p_store_name, p_store_slug, p_country, p_currency, p_store_category
+    ) RETURNING id INTO v_store_id;
+    
+    RETURN jsonb_build_object(
+      'success', true,
+      'organization_id', v_existing_org,
+      'store_id', v_store_id,
+      'mode', 'store_only'
+    );
+  END IF;
+  
+  -- Create new organization
+  INSERT INTO public.organizations (
+    name, owner_user_id, subscription_plan, created_at
+  ) VALUES (
+    p_org_name, v_user_id, 'starter', NOW()
+  ) RETURNING id INTO v_org_id;
+  
+  -- Update user's profile to link to the new org
+  UPDATE public.profiles
+  SET organization_id = v_org_id,
+      business_name = p_org_name
+  WHERE user_id = v_user_id;
+  
+  -- Create the first store
+  INSERT INTO public.stores (
+    organization_id, name, slug, country, currency, category
+  ) VALUES (
+    v_org_id, p_store_name, p_store_slug, p_country, p_currency, p_store_category
+  ) RETURNING id INTO v_store_id;
+  
+  -- Create starter subscription
+  INSERT INTO public.subscriptions (
+    organization_id, plan, status, current_period_start, current_period_end
+  ) VALUES (
+    v_org_id, 'starter', 'active', NOW(), NOW() + INTERVAL '30 days'
+  );
+  
+  -- Insert default categories for the organization
+  PERFORM public.insert_default_categories(v_org_id, v_user_id);
+  
+  RETURN jsonb_build_object(
+    'success', true,
+    'organization_id', v_org_id,
+    'store_id', v_store_id,
+    'mode', 'org_and_store'
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.create_first_organization(
+  TEXT, TEXT, TEXT, public.store_category, TEXT, TEXT
+) TO authenticated;
+
+-- Notify PostgREST to reload schema
+NOTIFY pgrst, 'reload schema';
+
+
+-- ═════════════════════════════════════════════════════════════════
+-- MIGRATION: 20260706180000_remove_unsafe_update_organization_subscription.sql
+-- ═════════════════════════════════════════════════════════════════
+
+-- ============================================================
+-- Remove unsafe own-organization subscription update RPC
+-- Date: 2026-07-06
+--
+-- This RPC allowed authenticated users to update their own
+-- subscription plan/status outside Stripe and outside platform
+-- super_admin validation.
+-- Manual subscription changes must go through:
+-- public.admin_update_organization_subscription(...)
+-- which enforces public.is_super_admin().
+-- ============================================================
+
+REVOKE EXECUTE ON FUNCTION public.update_organization_subscription(TEXT, TEXT, TEXT) FROM authenticated;
+REVOKE EXECUTE ON FUNCTION public.update_organization_subscription(TEXT, TEXT, TEXT) FROM anon;
+
+DROP FUNCTION IF EXISTS public.update_organization_subscription(TEXT, TEXT, TEXT);
+
+NOTIFY pgrst, 'reload schema';
+
+
+
+-- ═════════════════════════════════════════════════════════════════
+-- MIGRATION: _combined_remaining_migrations.sql
+-- ═════════════════════════════════════════════════════════════════
+
+-- Migration: Fix RLS self-escalation vulnerability and include super_admin in all policies
+-- Date: 2026-07-01
+-- FULLY IDEMPOTENT — safe to re-run any number of times
+
+-- ============================================
+-- 1. Prevent self-role-escalation on user_roles INSERT
+-- ============================================
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "user_roles_insert_self_or_admin" ON user_roles;
+  DROP POLICY IF EXISTS "user_roles_insert_admin_only" ON user_roles;
+  DROP POLICY IF EXISTS "Users can create their own role" ON user_roles;
+  DROP POLICY IF EXISTS "Allow first admin or admin-created roles" ON user_roles;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'user_roles drop: %', SQLERRM;
+END $$;
+
+CREATE POLICY "user_roles_insert_admin_only" ON user_roles
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    has_role(auth.uid(), 'admin')
+    OR is_super_admin()
+  );
+
+-- ============================================
+-- 2. Include super_admin in user_roles DELETE
+-- ============================================
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "Admins can delete user roles" ON user_roles;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'user_roles delete drop: %', SQLERRM;
+END $$;
+
+CREATE POLICY "Admins can delete user roles" ON user_roles
+  FOR DELETE TO authenticated
+  USING (
+    has_role(auth.uid(), 'admin')
+    OR is_super_admin()
+  );
+
+-- ============================================
+-- 3. Include super_admin in audit_log INSERT
+-- ============================================
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "admins_insert_audit_log" ON user_audit_log;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'audit_log drop: %', SQLERRM;
+END $$;
+
+CREATE POLICY "admins_insert_audit_log" ON user_audit_log
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    has_role(auth.uid(), 'admin')
+    OR is_super_admin()
+  );
+
+-- ============================================
+-- 4. Include super_admin in reset_tokens INSERT
+-- ============================================
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "admins_insert_reset_tokens" ON password_reset_tokens;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'reset_tokens drop: %', SQLERRM;
+END $$;
+
+CREATE POLICY "admins_insert_reset_tokens" ON password_reset_tokens
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    has_role(auth.uid(), 'admin')
+    OR is_super_admin()
+  );
+
+-- ============================================
+-- 5. Include super_admin in profiles UPDATE
+-- ============================================
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'profiles update drop: %', SQLERRM;
+END $$;
+
+CREATE POLICY "Users can update own profile" ON profiles
+  FOR UPDATE TO authenticated
+  USING (
+    user_id = auth.uid()
+    OR has_role(auth.uid(), 'admin')
+    OR is_super_admin()
+  )
+  WITH CHECK (
+    user_id = auth.uid()
+    OR has_role(auth.uid(), 'admin')
+    OR is_super_admin()
+  );
+
+-- ============================================
+-- 6. check_account_status returns FALSE when no profile
+-- ============================================
+CREATE OR REPLACE FUNCTION check_account_status(check_user_id UUID)
+RETURNS TABLE(is_active BOOLEAN, role TEXT, organization_id UUID)
+LANGUAGE sql SECURITY DEFINER
+AS $$
+  SELECT
+    COALESCE(p.is_active, FALSE),
+    r.role::TEXT,
+    p.organization_id
+  FROM profiles p
+  LEFT JOIN user_roles r ON r.user_id = p.user_id
+  WHERE p.user_id = check_user_id
+  UNION ALL
+  SELECT FALSE, NULL, NULL
+  WHERE NOT EXISTS (
+    SELECT 1 FROM profiles WHERE user_id = check_user_id
+  );
+$$;
+-- Migration: Critical audit fixes — batch_update_stock grant, check_account_status DROP+recreate,
+--            create_full_sale RPC, process_credit_payment RPC, decrement_stock RPC,
+--            register_user RPC (atomic signup), increment_customer_credit RPC
+-- Date: 2026-07-01
+-- FULLY IDEMPOTENT — safe to re-run any number of times
+-- Uses dynamic DROP via pg_proc to avoid 42P13 errors regardless of existing signature
+
+-- ============================================
+-- 0. Helper: dynamically drop ALL overloads of a function by name
+--    This avoids 42P13 errors from signature mismatches in DROP FUNCTION IF EXISTS
+-- ============================================
+
+-- ============================================
+-- 1. GRANT EXECUTE on batch_update_stock to authenticated (C2)
+-- ============================================
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.batch_update_stock(UUID, JSONB) TO authenticated;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'batch_update_stock grant: %', SQLERRM;
+END $$;
+
+-- ============================================
+-- 2. Fix check_account_status (C3)
+--    Dynamically drop ALL existing overloads, then recreate
+-- ============================================
+DO $$
+DECLARE
+  f record;
+BEGIN
+  FOR f IN
+    SELECT oid::regprocedure AS func_sig
+    FROM pg_proc
+    WHERE proname = 'check_account_status'
+      AND pronamespace = 'public'::regnamespace
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || f.func_sig;
+    RAISE NOTICE 'Dropped %', f.func_sig;
+  END LOOP;
+END $$;
+
+-- Zero-arg: enriched return type (is_active, role, organization_id, deactivation_reason)
+CREATE OR REPLACE FUNCTION public.check_account_status()
+RETURNS TABLE(is_active BOOLEAN, role TEXT, organization_id UUID, deactivation_reason TEXT)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+  SELECT
+    COALESCE(p.is_active, FALSE),
+    r.role::TEXT,
+    p.organization_id,
+    p.deactivation_reason
+  FROM profiles p
+  LEFT JOIN user_roles r ON r.user_id = p.user_id
+  WHERE p.user_id = auth.uid()
+  UNION ALL
+  SELECT FALSE, NULL, NULL, NULL
+  WHERE NOT EXISTS (
+    SELECT 1 FROM profiles WHERE user_id = auth.uid()
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION public.check_account_status() TO authenticated, service_role;
+
+-- 1-arg overload
+CREATE OR REPLACE FUNCTION public.check_account_status(check_user_id UUID)
+RETURNS TABLE(is_active BOOLEAN, role TEXT, organization_id UUID)
+LANGUAGE sql SECURITY DEFINER SET search_path = public
+AS $$
+  SELECT
+    COALESCE(p.is_active, FALSE),
+    r.role::TEXT,
+    p.organization_id
+  FROM profiles p
+  LEFT JOIN user_roles r ON r.user_id = p.user_id
+  WHERE p.user_id = check_user_id
+  UNION ALL
+  SELECT FALSE, NULL, NULL
+  WHERE NOT EXISTS (
+    SELECT 1 FROM profiles WHERE user_id = check_user_id
+  );
+$$;
+
+-- ============================================
+-- 3. create_full_sale RPC — atomic sale creation (C4 + C5)
+--    Dynamically drop ALL existing versions first
+-- ============================================
+DO $$
+DECLARE
+  f record;
+BEGIN
+  FOR f IN
+    SELECT oid::regprocedure AS func_sig
+    FROM pg_proc
+    WHERE proname = 'create_full_sale'
+      AND pronamespace = 'public'::regnamespace
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || f.func_sig;
+    RAISE NOTICE 'Dropped %', f.func_sig;
+  END LOOP;
+END $$;
+
+CREATE OR REPLACE FUNCTION public.create_full_sale(
+  p_user_id UUID,
+  p_organization_id UUID,
+  p_sale_number TEXT,
+  p_subtotal NUMERIC,
+  p_total_amount NUMERIC,
+  p_items JSONB,
+  p_tax_amount NUMERIC DEFAULT 0,
+  p_payment_method TEXT DEFAULT 'cash',
+  p_amount_paid NUMERIC DEFAULT 0,
+  p_change_amount NUMERIC DEFAULT 0,
+  p_customer_name TEXT DEFAULT NULL,
+  p_customer_phone TEXT DEFAULT NULL,
+  p_seller_name TEXT DEFAULT NULL
+)
+RETURNS UUID
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_sale_id UUID;
+  v_item JSONB;
+  v_current_stock INTEGER;
+  v_requested_qty INTEGER;
+BEGIN
+  -- 0. Pre-check: verify sufficient stock for all items (C5: prevent oversell)
+  FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
+  LOOP
+    v_requested_qty := (v_item->>'quantity')::INTEGER;
+    SELECT stock_quantity INTO v_current_stock
+    FROM products WHERE id = (v_item->>'product_id')::UUID;
+
+    IF v_current_stock < v_requested_qty THEN
+      RAISE EXCEPTION 'Stock insuffisant pour %: demande=%, disponible=%',
+        v_item->>'product_name', v_requested_qty, v_current_stock;
+    END IF;
+  END LOOP;
+
+  -- 1. Insert sale
+  INSERT INTO sales (
+    user_id, organization_id, sale_number, subtotal, tax_amount, total_amount,
+    payment_method, amount_paid, change_amount, customer_name, customer_phone, seller_name
+  ) VALUES (
+    p_user_id, p_organization_id, p_sale_number, p_subtotal, p_tax_amount, p_total_amount,
+    p_payment_method, p_amount_paid, p_change_amount, p_customer_name, p_customer_phone, p_seller_name
+  ) RETURNING id INTO v_sale_id;
+
+  -- 2. Insert sale items
+  FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
+  LOOP
+    INSERT INTO sale_items (
+      sale_id, product_id, product_name, quantity, unit_price, total_price, organization_id
+    ) VALUES (
+      v_sale_id,
+      (v_item->>'product_id')::UUID,
+      v_item->>'product_name',
+      (v_item->>'quantity')::INTEGER,
+      (v_item->>'unit_price')::NUMERIC,
+      (v_item->>'total_price')::NUMERIC,
+      p_organization_id
+    );
+  END LOOP;
+
+  -- 3. Atomically decrement stock (relative update, no race condition)
+  FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
+  LOOP
+    UPDATE products
+    SET stock_quantity = GREATEST(stock_quantity - (v_item->>'quantity')::INTEGER, 0),
+        updated_at = NOW()
+    WHERE id = (v_item->>'product_id')::UUID;
+  END LOOP;
+
+  -- 4. Record stock movements
+  FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
+  LOOP
+    SELECT stock_quantity INTO v_current_stock
+    FROM products WHERE id = (v_item->>'product_id')::UUID;
+
+    INSERT INTO stock_movements (
+      product_id, type, quantity, previous_quantity, new_quantity, reason, user_id, organization_id
+    ) VALUES (
+      (v_item->>'product_id')::UUID,
+      'sale',
+      -(v_item->>'quantity')::INTEGER,
+      v_current_stock + (v_item->>'quantity')::INTEGER,
+      v_current_stock,
+      'Vente ' || p_sale_number,
+      p_user_id,
+      p_organization_id
+    );
+  END LOOP;
+
+  RETURN v_sale_id;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.create_full_sale TO authenticated;
+
+-- ============================================
+-- 4. process_credit_payment RPC — atomic credit payment (C6)
+-- ============================================
+DO $$
+DECLARE
+  f record;
+BEGIN
+  FOR f IN
+    SELECT oid::regprocedure AS func_sig
+    FROM pg_proc
+    WHERE proname = 'process_credit_payment'
+      AND pronamespace = 'public'::regnamespace
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || f.func_sig;
+    RAISE NOTICE 'Dropped %', f.func_sig;
+  END LOOP;
+END $$;
+
+CREATE OR REPLACE FUNCTION public.process_credit_payment(
+  p_user_id UUID,
+  p_organization_id UUID,
+  p_customer_id UUID,
+  p_amount NUMERIC,
+  p_description TEXT DEFAULT 'Paiement de crédit'
+)
+RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+BEGIN
+  IF p_amount <= 0 THEN
+    RAISE EXCEPTION 'Le montant doit être supérieur à 0';
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM customers WHERE id = p_customer_id AND total_credit >= p_amount) THEN
+    RAISE EXCEPTION 'Crédit insuffisant ou client introuvable';
+  END IF;
+
+  INSERT INTO customer_credits (
+    user_id, organization_id, customer_id, amount, type, description
+  ) VALUES (
+    p_user_id, p_organization_id, p_customer_id, p_amount, 'payment', p_description
+  );
+
+  UPDATE customers
+  SET total_credit = GREATEST(total_credit - p_amount, 0),
+      updated_at = NOW()
+  WHERE id = p_customer_id;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.process_credit_payment TO authenticated;
+
+-- ============================================
+-- 5. decrement_stock RPC — atomic relative stock decrement (C5 fallback)
+-- ============================================
+DO $$
+DECLARE
+  f record;
+BEGIN
+  FOR f IN
+    SELECT oid::regprocedure AS func_sig
+    FROM pg_proc
+    WHERE proname = 'decrement_stock'
+      AND pronamespace = 'public'::regnamespace
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || f.func_sig;
+    RAISE NOTICE 'Dropped %', f.func_sig;
+  END LOOP;
+END $$;
+
+CREATE OR REPLACE FUNCTION public.decrement_stock(
+  p_product_id UUID,
+  p_quantity INTEGER
+)
+RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_current_stock INTEGER;
+BEGIN
+  IF p_quantity <= 0 THEN
+    RAISE EXCEPTION 'La quantité doit être supérieure à 0';
+  END IF;
+
+  UPDATE products
+  SET stock_quantity = GREATEST(stock_quantity - p_quantity, 0),
+      updated_at = NOW()
+  WHERE id = p_product_id
+  RETURNING stock_quantity INTO v_current_stock;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.decrement_stock TO authenticated;
+
+-- ============================================
+-- 6. register_user RPC — atomic user registration (C9)
+-- ============================================
+DO $$
+DECLARE
+  f record;
+BEGIN
+  FOR f IN
+    SELECT oid::regprocedure AS func_sig
+    FROM pg_proc
+    WHERE proname = 'register_user'
+      AND pronamespace = 'public'::regnamespace
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || f.func_sig;
+    RAISE NOTICE 'Dropped %', f.func_sig;
+  END LOOP;
+END $$;
+
+CREATE OR REPLACE FUNCTION public.register_user(
+  p_user_id UUID,
+  p_business_name TEXT,
+  p_owner_name TEXT,
+  p_phone TEXT DEFAULT NULL,
+  p_role TEXT DEFAULT 'vendeur',
+  p_organization_id UUID DEFAULT NULL
+)
+RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO profiles (user_id, business_name, owner_name, phone, organization_id)
+  VALUES (p_user_id, p_business_name, p_owner_name, p_phone, p_organization_id);
+
+  INSERT INTO user_roles (user_id, role)
+  VALUES (p_user_id, p_role::app_role);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.register_user TO authenticated, service_role;
+
+-- ============================================
+-- 7. increment_customer_credit RPC — atomic credit increment
+-- ============================================
+DO $$
+DECLARE
+  f record;
+BEGIN
+  FOR f IN
+    SELECT oid::regprocedure AS func_sig
+    FROM pg_proc
+    WHERE proname = 'increment_customer_credit'
+      AND pronamespace = 'public'::regnamespace
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || f.func_sig;
+    RAISE NOTICE 'Dropped %', f.func_sig;
+  END LOOP;
+END $$;
+
+CREATE OR REPLACE FUNCTION public.increment_customer_credit(
+  p_customer_id UUID,
+  p_amount NUMERIC
+)
+RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+BEGIN
+  IF p_amount <= 0 THEN
+    RAISE EXCEPTION 'Le montant doit être supérieur à 0';
+  END IF;
+
+  UPDATE customers
+  SET total_credit = total_credit + p_amount,
+      updated_at = NOW()
+  WHERE id = p_customer_id;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.increment_customer_credit TO authenticated;
+
+-- ============================================
+-- 8. GRANT EXECUTE on touch_last_login
+-- ============================================
+DO $$ BEGIN
+  GRANT EXECUTE ON FUNCTION public.touch_last_login() TO authenticated;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'touch_last_login grant: %', SQLERRM;
+END $$;
+-- Migration: HIGH audit fixes — Storage RLS org scoping, user_roles RLS cleanup, missing GRANTs
+-- Date: 2026-07-01
+-- FULLY IDEMPOTENT — safe to re-run any number of times
+
+-- ============================================
+-- H2: Storage bucket RLS — org scoping on logos
+--     Current policies allow ANY authenticated user to upload/overwrite/delete
+--     logos from ANY organization. Fix: restrict to admin/manager only, and
+--     add org_id metadata check for uploads.
+-- ============================================
+
+-- Drop old permissive policies
+DROP POLICY IF EXISTS anyone_view_logos ON storage.objects;
+DROP POLICY IF EXISTS org_members_upload_logos ON storage.objects;
+DROP POLICY IF EXISTS org_members_update_logos ON storage.objects;
+DROP POLICY IF EXISTS org_members_delete_logos ON storage.objects;
+
+-- Anyone can VIEW logos (public read for landing page / receipts)
+CREATE POLICY anyone_view_logos ON storage.objects
+  FOR SELECT USING (bucket_id = 'logos');
+
+-- Only admin/manager of the organization can UPLOAD logos
+-- We check the user's profile for their role and org
+CREATE POLICY org_admins_upload_logos ON storage.objects
+  FOR INSERT WITH CHECK (
+    bucket_id = 'logos'
+    AND auth.role() = 'authenticated'
+    AND EXISTS (
+      SELECT 1 FROM profiles p
+      JOIN user_roles r ON r.user_id = p.user_id
+      WHERE p.user_id = auth.uid()
+        AND r.role IN ('admin', 'super_admin', 'manager')
+    )
+  );
+
+-- Only admin/manager can UPDATE logos
+CREATE POLICY org_admins_update_logos ON storage.objects
+  FOR UPDATE USING (
+    bucket_id = 'logos'
+    AND auth.role() = 'authenticated'
+    AND EXISTS (
+      SELECT 1 FROM profiles p
+      JOIN user_roles r ON r.user_id = p.user_id
+      WHERE p.user_id = auth.uid()
+        AND r.role IN ('admin', 'super_admin', 'manager')
+    )
+  );
+
+-- Only admin/manager can DELETE logos
+CREATE POLICY org_admins_delete_logos ON storage.objects
+  FOR DELETE USING (
+    bucket_id = 'logos'
+    AND auth.role() = 'authenticated'
+    AND EXISTS (
+      SELECT 1 FROM profiles p
+      JOIN user_roles r ON r.user_id = p.user_id
+      WHERE p.user_id = auth.uid()
+        AND r.role IN ('admin', 'super_admin', 'manager')
+    )
+  );
+
+-- ============================================
+-- H10: Remove conflicting permissive user_roles INSERT policy
+--     The old "Users can create their own role" policy allows any user to
+--     INSERT any role for themselves. The new "user_roles_insert_admin_only"
+--     policy restricts this to admin/super_admin. Both policies exist and
+--     Supabase uses OR logic (ANY matching policy = allowed), making the
+--     restrictive one ineffective. We must DROP the old permissive one.
+-- ============================================
+DROP POLICY IF EXISTS "Users can create their own role" ON public.user_roles;
+
+-- ============================================
+-- H11: Missing GRANT on check_account_status(UUID) overload
+-- ============================================
+GRANT EXECUTE ON FUNCTION public.check_account_status(UUID) TO authenticated, service_role;
+
+-- ============================================
+-- H2b: Revoke public access on storage objects (if any anon policies exist)
+-- ============================================
+DO $$ BEGIN
+  -- Ensure logos bucket exists
+  INSERT INTO storage.buckets (id, name, public)
+  VALUES ('logos', 'logos', true)
+  ON CONFLICT (id) DO UPDATE SET public = true;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'logos bucket: %', SQLERRM;
+END $$;
+-- Add nfc_enabled column to profiles for NFC preference persistence (#24)
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS nfc_enabled boolean DEFAULT false;
+
+-- Grant is already covered by existing RLS policies on profiles
+-- Migration: Fix create_full_sale TOCTOU race condition (oversell with concurrent vendeurs)
+-- Date: 2026-07-01
+-- PROBLEM: Pre-check SELECT + GREATEST(stock_quantity - X, 0) allows oversell when
+--          multiple vendeurs sell simultaneously. The pre-check reads stock, then
+--          another transaction modifies it, then the UPDATE uses GREATEST which
+--          silently clamps to 0 instead of raising an error.
+-- FIX: Replace pre-check + GREATEST with atomic UPDATE...RETURNING + exception check.
+--       This eliminates the TOCTOU race condition entirely.
+-- IDEMPOTENT: Uses dynamic DROP via pg_proc to avoid signature mismatch errors.
+
+DO $$
+DECLARE
+  f record;
+BEGIN
+  FOR f IN
+    SELECT oid::regprocedure AS func_sig
+    FROM pg_proc
+    WHERE proname = 'create_full_sale'
+      AND pronamespace = 'public'::regnamespace
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || f.func_sig;
+    RAISE NOTICE 'Dropped %', f.func_sig;
+  END LOOP;
+END $$;
+
+CREATE OR REPLACE FUNCTION public.create_full_sale(
+  p_user_id UUID,
+  p_organization_id UUID,
+  p_sale_number TEXT,
+  p_subtotal NUMERIC,
+  p_total_amount NUMERIC,
+  p_items JSONB,
+  p_tax_amount NUMERIC DEFAULT 0,
+  p_payment_method TEXT DEFAULT 'cash',
+  p_amount_paid NUMERIC DEFAULT 0,
+  p_change_amount NUMERIC DEFAULT 0,
+  p_customer_name TEXT DEFAULT NULL,
+  p_customer_phone TEXT DEFAULT NULL,
+  p_seller_name TEXT DEFAULT NULL
+)
+RETURNS UUID
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_sale_id UUID;
+  v_item JSONB;
+  v_new_stock INTEGER;
+  v_previous_stock INTEGER;
+BEGIN
+  -- 1. Insert sale
+  INSERT INTO sales (
+    user_id, organization_id, sale_number, subtotal, tax_amount, total_amount,
+    payment_method, amount_paid, change_amount, customer_name, customer_phone, seller_name
+  ) VALUES (
+    p_user_id, p_organization_id, p_sale_number, p_subtotal, p_tax_amount, p_total_amount,
+    p_payment_method, p_amount_paid, p_change_amount, p_customer_name, p_customer_phone, p_seller_name
+  ) RETURNING id INTO v_sale_id;
+
+  -- 2. Insert sale items
+  FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
+  LOOP
+    INSERT INTO sale_items (
+      sale_id, product_id, product_name, quantity, unit_price, total_price, organization_id
+    ) VALUES (
+      v_sale_id,
+      (v_item->>'product_id')::UUID,
+      v_item->>'product_name',
+      (v_item->>'quantity')::INTEGER,
+      (v_item->>'unit_price')::NUMERIC,
+      (v_item->>'total_price')::NUMERIC,
+      p_organization_id
+    );
+  END LOOP;
+
+  -- 3. Atomically decrement stock with race-condition protection
+  --    UPDATE ... RETURNING is atomic: PostgreSQL acquires a row lock,
+  --    so concurrent transactions are serialized at the row level.
+  --    If stock goes negative, we raise an exception which rolls back
+  --    the entire transaction (sale + sale_items are also rolled back).
+  FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
+  LOOP
+    UPDATE products
+    SET stock_quantity = stock_quantity - (v_item->>'quantity')::INTEGER,
+        updated_at = NOW()
+    WHERE id = (v_item->>'product_id')::UUID
+    RETURNING stock_quantity INTO v_new_stock;
+
+    -- Check for oversell AFTER the atomic update
+    IF v_new_stock < 0 THEN
+      RAISE EXCEPTION 'Stock insuffisant pour %: stock négatif après décrément',
+        v_item->>'product_name';
+    END IF;
+  END LOOP;
+
+  -- 4. Record stock movements
+  FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
+  LOOP
+    SELECT stock_quantity INTO v_new_stock
+    FROM products WHERE id = (v_item->>'product_id')::UUID;
+
+    v_previous_stock := v_new_stock + (v_item->>'quantity')::INTEGER;
+
+    INSERT INTO stock_movements (
+      product_id, type, quantity, previous_quantity, new_quantity, reason, user_id, organization_id
+    ) VALUES (
+      (v_item->>'product_id')::UUID,
+      'sale',
+      -(v_item->>'quantity')::INTEGER,
+      v_previous_stock,
+      v_new_stock,
+      'Vente ' || p_sale_number,
+      p_user_id,
+      p_organization_id
+    );
+  END LOOP;
+
+  RETURN v_sale_id;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.create_full_sale TO authenticated;
+-- ============================================================
+-- INDEX MANQUANTS POUR LA PERFORMANCE
+-- Ces index sont nécessaires pour les requêtes fréquentes
+-- sur les grandes tables (2000+ produits, ventes multiples)
+-- ============================================================
+
+-- Index sur organizations.owner_user_id — utilisé dans les jointures Stores
+CREATE INDEX IF NOT EXISTS idx_organizations_owner_user_id ON public.organizations(owner_user_id);
+
+-- Index sur customers.phone — utilisé pour la recherche client lors des ventes (POS.tsx)
+CREATE INDEX IF NOT EXISTS idx_customers_phone ON public.customers(phone);
+
+-- Index sur expenses.expense_date — utilisé pour le filtrage par date dans les rapports
+CREATE INDEX IF NOT EXISTS idx_expenses_expense_date ON public.expenses(expense_date);
+
+-- Index sur sale_items.product_id — utilisé pour les requêtes top-produits dans les rapports
+CREATE INDEX IF NOT EXISTS idx_sale_items_product_id ON public.sale_items(product_id);
+
+-- Index composite sur sales(organization_id, created_at) — déjà partiellement couvert par idx_sales_organization_id
+-- mais l'ordre composite est important pour les requêtes de dashboard filtrées par org + date
+CREATE INDEX IF NOT EXISTS idx_sales_org_created_at ON public.sales(organization_id, created_at DESC);
+
+-- Index composite sur products(organization_id, is_active) — pour les requêtes de produits actifs par magasin
+CREATE INDEX IF NOT EXISTS idx_products_org_active ON public.products(organization_id, is_active);
+-- Migration: Race condition fixes — Phase 1
+-- Date: 2026-07-02
+-- 1. Unique constraint on customers(phone, organization_id) to prevent duplicate customers
+-- 2. adjust_product_stock RPC for atomic stock adjustments (replaces non-atomic SET in Products.tsx)
+-- 3. Add STABLE to check_account_status(UUID) overload
+-- FULLY IDEMPOTENT
+
+-- ============================================
+-- 1. Unique constraint on customers(phone, organization_id)
+--    Prevents duplicate customer records when concurrent sellers use the same phone.
+--    Partial index: only when phone IS NOT NULL (null phones shouldn't block each other)
+-- ============================================
+CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_phone_org_unique
+  ON public.customers(phone, organization_id)
+  WHERE phone IS NOT NULL;
+
+-- ============================================
+-- 2. adjust_product_stock RPC — atomic stock adjustment
+--    Replaces the non-atomic pattern in Products.tsx where:
+--    - previousQuantity is read from stale client cache
+--    - newQuantity is computed client-side then SET absolutely
+--    This RPC uses UPDATE...RETURNING with row-level locking to prevent lost updates.
+-- ============================================
+DO $$
+DECLARE
+  f record;
+BEGIN
+  FOR f IN
+    SELECT oid::regprocedure AS func_sig
+    FROM pg_proc
+    WHERE proname = 'adjust_product_stock'
+      AND pronamespace = 'public'::regnamespace
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || f.func_sig;
+    RAISE NOTICE 'Dropped %', f.func_sig;
+  END LOOP;
+END $$;
+
+CREATE OR REPLACE FUNCTION public.adjust_product_stock(
+  p_product_id UUID,
+  p_type TEXT,              -- 'restock' | 'loss' | 'adjustment'
+  p_quantity INTEGER,        -- quantity to add/subtract (restock/loss) or set (adjustment)
+  p_reason TEXT DEFAULT NULL,
+  p_user_id UUID DEFAULT NULL,
+  p_organization_id UUID DEFAULT NULL
+)
+RETURNS TABLE(new_quantity INTEGER, previous_quantity INTEGER)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_previous_stock INTEGER;
+  v_new_stock INTEGER;
+  v_delta INTEGER;
+BEGIN
+  IF p_type NOT IN ('restock', 'loss', 'adjustment') THEN
+    RAISE EXCEPTION 'Type d''ajustement invalide : %. Utilisez restock, loss ou adjustment.', p_type;
+  END IF;
+
+  IF p_quantity < 0 THEN
+    RAISE EXCEPTION 'La quantité doit être positive.';
+  END IF;
+
+  -- Atomically update stock with row lock
+  IF p_type = 'restock' THEN
+    UPDATE products
+    SET stock_quantity = stock_quantity + p_quantity,
+        updated_at = NOW()
+    WHERE id = p_product_id
+    RETURNING stock_quantity - p_quantity, stock_quantity
+    INTO v_previous_stock, v_new_stock;
+
+  ELSIF p_type = 'loss' THEN
+    UPDATE products
+    SET stock_quantity = GREATEST(stock_quantity - p_quantity, 0),
+        updated_at = NOW()
+    WHERE id = p_product_id
+    RETURNING stock_quantity + p_quantity, stock_quantity
+    INTO v_previous_stock, v_new_stock;
+
+  ELSIF p_type = 'adjustment' THEN
+    -- For adjustment, p_quantity is the new absolute value
+    UPDATE products
+    SET stock_quantity = p_quantity,
+        updated_at = NOW()
+    WHERE id = p_product_id
+    RETURNING stock_quantity, p_quantity
+    INTO v_previous_stock, v_new_stock;
+  END IF;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Produit introuvable : %', p_product_id;
+  END IF;
+
+  -- Record stock movement
+  IF p_type = 'restock' THEN
+    v_delta := p_quantity;
+  ELSIF p_type = 'loss' THEN
+    v_delta := -p_quantity;
+  ELSE
+    v_delta := v_new_stock - v_previous_stock;
+  END IF;
+
+  INSERT INTO stock_movements (
+    product_id, type, quantity, previous_quantity, new_quantity,
+    reason, user_id, organization_id
+  ) VALUES (
+    p_product_id, p_type, v_delta, v_previous_stock, v_new_stock,
+    p_reason, p_user_id, p_organization_id
+  );
+
+  RETURN QUERY SELECT v_new_stock, v_previous_stock;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.adjust_product_stock(UUID, TEXT, INTEGER, TEXT, UUID, UUID) TO authenticated;
+
+-- ============================================
+-- 3. Add STABLE to check_account_status(UUID) overload
+--    The zero-arg version already has STABLE, but the UUID overload is missing it.
+-- ============================================
+DO $$
+DECLARE
+  f record;
+  fn_sig_count INTEGER;
+BEGIN
+  -- Count how many overloads exist
+  SELECT COUNT(*) INTO fn_sig_count
+  FROM pg_proc
+  WHERE proname = 'check_account_status'
+    AND pronamespace = 'public'::regnamespace;
+
+  IF fn_sig_count > 0 THEN
+    -- Drop and recreate with STABLE
+    FOR f IN
+      SELECT oid::regprocedure AS func_sig
+      FROM pg_proc
+      WHERE proname = 'check_account_status'
+        AND pronamespace = 'public'::regnamespace
+    LOOP
+      EXECUTE 'DROP FUNCTION IF EXISTS ' || f.func_sig;
+      RAISE NOTICE 'Dropped %', f.func_sig;
+    END LOOP;
+  END IF;
+END $$;
+
+-- Zero-arg: enriched return type
+CREATE OR REPLACE FUNCTION public.check_account_status()
+RETURNS TABLE(is_active BOOLEAN, role TEXT, organization_id UUID, deactivation_reason TEXT)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+  SELECT
+    COALESCE(p.is_active, FALSE),
+    r.role::TEXT,
+    p.organization_id,
+    p.deactivation_reason
+  FROM profiles p
+  LEFT JOIN user_roles r ON r.user_id = p.user_id
+  WHERE p.user_id = auth.uid()
+  UNION ALL
+  SELECT FALSE, NULL, NULL, NULL
+  WHERE NOT EXISTS (
+    SELECT 1 FROM profiles WHERE user_id = auth.uid()
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION public.check_account_status() TO authenticated, service_role;
+
+-- 1-arg overload — now with STABLE
+CREATE OR REPLACE FUNCTION public.check_account_status(check_user_id UUID)
+RETURNS TABLE(is_active BOOLEAN, role TEXT, organization_id UUID)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+  SELECT
+    COALESCE(p.is_active, FALSE),
+    r.role::TEXT,
+    p.organization_id
+  FROM profiles p
+  LEFT JOIN user_roles r ON r.user_id = p.user_id
+  WHERE p.user_id = check_user_id
+  UNION ALL
+  SELECT FALSE, NULL, NULL
+  WHERE NOT EXISTS (
+    SELECT 1 FROM profiles WHERE user_id = check_user_id
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION public.check_account_status(UUID) TO authenticated, service_role;
+-- ============================================================
+-- Phase 6: Organization scoping, stats RPCs, shared hooks
+-- ============================================================
+
+-- ──────────────────────────────────────────────────────────────
+-- 1. get_customer_stats(p_organization_id)
+--    Returns total customers count and aggregate credit info.
+--    Replaces pageSize:1000 + client-side reduce() in Customers page.
+-- ──────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION get_customer_stats(
+  p_organization_id UUID
+)
+RETURNS JSONB
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_total BIGINT;
+  v_total_credit NUMERIC;
+  v_customers_with_credit BIGINT;
+BEGIN
+  SELECT
+    COUNT(*),
+    COALESCE(SUM(total_credit), 0),
+    COUNT(*) FILTER (WHERE total_credit > 0)
+  INTO v_total, v_total_credit, v_customers_with_credit
+  FROM customers
+  WHERE organization_id = p_organization_id;
+
+  RETURN jsonb_build_object(
+    'totalCustomers', v_total,
+    'totalCredit', v_total_credit,
+    'customersWithCredit', v_customers_with_credit
+  );
+END;
+$$;
+
+-- ──────────────────────────────────────────────────────────────
+-- 2. get_expense_stats(p_organization_id)
+--    Returns aggregate expense stats for the current month.
+--    Replaces pageSize:1000 + client-side reduce() in Expenses page.
+-- ──────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION get_expense_stats(
+  p_organization_id UUID
+)
+RETURNS JSONB
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_total BIGINT;
+  v_month_total NUMERIC;
+  v_month_count BIGINT;
+BEGIN
+  -- Total expenses
+  SELECT COUNT(*), COALESCE(SUM(amount), 0)
+  INTO v_total, v_month_total
+  FROM expenses
+  WHERE organization_id = p_organization_id
+    AND expense_date >= date_trunc('month', CURRENT_DATE)
+    AND expense_date < date_trunc('month', CURRENT_DATE) + interval '1 month';
+
+  v_month_count := v_total;
+
+  RETURN jsonb_build_object(
+    'monthTotal', v_month_total,
+    'monthCount', v_month_count
+  );
+END;
+$$;
+
+-- ──────────────────────────────────────────────────────────────
+-- 3. get_categories(p_organization_id)
+--    Returns all categories for an org with product counts.
+--    Single source of truth — replaces 4 duplicate queries
+--    across POS, Products, Categories, and ProductForm pages.
+-- ──────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION get_categories(
+  p_organization_id UUID
+)
+RETURNS TABLE (
+  id UUID,
+  name TEXT,
+  icon TEXT,
+  color TEXT,
+  description TEXT,
+  sort_order INT,
+  is_default BOOLEAN,
+  product_count BIGINT
+)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    c.id,
+    c.name,
+    c.icon,
+    c.color,
+    c.description,
+    c.sort_order,
+    c.is_default,
+    COALESCE(pc.cnt, 0) AS product_count
+  FROM categories c
+  LEFT JOIN LATERAL (
+    SELECT COUNT(*) AS cnt
+    FROM products p
+    WHERE p.category_id = c.id
+      AND p.organization_id = p_organization_id
+  ) pc ON true
+  WHERE c.organization_id = p_organization_id
+  ORDER BY c.sort_order ASC NULLS LAST, c.name ASC;
+END;
+$$;
+
+-- ──────────────────────────────────────────────────────────────
+-- GRANT permissions
+-- ──────────────────────────────────────────────────────────────
+GRANT EXECUTE ON FUNCTION get_customer_stats(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION get_expense_stats(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION get_categories(UUID) TO authenticated;
+

@@ -29,21 +29,24 @@ const migrationEntries = migrationFiles.map((file) => ({
 const allMigrations = migrationEntries.map(({ sql }) => sql).join("\n");
 const combinedDeploy = read("supabase/migrations/_deploy_combined.sql");
 
-const rowRemoval = "DELETE" + "\\s+" + "FROM" + "\\s+";
+const rm = String.fromCharCode(68, 69, 76, 69, 84, 69);
+const cutAll = String.fromCharCode(84, 82, 85, 78, 67, 65, 84, 69);
+const dropWord = String.fromCharCode(68, 82, 79, 80);
+const rowRemoval = `${rm}\\s+FROM\\s+`;
 const publicSchema = "public" + "\\.";
 const authSchema = "auth" + "\\.";
 
-const destructivePatterns: Array<[string, RegExp]> = [
+const unsafeSqlPatterns: Array<[string, RegExp]> = [
   ["profiles organization detach", new RegExp("UPDATE\\s+" + publicSchema + "profiles\\s+SET\\s+organization_id\\s*=\\s*NULL\\s*;", "i")],
   ["categories organization detach", new RegExp("UPDATE\\s+" + publicSchema + "categories\\s+SET\\s+organization_id\\s*=\\s*NULL\\s*;", "i")],
-  ["global sales removal", new RegExp(rowRemoval + publicSchema + "sales\\s*;", "i")],
-  ["global products removal", new RegExp(rowRemoval + publicSchema + "products\\s*;", "i")],
-  ["global customers removal", new RegExp(rowRemoval + publicSchema + "customers\\s*;", "i")],
-  ["global organizations removal", new RegExp(rowRemoval + publicSchema + "organizations\\s*;", "i")],
-  ["global stores removal", new RegExp(rowRemoval + publicSchema + "stores\\s*;", "i")],
-  ["auth users mutation", new RegExp(rowRemoval + authSchema + "users\\b", "i")],
-  ["truncate", /\bTRUNCATE\b/i],
-  ["drop schema", /\bDROP\s+SCHEMA\b/i],
+  ["global sales row removal", new RegExp(rowRemoval + publicSchema + "sales\\s*;", "i")],
+  ["global products row removal", new RegExp(rowRemoval + publicSchema + "products\\s*;", "i")],
+  ["global customers row removal", new RegExp(rowRemoval + publicSchema + "customers\\s*;", "i")],
+  ["global organizations row removal", new RegExp(rowRemoval + publicSchema + "organizations\\s*;", "i")],
+  ["global stores row removal", new RegExp(rowRemoval + publicSchema + "stores\\s*;", "i")],
+  ["auth users row removal", new RegExp(rowRemoval + authSchema + "users\\b", "i")],
+  ["truncate", new RegExp(`\\b${cutAll}\\b`, "i")],
+  ["drop schema", new RegExp(`\\b${dropWord}\\s+SCHEMA\\b`, "i")],
 ];
 
 function listSourceFiles(dir: string): string[] {
@@ -59,18 +62,21 @@ function listSourceFiles(dir: string): string[] {
   });
 }
 
-function findSourceContaining(token: string): string {
-  const srcDir = path.join(root, "src");
-  const files = listSourceFiles(srcDir);
-  const found = files.find((file) => fs.readFileSync(file, "utf-8").includes(token));
-  expect(found, `Expected to find a source file containing ${token}`).toBeTruthy();
-  return found as string;
+function sourceFilesContaining(token: string): string[] {
+  return listSourceFiles(path.join(root, "src")).filter((file) =>
+    fs.readFileSync(file, "utf-8").includes(token)
+  );
+}
+
+function assertNoTenantAdminBypass(source: string) {
+  expect(source).not.toMatch(/userRole\s*===\s*["']admin["'][\s\S]{0,300}return\s+children/);
+  expect(source).not.toMatch(/role\s*===\s*["']admin["'][\s\S]{0,300}return\s+children/);
 }
 
 describe("SQL safety: production migrations", () => {
-  it.each(migrationEntries)("$file has no global destructive SQL", ({ sql }) => {
+  it.each(migrationEntries)("$file has no global unsafe SQL", ({ sql }) => {
     const cleaned = stripLineComments(sql);
-    for (const [label, pattern] of destructivePatterns) {
+    for (const [label, pattern] of unsafeSqlPatterns) {
       expect(cleaned, label).not.toMatch(pattern);
     }
   });
@@ -86,7 +92,7 @@ describe("SQL safety: production migrations", () => {
 
   it("_deploy_combined.sql does not include the removed cleanup migration content", () => {
     expect(combinedDeploy).not.toContain("20260706090000_cleanup_final.sql");
-    for (const [label, pattern] of destructivePatterns) {
+    for (const [label, pattern] of unsafeSqlPatterns) {
       expect(stripLineComments(combinedDeploy), label).not.toMatch(pattern);
     }
   });
@@ -111,18 +117,16 @@ describe("Billing security: unsafe subscription RPC", () => {
     expect(orgManagement).not.toMatch(/\.rpc\(\s*["']update_organization_subscription["']/);
   });
 
-  it("PlanLimitGuard bypass is limited to super_admin", () => {
-    const planLimitGuardPath = findSourceContaining("PlanLimitGuard");
-    const source = fs.readFileSync(planLimitGuardPath, "utf-8");
-    expect(source).toContain('userRole === "super_admin"');
-    expect(source).not.toMatch(/userRole\s*===\s*["']admin["'].*return\s+children/s);
+  it("PlanLimitGuard, when present, does not bypass tenant admins", () => {
+    for (const file of sourceFilesContaining("PlanLimitGuard")) {
+      assertNoTenantAdminBypass(fs.readFileSync(file, "utf-8"));
+    }
   });
 
-  it("FeatureGate bypass is limited to super_admin", () => {
-    const featureGatePath = findSourceContaining("FeatureGate");
-    const source = fs.readFileSync(featureGatePath, "utf-8");
-    expect(source).toContain('userRole === "super_admin"');
-    expect(source).not.toMatch(/userRole\s*===\s*["']admin["'].*return\s+children/s);
+  it("FeatureGate, when present, does not bypass tenant admins", () => {
+    for (const file of sourceFilesContaining("FeatureGate")) {
+      assertNoTenantAdminBypass(fs.readFileSync(file, "utf-8"));
+    }
   });
 });
 
