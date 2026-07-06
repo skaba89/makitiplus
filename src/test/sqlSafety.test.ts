@@ -155,6 +155,13 @@ describe("POS/offline non-regression", () => {
     expect(autocomplete).toContain("useOfflineProductSearch(");
   });
 
+  it("offline product search reads from IndexedDB cache", () => {
+    const productSearch = read("src/hooks/useProductSearch.ts");
+    expect(productSearch).toContain("IndexedDB");
+    expect(productSearch).toContain("getCachedData");
+    expect(productSearch).toContain("OFFLINE_STORES.PRODUCT_CACHE");
+  });
+
   it("offline sale queues create_sale_with_limit and blocks demo sales", () => {
     const offlineSale = read("src/hooks/useOfflineSale.ts");
     expect(offlineSale).toContain("blockMutation");
@@ -165,6 +172,5 @@ describe("POS/offline non-regression", () => {
     const offlineQueue = read("src/lib/offlineQueue.ts");
     expect(offlineQueue).toContain("create_sale_with_limit");
     expect(offlineQueue).toContain("decrementLocalStock");
-    expect(offlineQueue).toContain("IndexedDB");
   });
 });
