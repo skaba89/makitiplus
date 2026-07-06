@@ -3,7 +3,7 @@ services:
     name: makitiplus
     runtime: static
     buildCommand: npm ci && npm run build
-    publishDir: dist
+    staticPublishPath: dist
     envVars:
       - key: NODE_VERSION
         value: "20"
@@ -55,6 +55,8 @@ services:
         name: Cache-Control
         value: public, max-age=3600
     routes:
+      # React Router SPA fallback: direct visits to /auth, /dashboard, etc.
+      # must serve index.html instead of returning Render's plain "Not Found".
       - type: rewrite
         source: /*
         destination: /index.html
