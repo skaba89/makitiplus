@@ -1,11 +1,10 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
 import { useAccountStatusGuard } from "@/hooks/useAccountStatusGuard";
 import { useQueryErrorGuard } from "@/hooks/useQueryErrorGuard";
-import { Button } from "@/components/ui/button";
 
 
 type AppRole = Database["public"]["Enums"]["app_role"];
@@ -15,14 +14,69 @@ interface ProtectedRouteProps {
   allowedRoles?: AppRole[];
 }
 
+const AUTH_STORAGE_PREFIXES = [
+  "sb-",
+  "supabase.auth.token",
+  "makitiplus_auth",
+  "malikiplus_auth",
+];
+
+export const clearAuthStorage = () => {
+  const clearFrom = (storage: Storage) => {
+    for (let index = storage.length - 1; index >= 0; index -= 1) {
+      const key = storage.key(index);
+      if (!key) continue;
+
+      const normalizedKey = key.toLowerCase();
+      const isAuthKey = AUTH_STORAGE_PREFIXES.some((prefix) =>
+        normalizedKey.startsWith(prefix.toLowerCase())
+      );
+
+      if (isAuthKey || normalizedKey.includes("supabase") && normalizedKey.includes("auth")) {
+        storage.removeItem(key);
+      }
+    }
+  };
+
+  try {
+    clearFrom(window.localStorage);
+    clearFrom(window.sessionStorage);
+  } catch {
+    // Best-effort cleanup only. Never break protected-route rendering.
+  }
+};
+
 const SessionGuards = ({ children }: { children: ReactNode }) => {
   useAccountStatusGuard();
   useQueryErrorGuard();
   return <>{children}</>;
 };
 
+const IncompleteSessionRedirect = () => {
+  const { signOut } = useAuth();
+
+  useEffect(() => {
+    clearAuthStorage();
+    signOut().finally(() => {
+      window.location.replace("/auth");
+    });
+  }, [signOut]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-16 h-16 rounded-2xl bg-hero-gradient flex items-center justify-center">
+          <span className="text-3xl font-bold text-primary-foreground">M</span>
+        </div>
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-muted-foreground">Redirection vers la connexion...</p>
+      </div>
+    </div>
+  );
+};
+
 export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
-  const { user, userRole, loading, refreshUserData } = useAuth();
+  const { user, userRole, loading } = useAuth();
 
   if (loading) {
     return (
@@ -39,31 +93,15 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
   }
 
   if (!user) {
+    clearAuthStorage();
     return <Navigate to="/auth" replace />;
   }
 
   // SECURITY: When loading is done but userRole is null, the session is incomplete.
-  // This can happen if the role fetch failed or the user has no role in user_roles.
-  // Block access to ALL routes (even those without allowedRoles) to prevent
-  // unauthenticated access via a broken session.
+  // Do not keep the user blocked on /dashboard. Clear only auth-related storage,
+  // sign out, then redirect to /auth so email/password are requested again.
   if (userRole === null) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4 text-center p-6">
-          <div className="w-16 h-16 rounded-2xl bg-destructive/10 flex items-center justify-center">
-            <span className="text-3xl font-bold text-destructive">!</span>
-          </div>
-          <h2 className="text-xl font-semibold">Session incomplète</h2>
-          <p className="text-muted-foreground max-w-md">
-            Votre rôle n'a pas pu être chargé. Cela peut arriver si votre compte
-            n'est pas encore configuré ou si la connexion a échoué.
-          </p>
-          <Button onClick={refreshUserData} variant="outline">
-            Réessayer
-          </Button>
-        </div>
-      </div>
-    );
+    return <IncompleteSessionRedirect />;
   }
 
   if (allowedRoles && !allowedRoles.includes(userRole)) {
