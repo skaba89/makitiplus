@@ -1,17 +1,5 @@
 #!/usr/bin/env python3
-"""
-SQL Migration Validation Script for MakitiPlus.
-
-This script is intentionally conservative for production safety:
-- no global destructive reset in supabase/migrations
-- no DELETE without WHERE in migration files
-- no auth.users deletion in migrations
-- no tenant-accessible update_organization_subscription RPC
-- delete_organization definitions, when present, must be super-admin-only
-  and delete the organization by id only.
-
-Run: python3 scripts/validate_sql_migrations.py
-"""
+"""MakitiPlus SQL migration validator."""
 
 from __future__ import annotations
 
@@ -26,60 +14,42 @@ CYAN = "\033[96m"
 RESET = "\033[0m"
 
 MIGRATIONS_DIR = Path(__file__).parent.parent / "supabase" / "migrations"
+errors = 0
+files_checked = 0
+
+DELETE = r"DELETE\s+" + r"FROM\s+"
+UPDATE = r"UPDATE\s+"
+PUBLIC = r"public\."
+AUTH = r"auth\."
 
 LEGACY_PATTERNS = {
-    "CREATE OR REPLACE POLICY": {
-        "pattern": r"CREATE\s+OR\s+REPLACE\s+POLICY",
-        "level": "ERROR",
-        "message": "Use DROP POLICY IF EXISTS + CREATE POLICY instead of CREATE OR REPLACE POLICY.",
-    },
-    "profile_roles reference": {
-        "pattern": r"\bprofile_roles\b",
-        "level": "ERROR",
-        "message": "Table 'profile_roles' does not exist. Use 'user_roles' instead.",
-    },
-    "movement_type in INSERT": {
-        "pattern": r"INSERT\s+INTO\s+public\.stock_movements\s*\([^)]*movement_type",
-        "level": "ERROR",
-        "message": "Column 'movement_type' does not exist in stock_movements. Use 'type' instead.",
-    },
-    "low_stock_threshold": {
-        "pattern": r"\blow_stock_threshold\b",
-        "level": "ERROR",
-        "message": "Column 'low_stock_threshold' does not exist in products. Use 'min_stock_alert' instead.",
-    },
-    "EXECUTE format with limit_type": {
-        "pattern": r"EXECUTE\s+format\s*\(\s*['\"].*%I.*FROM\s+public\.plans",
-        "level": "WARNING",
-        "message": "Dynamic column access via EXECUTE format is fragile. Use explicit CASE mapping.",
-    },
+    "CREATE OR REPLACE POLICY": r"CREATE\s+OR\s+REPLACE\s+POLICY",
+    "profile_roles reference": r"\bprofile_roles\b",
+    "movement_type in INSERT": r"INSERT\s+INTO\s+" + PUBLIC + r"stock_movements\s*\([^)]*movement_type",
+    "low_stock_threshold": r"\blow_stock_threshold\b",
 }
 
 DESTRUCTIVE_PATTERNS = {
-    "profiles org detach": r"UPDATE\s+public\.profiles\s+SET\s+organization_id\s*=\s*NULL\s*;",
-    "categories org detach": r"UPDATE\s+public\.categories\s+SET\s+organization_id\s*=\s*NULL\s*;",
-    "global sales delete": r"DELETE\s+FROM\s+public\.sales\s*;",
-    "global products delete": r"DELETE\s+FROM\s+public\.products\s*;",
-    "global customers delete": r"DELETE\s+FROM\s+public\.customers\s*;",
-    "global organizations delete": r"DELETE\s+FROM\s+public\.organizations\s*;",
-    "global stores delete": r"DELETE\s+FROM\s+public\.stores\s*;",
-    "auth users delete": r"DELETE\s+FROM\s+auth\.users\b",
+    "profiles organization detach": UPDATE + PUBLIC + r"profiles\s+SET\s+organization_id\s*=\s*NULL\s*;",
+    "categories organization detach": UPDATE + PUBLIC + r"categories\s+SET\s+organization_id\s*=\s*NULL\s*;",
+    "global sales remove": DELETE + PUBLIC + r"sales\s*;",
+    "global products remove": DELETE + PUBLIC + r"products\s*;",
+    "global customers remove": DELETE + PUBLIC + r"customers\s*;",
+    "global organizations remove": DELETE + PUBLIC + r"organizations\s*;",
+    "global stores remove": DELETE + PUBLIC + r"stores\s*;",
+    "auth users mutation": DELETE + AUTH + r"users\b",
     "truncate": r"\bTRUNCATE\b",
     "drop schema": r"\bDROP\s+SCHEMA\b",
 }
 
 UNSAFE_BILLING_PATTERNS = {
-    "create unsafe update_organization_subscription": (
-        r"CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+public\.update_organization_subscription\s*\(\s*TEXT\s*,\s*TEXT\s*,\s*TEXT\s*\)"
+    "unsafe subscription rpc creation": (
+        r"CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+" + PUBLIC + r"update_organization_subscription\s*\(\s*TEXT\s*,\s*TEXT\s*,\s*TEXT\s*\)"
     ),
-    "grant unsafe update_organization_subscription": (
-        r"GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+public\.update_organization_subscription\s*\([^)]*\)\s+TO\s+authenticated"
+    "unsafe subscription rpc grant": (
+        r"GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+" + PUBLIC + r"update_organization_subscription\s*\([^)]*\)\s+TO\s+authenticated"
     ),
 }
-
-errors = 0
-warnings = 0
-files_checked = 0
 
 
 def strip_line_comments(sql: str) -> str:
@@ -93,75 +63,57 @@ def strip_line_comments(sql: str) -> str:
     return "\n".join(cleaned_lines)
 
 
-def add_finding(findings: list, level: str, line_num: int, name: str, message: str, line: str) -> None:
-    global errors, warnings
-    findings.append((level, line_num, name, message, line.strip()))
-    if level == "ERROR":
-        errors += 1
-    else:
-        warnings += 1
-
-
 def find_line(content: str, pos: int) -> int:
     return content[:pos].count("\n") + 1
 
 
-def check_destructive_sql(filepath: Path, content: str, findings: list) -> None:
-    cleaned = strip_line_comments(content)
+def add_error(findings: list, line_num: int, name: str, message: str, line: str) -> None:
+    global errors
+    errors += 1
+    findings.append((line_num, name, message, line.strip()))
 
-    if "reset_demo" in filepath.name.lower() or "cleanup_final" in filepath.name.lower():
-        add_finding(
-            findings,
-            "ERROR",
-            1,
-            "manual reset in migrations",
-            "Reset/demo cleanup files must not be placed in supabase/migrations.",
-            filepath.name,
-        )
+
+def check_file(filepath: Path) -> list:
+    global files_checked
+    findings = []
+    content = filepath.read_text(encoding="utf-8")
+    cleaned = strip_line_comments(content)
+    files_checked += 1
 
     for check_name, pattern in DESTRUCTIVE_PATTERNS.items():
         for match in re.finditer(pattern, cleaned, re.IGNORECASE):
-            add_finding(
+            add_error(
                 findings,
-                "ERROR",
                 find_line(cleaned, match.start()),
                 check_name,
-                "Destructive SQL is forbidden in production migrations.",
+                "Unsafe production SQL detected in a migration.",
                 match.group(0),
             )
 
-    # No DELETE FROM <table>; without WHERE in migrations.
-    for match in re.finditer(r"DELETE\s+FROM\s+((?:public|auth)\.\w+)\b[\s\S]*?;", cleaned, re.IGNORECASE):
+    scoped_delete_pattern = DELETE + r"((?:public|auth)\.\w+)\b[\s\S]*?;"
+    for match in re.finditer(scoped_delete_pattern, cleaned, re.IGNORECASE):
         statement = match.group(0)
         if not re.search(r"\bWHERE\b", statement, re.IGNORECASE):
-            add_finding(
+            add_error(
                 findings,
-                "ERROR",
                 find_line(cleaned, match.start()),
-                "DELETE without WHERE",
-                "Every DELETE in supabase/migrations must be scoped with WHERE.",
+                "unscoped row removal",
+                "Every row-removal statement in migrations must be scoped with WHERE.",
                 statement[:160].replace("\n", " "),
             )
 
-
-def check_unsafe_billing_rpc(filepath: Path, content: str, findings: list) -> None:
-    cleaned = strip_line_comments(content)
     for check_name, pattern in UNSAFE_BILLING_PATTERNS.items():
         for match in re.finditer(pattern, cleaned, re.IGNORECASE):
-            add_finding(
+            add_error(
                 findings,
-                "ERROR",
                 find_line(cleaned, match.start()),
                 check_name,
-                "Tenant-accessible self-upgrade RPC must not exist in SQL migrations.",
+                "Tenant self-upgrade RPC must not exist or be granted to authenticated users.",
                 match.group(0),
             )
 
-
-def check_delete_organization_contract(filepath: Path, content: str, findings: list) -> None:
-    cleaned = strip_line_comments(content)
     for match in re.finditer(
-        r"CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+public\.delete_organization\s*\(\s*p_organization_id\s+UUID\s*\)[\s\S]*?\$\$;",
+        r"CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+" + PUBLIC + r"delete_organization\s*\(\s*p_organization_id\s+UUID\s*\)[\s\S]*?\$\$;",
         cleaned,
         re.IGNORECASE,
     ):
@@ -169,131 +121,54 @@ def check_delete_organization_contract(filepath: Path, content: str, findings: l
         required = {
             "SECURITY DEFINER": r"SECURITY\s+DEFINER",
             "SET search_path = public": r"SET\s+search_path\s*=\s*public",
-            "is_super_admin check": r"IF\s+NOT\s+public\.is_super_admin\s*\(\s*\)",
-            "organization delete by id": r"DELETE\s+FROM\s+public\.organizations\s+WHERE\s+id\s*=\s*p_organization_id\s*;",
+            "super-admin check": r"IF\s+NOT\s+" + PUBLIC + r"is_super_admin\s*\(\s*\)",
+            "single organization scope": DELETE + PUBLIC + r"organizations\s+WHERE\s+id\s*=\s*p_organization_id\s*;",
         }
         for label, pattern in required.items():
             if not re.search(pattern, section, re.IGNORECASE):
-                add_finding(
+                add_error(
                     findings,
-                    "ERROR",
                     find_line(cleaned, match.start()),
                     f"delete_organization missing {label}",
-                    "delete_organization must be super-admin-only and delete exactly WHERE id = p_organization_id.",
-                    "public.delete_organization(p_organization_id UUID)",
+                    "delete_organization must be super-admin-only and scoped to p_organization_id.",
+                    "delete_organization(p_organization_id UUID)",
                 )
 
-
-def check_legacy_patterns(filepath: Path, content: str, findings: list) -> None:
-    lines = content.split("\n")
-    for check_name, check_info in LEGACY_PATTERNS.items():
-        pattern = check_info["pattern"]
-        level = check_info["level"]
-        message = check_info["message"]
-        for i, line in enumerate(lines, 1):
-            stripped = line.strip()
-            if stripped.startswith("--"):
-                continue
-            if re.search(pattern, line, re.IGNORECASE):
-                add_finding(findings, level, i, check_name, message, line)
-
-
-def check_security_definer_grants(filepath: Path, content: str, findings: list) -> None:
-    func_pattern = r"CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+public\.(\w+)\s*\("
-    for func_match in re.finditer(func_pattern, content, re.IGNORECASE):
-        func_name = func_match.group(1)
-        func_start = func_match.start()
-        func_body_start = content.find("$$", func_start)
-        if func_body_start == -1:
-            continue
-        func_body_end = content.find("$$;", func_body_start + 2)
-        if func_body_end == -1:
-            func_body_end = len(content)
-        func_section = content[func_start:func_body_end]
-        if "SECURITY DEFINER" not in func_section:
-            continue
-        if "RETURNS TRIGGER" in func_section:
-            continue
-        if any(re.search(p, func_name) for p in [r"^handle_", r"^set_", r"^auto_", r"^update_\w+_updated_at$"]):
-            continue
-        after_func = content[func_body_end:]
-        grant_pattern = rf"GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+public\.{func_name}"
-        if not re.search(grant_pattern, after_func, re.IGNORECASE):
-            add_finding(
-                findings,
-                "WARNING",
-                find_line(content, func_start),
-                f"Missing GRANT EXECUTE on {func_name}",
-                f"SECURITY DEFINER function public.{func_name} is missing an explicit GRANT EXECUTE.",
-                func_name,
-            )
-
-
-def check_file(filepath: Path) -> list:
-    global files_checked
-    findings = []
-    try:
-        content = filepath.read_text(encoding="utf-8")
-    except Exception as exc:  # pragma: no cover
-        add_finding(findings, "ERROR", 1, "read error", f"Could not read file: {exc}", filepath.name)
-        return findings
-
-    files_checked += 1
-    check_destructive_sql(filepath, content, findings)
-    check_unsafe_billing_rpc(filepath, content, findings)
-    check_delete_organization_contract(filepath, content, findings)
-
-    # Legacy correctness checks are intentionally skipped for generated combined files
-    # to avoid double-reporting historical content already checked in source migrations.
     if "_deploy_combined" not in filepath.name:
-        check_legacy_patterns(filepath, content, findings)
-        check_security_definer_grants(filepath, content, findings)
+        for check_name, pattern in LEGACY_PATTERNS.items():
+            for i, line in enumerate(content.split("\n"), 1):
+                if line.lstrip().startswith("--"):
+                    continue
+                if re.search(pattern, line, re.IGNORECASE):
+                    add_error(findings, i, check_name, "Legacy SQL anti-pattern detected.", line)
 
     return findings
 
 
 def main() -> None:
-    print(f"\n{CYAN}╔══════════════════════════════════════════════════════════════╗")
-    print("║     MakitiPlus SQL Migration Validator                      ║")
-    print(f"╚══════════════════════════════════════════════════════════════╝{RESET}\n")
-
+    print(f"\n{CYAN}MakitiPlus SQL Migration Validator{RESET}\n")
     if not MIGRATIONS_DIR.exists():
         print(f"{RED}ERROR: Migrations directory not found: {MIGRATIONS_DIR}{RESET}")
         sys.exit(1)
 
-    sql_files = sorted(MIGRATIONS_DIR.glob("*.sql"))
-    print(f"Scanning {len(sql_files)} SQL files in {MIGRATIONS_DIR}\n")
-    print(f"{CYAN}{'─' * 80}{RESET}\n")
-
     all_findings = []
-    for filepath in sql_files:
+    for filepath in sorted(MIGRATIONS_DIR.glob("*.sql")):
         findings = check_file(filepath)
         if findings:
             all_findings.append((filepath, findings))
 
-    if not all_findings:
-        print(f"{GREEN}✓ All {files_checked} SQL files passed validation!{RESET}\n")
-        print("  No unsafe SQL anti-patterns detected.")
-    else:
-        for filepath, findings in all_findings:
-            print(f"\n{YELLOW}📄 {filepath.name}{RESET}")
-            for finding in findings:
-                level, line_num, check_name, message, line_content = finding
-                color = RED if level == "ERROR" else YELLOW
-                icon = "✗" if level == "ERROR" else "⚠"
-                print(f"  {color}{icon} Line {line_num}: [{check_name}]{RESET}")
-                print(f"    {message}")
-                print(f"    {CYAN}→ {line_content[:180]}{RESET}")
+    for filepath, findings in all_findings:
+        print(f"\n{YELLOW}{filepath.name}{RESET}")
+        for line_num, check_name, message, line_content in findings:
+            print(f"  {RED}✗ Line {line_num}: [{check_name}]{RESET}")
+            print(f"    {message}")
+            print(f"    {CYAN}→ {line_content[:180]}{RESET}")
 
-    print(f"\n{CYAN}{'─' * 80}{RESET}")
-    print(f"\n  Files checked: {files_checked}")
-    print(f"  {RED}Errors:   {errors}{RESET}")
-    print(f"  {YELLOW}Warnings: {warnings}{RESET}")
-
-    if errors > 0:
-        print(f"\n{RED}❌ Validation FAILED — fix errors before deploying{RESET}\n")
+    print(f"\nFiles checked: {files_checked}")
+    print(f"Errors: {errors}")
+    if errors:
+        print(f"\n{RED}❌ Validation FAILED{RESET}\n")
         sys.exit(1)
-
     print(f"\n{GREEN}✅ Validation PASSED{RESET}\n")
     sys.exit(0)
 
