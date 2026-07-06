@@ -2,8 +2,8 @@
  * Organization Management Page — Super Admin Only
  *
  * Lists all organizations with their subscription details and allows
- * the super_admin to change any organization's plan, status, and duration.
- * Also allows deleting organizations (with confirmation).
+ * the super_admin to change any organization's plan and duration.
+ * Also allows deleting organizations with strong confirmation.
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -96,13 +96,19 @@ export default function OrganizationManagement() {
   const [changeDialogOpen, setChangeDialogOpen] = useState(false);
   const [selectedOrg, setSelectedOrg] = useState<OrgSubscription | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<string>("");
-  const [selectedStatus, setSelectedStatus] = useState<string>("active");
   const [selectedDuration, setSelectedDuration] = useState<"1month" | "1year">("1month");
+  const [paymentReference, setPaymentReference] = useState("");
+  const [changeReason, setChangeReason] = useState("");
 
   // Delete state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [orgToDelete, setOrgToDelete] = useState<OrgSubscription | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
+
+  const canConfirmDelete =
+    Boolean(orgToDelete) &&
+    deleteConfirmText.trim() === orgToDelete?.organization_name.trim();
 
   // ─── Fetch all org subscriptions ──────────────────────────
   const { data: orgs, isLoading, error } = useQuery({
@@ -125,13 +131,14 @@ export default function OrganizationManagement() {
 
       // Align p_duration with RPC accepted values: 1_month, 3_months, 6_months, 1_year
       const duration = selectedDuration === "1year" ? "1_year" : "1_month";
+      const reason = changeReason.trim() || "Changement manuel depuis l'écran Organisations.";
 
       const { data, error } = await supabase.rpc("admin_update_organization_subscription", {
         p_organization_id: selectedOrg.organization_id,
         p_plan_id: selectedPlan,
         p_duration: duration,
-        p_payment_reference: null,
-        p_reason: `Changement manuel depuis l'écran Organisations. Statut demandé: ${selectedStatus}`,
+        p_payment_reference: paymentReference.trim() || null,
+        p_reason: reason,
       });
       if (error) throw error;
       return data;
@@ -144,6 +151,8 @@ export default function OrganizationManagement() {
       queryClient.invalidateQueries({ queryKey: ["admin-all-subscriptions"] });
       setChangeDialogOpen(false);
       setSelectedOrg(null);
+      setPaymentReference("");
+      setChangeReason("");
     },
     onError: (err: Error) => {
       toast({
@@ -157,11 +166,20 @@ export default function OrganizationManagement() {
   // ─── Delete organization ──────────────────────────────────
   const handleDeleteOrg = (org: OrgSubscription) => {
     setOrgToDelete(org);
+    setDeleteConfirmText("");
     setDeleteDialogOpen(true);
   };
 
+  const handleDeleteDialogOpenChange = (open: boolean) => {
+    setDeleteDialogOpen(open);
+    if (!open) {
+      setOrgToDelete(null);
+      setDeleteConfirmText("");
+    }
+  };
+
   const confirmDeleteOrg = async () => {
-    if (!orgToDelete) return;
+    if (!orgToDelete || !canConfirmDelete) return;
     setDeleting(true);
     try {
       const { error } = await supabase.rpc("delete_organization", {
@@ -188,6 +206,7 @@ export default function OrganizationManagement() {
       setDeleting(false);
       setDeleteDialogOpen(false);
       setOrgToDelete(null);
+      setDeleteConfirmText("");
     }
   };
 
@@ -221,8 +240,9 @@ export default function OrganizationManagement() {
   const openChangeDialog = (org: OrgSubscription) => {
     setSelectedOrg(org);
     setSelectedPlan(org.plan_id || "starter");
-    setSelectedStatus(org.status || "active");
     setSelectedDuration("1month");
+    setPaymentReference("");
+    setChangeReason("");
     setChangeDialogOpen(true);
   };
 
@@ -419,7 +439,7 @@ export default function OrganizationManagement() {
             <DialogHeader>
               <DialogTitle>Modifier l'abonnement</DialogTitle>
               <DialogDescription>
-                Changer le plan et le statut de <strong>{selectedOrg?.organization_name}</strong>
+                Cette action change le plan et renouvelle l'abonnement en statut actif pour <strong>{selectedOrg?.organization_name}</strong>.
               </DialogDescription>
             </DialogHeader>
 
@@ -448,24 +468,6 @@ export default function OrganizationManagement() {
                 </Select>
               </div>
 
-              {/* New Status */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Nouveau statut</label>
-                <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Actif</SelectItem>
-                    <SelectItem value="trialing">Essai</SelectItem>
-                    <SelectItem value="grace_period">Période de grâce</SelectItem>
-                    <SelectItem value="read_only">Lecture seule</SelectItem>
-                    <SelectItem value="cancelled">Annulé</SelectItem>
-                    <SelectItem value="expired">Expiré</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
               {/* Duration */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">Durée</label>
@@ -478,6 +480,24 @@ export default function OrganizationManagement() {
                     <SelectItem value="1year">1 an (économisez 2 mois)</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Référence paiement (optionnel)</label>
+                <Input
+                  value={paymentReference}
+                  onChange={(e) => setPaymentReference(e.target.value)}
+                  placeholder="ex: MM-20260706-001"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Raison (optionnel)</label>
+                <Input
+                  value={changeReason}
+                  onChange={(e) => setChangeReason(e.target.value)}
+                  placeholder="ex: Paiement Mobile Money reçu"
+                />
               </div>
 
               {/* Price preview */}
@@ -526,22 +546,43 @@ export default function OrganizationManagement() {
         </Dialog>
 
         {/* Delete Organization Confirmation */}
-        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialog open={deleteDialogOpen} onOpenChange={handleDeleteDialogOpenChange}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Supprimer cette organisation ?</AlertDialogTitle>
               <AlertDialogDescription>
-                Cette action est <strong>irréversible</strong>. L'organisation{" "}
-                <strong>{orgToDelete?.organization_name}</strong> et toutes ses données
+                Cette action est irréversible. L'organisation <strong>{orgToDelete?.organization_name}</strong> et toutes ses données
                 (magasins, produits, ventes, abonnements...) seront supprimées définitivement.
               </AlertDialogDescription>
             </AlertDialogHeader>
+
+            <div className="space-y-3 py-2">
+              <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+                Attention : suppression définitive. Aucun double-clic ou clic accidentel ne doit pouvoir valider cette action.
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="delete-org-confirm" className="text-sm font-medium">
+                  Tapez exactement le nom de l'organisation pour confirmer :
+                </label>
+                <Input
+                  id="delete-org-confirm"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder={orgToDelete?.organization_name || "Nom de l'organisation"}
+                  disabled={deleting}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Nom attendu : <strong>{orgToDelete?.organization_name}</strong>
+                </p>
+              </div>
+            </div>
+
             <AlertDialogFooter>
               <AlertDialogCancel disabled={deleting}>Annuler</AlertDialogCancel>
               <AlertDialogAction
                 onClick={confirmDeleteOrg}
-                disabled={deleting}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={deleting || !canConfirmDelete}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:pointer-events-none disabled:opacity-50"
               >
                 {deleting ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
