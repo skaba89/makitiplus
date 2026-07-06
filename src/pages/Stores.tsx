@@ -242,7 +242,7 @@ const Stores = () => {
     if (blockMutation('Gérer les boutiques')) return;
     setCreating(true);
     try {
-      // Use server-side plan-enforced RPC
+      // Generate slug from store name
       const slug = storeName
         .toLowerCase()
         .normalize("NFD")
@@ -250,21 +250,37 @@ const Stores = () => {
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/(^-|-$)/g, "");
 
-      const { error } = await supabase.rpc("create_store", {
-        p_name: storeName,
-        p_slug: slug || `store-${Date.now()}`,
-        p_category: storeCategory,
+      // Use create_first_organization RPC which handles:
+      // - Creating an org if user doesn't have one
+      // - Creating a store within existing org if user already has one
+      const { data, error } = await supabase.rpc("create_first_organization", {
+        p_org_name: storeName,
+        p_store_name: storeName,
+        p_store_slug: slug || `store-${Date.now()}`,
+        p_store_category: storeCategory,
         p_country: storeCountry,
         p_currency: storeCurrency,
       });
 
       if (error) throw error;
 
-      toast({ title: "Magasin créé", description: `"${storeName}" a été ajouté.` });
+      const result = data as { success: boolean; mode: string; organization_id?: string; store_id?: string };
+      const isNewOrg = result.mode === 'org_and_store';
+
+      toast({ 
+        title: isNewOrg ? "Organisation créée" : "Magasin créé", 
+        description: isNewOrg 
+          ? `"${storeName}" a été créé comme nouvelle organisation avec son premier magasin.` 
+          : `"${storeName}" a été ajouté.`
+      });
       setStoreName("");
       setStoreCategory("epicerie");
       setDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["stores"] });
+      // Also refresh profile if new org was created
+      if (isNewOrg) {
+        queryClient.invalidateQueries({ queryKey: ["profile"] });
+      }
     } catch (error) {
       const message = extractErrorMessage(error);
       reportError(error instanceof Error ? error : new Error(message));

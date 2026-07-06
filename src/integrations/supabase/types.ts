@@ -1579,6 +1579,22 @@ export type Database = {
           organization_id: string | null
         }[]
       }
+      create_first_organization: {
+        Args: {
+          p_org_name: string
+          p_store_name: string
+          p_store_slug: string
+          p_store_category?: string
+          p_country?: string
+          p_currency?: string
+        }
+        Returns: {
+          success: boolean
+          organization_id: string | null
+          store_id: string | null
+          mode: string
+        }
+      }
       generate_sale_number: { Args: never; Returns: string }
       get_user_organization_id: { Args: never; Returns: string }
       has_role: {
