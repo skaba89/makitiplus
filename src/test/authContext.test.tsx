@@ -56,12 +56,18 @@ const createWrapper = () => {
 
 // Chainable Supabase query builder mock
 const createChainMock = (resolveWith: { data: unknown; error: unknown | null }) => {
+  const resolved = Promise.resolve(resolveWith);
   const chain = {
     select: vi.fn().mockReturnThis(),
     insert: vi.fn().mockReturnThis(),
+    update: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
     single: vi.fn().mockResolvedValue(resolveWith),
     maybeSingle: vi.fn().mockResolvedValue(resolveWith),
+    then: vi.fn((onFulfilled?: (value: typeof resolveWith) => unknown, onRejected?: (reason: unknown) => unknown) =>
+      resolved.then(onFulfilled, onRejected)
+    ),
+    catch: vi.fn((onRejected?: (reason: unknown) => unknown) => resolved.catch(onRejected)),
   };
   return chain;
 };
