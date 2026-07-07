@@ -217,20 +217,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       // Track last login (best-effort, non-blocking)
+      // touch_last_login peut échouer (400/404/42501) si la fonction n'est pas
+      // déployée ou si RLS bloque. C'est non-critique — on ignore l'erreur.
       Promise.resolve(supabase.rpc("touch_last_login")).then(({ error }) => {
-        if (error && (error.code === '42501' || error.message?.includes('not allowed'))) {
-          // touch_last_login non autorisée — silencieux, non critique
+        if (error) {
+          // Silencieux : best-effort, non critique
+          logger?.warn?.("[Auth] touch_last_login failed (non-critical):", error.message);
         }
       }).catch(() => {
         // Best-effort: ne pas crasher si le RPC est indisponible
       });
 
       // Log login activity (best-effort)
+      // log_user_activity peut échouer si l'ENUM app_activity_action
+      // n'est pas encore appliqué ou si la signature a changé.
+      // C'est non-critique — on ignore l'erreur.
       Promise.resolve(supabase.rpc("log_user_activity", {
         p_action: 'login',
         p_description: 'Connexion',
         p_metadata: { user_agent: navigator.userAgent.substring(0, 200) }
-      })).catch(() => {});
+      })).then(({ error }) => {
+        if (error) {
+          logger?.warn?.("[Auth] log_user_activity failed (non-critical):", error.message);
+        }
+      }).catch(() => {});
     } else {
       setLoading(false);
     }
