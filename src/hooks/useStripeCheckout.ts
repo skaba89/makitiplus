@@ -47,7 +47,7 @@ export function useStripeCheckout(): UseStripeCheckoutReturn {
       return;
     }
 
-    // Stripe not configured — show helpful message
+    // Stripe not configured — show helpful message and DO NOT call the edge function
     if (!isStripeConfigured) {
       setError(
         "Les paiements en ligne ne sont pas encore configurés. " +
@@ -68,10 +68,16 @@ export function useStripeCheckout(): UseStripeCheckoutReturn {
       });
 
       if (fnError) {
-        // Edge function error
-        const message = fnError.message || "Erreur lors de la création de la session de paiement.";
+        // Edge function error (e.g. STRIPE_SECRET_KEY not set)
+        // Stripe 400 are expected when Stripe is not configured server-side
+        const message = fnError.message?.includes("Stripe")
+          ? "Les paiements Stripe ne sont pas configurés côté serveur. Contactez contact@makitiplus.com."
+          : (fnError.message || "Erreur lors de la création de la session de paiement.");
         setError(message);
-        reportError(fnError, { action: "stripe_checkout", planId, billing });
+        // Only report to Sentry if it's NOT a Stripe config issue
+        if (!fnError.message?.includes("Stripe") && !fnError.message?.includes("STRIPE_SECRET_KEY")) {
+          reportError(fnError, { action: "stripe_checkout", planId, billing });
+        }
         return;
       }
 
