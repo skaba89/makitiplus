@@ -25,6 +25,7 @@ import Dashboard from "./pages/Dashboard";
 import Products from "./pages/Products";
 import NotFound from "./pages/NotFound";
 import OfflineFallback from "./pages/OfflineFallback";
+import Diagnostic from "./pages/Diagnostic";
 
 /**
  * Lazy-loaded routes with automatic recovery for stale chunks.
@@ -251,6 +252,7 @@ const App = () => {
             <Route path="/" element={<Index />} />
             <Route path="/index.html" element={<Navigate to="/auth" replace />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/diagnostic" element={<Diagnostic />} />
             <Route
               path="/dashboard"
               element={
