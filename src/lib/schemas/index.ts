@@ -1,38 +1,39 @@
 /**
  * Schémas Zod partagés pour les formulaires métier.
  *
- * Ces schémas sont utilisés côté frontend pour valider les entrées utilisateur
- * avant envoi au backend, et peuvent être réutilisés côté backend (edge functions)
- * pour valider les payloads reçus.
+ * Ces schémas sont alignés sur les champs RÉELLEMENT utilisés dans les
+ * composants forms (ProductForm, Customers.tsx, StockAdjustDialog,
+ * CreditPaymentDialog). Ils peuvent être importés non-intrusivement
+ * dans les handleSubmit existants pour valider avant envoi au backend.
  *
  * Référence audit : MED-6 (AUDIT-2026-007)
- * - Avant : aucun formulaire métier n'utilisait zod. Seul Auth.tsx l'avait.
- * - Après : ces schémas shared peuvent être importés par ProductForm,
- *   CustomerDetailDialog, StockAdjustDialog, CreditPaymentDialog.
+ *
+ * Usage :
+ *   import { validateProductForm, validateCustomerForm,
+ *            validateStockAdjustment, validateCreditPayment } from "@/lib/schemas";
+ *
+ *   const result = validateProductForm(formData);
+ *   if (!result.success) {
+ *     toast({ variant: "destructive", title: "Erreur",
+ *             description: Object.values(result.errors).join(", ") });
+ *     return;
+ *   }
+ *   onSubmit(result.data);
  */
 
 import { z } from "zod";
 
-// ─── Product ──────────────────────────────────────────────────────
-export const productSchema = z.object({
+// ─── Product (aligné sur ProductForm.tsx) ─────────────────────────
+// Champs utilisés dans src/components/products/ProductForm.tsx :
+// name, price, cost_price, stock_quantity, min_stock_alert,
+// category_id, supplier_id, barcode, unit, tax_rate
+export const productFormSchema = z.object({
   name: z
     .string()
     .min(1, "Le nom est requis")
-    .max(200, "Le nom ne peut pas dépasser 200 caractères")
+    .max(200, "Le nom ne peut pas dépasser 200 caracteurs")
     .trim(),
-  barcode: z
-    .string()
-    .max(100, "Le code-barres ne peut pas dépasser 100 caractères")
-    .regex(/^[\w\-]*$/, "Code-barres invalide (alphanumérique, tirets uniquement)")
-    .optional()
-    .or(z.literal("")),
-  category_id: z.string().uuid("Catégorie invalide").optional().nullable(),
-  unit: z
-    .string()
-    .max(50, "L'unité ne peut pas dépasser 50 caractères")
-    .optional()
-    .or(z.literal("")),
-  sale_price: z
+  price: z
     .number()
     .min(0, "Le prix de vente ne peut pas être négatif")
     .max(1_000_000_000, "Prix de vente trop élevé")
@@ -41,31 +42,51 @@ export const productSchema = z.object({
     .number()
     .min(0, "Le prix d'achat ne peut pas être négatif")
     .max(1_000_000_000, "Prix d'achat trop élevé")
-    .optional()
-    .refine((v) => v === undefined || !Number.isNaN(v), "Prix d'achat invalide"),
+    .refine((v) => !Number.isNaN(v), "Prix d'achat invalide"),
   stock_quantity: z
     .number()
     .int("Le stock doit être un entier")
     .min(0, "Le stock ne peut pas être négatif")
     .max(10_000_000, "Stock trop élevé"),
-  low_stock_threshold: z
+  min_stock_alert: z
     .number()
-    .int("Le seuil doit être un entier")
-    .min(0, "Le seuil ne peut pas être négatif")
-    .max(1_000_000, "Seuil trop élevé")
-    .optional(),
-  is_active: z.boolean().optional().default(true),
-  description: z
+    .int("Le seuil d'alerte doit être un entier")
+    .min(0, "Le seuil d'alerte ne peut pas être négatif")
+    .max(1_000_000, "Seuil trop élevé"),
+  category_id: z
     .string()
-    .max(2000, "La description ne peut pas dépasser 2000 caractères")
+    .uuid("Catégorie invalide")
     .optional()
     .or(z.literal("")),
+  supplier_id: z
+    .string()
+    .uuid("Fournisseur invalide")
+    .optional()
+    .or(z.literal("")),
+  barcode: z
+    .string()
+    .max(100, "Le code-barres ne peut pas dépasser 100 caractères")
+    .regex(/^[\w\-]*$/, "Code-barres invalide (alphanumérique, tirets uniquement)")
+    .optional()
+    .or(z.literal("")),
+  unit: z
+    .string()
+    .max(50, "L'unité ne peut pas dépasser 50 caractères")
+    .optional()
+    .or(z.literal("")),
+  tax_rate: z
+    .number()
+    .min(0, "Le taux de TVA ne peut pas être négatif")
+    .max(100, "Le taux de TVA ne peut pas dépasser 100%")
+    .nullable()
+    .optional(),
 });
 
-export type ProductFormData = z.infer<typeof productSchema>;
+export type ProductFormData = z.infer<typeof productFormSchema>;
 
-// ─── Customer ─────────────────────────────────────────────────────
-export const customerSchema = z.object({
+// ─── Customer (aligné sur Customers.tsx) ──────────────────────────
+// Champs utilisés : name, phone, email, address, notes
+export const customerFormSchema = z.object({
   name: z
     .string()
     .min(1, "Le nom est requis")
@@ -88,11 +109,6 @@ export const customerSchema = z.object({
     .max(500, "Adresse trop longue")
     .optional()
     .or(z.literal("")),
-  credit_limit: z
-    .number()
-    .min(0, "La limite de crédit ne peut pas être négative")
-    .max(1_000_000_000, "Limite trop élevée")
-    .optional(),
   notes: z
     .string()
     .max(2000, "Notes trop longues")
@@ -100,59 +116,66 @@ export const customerSchema = z.object({
     .or(z.literal("")),
 });
 
-export type CustomerFormData = z.infer<typeof customerSchema>;
+export type CustomerFormData = z.infer<typeof customerFormSchema>;
 
-// ─── Stock Adjustment ─────────────────────────────────────────────
+// ─── Stock Adjustment (aligné sur StockAdjustDialog.tsx) ──────────
+// Champs : productId, type ('restock' | 'adjustment' | 'loss'), quantity, reason
 export const stockAdjustmentSchema = z.object({
-  product_id: z.string().uuid("Produit invalide"),
-  new_quantity: z
+  productId: z.string().uuid("Produit invalide"),
+  type: z.enum(["restock", "adjustment", "loss"], {
+    errorMap: () => ({ message: "Type d'ajustement invalide" }),
+  }),
+  quantity: z
     .number()
     .int("La quantité doit être un entier")
-    .min(0, "La quantité ne peut pas être négative")
-    .max(10_000_000, "Quantité trop élevée"),
+    .min(1, "La quantité doit être supérieure à 0")
+    .max(1_000_000, "Quantité trop élevée"),
   reason: z
     .string()
     .min(1, "La raison est requise")
     .max(500, "Raison trop longue")
     .trim(),
-  notes: z
-    .string()
-    .max(1000, "Notes trop longues")
-    .optional()
-    .or(z.literal("")),
+  previousQuantity: z
+    .number()
+    .int()
+    .min(0)
+    .optional(),
 });
 
-export type StockAdjustmentFormData = z.infer<typeof stockAdjustmentSchema>;
+export type StockAdjustmentData = z.infer<typeof stockAdjustmentSchema>;
 
-// ─── Credit Payment ───────────────────────────────────────────────
+// ─── Credit Payment (aligné sur CreditPaymentDialog.tsx) ──────────
+// Champs : customerId, amount (string → number), description
 export const creditPaymentSchema = z.object({
-  customer_id: z.string().uuid("Client invalide"),
+  customerId: z.string().uuid("Client invalide"),
   amount: z
     .number()
     .min(0.01, "Le montant doit être supérieur à 0")
     .max(1_000_000_000, "Montant trop élevé")
     .refine((v) => !Number.isNaN(v), "Montant invalide"),
-  payment_method: z.enum(["cash", "mobile_money", "card", "bank_transfer"], {
-    errorMap: () => ({ message: "Moyen de paiement invalide" }),
-  }),
-  notes: z
+  description: z
     .string()
-    .max(500, "Notes trop longues")
+    .max(500, "Description trop longue")
     .optional()
     .or(z.literal("")),
 });
 
-export type CreditPaymentFormData = z.infer<typeof creditPaymentSchema>;
+export type CreditPaymentData = z.infer<typeof creditPaymentSchema>;
 
-// ─── Helper : safe parse with formatted errors ───────────────────
+// ─── Helpers : safe parse avec erreurs formatées ─────────────────
+
+export type ValidationResult<T> =
+  | { success: true; data: T }
+  | { success: false; errors: Record<string, string> };
+
 /**
  * Valide des données avec un schéma Zod et retourne un objet d'erreurs
- * formaté { fieldName: "message" } prêt à être utilisé par react-hook-form.
+ * formaté { fieldName: "message" } prêt à être utilisé dans un toast.
  */
 export function validateForm<T>(
   schema: z.ZodSchema<T>,
   data: unknown
-): { success: true; data: T } | { success: false; errors: Record<string, string> } {
+): ValidationResult<T> {
   const result = schema.safeParse(data);
   if (result.success) {
     return { success: true, data: result.data };
@@ -165,4 +188,27 @@ export function validateForm<T>(
     }
   }
   return { success: false, errors };
+}
+
+// Wrappers typés par form pour usage direct
+export const validateProductForm = (data: unknown): ValidationResult<ProductFormData> =>
+  validateForm(productFormSchema, data);
+
+export const validateCustomerForm = (data: unknown): ValidationResult<CustomerFormData> =>
+  validateForm(customerFormSchema, data);
+
+export const validateStockAdjustment = (data: unknown): ValidationResult<StockAdjustmentData> =>
+  validateForm(stockAdjustmentSchema, data);
+
+export const validateCreditPayment = (data: unknown): ValidationResult<CreditPaymentData> =>
+  validateForm(creditPaymentSchema, data);
+
+/**
+ * Convertit un objet d'erreurs en chaîne lisible pour un toast.
+ * Exemple : { name: "Requis", price: "Négatif" } → "name: Requis, price: Négatif"
+ */
+export function formatErrors(errors: Record<string, string>): string {
+  return Object.entries(errors)
+    .map(([field, msg]) => `${field}: ${msg}`)
+    .join(", ");
 }

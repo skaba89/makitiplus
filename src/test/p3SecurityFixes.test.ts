@@ -16,8 +16,8 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 import { join } from "path";
 import {
-  productSchema,
-  customerSchema,
+  productFormSchema as productSchema,
+  customerFormSchema as customerSchema,
   stockAdjustmentSchema,
   creditPaymentSchema,
   validateForm,
@@ -286,23 +286,32 @@ describe("P3 Security Fixes — AUDIT-2026-007", () => {
   });
 
   describe("MED-6 — Zod schemas for business forms", () => {
+    const VALID_UUID = "123e4567-e89b-12d3-a456-426614174000";
+
     it("productSchema validates a valid product", () => {
       const valid = {
         name: "Coca-Cola 1L",
         barcode: "1234567890123",
-        sale_price: 1500,
+        price: 1500,
         cost_price: 1000,
         stock_quantity: 100,
+        min_stock_alert: 5,
+        category_id: "",
+        supplier_id: "",
+        unit: "unité",
+        tax_rate: null,
       };
       const result = productSchema.safeParse(valid);
       expect(result.success).toBe(true);
     });
 
-    it("productSchema rejects negative sale_price", () => {
+    it("productSchema rejects negative price", () => {
       const invalid = {
         name: "Test",
-        sale_price: -100,
+        price: -100,
+        cost_price: 0,
         stock_quantity: 10,
+        min_stock_alert: 5,
       };
       const result = productSchema.safeParse(invalid);
       expect(result.success).toBe(false);
@@ -315,8 +324,10 @@ describe("P3 Security Fixes — AUDIT-2026-007", () => {
     it("productSchema rejects name longer than 200 chars", () => {
       const invalid = {
         name: "x".repeat(201),
-        sale_price: 100,
+        price: 100,
+        cost_price: 0,
         stock_quantity: 10,
+        min_stock_alert: 5,
       };
       const result = productSchema.safeParse(invalid);
       expect(result.success).toBe(false);
@@ -325,8 +336,10 @@ describe("P3 Security Fixes — AUDIT-2026-007", () => {
     it("productSchema rejects non-numeric stock_quantity", () => {
       const invalid = {
         name: "Test",
-        sale_price: 100,
+        price: 100,
+        cost_price: 0,
         stock_quantity: "abc" as unknown as number,
+        min_stock_alert: 5,
       };
       const result = productSchema.safeParse(invalid);
       expect(result.success).toBe(false);
@@ -336,8 +349,23 @@ describe("P3 Security Fixes — AUDIT-2026-007", () => {
       const invalid = {
         name: "Test",
         barcode: "12;34'OR'1",
-        sale_price: 100,
+        price: 100,
+        cost_price: 0,
         stock_quantity: 10,
+        min_stock_alert: 5,
+      };
+      const result = productSchema.safeParse(invalid);
+      expect(result.success).toBe(false);
+    });
+
+    it("productSchema rejects tax_rate > 100", () => {
+      const invalid = {
+        name: "Test",
+        price: 100,
+        cost_price: 0,
+        stock_quantity: 10,
+        min_stock_alert: 5,
+        tax_rate: 150,
       };
       const result = productSchema.safeParse(invalid);
       expect(result.success).toBe(false);
@@ -365,10 +393,17 @@ describe("P3 Security Fixes — AUDIT-2026-007", () => {
       expect(result.success).toBe(false);
     });
 
+    it("customerSchema rejects empty name", () => {
+      const invalid = { name: "", phone: "" };
+      const result = customerSchema.safeParse(invalid);
+      expect(result.success).toBe(false);
+    });
+
     it("stockAdjustmentSchema requires reason", () => {
       const invalid = {
-        product_id: "123e4567-e89b-12d3-a456-426614174000",
-        new_quantity: 50,
+        productId: VALID_UUID,
+        type: "restock" as const,
+        quantity: 50,
         reason: "",
       };
       const result = stockAdjustmentSchema.safeParse(invalid);
@@ -377,36 +412,100 @@ describe("P3 Security Fixes — AUDIT-2026-007", () => {
 
     it("stockAdjustmentSchema rejects negative quantity", () => {
       const invalid = {
-        product_id: "123e4567-e89b-12d3-a456-426614174000",
-        new_quantity: -5,
+        productId: VALID_UUID,
+        type: "restock" as const,
+        quantity: -5,
         reason: "Test",
       };
       const result = stockAdjustmentSchema.safeParse(invalid);
       expect(result.success).toBe(false);
     });
 
+    it("stockAdjustmentSchema rejects invalid type", () => {
+      const invalid = {
+        productId: VALID_UUID,
+        type: "invalid_type" as unknown as "restock",
+        quantity: 5,
+        reason: "Test",
+      };
+      const result = stockAdjustmentSchema.safeParse(invalid);
+      expect(result.success).toBe(false);
+    });
+
+    it("stockAdjustmentSchema rejects invalid productId (not UUID)", () => {
+      const invalid = {
+        productId: "not-a-uuid",
+        type: "restock" as const,
+        quantity: 5,
+        reason: "Test",
+      };
+      const result = stockAdjustmentSchema.safeParse(invalid);
+      expect(result.success).toBe(false);
+    });
+
+    it("stockAdjustmentSchema accepts valid restock", () => {
+      const valid = {
+        productId: VALID_UUID,
+        type: "restock" as const,
+        quantity: 50,
+        reason: "Réapprovisionnement fournisseur",
+      };
+      const result = stockAdjustmentSchema.safeParse(valid);
+      expect(result.success).toBe(true);
+    });
+
     it("creditPaymentSchema rejects zero amount", () => {
       const invalid = {
-        customer_id: "123e4567-e89b-12d3-a456-426614174000",
+        customerId: VALID_UUID,
         amount: 0,
-        payment_method: "cash" as const,
+        description: "Test",
       };
       const result = creditPaymentSchema.safeParse(invalid);
       expect(result.success).toBe(false);
     });
 
-    it("creditPaymentSchema rejects invalid payment_method", () => {
+    it("creditPaymentSchema rejects negative amount", () => {
       const invalid = {
-        customer_id: "123e4567-e89b-12d3-a456-426614174000",
-        amount: 100,
-        payment_method: "cryptocurrency" as unknown as "cash",
+        customerId: VALID_UUID,
+        amount: -100,
+        description: "Test",
       };
       const result = creditPaymentSchema.safeParse(invalid);
       expect(result.success).toBe(false);
+    });
+
+    it("creditPaymentSchema rejects invalid customerId", () => {
+      const invalid = {
+        customerId: "not-a-uuid",
+        amount: 100,
+        description: "Test",
+      };
+      const result = creditPaymentSchema.safeParse(invalid);
+      expect(result.success).toBe(false);
+    });
+
+    it("creditPaymentSchema rejects amount too large (> 1 billion)", () => {
+      const invalid = {
+        customerId: VALID_UUID,
+        amount: 2_000_000_000,
+        description: "Test",
+      };
+      const result = creditPaymentSchema.safeParse(invalid);
+      expect(result.success).toBe(false);
+    });
+
+    it("creditPaymentSchema accepts valid payment", () => {
+      const valid = {
+        customerId: VALID_UUID,
+        amount: 5000,
+        description: "Paiement partiel",
+      };
+      const result = creditPaymentSchema.safeParse(valid);
+      expect(result.success).toBe(true);
     });
 
     it("validateForm helper returns formatted errors", () => {
-      const result = validateForm(productSchema, { name: "", sale_price: -1 });
+      const result = validateForm(productSchema, { name: "", price: -1 });
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(Object.keys(result.errors).length).toBeGreaterThan(0);
@@ -416,8 +515,10 @@ describe("P3 Security Fixes — AUDIT-2026-007", () => {
     it("validateForm helper returns parsed data on success", () => {
       const result = validateForm(productSchema, {
         name: "Test",
-        sale_price: 100,
+        price: 100,
+        cost_price: 0,
         stock_quantity: 10,
+        min_stock_alert: 5,
       });
       expect(result.success).toBe(true);
       if (result.success) {

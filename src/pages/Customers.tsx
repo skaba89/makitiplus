@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDemo } from "@/contexts/DemoContext";
 import { reportError } from "@/lib/sentry";
+import { validateCustomerForm, formatErrors } from "@/lib/schemas";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -177,12 +178,26 @@ const Customers = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // MED-6 fix : valider les données du formulaire avant envoi au backend.
+    // Empêche la persistance de valeurs invalides (nom vide, email malformé,
+    // téléphone avec lettres, nom de 100KB, etc.).
+    const validation = validateCustomerForm(formData);
+    if (!validation.success) {
+      toast({
+        variant: "destructive",
+        title: "Données invalides",
+        description: formatErrors(validation.errors),
+      });
+      return;
+    }
+
     if (selectedCustomer) {
       if (blockMutation('Modifier un client')) return;
-      updateMutation.mutate({ id: selectedCustomer.id, ...formData });
+      updateMutation.mutate({ id: selectedCustomer.id, ...validation.data });
     } else {
       if (blockMutation('Ajouter un client')) return;
-      createMutation.mutate(formData);
+      createMutation.mutate(validation.data);
     }
   };
 
