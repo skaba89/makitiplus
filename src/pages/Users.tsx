@@ -110,6 +110,7 @@ interface UserRow {
   deactivated_at: string | null;
   deactivation_reason: string | null;
   created_at: string;
+  organization_id?: string | null;
 }
 
 interface AuditRow {
@@ -155,7 +156,7 @@ const formatDate = (iso: string | null) => {
 
 const Users = () => {
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { blockMutation } = useDemo();
   const [users, setUsers] = useState<UserRow[]>([]);
   const [audit, setAudit] = useState<AuditRow[]>([]);
@@ -191,7 +192,7 @@ const Users = () => {
       const userIds = (roles ?? []).map((r) => r.user_id);
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("user_id, owner_name, business_name, phone, is_active, is_test_account, test_expires_at, last_login_at, deactivated_at, deactivation_reason")
+        .select("user_id, owner_name, business_name, phone, is_active, is_test_account, test_expires_at, last_login_at, deactivated_at, deactivation_reason, organization_id")
         .in(
           "user_id",
           userIds.length ? userIds : ["00000000-0000-0000-0000-000000000000"]
@@ -224,9 +225,30 @@ const Users = () => {
           deactivated_at: p?.deactivated_at ?? null,
           deactivation_reason: p?.deactivation_reason ?? null,
           created_at: r.created_at,
+          organization_id: p?.organization_id ?? null,
         };
       });
-      setUsers(merged);
+
+      // Tenant isolation : un admin (non super_admin) ne doit pas voir
+      // les super_admins NI les utilisateurs des autres organisations.
+      // La RLS filtre déjà côté DB, mais on ajoute un filtre côté code
+      // pour éviter d'afficher des super_admins ou des users d'autres orgs
+      // à un admin simple (defense-in-depth).
+      const isSuperAdmin = userRole === "super_admin";
+      const currentOrgId = profile?.organization_id;
+      const filtered = isSuperAdmin
+        ? merged
+        : merged.filter((u) => {
+            // Cacher les super_admins
+            if (u.role === "super_admin") return false;
+            // Ne garder que les users de la MÊME organisation
+            if (currentOrgId && u.organization_id && u.organization_id !== currentOrgId) {
+              return false;
+            }
+            return true;
+          });
+
+      setUsers(filtered);
     } catch (err) {
       reportError(err instanceof Error ? err : new Error(String(err)));
       toast({
