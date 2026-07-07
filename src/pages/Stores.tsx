@@ -87,12 +87,26 @@ import { PlanLimitGuard } from "@/components/saas/PlanLimitGuard";
 
 type Organization = Database["public"]["Tables"]["organizations"]["Row"];
 type StoreCategory = Database["public"]["Enums"]["store_category"];
+type StoreRow = Database["public"]["Tables"]["stores"]["Row"];
+
+interface RealStore {
+  id: string;
+  organization_id: string | null;
+  name: string;
+  slug: string | null;
+  category: StoreCategory | null;
+  country: string | null;
+  currency: string | null;
+  created_at: string;
+}
 
 interface StoreWithAdmin extends Organization {
   admin_name?: string;
   admin_email?: string;
   admin_id?: string;
   user_count?: number;
+  real_stores?: RealStore[];
+  store_count?: number;
 }
 
 // Catégories de magasins avec labels et icônes Lucide
@@ -209,6 +223,13 @@ const Stores = () => {
         .select("organization_id")
         .in("organization_id", orgIds);
 
+      // Récupérer aussi les stores réels pour afficher le détail
+      const { data: realStores } = await supabase
+        .from("stores")
+        .select("id, organization_id, name, slug, category, country, currency, created_at")
+        .in("organization_id", orgIds)
+        .order("created_at", { ascending: false });
+
       // Construction des maps de recherche
       const adminMap = new Map<string, { owner_name: string | null; user_id: string | null }>();
       const seenOrgs = new Set<string>();
@@ -227,12 +248,24 @@ const Stores = () => {
         }
       }
 
-      // 3. Fusion
+      // Map des stores par org (pour afficher le count et la liste)
+      const storesByOrg = new Map<string, typeof realStores>();
+      for (const s of realStores || []) {
+        if (s.organization_id) {
+          const arr = storesByOrg.get(s.organization_id) || [];
+          arr.push(s);
+          storesByOrg.set(s.organization_id, arr);
+        }
+      }
+
+      // 3. Fusion — attache les stores réels à chaque org
       return orgs.map((org) => ({
         ...org,
         admin_name: adminMap.get(org.id)?.owner_name || "—",
         admin_id: adminMap.get(org.id)?.user_id,
         user_count: countMap.get(org.id) || 0,
+        real_stores: storesByOrg.get(org.id) || [],
+        store_count: (storesByOrg.get(org.id) || []).length,
       })) as StoreWithAdmin[];
     },
   });
@@ -606,9 +639,9 @@ const Stores = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Magasin</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead className="hidden sm:table-cell">Pays</TableHead>
+                    <TableHead>Organisation</TableHead>
+                    <TableHead className="hidden sm:table-cell">Boutiques</TableHead>
+                    <TableHead className="hidden md:table-cell">Pays</TableHead>
                     <TableHead className="hidden md:table-cell">Devise</TableHead>
                     <TableHead>Admin</TableHead>
                     <TableHead className="hidden lg:table-cell">Utilisateurs</TableHead>
@@ -620,8 +653,33 @@ const Stores = () => {
                   {filteredStores.map((store) => (
                     <TableRow key={store.id}>
                       <TableCell className="font-medium">{store.name}</TableCell>
-                      <TableCell>
-                        <CategoryBadge value={store.category} />
+                      <TableCell className="hidden sm:table-cell">
+                        {store.real_stores && store.real_stores.length > 0 ? (
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1.5">
+                              <Store className="h-3 w-3 text-muted-foreground" />
+                              <Badge variant="secondary" className="text-xs">
+                                {store.real_stores.length} boutique{store.real_stores.length > 1 ? "s" : ""}
+                              </Badge>
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {store.real_stores.slice(0, 3).map((s) => (
+                                <span key={s.id} className="text-xs px-1.5 py-0.5 bg-muted rounded">
+                                  {s.name}
+                                </span>
+                              ))}
+                              {store.real_stores.length > 3 && (
+                                <span className="text-xs text-muted-foreground">
+                                  +{store.real_stores.length - 3}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <Badge variant="outline" className="text-xs">
+                            Aucune boutique
+                          </Badge>
+                        )}
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">
                         <div className="flex items-center gap-1">
