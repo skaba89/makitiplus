@@ -66,7 +66,7 @@ export const productFormSchema = z.object({
   barcode: z
     .string()
     .max(100, "Le code-barres ne peut pas dépasser 100 caractères")
-    .regex(/^[\w\-]*$/, "Code-barres invalide (alphanumérique, tirets uniquement)")
+    .regex(/^[\w-]*$/, "Code-barres invalide (alphanumérique, tirets uniquement)")
     .optional()
     .or(z.literal("")),
   unit: z
@@ -95,7 +95,7 @@ export const customerFormSchema = z.object({
   phone: z
     .string()
     .max(30, "Téléphone trop long")
-    .regex(/^[\d\s\-\+()]*$/, "Téléphone invalide")
+    .regex(/^[\d\s\-+()]*$/, "Téléphone invalide")
     .optional()
     .or(z.literal("")),
   email: z

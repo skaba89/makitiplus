@@ -246,11 +246,13 @@ describe("P1 Fix: Frontend Products uses create_product RPC", () => {
   });
 });
 
-// ─── 7. Frontend Stores uses create_store RPC ─────────────────────
-describe("P1 Fix: Frontend Stores uses create_store RPC", () => {
-  it("Stores.tsx calls create_store RPC", () => {
+// ─── 7. Frontend Stores uses create_first_organization RPC ─────────
+describe("P1 Fix: Frontend Stores uses create_first_organization RPC", () => {
+  it("Stores.tsx calls create_first_organization RPC", () => {
     const source = readSrc("pages/Stores.tsx");
 
-    expect(source).toMatch(/supabase\.rpc\(["']create_store["']/);
+    // Stores.tsx uses create_first_organization RPC which handles both
+    // creating a new org+store and adding a store to an existing org
+    expect(source).toMatch(/supabase\.rpc\(["']create_first_organization["']/);
   });
 });

@@ -38,6 +38,10 @@ vi.mock("@/integrations/supabase/client", () => ({
     from: () => ({
       select: () => ({
         eq: () => ({
+          limit: () => ({
+            single: () => Promise.resolve({ data: null, error: null }),
+            maybeSingle: () => Promise.resolve({ data: null, error: null }),
+          }),
           single: () => Promise.resolve({ data: null, error: null }),
           maybeSingle: () => Promise.resolve({ data: null, error: null }),
         }),
@@ -203,10 +207,16 @@ describe("AuthContext integration", () => {
       error: null,
     });
     // Profile says is_active = false
-    // Need to mock supabase.from().select().eq().maybeSingle()
+    // Need to mock supabase.from().select().eq().limit().maybeSingle()
     const fromMock = vi.fn(() => ({
       select: vi.fn(() => ({
         eq: vi.fn(() => ({
+          limit: vi.fn(() => ({
+            single: vi.fn(() => Promise.resolve({ data: null, error: null })),
+            maybeSingle: vi.fn(() =>
+              Promise.resolve({ data: { is_active: false }, error: null })
+            ),
+          })),
           single: vi.fn(() => Promise.resolve({ data: null, error: null })),
           maybeSingle: vi.fn(() =>
             Promise.resolve({ data: { is_active: false }, error: null })
@@ -214,6 +224,9 @@ describe("AuthContext integration", () => {
         })),
       })),
       insert: vi.fn(() => Promise.resolve({ data: null, error: null })),
+      update: vi.fn(() => ({
+        eq: vi.fn(() => Promise.resolve({ data: null, error: null })),
+      })),
     }));
 
     // Re-mock supabase for this specific test
