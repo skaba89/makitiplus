@@ -62,6 +62,7 @@ const createChainMock = (resolveWith: { data: unknown; error: unknown | null }) 
     insert: vi.fn().mockReturnThis(),
     update: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
     single: vi.fn().mockResolvedValue(resolveWith),
     maybeSingle: vi.fn().mockResolvedValue(resolveWith),
     then: vi.fn((onFulfilled?: (value: typeof resolveWith) => unknown, onRejected?: (reason: unknown) => unknown) =>
@@ -168,12 +169,19 @@ describe("AuthProvider — signIn", () => {
       error: null,
     });
 
-    // Mock active profile check
-    const profileChain = createChainMock({
-      data: { is_active: true },
+    // Mock active profile check + role + full profile
+    const activeChain = createChainMock({ data: { is_active: true }, error: null });
+    const roleChain = createChainMock({ data: { role: "admin" }, error: null });
+    const fullProfileChain = createChainMock({
+      data: { organization_id: "org-1", business_name: "Test Shop", owner_name: "Test", is_active: true },
       error: null,
     });
-    mockFrom.mockReturnValue(profileChain);
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "user_roles") return roleChain;
+      if (table === "profiles") return activeChain;
+      return createChainMock({ data: null, error: null });
+    });
 
     // touch_last_login — best-effort
     mockRpc.mockResolvedValue({ data: null, error: null });
@@ -250,11 +258,14 @@ describe("AuthProvider — signIn", () => {
       error: null,
     });
 
-    const profileChain = createChainMock({
-      data: { is_active: true },
-      error: null,
+    const activeChain = createChainMock({ data: { is_active: true }, error: null });
+    const roleChain = createChainMock({ data: { role: "admin" }, error: null });
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "user_roles") return roleChain;
+      if (table === "profiles") return activeChain;
+      return createChainMock({ data: null, error: null });
     });
-    mockFrom.mockReturnValue(profileChain);
 
     // touch_last_login fails — but this should not break sign-in
     mockRpc.mockResolvedValue({ data: null, error: { code: "42501", message: "not allowed" } });

@@ -14,6 +14,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -29,6 +30,7 @@ import {
   Shield,
   Server,
   UserCheck,
+  Lock,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -54,6 +56,8 @@ const INITIAL_CHECKS: CheckResult[] = [
 ];
 
 export default function Diagnostic() {
+  const { user, userRole } = useAuth();
+  const isSuperAdmin = userRole === "super_admin";
   const [checks, setChecks] = useState<CheckResult[]>(INITIAL_CHECKS);
   const [isRunning, setIsRunning] = useState(false);
 
@@ -72,13 +76,15 @@ export default function Diagnostic() {
     const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
     if (supabaseUrl && !supabaseUrl.includes("your-project")) {
-      updateCheck("supabase_url", "pass", supabaseUrl);
+      // SECURITY: ne pas exposer l'URL complète aux visiteurs non authentifiés
+      updateCheck("supabase_url", "pass", isSuperAdmin ? supabaseUrl : "URL configurée");
     } else {
       updateCheck("supabase_url", "fail", "Variable VITE_SUPABASE_URL manquante ou à valeur par défaut");
     }
 
     if (supabaseKey && !supabaseKey.includes("your-anon-key") && !supabaseKey.includes("dummy-key")) {
-      updateCheck("supabase_key", "pass", `${supabaseKey.substring(0, 20)}...`);
+      // SECURITY: ne jamais afficher la clé, même tronquée
+      updateCheck("supabase_key", "pass", "Clé configurée");
     } else {
       updateCheck("supabase_key", "fail", "Variable VITE_SUPABASE_PUBLISHABLE_KEY manquante ou à valeur par défaut");
     }
@@ -208,6 +214,7 @@ export default function Diagnostic() {
   // Lance les checks au montage
   useEffect(() => {
     runChecks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const categories = [
@@ -305,52 +312,71 @@ export default function Diagnostic() {
           </Alert>
         )}
 
-        {/* Détails par catégorie */}
-        <div className="space-y-6">
-          {categories.map((cat) => {
-            const catChecks = checks.filter((c) => c.category === cat.id);
-            const Icon = cat.icon;
-            return (
-              <Card key={cat.id}>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Icon className="h-5 w-5" />
-                    {cat.label}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {catChecks.map((check) => (
-                    <div
-                      key={check.id}
-                      className="flex items-start gap-3 p-3 rounded-lg bg-muted/50"
-                    >
-                      {check.status === "pass" && (
-                        <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
-                      )}
-                      {check.status === "fail" && (
-                        <XCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
-                      )}
-                      {check.status === "warn" && (
-                        <AlertTriangle className="h-5 w-5 text-yellow-500 flex-shrink-0 mt-0.5" />
-                      )}
-                      {check.status === "loading" && (
-                        <Loader2 className="h-5 w-5 text-slate-400 flex-shrink-0 mt-0.5 animate-spin" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm">{check.label}</p>
-                        {check.detail && (
-                          <p className="text-xs text-muted-foreground mt-1 break-all">
-                            {check.detail}
-                          </p>
+        {/* Détails par catégorie — visibles uniquement si super_admin */}
+        {isSuperAdmin ? (
+          <div className="space-y-6">
+            {categories.map((cat) => {
+              const catChecks = checks.filter((c) => c.category === cat.id);
+              const Icon = cat.icon;
+              return (
+                <Card key={cat.id}>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Icon className="h-5 w-5" />
+                      {cat.label}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {catChecks.map((check) => (
+                      <div
+                        key={check.id}
+                        className="flex items-start gap-3 p-3 rounded-lg bg-muted/50"
+                      >
+                        {check.status === "pass" && (
+                          <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
                         )}
+                        {check.status === "fail" && (
+                          <XCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                        )}
+                        {check.status === "warn" && (
+                          <AlertTriangle className="h-5 w-5 text-yellow-500 flex-shrink-0 mt-0.5" />
+                        )}
+                        {check.status === "loading" && (
+                          <Loader2 className="h-5 w-5 text-slate-400 flex-shrink-0 mt-0.5 animate-spin" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm">{check.label}</p>
+                          {check.detail && (
+                            <p className="text-xs text-muted-foreground mt-1 break-all">
+                              {check.detail}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        ) : (
+          <Card className="border-2 border-yellow-500">
+            <CardContent className="pt-6 text-center">
+              <Lock className="h-10 w-10 text-yellow-500 mx-auto mb-3" />
+              <h3 className="text-lg font-bold mb-2">Détails techniques réservés</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Les détails techniques du diagnostic sont visibles uniquement par les super administrateurs.
+                Connectez-vous avec un compte super_admin pour voir les détails.
+              </p>
+              <Button asChild>
+                <Link to="/auth">
+                  <Shield className="h-4 w-4 mr-2" />
+                  Se connecter
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Actions */}
         <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
@@ -373,7 +399,7 @@ export default function Diagnostic() {
             Page de diagnostic — MakitiPlus v1.0 · Audit AUDIT-2026-007
           </p>
           <p className="mt-1">
-            Cette page n'affiche que des informations non sensibles (statut des migrations).
+            Le statut global est public. Les détails techniques sont réservés aux super administrateurs.
           </p>
         </div>
       </div>
