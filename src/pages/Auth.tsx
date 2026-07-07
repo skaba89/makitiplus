@@ -33,6 +33,33 @@ const signupSchema = z.object({
   phone: z.string().optional(),
 });
 
+const getAuthErrorMessage = (error: unknown): string => {
+  const rawMessage = error instanceof Error ? error.message : extractErrorMessage(error);
+  const message = rawMessage || "Une erreur est survenue";
+
+  if (/Invalid login credentials/i.test(message)) {
+    return "Email ou mot de passe incorrect.";
+  }
+
+  if (/Email not confirmed/i.test(message)) {
+    return "Veuillez confirmer votre email avant de vous connecter.";
+  }
+
+  if (/Failed to fetch|NetworkError|ERR_CONNECTION_TIMED_OUT|timeout|Load failed|fetch/i.test(message)) {
+    return "Connexion impossible à Supabase. Vérifiez votre connexion internet, VPN, proxy, DNS ou pare-feu, puis réessayez. Essayez aussi avec un partage de connexion mobile.";
+  }
+
+  if (/r[oô]le|role|user_roles|profile|profiles|permission denied|42501|406|RLS/i.test(message)) {
+    return `Connexion réussie, mais le profil ou le rôle n'est pas lisible. Vérifiez les policies RLS, public.profiles et public.user_roles. Détail : ${message}`;
+  }
+
+  if (/User already registered/i.test(message)) {
+    return "Un compte existe déjà avec cet email.";
+  }
+
+  return message;
+};
+
 const Auth = () => {
   const navigate = useNavigate();
   const { signIn, signUp } = useAuth();
@@ -139,16 +166,10 @@ const Auth = () => {
       const { error } = await signIn(loginEmail, loginPassword);
 
       if (error) {
-        let message = "Une erreur est survenue";
-        if (error.message.includes("Invalid login credentials")) {
-          message = "Email ou mot de passe incorrect";
-        } else if (error.message.includes("Email not confirmed")) {
-          message = "Veuillez confirmer votre email avant de vous connecter";
-        }
         toast({
           variant: "destructive",
           title: "Erreur de connexion",
-          description: message,
+          description: getAuthErrorMessage(error),
         });
       } else {
         toast({
@@ -161,8 +182,8 @@ const Auth = () => {
       reportError(error instanceof Error ? error : new Error(extractErrorMessage(error)));
       toast({
         variant: "destructive",
-        title: "Erreur",
-        description: "Une erreur inattendue est survenue",
+        title: "Erreur de connexion",
+        description: getAuthErrorMessage(error),
       });
     } finally {
       setIsLoading(false);
@@ -214,14 +235,10 @@ const Auth = () => {
       });
 
       if (error) {
-        let message = "Une erreur est survenue";
-        if (error.message.includes("User already registered")) {
-          message = "Un compte existe déjà avec cet email";
-        }
         toast({
           variant: "destructive",
           title: "Erreur d'inscription",
-          description: message,
+          description: getAuthErrorMessage(error),
         });
       } else {
         toast({
@@ -236,8 +253,8 @@ const Auth = () => {
       reportError(error instanceof Error ? error : new Error(extractErrorMessage(error)));
       toast({
         variant: "destructive",
-        title: "Erreur",
-        description: "Une erreur inattendue est survenue",
+        title: "Erreur d'inscription",
+        description: getAuthErrorMessage(error),
       });
     } finally {
       setIsLoading(false);
