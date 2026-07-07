@@ -362,7 +362,8 @@ const Stores = () => {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || "Erreur lors de la création du compte");
+        console.error("[Stores] admin-create-user error:", response.status, result);
+        throw new Error(result.error || `Erreur ${response.status}: ${JSON.stringify(result)}`);
       }
 
       toast({
