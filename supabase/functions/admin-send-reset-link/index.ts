@@ -1,7 +1,7 @@
 // admin-send-reset-link — Send password reset via email or SMS
 // Uses _shared/ imports (deploy via Supabase CLI)
 
-import { getCorsHeaders, corsOptionsResponse } from '../_shared/cors.ts';
+import { getCorsHeaders, corsOptionsResponse, validateOrigin } from '../_shared/cors.ts';
 import { requireMethod } from '../_shared/httpMethodGuard.ts';
 import { createRateLimiter } from '../_shared/rateLimiter.ts';
 import { requireAdminContext, loadTargetInSameOrg } from '../_shared/orgScope.ts';
@@ -77,7 +77,9 @@ Deno.serve(async (req) => {
     const { user, adminClient, actorProfile, ipAddress } = ctx;
 
     const body = await req.json();
-    const { userId, channel, redirectTo } = body;
+    const { userId, channel } = body;
+    // Note : redirectTo retiré (MED-5 fix). L'origine est validée côté serveur
+    // via validateOrigin(req) pour empêcher l'open redirect.
 
     if (!userId || !channel) {
       return new Response(JSON.stringify({ error: 'userId et channel requis' }), {
@@ -130,10 +132,14 @@ Deno.serve(async (req) => {
           status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
         });
       }
+      // MED-5 fix : utiliser validateOrigin() au lieu de redirectTo brut pour éviter
+      // l'open redirect (un admin malveillant ou une session compromise pourrait
+      // sinon faire pointer le lien de reset vers un domaine attaquant).
+      const safeOrigin = validateOrigin(req);
       const { data: linkData, error: linkErr } = await adminClient.auth.admin.generateLink({
         type: 'recovery',
         email,
-        options: { redirectTo: redirectTo ?? undefined },
+        options: { redirectTo: `${safeOrigin}/auth` },
       });
       if (linkErr) throw linkErr;
 
@@ -178,8 +184,13 @@ Deno.serve(async (req) => {
     });
     if (insertErr) throw insertErr;
 
-    const origin = req.headers.get('origin') ?? redirectTo ?? '';
-    const link = `${origin}/auth?reset_token=${token}`;
+    // MED-5 fix : utiliser validateOrigin() au lieu de origin/redirectTo bruts.
+    // Le header Origin ne peut pas être forgé cross-origin par les navigateurs,
+    // mais redirectTo dans le body est entièrement contrôlé par le client.
+    // validateOrigin() vérifie l'Origin contre une allowlist et fallback vers
+    // l'URL de production.
+    const safeOrigin = validateOrigin(req);
+    const link = `${safeOrigin}/auth?reset_token=${token}`;
     const sms = await sendSmsViaTwilio(
       phone,
       `Réinitialisez votre mot de passe MakitiPlus (valide 30min) : ${link}`
