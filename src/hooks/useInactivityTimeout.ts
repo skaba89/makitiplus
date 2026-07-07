@@ -55,14 +55,13 @@ export function useInactivityTimeout() {
 
   const handleSignOut = useCallback(async () => {
     if (!user) return;
-    // Track logout time before signing out
+    // LOW-4 fix : utiliser le RPC record_user_logout() qui utilise NOW() côté serveur,
+    // au lieu d'un UPDATE direct sur profiles avec un timestamp client-supplied.
+    // Empêche un attaquant avec token volé de forger des last_logout_at arbitraires.
     try {
-      await supabase
-        .from("profiles")
-        .update({ last_logout_at: new Date().toISOString() })
-        .eq("user_id", user.id);
+      await supabase.rpc("record_user_logout");
     } catch {
-      // Silently ignore
+      // Silently ignore — best effort
     }
 
     toast({

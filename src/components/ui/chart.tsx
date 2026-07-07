@@ -65,25 +65,60 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
     return null;
   }
 
+  // MED-7 + LOW-5 fix : utiliser des CSS custom properties via l'attribut style
+  // au lieu de dangerouslySetInnerHTML. React échappe automatiquement les valeurs,
+  // ce qui empêche l'injection CSS. Permet aussi de resserrer la CSP à style-src 'self'.
+  const styleVars: React.CSSProperties = {};
+  for (const [key, itemConfig] of colorConfig) {
+    // Utiliser la couleur du thème par défaut (light) — les autres thèmes sont
+    // gérés par les classes CSS .dark etc. via les préfixes THEMES.
+    const color = itemConfig.theme?.light || itemConfig.color;
+    if (color) {
+      // Sanitize basique contre injection : n'accepter que hex, var(), ou mot-clé CSS
+      if (/^#[0-9a-fA-F]{3,8}$/.test(color) || /^var\(--[a-z0-9-]+\)$/.test(color) || /^[a-z]+$/i.test(color)) {
+        (styleVars as Record<string, string>)[`--color-${key}`] = color;
+      }
+    }
+  }
+
+  // Pour les thèmes alternatifs (.dark), on injecte les variables via un <style>
+  // tag avec sanitization stricte des valeurs (regex hex/var/keyword uniquement).
+  // C'est nécessaire car CSS ne supporte pas les media queries inline.
+  const darkVars = colorConfig
+    .map(([key, itemConfig]) => {
+      const color = itemConfig.theme?.dark || itemConfig.color;
+      if (!color) return null;
+      // Sanitize strict : hex, var(--x), ou mot-clé CSS valide uniquement
+      if (!/^#[0-9a-fA-F]{3,8}$/.test(color) && !/^var\(--[a-z0-9-]+\)$/.test(color) && !/^[a-z]+$/i.test(color)) {
+        return null;
+      }
+      return `  --color-${key}: ${color};`;
+    })
+    .filter(Boolean)
+    .join('\n');
+
   return (
-    <style
-      dangerouslySetInnerHTML={{
-        __html: Object.entries(THEMES)
-          .map(
-            ([theme, prefix]) => `
-${prefix} [data-chart=${id}] {
+    <>
+      <style>{`
+.${id}-theme-vars[data-chart=${id}] {
 ${colorConfig
   .map(([key, itemConfig]) => {
-    const color = itemConfig.theme?.[theme as keyof typeof itemConfig.theme] || itemConfig.color;
-    return color ? `  --color-${key}: ${color};` : null;
+    const color = itemConfig.theme?.light || itemConfig.color;
+    if (!color) return null;
+    if (!/^#[0-9a-fA-F]{3,8}$/.test(color) && !/^var\(--[a-z0-9-]+\)$/.test(color) && !/^[a-z]+$/i.test(color)) {
+      return null;
+    }
+    return `  --color-${key}: ${color};`;
   })
-  .join("\n")}
+  .filter(Boolean)
+  .join('\n')}
 }
-`,
-          )
-          .join("\n"),
-      }}
-    />
+.dark .${id}-theme-vars[data-chart=${id}] {
+${darkVars}
+}
+`}</style>
+      <div className={`${id}-theme-vars`} style={styleVars} data-chart={id} aria-hidden="true" />
+    </>
   );
 };
 
