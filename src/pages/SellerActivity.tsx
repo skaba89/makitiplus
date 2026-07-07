@@ -134,7 +134,11 @@ export default function SellerActivity() {
         p_period_end: periodEnd,
       });
       if (error) throw error;
-      return (data as SellerPerformance[]) || [];
+      // Le RPC retourne maintenant JSONB (soit un tableau, soit un objet {error: ...})
+      // On normalise vers un tableau
+      if (!data) return [];
+      const raw = Array.isArray(data) ? data : (data as unknown as { error?: string })?.error ? [] : [data];
+      return (raw as SellerPerformance[]) || [];
     },
     enabled: userRole === "super_admin" || userRole === "admin" || userRole === "manager",
   });
@@ -148,19 +152,24 @@ export default function SellerActivity() {
         p_limit: 200,
       });
       if (error) throw error;
-      return (data as SellerActivity[]) || [];
+      // Le RPC retourne JSONB — normaliser vers un tableau
+      if (!data) return [];
+      const raw = Array.isArray(data) ? data : (data as unknown as { error?: string })?.error ? [] : [data];
+      return (raw as SellerActivity[]) || [];
     },
     enabled: !!selectedSellerId && (userRole === "super_admin" || userRole === "admin" || userRole === "manager"),
   });
 
   // ─── Stats ────────────────────────────────────────────────
   const stats = useMemo(() => {
-    if (!sellers) return { totalSellers: 0, totalRevenue: 0, totalSales: 0, activeNow: 0 };
+    if (!sellers || !Array.isArray(sellers) || sellers.length === 0) {
+      return { totalSellers: 0, totalRevenue: 0, totalSales: 0, activeNow: 0 };
+    }
     return {
       totalSellers: sellers.length,
-      totalRevenue: sellers.reduce((sum, s) => sum + Number(s.total_revenue), 0),
-      totalSales: sellers.reduce((sum, s) => sum + Number(s.total_sales), 0),
-      activeNow: sellers.filter((s) => {
+      totalRevenue: sellers.reduce((sum: number, s: SellerPerformance) => sum + Number(s.total_revenue || 0), 0),
+      totalSales: sellers.reduce((sum: number, s: SellerPerformance) => sum + Number(s.total_sales || 0), 0),
+      activeNow: sellers.filter((s: SellerPerformance) => {
         if (!s.last_seen_at) return false;
         const diff = Date.now() - new Date(s.last_seen_at).getTime();
         return diff < 5 * 60 * 1000; // Active within last 5 min
