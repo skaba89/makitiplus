@@ -353,7 +353,7 @@ const App = () => {
             <Route
               path="/dashboard/seller-activity"
               element={
-                <ProtectedRoute allowedRoles={ADMIN_ROLES}>
+                <ProtectedRoute allowedRoles={MANAGEMENT_ROLES}>
                   <SafePage><SellerActivity /></SafePage>
                 </ProtectedRoute>
               }

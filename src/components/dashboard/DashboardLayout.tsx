@@ -144,7 +144,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       name: "Activité Vendeurs",
       href: "/dashboard/seller-activity",
       icon: BarChart3,
-      roles: ADMIN_ROLES,
+      roles: MANAGEMENT_ROLES,
     },
     {
       name: "Magasins",

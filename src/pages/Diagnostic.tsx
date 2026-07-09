@@ -299,15 +299,27 @@ export default function Diagnostic() {
                 <li>Cliquer Run</li>
                 <li>Recharger cette page</li>
               </ol>
-              <a
-                href="https://supabase.com/dashboard/project/exxntkuursgwhxvehekr/sql/new"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center mt-3 text-red-700 hover:text-red-900 font-medium"
-              >
-                Ouvrir le SQL Editor Supabase
-                <ArrowRight className="h-4 w-4 ml-1" />
-              </a>
+              {(() => {
+                const supabaseDashboardUrl = import.meta.env.VITE_SUPABASE_DASHBOARD_URL;
+                if (isSuperAdmin && supabaseDashboardUrl) {
+                  return (
+                    <a
+                      href={supabaseDashboardUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center mt-3 text-red-700 hover:text-red-900 font-medium"
+                    >
+                      Ouvrir le SQL Editor Supabase
+                      <ArrowRight className="h-4 w-4 ml-1" />
+                    </a>
+                  );
+                }
+                return (
+                  <p className="mt-3 text-sm text-red-800">
+                    Ouvrez le SQL Editor depuis votre dashboard Supabase.
+                  </p>
+                );
+              })()}
             </AlertDescription>
           </Alert>
         )}
