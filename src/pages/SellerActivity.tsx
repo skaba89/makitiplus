@@ -134,17 +134,17 @@ export default function SellerActivity() {
         p_period_end: periodEnd,
       });
       if (error) throw error;
-      // Le RPC retourne maintenant JSONB (soit un tableau, soit un objet {error: ...})
-      // On normalise vers un tableau
-      if (!data) return [];
-      const raw = Array.isArray(data) ? data : (data as unknown as { error?: string })?.error ? [] : [data];
-      return (raw as SellerPerformance[]) || [];
+      return (data ?? []) as SellerPerformance[];
     },
     enabled: userRole === "super_admin" || userRole === "admin" || userRole === "manager",
   });
 
   // ─── Fetch seller activities ──────────────────────────────
-  const { data: activities } = useQuery({
+  const {
+    data: activities,
+    isLoading: activitiesLoading,
+    error: activitiesError,
+  } = useQuery({
     queryKey: ["seller-activities", selectedSellerId],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_seller_activities", {
@@ -152,12 +152,11 @@ export default function SellerActivity() {
         p_limit: 200,
       });
       if (error) throw error;
-      // Le RPC retourne JSONB — normaliser vers un tableau
-      if (!data) return [];
-      const raw = Array.isArray(data) ? data : (data as unknown as { error?: string })?.error ? [] : [data];
-      return (raw as SellerActivity[]) || [];
+      return (data ?? []) as SellerActivity[];
     },
-    enabled: !!selectedSellerId && (userRole === "super_admin" || userRole === "admin" || userRole === "manager"),
+    enabled:
+      !!selectedSellerId &&
+      (userRole === "super_admin" || userRole === "admin" || userRole === "manager"),
   });
 
   // ─── Stats ────────────────────────────────────────────────
@@ -425,7 +424,15 @@ export default function SellerActivity() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    {!activities || activities.length === 0 ? (
+                    {activitiesLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      </div>
+                    ) : activitiesError ? (
+                      <div className="text-sm text-destructive text-center py-8">
+                        {extractErrorMessage(activitiesError)}
+                      </div>
+                    ) : !activities || activities.length === 0 ? (
                       <p className="text-sm text-muted-foreground text-center py-8">Aucune activité enregistrée</p>
                     ) : (
                       <div className="space-y-3 max-h-[500px] overflow-y-auto">

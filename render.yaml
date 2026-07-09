@@ -13,6 +13,8 @@ services:
         sync: false
       - key: VITE_SUPABASE_PUBLISHABLE_KEY
         sync: false
+      - key: VITE_SUPABASE_DASHBOARD_URL
+        sync: false
       - key: VITE_STRIPE_PUBLISHABLE_KEY
         sync: false
       - key: VITE_SENTRY_DSN

@@ -99,6 +99,12 @@ const moreNavItems: BottomNavItem[] = [
     roles: ADMIN_ROLES,
   },
   {
+    name: "Activité Vendeurs",
+    href: "/dashboard/seller-activity",
+    icon: BarChart3,
+    roles: MANAGEMENT_ROLES,
+  },
+  {
     name: "Magasins",
     href: "/dashboard/stores",
     icon: Store,
