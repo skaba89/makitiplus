@@ -190,23 +190,29 @@ const Users = () => {
       if (rolesError) throw rolesError;
 
       const userIds = (roles ?? []).map((r) => r.user_id);
-      const { data: profiles } = await supabase
+      const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
         .select("user_id, owner_name, business_name, phone, is_active, is_test_account, test_expires_at, last_login_at, deactivated_at, deactivation_reason, organization_id")
         .in(
           "user_id",
           userIds.length ? userIds : ["00000000-0000-0000-0000-000000000000"]
         );
+      if (profilesError) throw profilesError;
 
-      // Fetch emails via edge function (admin only)
+      // Fetch emails via edge function (admin only) — best-effort, non-blocking
       let emailMap: Record<string, string> = {};
       try {
-        const { data: emailRes } = await supabase.functions.invoke("admin-list-user-emails", {
+        const { data: emailRes, error: emailErr } = await supabase.functions.invoke("admin-list-user-emails", {
           body: { userIds },
         });
-        if (emailRes?.emails) emailMap = emailRes.emails;
-      } catch {
+        if (emailErr) {
+          console.warn("[Users] admin-list-user-emails failed:", emailErr.message);
+        } else if (emailRes?.emails) {
+          emailMap = emailRes.emails;
+        }
+      } catch (emailCatchErr) {
         // Non-blocking: emails are optional in the UI
+        console.warn("[Users] admin-list-user-emails exception:", emailCatchErr);
       }
 
       const merged: UserRow[] = (roles ?? []).map((r) => {
