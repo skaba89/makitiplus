@@ -32,6 +32,7 @@ import {
 import { Database } from "@/integrations/supabase/types";
 import { exportProductsToCSV } from "@/utils/exportUtils";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useStore } from "@/contexts/StoreContext";
 import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import { useCategories } from "@/hooks/useCategories";
 import { useProductStats } from "@/hooks/useProductStats";
@@ -72,9 +73,10 @@ const Products = () => {
   const [currentPage, setCurrentPage] = useState(1);
 
   // Reset to page 1 whenever filters change
+  const { currentStore: activeStore } = useStore();
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedCategory]);
+  }, [searchQuery, selectedCategory, activeStore]);
 
   const filters: Array<{
     column: string;
@@ -83,6 +85,11 @@ const Products = () => {
   }> = [];
   if (selectedCategory) {
     filters.push({ column: "category_id", operator: "eq", value: selectedCategory });
+  }
+  // Filtrer par magasin si un store est sélectionné (multi-magasins)
+  const { currentStore } = useStore();
+  if (currentStore) {
+    filters.push({ column: "store_id", operator: "eq", value: currentStore.id });
   }
 
   const {

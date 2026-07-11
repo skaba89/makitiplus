@@ -15,12 +15,17 @@ export interface CartItem {
 interface POSCartState {
   items: CartItem[];
   isHydrated: boolean;
+  discountAmount: number;
+  discountType: "amount" | "percent";
+  discountValue: number;
   addToCart: (product: Product, addQty?: number) => boolean; // returns false if stock exceeded
   updateQuantity: (productId: string, quantity: number) => boolean; // returns false if stock exceeded
   removeItem: (productId: string) => void;
   clearCart: () => void;
   setItems: (items: CartItem[]) => void;
   hydrateFromDB: (organizationId: string) => Promise<void>;
+  setDiscount: (type: "amount" | "percent", value: number) => void;
+  clearDiscount: () => void;
 }
 
 /**
@@ -135,6 +140,9 @@ const saveCartWithFallback = async (items: CartItem[], organizationId: string): 
 export const usePOSCartStore = create<POSCartState>((set, get) => ({
   items: [],
   isHydrated: false,
+  discountAmount: 0,
+  discountType: "amount",
+  discountValue: 0,
 
   hydrateFromDB: async (organizationId: string) => {
     // First try IndexedDB
@@ -211,7 +219,7 @@ export const usePOSCartStore = create<POSCartState>((set, get) => ({
 
   clearCart: () => {
     const state = get();
-    set({ items: [] });
+    set({ items: [], discountAmount: 0, discountType: "amount", discountValue: 0 });
     const orgId = (state.items[0]?.product as { organization_id?: string })?.organization_id || "default";
     saveCartWithFallback([], orgId);
   },
@@ -221,10 +229,37 @@ export const usePOSCartStore = create<POSCartState>((set, get) => ({
     const orgId = (items[0]?.product as { organization_id?: string })?.organization_id || "default";
     saveCartWithFallback(items, orgId);
   },
+
+  setDiscount: (type, value) => {
+    set({ discountType: type, discountValue: value });
+  },
+
+  clearDiscount: () => {
+    set({ discountAmount: 0, discountType: "amount", discountValue: 0 });
+  },
 }));
 
-/** Derived selector: cart total */
-export const useCartTotal = () =>
+/** Derived selector: cart subtotal (before discount) */
+export const useCartSubtotal = () =>
   usePOSCartStore((state) =>
     state.items.reduce((sum, item) => sum + item.product.price * item.quantity, 0)
   );
+
+/** Derived selector: cart total (after discount) */
+export const useCartTotal = () =>
+  usePOSCartStore((state) => {
+    const subtotal = state.items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+    const discount = state.discountType === "percent"
+      ? Math.round(subtotal * (state.discountValue / 100))
+      : Math.min(state.discountValue, subtotal);
+    return Math.max(0, subtotal - discount);
+  });
+
+/** Derived selector: discount amount in currency */
+export const useCartDiscount = () =>
+  usePOSCartStore((state) => {
+    const subtotal = state.items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+    return state.discountType === "percent"
+      ? Math.round(subtotal * (state.discountValue / 100))
+      : Math.min(state.discountValue, subtotal);
+  });

@@ -92,6 +92,9 @@ export const ProductForm = ({ product, onSubmit, isLoading }: ProductFormProps) 
     barcode: "",
     unit: "unité",
     tax_rate: 0 as number | null,
+    description: "",
+    expiry_date: "" as string,
+    is_active: true,
   });
 
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -130,6 +133,9 @@ export const ProductForm = ({ product, onSubmit, isLoading }: ProductFormProps) 
         barcode: product.barcode || "",
         unit: product.unit || "unité",
         tax_rate: product.tax_rate ?? null,
+        description: (product as Record<string, unknown>).description as string || "",
+        expiry_date: (product as Record<string, unknown>).expiry_date as string || "",
+        is_active: (product as Record<string, unknown>).is_active as boolean ?? true,
       });
       setImageUrl(product.image_url || null);
       setImagePreview(product.image_url || null);
@@ -146,6 +152,9 @@ export const ProductForm = ({ product, onSubmit, isLoading }: ProductFormProps) 
         barcode: "",
         unit: "unité",
         tax_rate: null,
+        description: "",
+        expiry_date: "",
+        is_active: true,
       });
       setImageUrl(null);
       setImagePreview(null);
@@ -259,7 +268,10 @@ export const ProductForm = ({ product, onSubmit, isLoading }: ProductFormProps) 
       unit: formData.unit,
       image_url: finalImageUrl || null,
       tax_rate: formData.tax_rate,
-    });
+      description: formData.description || null,
+      expiry_date: formData.expiry_date || null,
+      is_active: formData.is_active,
+    } as Record<string, unknown>);
   };
 
   const isSubmitting = isLoading || isUploadingImage;
@@ -507,6 +519,45 @@ export const ProductForm = ({ product, onSubmit, isLoading }: ProductFormProps) 
             <BarcodeGenerator value={formData.barcode} />
           </div>
         )}
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="description">Description (optionnel)</Label>
+        <textarea
+          id="description"
+          value={formData.description}
+          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+          placeholder="Description du produit..."
+          className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 min-h-[80px] resize-y"
+          maxLength={500}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="expiry_date">Date de péremption (optionnel)</Label>
+          <Input
+            id="expiry_date"
+            type="date"
+            value={formData.expiry_date}
+            onChange={(e) => setFormData({ ...formData, expiry_date: e.target.value })}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="is_active">Statut du produit</Label>
+          <div className="flex items-center h-10">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                id="is_active"
+                checked={formData.is_active}
+                onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              <span className="text-sm">Produit actif (visible à la caisse)</span>
+            </label>
+          </div>
+        </div>
       </div>
 
       <Button type="submit" className="w-full" disabled={isSubmitting}>
