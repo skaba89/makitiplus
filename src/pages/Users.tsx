@@ -262,6 +262,7 @@ const Users = () => {
 
       setUsers(filtered);
     } catch (err) {
+      console.error("[Users] loadUsers CATCH error:", err);
       reportError(err instanceof Error ? err : new Error(String(err)));
       toast({
         variant: "destructive",
