@@ -15,8 +15,11 @@
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
     "e2e:pilot": "playwright test e2e/pilot-critical.spec.ts",
+    "e2e:staging": "playwright test e2e/staging-real-flow.spec.ts",
+    "e2e:seller-activity": "playwright test e2e/seller-activity.spec.ts",
     "check": "npx eslint src/ --ignore-pattern 'src/test/**' --max-warnings 10 && npm run typecheck && npm run build && npm test",
-    "check:production": "npm run check && python3 scripts/validate_sql_migrations.py && npm audit --audit-level=high && npm run e2e:pilot"
+    "check:production": "npm run check && python3 scripts/validate_sql_migrations.py && npm audit --audit-level=high && npm run e2e:pilot",
+    "check:staging": "npm run check:production && npm run e2e:staging && npm run e2e:seller-activity"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.1",

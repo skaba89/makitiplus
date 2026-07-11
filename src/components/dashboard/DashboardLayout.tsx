@@ -144,7 +144,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       name: "Activité Vendeurs",
       href: "/dashboard/seller-activity",
       icon: BarChart3,
-      roles: ADMIN_ROLES,
+      roles: MANAGEMENT_ROLES,
     },
     {
       name: "Magasins",
@@ -310,7 +310,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         </div>
 
         {/* Navigation */}
-        <nav className="p-4 space-y-1 overflow-y-auto" style={{ maxHeight: "calc(100vh - 140px)" }}>
+        <nav className="p-4 space-y-1 overflow-y-auto" style={{ maxHeight: "calc(100vh - 200px)", paddingBottom: "80px" }}>
           {filteredMenuItems.map((item) => {
             const isActive = (href: string) => {
               if (href === "/dashboard") return location.pathname === "/dashboard";

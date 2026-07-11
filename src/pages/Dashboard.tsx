@@ -83,10 +83,15 @@ const Dashboard = () => {
         p_limit: 5,
       });
       if (error) {
+        // Non-critical: get_top_products may 404 if RPC not deployed.
+        // Return empty array instead of crashing the dashboard.
         logger.warn("[Dashboard] get_top_products RPC failed:", error.message);
         return [];
       }
-      return data;
+      // Handle both array (TABLE) and JSONB responses
+      if (Array.isArray(data)) return data;
+      if (data && typeof data === "object") return [data];
+      return [];
     },
     enabled: !!user,
     retry: 1,

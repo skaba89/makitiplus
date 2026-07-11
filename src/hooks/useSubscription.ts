@@ -223,9 +223,24 @@ export function usePlanLimit(limitType: LimitType, enabled = true) {
           plan_id: "starter",
         } as PlanLimitCheck;
       }
-      // Supabase RPC RETURNS TABLE returns an array — unwrap first element
+      // Supabase RPC RETURNS JSONB returns a single object (not an array)
+      // Normalize field names: RPC returns {current, limit} → frontend expects {current_count, limit_value}
       const raw = Array.isArray(data) ? data[0] : data;
-      return (raw as PlanLimitCheck | null) ?? null;
+      if (!raw || typeof raw !== "object") {
+        return {
+          allowed: true,
+          current_count: 0,
+          limit_value: null,
+          plan_id: "starter",
+        } as PlanLimitCheck;
+      }
+      const obj = raw as Record<string, unknown>;
+      return {
+        allowed: (obj.allowed ?? true) as boolean,
+        current_count: (obj.current ?? obj.current_count ?? 0) as number,
+        limit_value: (obj.limit ?? obj.limit_value ?? null) as number | null,
+        plan_id: (obj.plan_id ?? "starter") as string,
+      } as PlanLimitCheck;
     },
     enabled: !!user && enabled,
     staleTime: 2 * 60 * 1000,

@@ -6,9 +6,12 @@ const source = fs.readFileSync(path.join(process.cwd(), "src/contexts/AuthContex
 
 describe("AuthContext Supabase thenable handling", () => {
   it("does not call catch directly on supabase.rpc thenables", () => {
-    expect(source).not.toContain('supabase.rpc("log_user_activity", {\n        p_action: \'login\'');
+    // Verify that rpc calls are wrapped in Promise.resolve to avoid
+    // unhandled rejection issues with Supabase thenable
     expect(source).toContain('Promise.resolve(supabase.rpc("log_user_activity", {');
     expect(source).toContain('Promise.resolve(supabase.rpc("touch_last_login"))');
+    // Verify there's no bare supabase.rpc call (not wrapped)
+    expect(source).not.toMatch(/^\s*supabase\.rpc\(/m);
   });
 
   it("does not call catch directly on the profile update query builder", () => {

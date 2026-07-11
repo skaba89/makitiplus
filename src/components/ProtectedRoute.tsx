@@ -97,7 +97,7 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
     return <Navigate to="/auth" replace />;
   }
 
-  // SECURITY: When loading is done but userRole is null, the session is incomplete.
+  // SECURITY: When loading is done but userRole is null, the session is incomplète.
   // Do not keep the user blocked on /dashboard. Clear only auth-related storage,
   // sign out, then redirect to /auth so email/password are requested again.
   if (userRole === null) {

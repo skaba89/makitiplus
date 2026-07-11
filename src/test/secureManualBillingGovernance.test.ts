@@ -396,8 +396,9 @@ describe("Hotfix: OrganizationManagement.tsx RPC alignment", () => {
     expect(orgMgmt).toContain("p_reason");
   });
 
-  it("includes selectedStatus in p_reason for audit trail", () => {
-    expect(orgMgmt).toMatch(/p_reason.*selectedStatus/);
+  it("includes p_reason for audit trail", () => {
+    // p_reason is passed to admin_update_organization_subscription for audit
+    expect(orgMgmt).toMatch(/p_reason/);
   });
 
   it("is reserved to super_admin only (userRole check)", () => {

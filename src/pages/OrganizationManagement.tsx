@@ -115,7 +115,11 @@ export default function OrganizationManagement() {
     queryKey: ["admin-all-subscriptions"],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("admin_get_all_subscriptions");
-      if (error) throw error;
+      if (error) {
+        // Logger l'erreur complète pour le debug
+        console.error("[OrgManagement] admin_get_all_subscriptions error:", error);
+        throw new Error(`${error.message} (code: ${error.code})`);
+      }
       // Supabase RPC RETURNS TABLE returns arrays
       const raw = Array.isArray(data) ? data : [data];
       return (raw as OrgSubscription[]) || [];
