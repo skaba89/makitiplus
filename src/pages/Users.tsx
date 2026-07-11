@@ -187,7 +187,10 @@ const Users = () => {
       const { data: roles, error: rolesError } = await supabase
         .from("user_roles")
         .select("user_id, role, created_at");
-      if (rolesError) throw rolesError;
+      if (rolesError) {
+        console.error("[Users] user_roles error:", rolesError);
+        throw rolesError;
+      }
 
       const userIds = (roles ?? []).map((r) => r.user_id);
       const { data: profiles, error: profilesError } = await supabase
@@ -197,7 +200,10 @@ const Users = () => {
           "user_id",
           userIds.length ? userIds : ["00000000-0000-0000-0000-000000000000"]
         );
-      if (profilesError) throw profilesError;
+      if (profilesError) {
+        console.error("[Users] profiles error:", profilesError);
+        throw profilesError;
+      }
 
       // Fetch emails via edge function (admin only) — best-effort, non-blocking
       let emailMap: Record<string, string> = {};
