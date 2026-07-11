@@ -82,9 +82,10 @@ export default defineConfig(({ mode }) => ({
       workbox: {
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/~oauth/, /^\/api\//],
-        // M4 fix: Precache the offline fallback page so it's always available
+        // Fix: utiliser un revision fixe au lieu de Date.now() pour éviter
+        // les conflits de cache "add-to-cache-list-conflicting-entries"
         additionalManifestEntries: [
-          { url: "/offline.html", revision: String(Date.now()) },
+          { url: "/offline.html", revision: "makitiplus-offline-v1" },
         ],
         globPatterns: ["**/*.{js,css,html,svg,png,ico,webmanifest,woff2}"],
         runtimeCaching: [
