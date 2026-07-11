@@ -2,7 +2,7 @@ services:
   - type: web
     name: makitiplus
     runtime: static
-    buildCommand: npm ci && npm run build
+    buildCommand: npm ci && rm -rf dist && npm run build
     staticPublishPath: dist
     envVars:
       - key: NODE_VERSION
