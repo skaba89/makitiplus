@@ -29,9 +29,25 @@ interface POSCartState {
 }
 
 /**
- * Load cart from IndexedDB (primary) with localStorage fallback for migration.
+ * Cart entry stored in IndexedDB — items + discount metadata so the
+ * discount survives a page refresh (P0 fix: previously only items were
+ * persisted, so the discount was silently lost on reload).
  */
-const loadCartFromDB = async (organizationId: string): Promise<CartItem[]> => {
+interface StoredCartEntry {
+  organizationId: string;
+  items: CartItem[];
+  updatedAt: string;
+  discountType?: "amount" | "percent";
+  discountValue?: number;
+}
+
+/**
+ * Load cart from IndexedDB (primary) with localStorage fallback for migration.
+ * Returns both the items AND the persisted discount (if any).
+ */
+const loadCartFromDB = async (
+  organizationId: string
+): Promise<{ items: CartItem[]; discountType?: "amount" | "percent"; discountValue?: number }> => {
   try {
     const db = await getDB();
     return new Promise((resolve, reject) => {
@@ -39,18 +55,22 @@ const loadCartFromDB = async (organizationId: string): Promise<CartItem[]> => {
       const store = tx.objectStore(STORES.POS_CART);
       const request = store.get(organizationId);
       request.onsuccess = () => {
-        const entry = request.result as { items: CartItem[] } | undefined;
+        const entry = request.result as StoredCartEntry | undefined;
         if (entry?.items && Array.isArray(entry.items)) {
-          resolve(entry.items);
+          resolve({
+            items: entry.items,
+            discountType: entry.discountType,
+            discountValue: entry.discountValue,
+          });
         } else {
-          resolve([]);
+          resolve({ items: [] });
         }
       };
       request.onerror = () => reject(request.error);
     });
   } catch {
     // Fallback to localStorage if IndexedDB is unavailable
-    return loadCartFromLocalStorage();
+    return { items: loadCartFromLocalStorage() };
   }
 };
 
@@ -71,15 +91,27 @@ const loadCartFromLocalStorage = (): CartItem[] => {
 };
 
 /**
- * Save cart to IndexedDB (primary).
+ * Save cart to IndexedDB (primary) — items + discount metadata so the
+ * discount survives a page refresh.
  */
-const saveCartToDB = async (items: CartItem[], organizationId: string): Promise<void> => {
+const saveCartToDB = async (
+  items: CartItem[],
+  organizationId: string,
+  discount?: { type: "amount" | "percent"; value: number }
+): Promise<void> => {
   try {
     const db = await getDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORES.POS_CART, "readwrite");
       const store = tx.objectStore(STORES.POS_CART);
-      store.put({ organizationId, items, updatedAt: new Date().toISOString() });
+      const entry: StoredCartEntry = {
+        organizationId,
+        items,
+        updatedAt: new Date().toISOString(),
+        discountType: discount?.type,
+        discountValue: discount?.value,
+      };
+      store.put(entry);
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
@@ -112,10 +144,15 @@ let cartPersistenceWarningShown = false;
 /**
  * M5 fix: Attempt to save cart with fallback chain (IDB → localStorage → warn).
  * Returns true if saved successfully to at least one storage.
+ * P0 fix: also persists the discount so it survives a page refresh.
  */
-const saveCartWithFallback = async (items: CartItem[], organizationId: string): Promise<boolean> => {
+const saveCartWithFallback = async (
+  items: CartItem[],
+  organizationId: string,
+  discount?: { type: "amount" | "percent"; value: number }
+): Promise<boolean> => {
   try {
-    await saveCartToDB(items, organizationId);
+    await saveCartToDB(items, organizationId, discount);
     return true;
   } catch {
     // IDB failed, try localStorage
@@ -145,15 +182,16 @@ export const usePOSCartStore = create<POSCartState>((set, get) => ({
   discountValue: 0,
 
   hydrateFromDB: async (organizationId: string) => {
-    // First try IndexedDB
-    let items = await loadCartFromDB(organizationId);
+    // First try IndexedDB — returns items + persisted discount (if any)
+    const { items: dbItems, discountType, discountValue } = await loadCartFromDB(organizationId);
+    let items = dbItems;
 
     // If IndexedDB is empty but localStorage has data, migrate it
     if (items.length === 0) {
       const lsItems = loadCartFromLocalStorage();
       if (lsItems.length > 0) {
         items = lsItems;
-        // Migrate to IndexedDB
+        // Migrate to IndexedDB (no discount info in legacy localStorage)
         await saveCartToDB(items, organizationId);
         // Remove from localStorage after successful migration
         localStorage.removeItem("pos_cart");
@@ -161,7 +199,13 @@ export const usePOSCartStore = create<POSCartState>((set, get) => ({
       }
     }
 
-    set({ items, isHydrated: true });
+    // P0 fix: restore discount from IndexedDB so it survives page refresh
+    set({
+      items,
+      isHydrated: true,
+      discountType: discountType ?? "amount",
+      discountValue: discountValue ?? 0,
+    });
   },
 
   addToCart: (product, addQty = 1) => {
@@ -185,8 +229,9 @@ export const usePOSCartStore = create<POSCartState>((set, get) => ({
 
     set({ items: newItems });
     // M5 fix: Use unified save with fallback chain + warning
+    // P0 fix: persist discount alongside items so it survives refresh
     const orgId = (product as { organization_id?: string }).organization_id || "default";
-    saveCartWithFallback(newItems, orgId);
+    saveCartWithFallback(newItems, orgId, { type: state.discountType, value: state.discountValue });
     return true;
   },
 
@@ -205,7 +250,7 @@ export const usePOSCartStore = create<POSCartState>((set, get) => ({
     );
     set({ items: newItems });
     const orgId = (item?.product as { organization_id?: string })?.organization_id || "default";
-    saveCartWithFallback(newItems, orgId);
+    saveCartWithFallback(newItems, orgId, { type: state.discountType, value: state.discountValue });
     return true;
   },
 
@@ -214,28 +259,37 @@ export const usePOSCartStore = create<POSCartState>((set, get) => ({
     const newItems = state.items.filter((item) => item.product.id !== productId);
     set({ items: newItems });
     const orgId = (state.items[0]?.product as { organization_id?: string })?.organization_id || "default";
-    saveCartWithFallback(newItems, orgId);
+    saveCartWithFallback(newItems, orgId, { type: state.discountType, value: state.discountValue });
   },
 
   clearCart: () => {
     const state = get();
     set({ items: [], discountAmount: 0, discountType: "amount", discountValue: 0 });
     const orgId = (state.items[0]?.product as { organization_id?: string })?.organization_id || "default";
-    saveCartWithFallback([], orgId);
+    saveCartWithFallback([], orgId, { type: "amount", value: 0 });
   },
 
   setItems: (items) => {
+    const state = get();
     set({ items });
     const orgId = (items[0]?.product as { organization_id?: string })?.organization_id || "default";
-    saveCartWithFallback(items, orgId);
+    saveCartWithFallback(items, orgId, { type: state.discountType, value: state.discountValue });
   },
 
   setDiscount: (type, value) => {
     set({ discountType: type, discountValue: value });
+    // P0 fix: persist the new discount immediately so it survives a refresh
+    const state = get();
+    const orgId = (state.items[0]?.product as { organization_id?: string })?.organization_id || "default";
+    saveCartWithFallback(state.items, orgId, { type, value });
   },
 
   clearDiscount: () => {
     set({ discountAmount: 0, discountType: "amount", discountValue: 0 });
+    // P0 fix: persist the cleared discount
+    const state = get();
+    const orgId = (state.items[0]?.product as { organization_id?: string })?.organization_id || "default";
+    saveCartWithFallback(state.items, orgId, { type: "amount", value: 0 });
   },
 }));
 

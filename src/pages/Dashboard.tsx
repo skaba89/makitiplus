@@ -34,9 +34,12 @@ interface DashboardProduct {
   name: string;
   stock_quantity: number;
   min_stock_alert: number | null;
+  expiry_date: string | null;
   categories: { icon: string | null } | null;
   suppliers: { name: string } | null;
 }
+
+const EXPIRY_WARNING_DAYS = 7;
 
 const Dashboard = () => {
   const { user, profile, userRole } = useAuth();
@@ -141,7 +144,7 @@ const Dashboard = () => {
     queryFn: async () => {
       let query = supabase
         .from("products")
-        .select("id, name, stock_quantity, min_stock_alert, categories(icon), suppliers(name)")
+        .select("id, name, stock_quantity, min_stock_alert, expiry_date, categories(icon), suppliers(name)")
         .eq("is_active", true);
       if (profile?.organization_id) {
         query = query.eq("organization_id", profile.organization_id);
@@ -203,6 +206,20 @@ const Dashboard = () => {
   const lowStockProducts = products?.filter(
     (p) => p.stock_quantity <= (p.min_stock_alert || 5)
   ) || [];
+
+  // Alertes péremption : produits périmés ou expirant dans les 7 prochains jours
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const expiryAlertProducts = (products || [])
+    .filter((p) => p.expiry_date)
+    .map((p) => {
+      const expiry = new Date(p.expiry_date!);
+      expiry.setHours(0, 0, 0, 0);
+      const diffDays = Math.floor((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      return { ...p, expiryDays: diffDays };
+    })
+    .filter((p) => p.expiryDays <= EXPIRY_WARNING_DAYS)
+    .sort((a, b) => a.expiryDays - b.expiryDays);
 
   const roleLabels: Record<string, string> = {
     admin: "Administrateur",
@@ -371,6 +388,57 @@ const Dashboard = () => {
                     <Badge variant="destructive" className="text-xs">{p.stock_quantity}</Badge>
                   </button>
                 ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Expiry Alerts — produits périmés ou proches de la péremption */}
+        {expiryAlertProducts.length > 0 && (
+          <Card className="card-elevated border-orange-500/40">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-orange-600 dark:text-orange-400">
+                <AlertTriangle className="h-5 w-5" />
+                Alertes de péremption ({expiryAlertProducts.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground mb-3">
+                Produits périmés ou expirant dans les {EXPIRY_WARNING_DAYS} prochains jours.
+                Vérifiez le stock et appliquez une remise ou un retrait si nécessaire.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {expiryAlertProducts.slice(0, 6).map((p) => {
+                  const isExpired = p.expiryDays < 0;
+                  const isToday = p.expiryDays === 0;
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => navigate("/dashboard/products")}
+                      className="flex items-center gap-3 p-3 bg-orange-500/5 rounded-lg hover:bg-orange-500/10 transition-colors text-left w-full"
+                    >
+                      <CategoryIcon iconName={p.categories?.icon} className="h-5 w-5" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{p.name}</p>
+                        <p className="text-xs text-orange-600 dark:text-orange-400">
+                          {isExpired
+                            ? `Périmé depuis ${Math.abs(p.expiryDays)} jour(s)`
+                            : isToday
+                            ? "Expire aujourd'hui"
+                            : `Expire dans ${p.expiryDays} jour(s)`}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Stock: {p.stock_quantity} {p.suppliers?.name ? `· ${p.suppliers.name}` : ""}
+                        </p>
+                      </div>
+                      <Badge
+                        className={isExpired ? "bg-destructive text-destructive-foreground text-xs" : "bg-orange-500 text-white text-xs"}
+                      >
+                        {new Date(p.expiry_date!).toLocaleDateString("fr-FR")}
+                      </Badge>
+                    </button>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>

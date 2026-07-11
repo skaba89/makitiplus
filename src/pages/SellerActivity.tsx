@@ -184,7 +184,7 @@ export default function SellerActivity() {
     // - super_admin ne doit pas apparaître dans la liste des vendeurs
     // - admin voit tous les autres membres du magasin
     // - manager ne voit que les membres de son magasin (vendeurs, comptables, autres managers)
-    let roleFiltered = sellers.filter((s) => {
+    const roleFiltered = sellers.filter((s) => {
       // Cacher les super_admins de la liste des vendeurs
       if (s.role === "super_admin") return false;
       return true;

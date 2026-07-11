@@ -32,7 +32,7 @@ import { computeTax } from "@/lib/taxUtils";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useBranding } from "@/contexts/BrandingContext";
 import { useThemeSettings } from "@/contexts/ThemeContext";
-import { usePOSCartStore, useCartTotal } from "@/contexts/POSCartContext";
+import { usePOSCartStore, useCartTotal, useCartSubtotal, useCartDiscount } from "@/contexts/POSCartContext";
 import { reportError } from "@/lib/sentry";
 import { logger } from "@/lib/logger";
 import { ReceiptData } from "@/utils/receiptGenerator";
@@ -74,6 +74,8 @@ export function useOfflineSale(options?: {
   const queryClient = useQueryClient();
   const cart = usePOSCartStore((s) => s.items);
   const cartTotal = useCartTotal();
+  const cartSubtotal = useCartSubtotal();
+  const cartDiscount = useCartDiscount();
   const clearCart = usePOSCartStore((s) => s.clearCart);
   const lastSubmitRef = useRef(0);
 
@@ -117,15 +119,20 @@ export function useOfflineSale(options?: {
       }
 
       // ─── Compute amounts ──────────────────────────────────
+      // Sous-total brut (somme prix × quantité, avant remise)
       const subtotal = cart.reduce(
         (sum, item) => sum + item.product.price * item.quantity,
         0
       );
+      // Remise (déjà calculée par POSCartContext, bornée par le sous-total)
+      const discountAmount = cartDiscount;
+      // Total après remise (toujours >= 0)
+      const totalAmount = Math.max(0, subtotal - discountAmount);
+      // Taxe calculée sur le prix brut (la remise est considérée comme une remise commerciale post-taxe)
       const taxAmount = cart.reduce((sum, item) => {
         const t = computeTax(item.product.price, item.product.tax_rate, orgTaxRate);
         return sum + t.taxAmount * item.quantity;
       }, 0);
-      const totalAmount = subtotal;
       const htAmount = subtotal - taxAmount;
       const changeAmount = amountPaid - totalAmount;
 
@@ -153,6 +160,7 @@ export function useOfflineSale(options?: {
           p_customer_phone: customerPhone || null,
           p_seller_name: profile?.owner_name || null,
           p_items: saleItems,
+          p_discount_amount: discountAmount,
         });
 
         if (rpcError || !rpcSaleId) {
@@ -249,6 +257,7 @@ export function useOfflineSale(options?: {
           p_customer_phone: customerPhone || null,
           p_seller_name: profile?.owner_name || null,
           p_items: saleItems,
+          p_discount_amount: discountAmount,
         },
         userId: user?.id,
         organizationId: orgId ?? undefined,
@@ -306,6 +315,7 @@ export function useOfflineSale(options?: {
           customer_phone: customerPhone || null,
           total_amount: totalAmount,
           subtotal: htAmount,
+          discount_amount: discountAmount,
           tax_amount: taxAmount,
           created_at: now,
           offline: true,
@@ -335,7 +345,8 @@ export function useOfflineSale(options?: {
         const t = computeTax(item.product.price, item.product.tax_rate, orgTaxRate);
         return sum + t.taxAmount * item.quantity;
       }, 0);
-      const receiptSubtotal = cartTotal - receiptTaxAmount;
+      // Sous-total brut HT (avant remise) pour le reçu
+      const receiptSubtotal = cartSubtotal - receiptTaxAmount;
 
       const receiptData: ReceiptData = {
         saleNumber: result.sale.sale_number,
@@ -347,6 +358,7 @@ export function useOfflineSale(options?: {
           total_price: item.product.price * item.quantity,
         })),
         subtotal: receiptSubtotal,
+        discount: cartDiscount > 0 ? cartDiscount : undefined,
         total: cartTotal,
         paymentMethod: result.sale.payment_method,
         amountPaid: result.sale.amount_paid,
