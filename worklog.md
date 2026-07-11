@@ -1064,3 +1064,71 @@ Stage Summary:
 - 7 tests non-régression ajoutés (444 total, tous passent)
 - Tous les critères d'acceptation de la section 1-10 validés
 - Projet prêt pour lancement 1 magasin pilote
+
+---
+Task ID: 8
+Agent: main
+Task: Suite audit métier — priorités 4-8 (après top 3 du commit précédent)
+
+Work Log:
+- Vérifié l'état du projet : top 3 déjà fait dans commit 1db8faa
+- Identifié BUG P0 critique : la remise POS était dans l'UI mais NON appliquée en DB
+  (useOfflineSale.ts:128 `totalAmount = subtotal` ignorait la remise)
+- Identifié BUG P0 : la remise n'était PAS persistée dans IndexedDB
+  (POSCartContext.saveCartToDB ne stockait que les items)
+- Fix P0 #1 (useOfflineSale.ts) :
+  - `totalAmount = Math.max(0, subtotal - discountAmount)`
+  - `changeAmount = amountPaid - totalAmount` (après remise)
+  - Ajout `p_discount_amount` dans l'appel RPC online + offline
+  - Ajout `discount_amount` dans le cache offline (sale_cache IDB)
+  - Ajout ligne "Remise" sur le reçu PDF (receiptGenerator.ts)
+  - Ajout champ `discount?: number` dans ReceiptData
+- Fix P0 #2 (POSCartContext.ts) :
+  - Nouvelle interface `StoredCartEntry` avec discountType + discountValue
+  - `loadCartFromDB` retourne maintenant `{ items, discountType, discountValue }`
+  - `saveCartToDB` persiste la remise à chaque opération
+  - `hydrateFromDB` restaure la remise au montage
+  - `setDiscount`/`clearDiscount` déclenchent maintenant la persistance
+  - Toutes les opérations (addToCart, updateQuantity, etc.) passent le discount
+- ProductList (ProductList.tsx) :
+  - Badge "Périmé" (rouge) si expiry_date < aujourd'hui
+  - Badge "Xj" (orange) si expiry_date ≤ 7 jours
+  - Badge "Inactif" (gris) si is_active = false + opacité réduite
+  - Badge marge "Marge: X GNF (Y%)" si cost_price > 0
+  - Badge date de péremption si > 7 jours
+- Dashboard (Dashboard.tsx) :
+  - Nouveau bloc "Alertes de péremption" (orange) sous les alertes de stock
+  - Détecte produits périmés + expirant dans les 7 prochains jours
+  - Tri par urgence, clic → navigation vers /dashboard/products
+  - Constante EXPIRY_WARNING_DAYS = 7
+- Customers (Customers.tsx) :
+  - Toggle Switch "Crédit uniquement" à côté de la recherche
+  - Filtre serveur `total_credit > 0` (côté DB)
+  - Reset automatique de la page quand le filtre change
+  - QueryKey inclut le flag (pas de cache partagé)
+- Migration SQL (20260712120000_add_discount_amount_to_sale_rpc.sql) :
+  - `create_full_sale` : ajout param `p_discount_amount NUMERIC DEFAULT 0`
+    + colonne `discount_amount` ajoutée à l'INSERT dans sales
+  - `create_sale_with_limit` : même ajout + délégation
+  - Rétro-compatible (DEFAULT 0) + SECURITY DEFINER + GRANT EXECUTE
+- SellerActivity.tsx : fix lint pré-existant `let` → `const`
+- Tests de non-régression (src/test/businessAuditFollowup.test.tsx) :
+  - 23 tests sur 5 suites : POSCartContext, ProductList péremption,
+    ProductList marge, useOfflineSale, Customers filtre
+- Commandes exécutées :
+  - TypeScript : OK ✅
+  - ESLint : 0 errors, 9 warnings (< 10) ✅
+  - Build : OK ✅ (PWA 65 entries precache)
+  - Tests : 807/807 passent ✅ (passé de 780 à 807, +27 tests, 0 régression)
+- Commité : f9ad7f0
+- Poussé sur origin/main ✅
+
+Stage Summary:
+- 2 bugs P0 critiques corrigés (remise non appliquée + non persistée)
+- 3 nouvelles fonctionnalités UI : alertes péremption ProductList + Dashboard, marge, filtre crédit
+- 1 migration SQL pour persister discount_amount en DB
+- 23 nouveaux tests de non-régression (807 total, 0 régression)
+- Fichiers modifiés : useOfflineSale.ts, POSCartContext.ts, ProductList.tsx,
+  Dashboard.tsx, Customers.tsx, receiptGenerator.ts, SellerActivity.tsx
+- Fichiers créés : businessAuditFollowup.test.tsx, 20260712120000_add_discount_amount_to_sale_rpc.sql
+- Commit : f9ad7f0 — poussé sur origin/main

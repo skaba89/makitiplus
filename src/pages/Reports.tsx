@@ -47,6 +47,7 @@ import {
   FileSpreadsheet,
   Truck,
   DollarSign,
+  Tag,
 } from "lucide-react";
 import { format, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -240,6 +241,14 @@ const Reports = () => {
   const totalTransactions = reportsStats?.totalTransactions ?? 0;
   const totalExpenses = reportsStats?.totalExpenses ?? 0;
   const netProfit = totalSales - totalExpenses;
+
+  // Marge brute et remises (v2 RPC — fallback à 0 si RPC pas encore mise à jour)
+  const totalDiscount = reportsStats?.totalDiscount ?? 0;
+  const totalCost = reportsStats?.totalCost ?? 0;
+  const grossMargin = reportsStats?.grossMargin ?? Math.max(0, totalSales - totalCost);
+  const grossMarginPct = reportsStats?.grossMarginPct ?? (totalSales > 0 ? Math.round((grossMargin / totalSales) * 10000) / 100 : 0);
+  // Bénéfice net réel = marge brute - dépenses (≠ simple CA - dépenses)
+  const netProfitWithMargin = grossMargin - totalExpenses;
 
   // Payment distribution from RPC
   const paymentDistribution: { method: string; value: number }[] = reportsStats?.paymentBreakdown ?? [];
@@ -472,6 +481,126 @@ const Reports = () => {
               </p>
             </CardContent>
           </Card>
+        </div>
+
+        {/* ═══════ Rentabilité (marge brute + remises + bénéfice net réel) ═══════ */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <DollarSign className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold">Rentabilité</h2>
+            <Badge variant="outline" className="text-xs">
+              {totalTransactions > 0
+                ? `${totalTransactions} vente(s)`
+                : "Aucune vente"}
+            </Badge>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            {/* Marge brute */}
+            <Card className="card-elevated border-primary/30">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Marge brute
+                </CardTitle>
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <TrendingUp className="h-4 w-4 text-primary" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-lg sm:text-2xl font-bold text-primary">
+                  {formatPrice(grossMargin)}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  Ventes - Coût des marchandises
+                </div>
+                {totalCost > 0 && (
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    Coût: {formatPrice(totalCost)}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* % marge brute */}
+            <Card className="card-elevated border-primary/30">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Taux de marge
+                </CardTitle>
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <TrendingUp className="h-4 w-4 text-primary" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className={`text-lg sm:text-2xl font-bold ${
+                  grossMarginPct >= 30 ? "text-success" : grossMarginPct >= 10 ? "text-primary" : "text-destructive"
+                }`}>
+                  {grossMarginPct}%
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {grossMarginPct >= 30
+                    ? "Excellente marge"
+                    : grossMarginPct >= 10
+                    ? "Marge correcte"
+                    : grossMarginPct > 0
+                    ? "Marge faible — vérifiez vos prix"
+                    : "Marge négative ou nulle"}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Total remises */}
+            <Card className={`card-elevated ${totalDiscount > 0 ? "border-orange-500/30" : ""}`}>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Remises totales
+                </CardTitle>
+                <div className="p-2 rounded-lg bg-orange-500/10">
+                  <Tag className="h-4 w-4 text-orange-600" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className={`text-lg sm:text-2xl font-bold ${totalDiscount > 0 ? "text-orange-600" : ""}`}>
+                  {formatPrice(totalDiscount)}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {totalSales > 0
+                    ? `${((totalDiscount / (totalSales + totalDiscount)) * 100).toFixed(1)}% du CA potentiel`
+                    : "Aucune remise"}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Bénéfice net réel (marge brute - dépenses) */}
+            <Card className={`card-elevated border-2 ${
+              netProfitWithMargin >= 0 ? "border-success/40" : "border-destructive/40"
+            }`}>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Bénéfice net réel
+                </CardTitle>
+                <div className={`p-2 rounded-lg ${netProfitWithMargin >= 0 ? "bg-success/10" : "bg-destructive/10"}`}>
+                  <DollarSign className={`h-4 w-4 ${netProfitWithMargin >= 0 ? "text-success" : "text-destructive"}`} />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className={`text-lg sm:text-2xl font-bold ${
+                  netProfitWithMargin >= 0 ? "text-success" : "text-destructive"
+                }`}>
+                  {netProfitWithMargin >= 0 ? "+" : ""}{formatPrice(netProfitWithMargin)}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  Marge brute - Dépenses
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  {netProfitWithMargin !== netProfit && (
+                    <span title="Écart vs calcul simple (CA - Dépenses)">
+                      vs {formatPrice(netProfit)} (CA - Dép.)
+                    </span>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
 
         {/* Charts Row */}

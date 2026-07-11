@@ -357,12 +357,14 @@ const Products = () => {
           data.map((p) => ({
             name: p.name,
             category: p.categories?.name || "",
+            barcode: p.barcode,
             price: p.price,
             cost_price: p.cost_price,
             stock_quantity: p.stock_quantity,
             min_stock_alert: p.min_stock_alert,
             unit: p.unit,
             is_active: p.is_active,
+            expiry_date: p.expiry_date,
           })),
           currency.displaySymbol || currency.symbol
         );
