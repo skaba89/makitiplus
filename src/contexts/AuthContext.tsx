@@ -8,12 +8,13 @@ import { isAdminRole } from "@/types";
 import { logger } from "@/lib/logger";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
+type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   userRole: AppRole | null;
-  profile: Database["public"]["Tables"]["profiles"]["Row"] | null;
+  profile: ProfileRow | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, profileData: {
@@ -41,49 +42,57 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [userRole, setUserRole] = useState<AppRole | null>(null);
-  const [profile, setProfile] = useState<Database["public"]["Tables"]["profiles"]["Row"] | null>(null);
+  const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchUserData = async (userId: string) => {
+  const fetchUserData = async (userId: string): Promise<{ role: AppRole | null; profile: ProfileRow | null }> => {
     try {
-      // Fetch user role
+      // Fetch user role. Limit to one row to avoid 406 when old test data created duplicates.
       const { data: roleData, error: roleError } = await supabase
         .from("user_roles")
         .select("role")
         .eq("user_id", userId)
-        .single();
+        .limit(1)
+        .maybeSingle();
 
       if (roleError) {
         reportError(new Error(`[Auth] Failed to fetch user role: ${roleError.message}`));
       }
 
-      if (roleData) {
-        setUserRole(roleData.role);
-      }
+      const nextRole = roleData?.role ?? null;
+      setUserRole(nextRole);
 
-      // Fetch profile
+      // Fetch profile. Limit to one row to avoid 406 when duplicate profile rows exist.
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select("*")
         .eq("user_id", userId)
-        .single();
+        .limit(1)
+        .maybeSingle();
 
       if (profileError) {
         reportError(new Error(`[Auth] Failed to fetch profile: ${profileError.message}`));
       }
 
-      if (profileData) {
-        setProfile(profileData);
+      const nextProfile = profileData ?? null;
+      setProfile(nextProfile);
+
+      if (nextProfile) {
         // Set Sentry user context (non-PII)
         setSentryUserContext({
           userId: userId,
-          role: roleData?.role ?? "unknown",
-          organizationId: profileData.organization_id ?? undefined,
+          role: nextRole ?? "unknown",
+          organizationId: nextProfile.organization_id ?? undefined,
           deviceId: localStorage.getItem("malikiplus_device_id") ?? undefined,
         });
       }
+
+      return { role: nextRole, profile: nextProfile };
     } catch (error) {
       reportError(error instanceof Error ? error : new Error(extractErrorMessage(error)));
+      setUserRole(null);
+      setProfile(null);
+      return { role: null, profile: null };
     }
   };
 
@@ -101,24 +110,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUserRole(null);
           setProfile(null);
           setLoading(false);
-          // Sign out to clear stale session from localStorage, then redirect
-          supabase.auth.signOut().catch(() => {});
+          // Sign out to clear stale session from storage, then redirect
+          Promise.resolve(supabase.auth.signOut()).catch(() => {});
           // Use replace to prevent back-button loop
           window.location.replace("/auth");
           return;
         }
 
-        // Defer Supabase calls with setTimeout
         if (session?.user) {
+          setLoading(true);
           setTimeout(() => {
-            fetchUserData(session.user.id);
+            fetchUserData(session.user.id).finally(() => setLoading(false));
           }, 0);
         } else {
           setUserRole(null);
           setProfile(null);
-        }
-
-        if (event === "SIGNED_OUT") {
           setLoading(false);
         }
       }
@@ -134,7 +140,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUserRole(null);
         setProfile(null);
         // Clear invalid session from storage to stop retry loops
-        supabase.auth.signOut().catch(() => {});
+        Promise.resolve(supabase.auth.signOut()).catch(() => {});
         setLoading(false);
         // Redirect to login if not already there
         if (window.location.pathname !== "/auth" && window.location.pathname !== "/") {
@@ -147,6 +153,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(session?.user ?? null);
       
       if (session?.user) {
+        setLoading(true);
         fetchUserData(session.user.id).finally(() => setLoading(false));
       } else {
         setLoading(false);
@@ -160,22 +167,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const signIn = async (email: string, password: string) => {
+    setLoading(true);
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-    if (error) return { error };
+
+    if (error) {
+      setLoading(false);
+      return { error };
+    }
 
     // Check if account is active; if not, sign out and return error
     if (data.user) {
+      setUser(data.user);
+      setSession(data.session ?? null);
+
       const { data: profileRow } = await supabase
         .from("profiles")
         .select("is_active")
         .eq("user_id", data.user.id)
+        .limit(1)
         .maybeSingle();
 
       if (profileRow && profileRow.is_active === false) {
         await supabase.auth.signOut();
+        setUser(null);
+        setSession(null);
+        setUserRole(null);
+        setProfile(null);
+        setLoading(false);
         return {
           error: new Error(
             "Votre compte a été désactivé. Contactez votre administrateur."
@@ -183,8 +205,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         };
       }
 
+      const loaded = await fetchUserData(data.user.id);
+      setLoading(false);
+
+      if (!loaded.role) {
+        return {
+          error: new Error(
+            "Connexion réussie, mais le rôle de ce compte n'a pas pu être chargé. Vérifiez la configuration du profil et des droits."
+          ),
+        };
+      }
+
       // Track last login (best-effort, non-blocking)
-      supabase.rpc("touch_last_login").then(({ error }) => {
+      Promise.resolve(supabase.rpc("touch_last_login")).then(({ error }) => {
         if (error && (error.code === '42501' || error.message?.includes('not allowed'))) {
           // touch_last_login non autorisée — silencieux, non critique
         }
@@ -193,11 +226,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
 
       // Log login activity (best-effort)
-      supabase.rpc("log_user_activity", {
+      Promise.resolve(supabase.rpc("log_user_activity", {
         p_action: 'login',
         p_description: 'Connexion',
         p_metadata: { user_agent: navigator.userAgent.substring(0, 200) }
-      }).catch(() => {});
+      })).catch(() => {});
+    } else {
+      setLoading(false);
     }
 
     return { error: null };
@@ -296,7 +331,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const refreshProfile = async () => {
     if (user) {
-      await fetchUserData(user.id);
+      setLoading(true);
+      try {
+        await fetchUserData(user.id);
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -314,17 +354,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signOut = async () => {
     // Track logout time before signing out (best-effort)
     if (user) {
-      supabase.rpc("log_user_activity", {
+      Promise.resolve(supabase.rpc("log_user_activity", {
         p_action: 'logout',
         p_description: 'Déconnexion',
-      }).catch(() => {});
+      })).catch(() => {});
 
-      supabase
-        .from("profiles")
-        .update({ last_logout_at: new Date().toISOString() })
-        .eq("user_id", user.id)
-        .then(() => {})
-        .catch(() => {});
+      Promise.resolve(
+        supabase
+          .from("profiles")
+          .update({ last_logout_at: new Date().toISOString() })
+          .eq("user_id", user.id)
+      ).catch(() => {});
     }
     await supabase.auth.signOut();
     setUser(null);

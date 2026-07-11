@@ -42,6 +42,9 @@ jobs:
       - name: Validate SQL migrations
         run: python3 scripts/validate_sql_migrations.py
 
+      - name: Check for undefined function references (AUDIT-2026-007 HIGH-4 prevention)
+        run: python3 scripts/check_undefined_functions.py
+
       - name: Security audit (high/critical — blocks the pipeline)
         run: npm audit --audit-level=high
 

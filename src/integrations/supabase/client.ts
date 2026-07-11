@@ -31,9 +31,11 @@ export function getSupabaseClient() {
     validateEnv();
     _supabase = createClient<Database>(SUPABASE_URL!, SUPABASE_PUBLISHABLE_KEY!, {
       auth: {
-        storage: localStorage,
-        persistSession: true,
-        autoRefreshToken: true,
+        // Sécurité pilote : ne pas conserver la session dans localStorage.
+        // Après fermeture/rechargement complet, l'utilisateur doit repasser par /auth
+        // et saisir email + mot de passe au lieu d'être reconnecté automatiquement.
+        persistSession: false,
+        autoRefreshToken: false,
       }
     });
   }

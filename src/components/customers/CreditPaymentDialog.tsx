@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Customer } from "@/types";
+import { validateCreditPayment, formatErrors } from "@/lib/schemas";
 
 interface Props {
   customer: Customer | null;
@@ -60,6 +61,19 @@ export const CreditPaymentDialog = ({ customer, isOpen, onClose, onViewHistory }
       }
       if (numAmount > Number(customer.total_credit)) {
         throw new Error("Le montant depasse le credit restant");
+      }
+
+      // MED-6 fix : valider les données de paiement avant envoi au backend.
+      // Empêche les montants NaN/négatifs/géants, les descriptions trop longues,
+      // et les customer_id malformés. La validation runtime existante reste
+      // en place (defense-in-depth).
+      const validation = validateCreditPayment({
+        customerId: customer.id,
+        amount: numAmount,
+        description: description || "Paiement de credit",
+      });
+      if (!validation.success) {
+        throw new Error(formatErrors(validation.errors));
       }
 
       // Utiliser la RPC atomique process_credit_payment

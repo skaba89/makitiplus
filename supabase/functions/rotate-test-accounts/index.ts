@@ -16,9 +16,16 @@ Deno.serve(async (req) => {
 
   try {
     // Verify shared cron secret — only pg_cron or authorized callers can invoke this
+    // LOW-2 fix: fail closed if CRON_SECRET is unset (instead of fail open).
+    // Without this, the function would be publicly callable if the env var is missing.
     const cronSecret = Deno.env.get('CRON_SECRET');
+    if (!cronSecret) {
+      return new Response(JSON.stringify({ error: 'CRON_SECRET non configuré' }), {
+        status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+      });
+    }
     const requestSecret = req.headers.get('X-Cron-Secret');
-    if (cronSecret && !timingSafeEqual(requestSecret ?? '', cronSecret)) {
+    if (!timingSafeEqual(requestSecret ?? '', cronSecret)) {
       return new Response(JSON.stringify({ error: 'Accès non autorisé' }), {
         status: 403, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });

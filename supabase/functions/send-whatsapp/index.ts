@@ -130,6 +130,44 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Numéro de téléphone requis' }), { status: 400, headers: jsonHeaders });
     }
 
+    // ── LOW-3 fix : vérifier que sale_id / customer_id / store_id appartiennent à l'org ──
+    // Empêche un vendeur de brûler le quota WhatsApp en référençant des IDs d'autres orgs
+    // ou de polluer whatsapp_message_logs avec des sale_id trompeurs.
+    const orgId = profile.organization_id;
+    if (customer_id) {
+      const { data: custOk } = await adminClient
+        .from('customers')
+        .select('id')
+        .eq('id', customer_id)
+        .eq('organization_id', orgId)
+        .maybeSingle();
+      if (!custOk) {
+        return new Response(JSON.stringify({ error: 'customer_id invalide ou hors organisation' }), { status: 400, headers: jsonHeaders });
+      }
+    }
+    if (sale_id) {
+      const { data: saleOk } = await adminClient
+        .from('sales')
+        .select('id')
+        .eq('id', sale_id)
+        .eq('organization_id', orgId)
+        .maybeSingle();
+      if (!saleOk) {
+        return new Response(JSON.stringify({ error: 'sale_id invalide ou hors organisation' }), { status: 400, headers: jsonHeaders });
+      }
+    }
+    if (store_id) {
+      const { data: storeOk } = await adminClient
+        .from('stores')
+        .select('id')
+        .eq('id', store_id)
+        .eq('organization_id', orgId)
+        .maybeSingle();
+      if (!storeOk) {
+        return new Response(JSON.stringify({ error: 'store_id invalide ou hors organisation' }), { status: 400, headers: jsonHeaders });
+      }
+    }
+
     // Clean phone number (remove spaces, dashes, ensure country code)
     let cleanPhone = phone.replace(/[\s\-()]/g, '').replace(/^\+/, '');
     // If no country code, default to Guinea (224)

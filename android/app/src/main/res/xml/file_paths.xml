@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
-    <external-path name="my_images" path="." />
-    <cache-path name="my_cache_images" path="." />
+    <!-- LOW-6 fix : restreindre les paths FileProvider à des sous-répertoires
+         spécifiques plutôt qu'à la racine du stockage externe. Empêche une app
+         malveillante co-installée de lire des fichiers arbitraires via content://
+         URIs émis par MakitiPlus. -->
+    <external-files-path name="my_images" path="Pictures/MakitiPlus/" />
+    <cache-path name="my_cache_images" path="images/" />
 </paths>

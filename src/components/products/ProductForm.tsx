@@ -20,6 +20,7 @@ import { useCategories } from "@/hooks/useCategories";
 import { CategoryIcon } from "@/components/ui/category-icon";
 import { useToast } from "@/hooks/use-toast";
 import { reportError } from "@/lib/sentry";
+import { validateProductForm, formatErrors } from "@/lib/schemas";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
 type ProductInsert = Database["public"]["Tables"]["products"]["Insert"];
@@ -204,6 +205,19 @@ export const ProductForm = ({ product, onSubmit, isLoading }: ProductFormProps) 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // MED-6 fix : valider les données du formulaire avant envoi au backend.
+    // Empêche la persistance de valeurs invalides (prix négatif, stock NaN,
+    // barcode avec caractères de contrôle, nom de 100KB, etc.).
+    const validation = validateProductForm(formData);
+    if (!validation.success) {
+      toast({
+        variant: "destructive",
+        title: "Données invalides",
+        description: formatErrors(validation.errors),
+      });
+      return;
+    }
 
     let finalImageUrl = imageUrl;
 

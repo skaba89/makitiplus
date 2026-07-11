@@ -21,6 +21,8 @@ import {
 import { Loader2, Plus, Minus, RotateCcw, AlertTriangle, Truck, Phone } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
 import { useCurrency } from "@/hooks/useCurrency";
+import { validateStockAdjustment, formatErrors } from "@/lib/schemas";
+import { useToast } from "@/hooks/use-toast";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
 
@@ -54,6 +56,7 @@ export const StockAdjustDialog = ({
   isLoading,
 }: StockAdjustDialogProps) => {
   const { formatPrice } = useCurrency();
+  const { toast } = useToast();
   const [adjustType, setAdjustType] = useState<AdjustmentType>("restock");
   const [quantity, setQuantity] = useState<number>(0);
   const [reason, setReason] = useState("");
@@ -92,6 +95,26 @@ export const StockAdjustDialog = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!isValid) return;
+
+    // MED-6 fix : valider les données d'ajustement de stock avant envoi.
+    // Empêche les quantités négatives/NaN, les types invalides, les raisons
+    // trop longues qui pourraient corrompre les logs d'audit de stock.
+    const validation = validateStockAdjustment({
+      productId: product.id,
+      type: adjustType,
+      quantity,
+      reason,
+      previousQuantity: product.stock_quantity,
+    });
+    if (!validation.success) {
+      toast({
+        variant: "destructive",
+        title: "Données invalides",
+        description: formatErrors(validation.errors),
+      });
+      return;
+    }
+
     onConfirm({
       productId: product.id,
       type: adjustType,
