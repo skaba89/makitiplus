@@ -93,7 +93,7 @@ const Suppliers = () => {
         .from("suppliers")
         .select("*")
         .order("name");
-      if (error) throw error;
+      if (error) return [];
       return data as Supplier[];
     },
     enabled: !!user,
@@ -107,7 +107,7 @@ const Suppliers = () => {
         .from("products")
         .select("id, supplier_id, cost_price, stock_quantity")
         .eq("is_active", true);
-      if (error) throw error;
+      if (error) return [];
       return data;
     },
     enabled: !!user,

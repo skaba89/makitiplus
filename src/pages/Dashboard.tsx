@@ -113,7 +113,7 @@ const Dashboard = () => {
         query = query.eq("organization_id", profile.organization_id);
       }
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) return [];
       return data;
     },
     enabled: !!user,
@@ -132,7 +132,7 @@ const Dashboard = () => {
         query = query.eq("organization_id", profile.organization_id);
       }
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) return [];
       return data;
     },
     enabled: !!user,
@@ -150,7 +150,7 @@ const Dashboard = () => {
         query = query.eq("organization_id", profile.organization_id);
       }
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) return [] as DashboardProduct[];
       return data as DashboardProduct[];
     },
     enabled: !!user,
@@ -168,7 +168,7 @@ const Dashboard = () => {
         query = query.eq("organization_id", profile.organization_id);
       }
       const { count, error } = await query;
-      if (error) throw error;
+      if (error) return 0;
       return count || 0;
     },
     enabled: !!user,
@@ -188,7 +188,7 @@ const Dashboard = () => {
         query = query.eq("organization_id", profile.organization_id);
       }
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) return [];
       return data;
     },
     enabled: !!user && !!profile?.organization_id,

@@ -98,133 +98,162 @@ const Reports = () => {
 
   // ⚡ Stats via RPC — une seule requête au lieu de 3 fetchAllRows + 3 client-side reduce()
   // L'agrégation (SUM, COUNT, GROUP BY) se fait côté serveur, réduisant drastiquement le transfert.
+  // Fallback gracieux : si la RPC échoue, on retourne null pour ne pas déclencher l'ErrorBoundary.
   const { data: reportsStats, isLoading: isReportsLoading } = useQuery({
     queryKey: ["reports-stats", user?.id, period],
     queryFn: async () => {
       if (!profile?.organization_id) return null;
-      const { data, error } = await supabase.rpc("get_reports_stats", {
-        p_start: start.toISOString(),
-        p_end: end.toISOString(),
-      });
-      if (error) throw error;
-      return data;
+      try {
+        const { data, error } = await supabase.rpc("get_reports_stats", {
+          p_start: start.toISOString(),
+          p_end: end.toISOString(),
+        });
+        if (error) return null;
+        return data;
+      } catch {
+        return null;
+      }
     },
     enabled: !!user && !!profile?.organization_id,
+    retry: 1,
   });
 
   // Fetch top products — declared before any early returns to respect Rules of Hooks
+  // Fallback : retourner [] si erreur
   const { data: topProducts } = useQuery({
     queryKey: ["reports-top-products", user?.id, period],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("sale_items")
-        .select(`
-          product_name,
-          quantity,
-          total_price,
-          sales!inner(user_id, created_at)
-        `)
-        .eq("sales.user_id", user?.id ?? "")
-        .gte("sales.created_at", start.toISOString())
-        .lte("sales.created_at", end.toISOString());
+      try {
+        const { data, error } = await supabase
+          .from("sale_items")
+          .select(`
+            product_name,
+            quantity,
+            total_price,
+            sales!inner(user_id, created_at)
+          `)
+          .eq("sales.user_id", user?.id ?? "")
+          .gte("sales.created_at", start.toISOString())
+          .lte("sales.created_at", end.toISOString());
 
-      if (error) throw error;
+        if (error) return [];
 
-      // Aggregate by product
-      const aggregated = data.reduce((acc, item) => {
-        const existing = acc.find((p) => p.name === item.product_name);
-        if (existing) {
-          existing.quantity += item.quantity;
-          existing.revenue += item.total_price;
-        } else {
-          acc.push({
-            name: item.product_name,
-            quantity: item.quantity,
-            revenue: item.total_price,
-          });
-        }
-        return acc;
-      }, [] as { name: string; quantity: number; revenue: number }[]);
+        const aggregated = (data || []).reduce((acc, item) => {
+          const existing = acc.find((p) => p.name === item.product_name);
+          if (existing) {
+            existing.quantity += item.quantity;
+            existing.revenue += item.total_price;
+          } else {
+            acc.push({
+              name: item.product_name,
+              quantity: item.quantity,
+              revenue: item.total_price,
+            });
+          }
+          return acc;
+        }, [] as { name: string; quantity: number; revenue: number }[]);
 
-      return aggregated.sort((a, b) => b.quantity - a.quantity).slice(0, 5);
+        return aggregated.sort((a, b) => b.quantity - a.quantity).slice(0, 5);
+      } catch {
+        return [];
+      }
     },
     enabled: !!user,
+    retry: 1,
   });
 
   // Fetch supplier analytics (products with supplier info)
+  // Fallback : si is_active n'existe pas en DB, réessayer sans filtre
   const { data: supplierReport } = useQuery({
     queryKey: ["reports-suppliers", user?.id],
     queryFn: async () => {
-      // Get all active products with their supplier info
-      const { data: products, error: productsError } = await supabase
-        .from("products")
-        .select("id, name, cost_price, price, stock_quantity, supplier_id, suppliers(id, name)")
-        .eq("is_active", true);
+      try {
+        let products = null as Awaited<ReturnType<typeof supabase.from>["data"]> | null;
+        const { data: productsData, error: productsError } = await supabase
+          .from("products")
+          .select("id, name, cost_price, price, stock_quantity, supplier_id, suppliers(id, name)")
+          .eq("is_active", true);
 
-      if (productsError) throw productsError;
-
-      // Aggregate by supplier
-      const supplierMap = new Map<string, SupplierReport>();
-
-      // First, add suppliers with no products (they exist but have 0 linked products)
-      const { data: allSuppliers } = await supabase
-        .from("suppliers")
-        .select("id, name")
-        .eq("is_active", true);
-
-      allSuppliers?.forEach((s) => {
-        supplierMap.set(s.id, {
-          id: s.id,
-          name: s.name,
-          product_count: 0,
-          total_stock: 0,
-          stock_value_at_cost: 0,
-          stock_value_at_price: 0,
-        });
-      });
-
-      // Then aggregate products
-      products?.forEach((p) => {
-        const sid = p.supplier_id;
-        if (!sid) return; // products without supplier → skip
-
-        const existing = supplierMap.get(sid);
-        if (existing) {
-          existing.product_count += 1;
-          existing.total_stock += p.stock_quantity;
-          existing.stock_value_at_cost += Number(p.cost_price || 0) * p.stock_quantity;
-          existing.stock_value_at_price += Number(p.price) * p.stock_quantity;
+        if (productsError) {
+          if (productsError.message.includes("does not exist") || productsError.message.includes("Could not find")) {
+            const { data: retryData } = await supabase
+              .from("products")
+              .select("id, name, cost_price, price, stock_quantity, supplier_id, suppliers(id, name)");
+            products = retryData;
+          } else {
+            return [];
+          }
+        } else {
+          products = productsData;
         }
-      });
 
-      // Convert to array, filter out suppliers with 0 products, sort by value
-      return Array.from(supplierMap.values())
-        .filter((s) => s.product_count > 0)
-        .sort((a, b) => b.stock_value_at_cost - a.stock_value_at_cost);
+        const supplierMap = new Map<string, SupplierReport>();
+
+        const { data: allSuppliers } = await supabase
+          .from("suppliers")
+          .select("id, name")
+          .eq("is_active", true);
+
+        allSuppliers?.forEach((s) => {
+          supplierMap.set(s.id, {
+            id: s.id,
+            name: s.name,
+            product_count: 0,
+            total_stock: 0,
+            stock_value_at_cost: 0,
+            stock_value_at_price: 0,
+          });
+        });
+
+        (products || []).forEach((p) => {
+          const sid = p.supplier_id;
+          if (!sid) return;
+          const existing = supplierMap.get(sid);
+          if (existing) {
+            existing.product_count += 1;
+            existing.total_stock += p.stock_quantity;
+            existing.stock_value_at_cost += Number(p.cost_price || 0) * p.stock_quantity;
+            existing.stock_value_at_price += Number(p.price) * p.stock_quantity;
+          }
+        });
+
+        return Array.from(supplierMap.values())
+          .filter((s) => s.product_count > 0)
+          .sort((a, b) => b.stock_value_at_cost - a.stock_value_at_cost);
+      } catch {
+        return [];
+      }
     },
     enabled: !!user,
+    retry: 1,
   });
 
   // Products without supplier
+  // Fallback : { count: 0, totalValue: 0 } si erreur
   const { data: orphanProducts } = useQuery({
     queryKey: ["reports-orphan-products", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("products")
-        .select("id, name, cost_price, price, stock_quantity")
-        .eq("is_active", true)
-        .is("supplier_id", null);
+      try {
+        const { data, error } = await supabase
+          .from("products")
+          .select("id, name, cost_price, price, stock_quantity")
+          .eq("is_active", true)
+          .is("supplier_id", null);
 
-      if (error) throw error;
+        if (error) return { count: 0, totalValue: 0 };
 
-      const totalValue = data.reduce(
-        (sum, p) => sum + Number(p.cost_price || p.price) * p.stock_quantity,
-        0
-      );
+        const totalValue = (data || []).reduce(
+          (sum, p) => sum + Number(p.cost_price || p.price) * p.stock_quantity,
+          0
+        );
 
-      return { count: data.length, totalValue };
+        return { count: (data || []).length, totalValue };
+      } catch {
+        return { count: 0, totalValue: 0 };
+      }
     },
     enabled: !!user,
+    retry: 1,
   });
 
   // Early return for loading state — MUST be after all hooks (Rules of Hooks)
