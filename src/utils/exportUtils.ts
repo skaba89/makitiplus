@@ -8,6 +8,7 @@ interface SaleExportRow {
   payment_method: string;
   subtotal: number;
   total_amount: number;
+  discount_amount: number | null;
   amount_paid: number;
   change_amount: number | null;
   seller_name: string | null;
@@ -22,6 +23,8 @@ interface ProductExportRow {
   min_stock_alert: number | null;
   unit: string | null;
   is_active: boolean | null;
+  expiry_date: string | null;
+  barcode: string | null;
 }
 
 interface ExpenseExportRow {
@@ -73,6 +76,7 @@ export const exportSalesToCSV = (sales: SaleExportRow[], currencySymbol: string 
     "Client",
     "Mode de paiement",
     `Sous-total (${sym})`,
+    `Remise (${sym})`,
     `Total (${sym})`,
     `Montant reçu (${sym})`,
     `Monnaie (${sym})`,
@@ -88,6 +92,7 @@ export const exportSalesToCSV = (sales: SaleExportRow[], currencySymbol: string 
       escapeCSV(sale.customer_name || "-"),
       escapeCSV(PAYMENT_LABELS[sale.payment_method] || sale.payment_method),
       escapeCSV(sale.subtotal),
+      escapeCSV(sale.discount_amount || 0),
       escapeCSV(sale.total_amount),
       escapeCSV(sale.amount_paid),
       escapeCSV(sale.change_amount || 0),
@@ -105,24 +110,47 @@ export const exportProductsToCSV = (products: ProductExportRow[], currencySymbol
   const headers = [
     "Nom",
     "Catégorie",
+    "Code-barres",
     `Prix de vente (${sym})`,
     `Prix d'achat (${sym})`,
+    `Marge unitaire (${sym})`,
+    "Marge (%)",
     "Stock",
     "Seuil d'alerte",
     "Unité",
     "Actif",
+    "Date de péremption",
+    "Valeur stock (vente)",
+    "Valeur stock (achat)",
   ];
 
-  const rows = products.map((product) => [
-    escapeCSV(product.name),
-    escapeCSV(product.category || "-"),
-    escapeCSV(product.price),
-    escapeCSV(product.cost_price || "-"),
-    escapeCSV(product.stock_quantity),
-    escapeCSV(product.min_stock_alert || "-"),
-    escapeCSV(product.unit || "unité"),
-    escapeCSV(product.is_active ? "Oui" : "Non"),
-  ].join(","));
+  const rows = products.map((product) => {
+    const costPrice = Number(product.cost_price || 0);
+    const margin = costPrice > 0 ? product.price - costPrice : 0;
+    const marginPct = costPrice > 0 ? Math.round((margin / product.price) * 100) : 0;
+    const stockValueSale = product.price * product.stock_quantity;
+    const stockValueCost = costPrice * product.stock_quantity;
+    const expiryDate = product.expiry_date
+      ? format(new Date(product.expiry_date), "dd/MM/yyyy", { locale: fr })
+      : "-";
+
+    return [
+      escapeCSV(product.name),
+      escapeCSV(product.category || "-"),
+      escapeCSV(product.barcode || "-"),
+      escapeCSV(product.price),
+      escapeCSV(product.cost_price || "-"),
+      escapeCSV(costPrice > 0 ? margin : "-"),
+      escapeCSV(costPrice > 0 ? `${marginPct}%` : "-"),
+      escapeCSV(product.stock_quantity),
+      escapeCSV(product.min_stock_alert || "-"),
+      escapeCSV(product.unit || "unité"),
+      escapeCSV(product.is_active ? "Oui" : "Non"),
+      escapeCSV(expiryDate),
+      escapeCSV(stockValueSale),
+      escapeCSV(costPrice > 0 ? stockValueCost : "-"),
+    ].join(",");
+  });
 
   const csv = [headers.join(","), ...rows].join("\n");
   const filename = `stock_${format(new Date(), "yyyy-MM-dd")}.csv`;

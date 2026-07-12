@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDemo } from "@/contexts/DemoContext";
-import { usePOSCartStore, useCartTotal } from "@/contexts/POSCartContext";
+import { usePOSCartStore, useCartTotal, useCartSubtotal, useCartDiscount } from "@/contexts/POSCartContext";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { POSProductGrid } from "@/components/pos/POSProductGrid";
 import { POSProductList } from "@/components/pos/POSProductList";
@@ -66,8 +66,10 @@ const POS = () => {
   const { settings } = useThemeSettings();
   const queryClient = useQueryClient();
   const cart = usePOSCartStore((s) => s.items);
-  const { addToCart: addToCartStore, updateQuantity, removeItem, clearCart, hydrateFromDB, isHydrated } = usePOSCartStore();
+  const { addToCart: addToCartStore, updateQuantity, removeItem, clearCart, hydrateFromDB, isHydrated, setDiscount, clearDiscount, discountType, discountValue } = usePOSCartStore();
   const cartTotal = useCartTotal();
+  const cartSubtotal = useCartSubtotal();
+  const cartDiscount = useCartDiscount();
 
   // Hydrate cart from IndexedDB on mount (org-scoped)
   useEffect(() => {
@@ -381,10 +383,16 @@ const POS = () => {
             <POSCart
               items={cart}
               total={cartTotal}
+              subtotal={cartSubtotal}
+              discount={cartDiscount}
+              discountType={discountType}
+              discountValue={discountValue}
               onUpdateQuantity={updateCartQuantity}
               onRemove={removeFromCart}
               onClear={clearCart}
               onCheckout={() => setIsPaymentOpen(true)}
+              onSetDiscount={setDiscount}
+              onClearDiscount={clearDiscount}
             />
           )}
         </div>

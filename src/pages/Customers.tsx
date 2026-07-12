@@ -38,6 +38,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   Plus,
   Search,
@@ -73,6 +74,8 @@ const Customers = () => {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
   const [isCreditOpen, setIsCreditOpen] = useState(false);
+  // Filtre "clients à crédit uniquement" — utile pour les relances
+  const [showCreditOnly, setShowCreditOnly] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
@@ -81,17 +84,20 @@ const Customers = () => {
     notes: "",
   });
 
-  // Pagination côté serveur avec recherche
+  // Pagination côté serveur avec recherche + filtre crédit
   const { data: customers, totalCount, totalPages, isLoading } = usePaginatedQuery<Customer>({
     table: "customers",
     select: "*",
     search: searchInput
       ? { columns: ["name", "phone"], query: searchInput }
       : undefined,
+    filters: showCreditOnly
+      ? [{ column: "total_credit", operator: "gt" as const, value: 0 }]
+      : undefined,
     orderBy: { column: "name", ascending: true },
     page: currentPage,
     pageSize: PAGE_SIZE,
-    queryKey: ["customers", user?.id ?? ""],
+    queryKey: ["customers", user?.id ?? "", showCreditOnly ? "credit" : "all"],
     enabled: !!user,
   });
 
@@ -201,9 +207,14 @@ const Customers = () => {
     }
   };
 
-  // Reset page quand la recherche change
+  // Reset page quand la recherche ou le filtre crédit change
   const handleSearchChange = (value: string) => {
     setSearchInput(value);
+    setCurrentPage(1);
+  };
+
+  const handleToggleCreditOnly = (checked: boolean) => {
+    setShowCreditOnly(checked);
     setCurrentPage(1);
   };
 
@@ -314,10 +325,29 @@ const Customers = () => {
           </Card>
         </div>
 
-        {/* Search */}
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Rechercher par nom ou téléphone..." value={searchInput} onChange={(e) => handleSearchChange(e.target.value)} className="pl-10" />
+        {/* Search + Filter */}
+        <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher par nom ou téléphone..."
+              value={searchInput}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <div className="flex items-center gap-2 px-3 py-2 border rounded-md bg-card">
+            <Switch
+              id="filter-credit-only"
+              checked={showCreditOnly}
+              onCheckedChange={handleToggleCreditOnly}
+              aria-label="Filtrer les clients à crédit"
+            />
+            <label htmlFor="filter-credit-only" className="text-sm cursor-pointer flex items-center gap-1">
+              <Wallet className="h-3.5 w-3.5 text-destructive" />
+              Crédit uniquement
+            </label>
+          </div>
         </div>
 
         {/* Table */}

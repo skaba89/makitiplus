@@ -41,6 +41,8 @@ export interface ReceiptData {
   taxRate?: number;
   // QR code
   showQrCode?: boolean;
+  // Discount (montant en monnaie, déjà calculé)
+  discount?: number;
 }
 
 const paymentMethodLabels: Record<string, string> = {
@@ -356,10 +358,20 @@ function generateClassicReceipt(data: ReceiptData, doc: jsPDF, config: typeof PA
   doc.setFontSize(config.baseFontSize + 1);
 
   // Tax detail
-  const tva = data.total - data.subtotal;
+  const tva = data.total - data.subtotal - (data.discount || 0);
   const hasTax = Math.abs(tva) > 0.001;
 
-  if (data.subtotal !== data.total) {
+  // Sous-total brut (avant remise) — affiché si une remise est appliquée
+  if (data.discount && data.discount > 0) {
+    doc.text("Sous-total", m, y);
+    rightText(fPrice(data.subtotal), y);
+    y += 4;
+    doc.text("Remise", m, y);
+    doc.setTextColor(180, 0, 0);
+    rightText(`- ${fPrice(data.discount)}`, y);
+    doc.setTextColor(0);
+    y += 4;
+  } else if (data.subtotal !== data.total) {
     doc.text("Sous-total", m, y);
     rightText(fPrice(data.subtotal), y);
     y += 4;

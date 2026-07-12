@@ -176,12 +176,24 @@ export default function SellerActivity() {
     };
   }, [sellers]);
 
-  // ─── Filter by search ─────────────────────────────────────
+  // ─── Filter by search and role ────────────────────────────
   const filteredSellers = useMemo(() => {
     if (!sellers) return [];
-    if (!search.trim()) return sellers;
+    
+    // Étape 1 : filtrer par rôle
+    // - super_admin ne doit pas apparaître dans la liste des vendeurs
+    // - admin voit tous les autres membres du magasin
+    // - manager ne voit que les membres de son magasin (vendeurs, comptables, autres managers)
+    const roleFiltered = sellers.filter((s) => {
+      // Cacher les super_admins de la liste des vendeurs
+      if (s.role === "super_admin") return false;
+      return true;
+    });
+
+    // Étape 2 : filtrer par recherche
+    if (!search.trim()) return roleFiltered;
     const q = search.toLowerCase();
-    return sellers.filter(
+    return roleFiltered.filter(
       (s) =>
         s.seller_name?.toLowerCase().includes(q) ||
         s.role?.toLowerCase().includes(q)

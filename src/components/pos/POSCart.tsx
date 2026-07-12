@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Minus, Plus, Trash2, ShoppingCart, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Minus, Plus, Trash2, ShoppingCart, X, Tag } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,24 +29,47 @@ interface CartItem {
 interface POSCartProps {
   items: CartItem[];
   total: number;
+  subtotal: number;
+  discount: number;
+  discountType: "amount" | "percent";
+  discountValue: number;
   onUpdateQuantity: (productId: string, quantity: number) => void;
   onRemove: (productId: string) => void;
   onClear: () => void;
   onCheckout: () => void;
+  onSetDiscount: (type: "amount" | "percent", value: number) => void;
+  onClearDiscount: () => void;
 }
 
 export const POSCart = memo(({
   items,
   total,
+  subtotal,
+  discount,
+  discountType,
+  discountValue,
   onUpdateQuantity,
   onRemove,
   onClear,
   onCheckout,
+  onSetDiscount,
+  onClearDiscount,
 }: POSCartProps) => {
   const { formatPrice } = useCurrency();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showDiscount, setShowDiscount] = useState(false);
+  const [discountInput, setDiscountInput] = useState("");
 
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
+
+  const handleApplyDiscount = () => {
+    const val = parseFloat(discountInput) || 0;
+    if (val > 0) {
+      onSetDiscount(discountType, val);
+    }
+    setShowDiscount(false);
+    setDiscountInput("");
+  };
 
   return (
     <Card className="h-full flex flex-col card-elevated w-full" data-testid="pos-cart">
@@ -144,6 +169,99 @@ export const POSCart = memo(({
 
       <CardFooter className="flex-col gap-3 pt-4">
         <Separator />
+        
+        {/* Ligne remise */}
+        {discount > 0 && (
+          <div className="w-full flex items-center justify-between text-sm text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <Tag className="h-3 w-3" />
+              Remise {discountType === "percent" ? `(${discountValue}%)` : ""}
+            </span>
+            <span className="text-destructive">- {formatPrice(discount)}</span>
+          </div>
+        )}
+        
+        {/* Bouton remise */}
+        {items.length > 0 && !showDiscount && (
+          <button
+            onClick={() => setShowDiscount(true)}
+            className="text-xs text-primary hover:underline self-start"
+          >
+            {discount > 0 ? "Modifier la remise" : "+ Ajouter une remise"}
+          </button>
+        )}
+        
+        {/* Input remise */}
+        {showDiscount && (
+          <div className="w-full space-y-2 p-2 border rounded-md bg-muted/30">
+            <Label className="text-xs">Type de remise</Label>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={discountType === "amount" ? "default" : "outline"}
+                onClick={() => onSetDiscount("amount", discountValue)}
+                className="flex-1"
+              >
+                Montant
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={discountType === "percent" ? "default" : "outline"}
+                onClick={() => onSetDiscount("percent", discountValue)}
+                className="flex-1"
+              >
+                Pourcentage (%)
+              </Button>
+            </div>
+            <Input
+              type="number"
+              value={discountInput}
+              onChange={(e) => setDiscountInput(e.target.value)}
+              placeholder={discountType === "percent" ? "Ex: 10" : "Ex: 5000"}
+              className="text-sm"
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <Button size="sm" onClick={handleApplyDiscount} className="flex-1">
+                Appliquer
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setShowDiscount(false);
+                  setDiscountInput("");
+                }}
+              >
+                Annuler
+              </Button>
+              {discount > 0 && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    onClearDiscount();
+                    setShowDiscount(false);
+                  }}
+                  className="text-destructive"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Sous-total si remise active */}
+        {discount > 0 && (
+          <div className="w-full flex items-center justify-between text-sm text-muted-foreground">
+            <span>Sous-total</span>
+            <span className="line-through">{formatPrice(subtotal)}</span>
+          </div>
+        )}
+        
         <div className="w-full flex items-center justify-between text-lg font-bold">
           <span>Total</span>
           <span className="text-primary" data-testid="cart-total">{formatPrice(total)}</span>

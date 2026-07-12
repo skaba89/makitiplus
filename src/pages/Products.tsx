@@ -32,6 +32,7 @@ import {
 import { Database } from "@/integrations/supabase/types";
 import { exportProductsToCSV } from "@/utils/exportUtils";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useStore } from "@/contexts/StoreContext";
 import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import { useCategories } from "@/hooks/useCategories";
 import { useProductStats } from "@/hooks/useProductStats";
@@ -72,9 +73,10 @@ const Products = () => {
   const [currentPage, setCurrentPage] = useState(1);
 
   // Reset to page 1 whenever filters change
+  const { currentStore: activeStore } = useStore();
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedCategory]);
+  }, [searchQuery, selectedCategory, activeStore]);
 
   const filters: Array<{
     column: string;
@@ -83,6 +85,11 @@ const Products = () => {
   }> = [];
   if (selectedCategory) {
     filters.push({ column: "category_id", operator: "eq", value: selectedCategory });
+  }
+  // Filtrer par magasin si un store est sélectionné (multi-magasins)
+  const { currentStore } = useStore();
+  if (currentStore) {
+    filters.push({ column: "store_id", operator: "eq", value: currentStore.id });
   }
 
   const {
@@ -114,6 +121,8 @@ const Products = () => {
   const createProductMutation = useMutation({
     mutationFn: async (product: Omit<ProductInsert, "user_id">) => {
       // Use server-side plan-enforced RPC
+      // ⚠️ Le paramètre DB s'appelle p_cost_price (et NON p_buy_price).
+      // Voir migration 20260703020000_p1_server_side_plan_enforcement.sql ligne 23.
       const { data, error } = await supabase.rpc("create_product", {
         p_name: product.name,
         p_price: product.price,
@@ -122,7 +131,7 @@ const Products = () => {
         p_unit: product.unit || 'unité',
         p_stock_quantity: product.stock_quantity ?? 0,
         p_min_stock_alert: product.min_stock_alert ?? 5,
-        p_buy_price: product.cost_price || null, // RPC param is p_buy_price, not p_cost_price
+        p_cost_price: product.cost_price || null,
         p_supplier_id: product.supplier_id || null,
         p_store_id: product.store_id || null,
         p_description: product.description || null,
@@ -350,12 +359,14 @@ const Products = () => {
           data.map((p) => ({
             name: p.name,
             category: p.categories?.name || "",
+            barcode: p.barcode,
             price: p.price,
             cost_price: p.cost_price,
             stock_quantity: p.stock_quantity,
             min_stock_alert: p.min_stock_alert,
             unit: p.unit,
             is_active: p.is_active,
+            expiry_date: p.expiry_date,
           })),
           currency.displaySymbol || currency.symbol
         );
