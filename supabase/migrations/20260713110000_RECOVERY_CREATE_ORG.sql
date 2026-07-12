@@ -78,7 +78,7 @@ BEGIN
 
   -- ─── 3. Créer l'organisation si elle n'existe pas ────────────
   IF v_org_id IS NULL THEN
-    INSERT INTO public.organizations (name, owner_id)
+    INSERT INTO public.organizations (name, owner_user_id)
     VALUES (v_business_name, v_user_id)
     RETURNING id INTO v_org_id;
 
