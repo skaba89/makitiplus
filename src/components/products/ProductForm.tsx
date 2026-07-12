@@ -133,9 +133,9 @@ export const ProductForm = ({ product, onSubmit, isLoading }: ProductFormProps) 
         barcode: product.barcode || "",
         unit: product.unit || "unité",
         tax_rate: product.tax_rate ?? null,
-        description: (product as Record<string, unknown>).description as string || "",
-        expiry_date: (product as Record<string, unknown>).expiry_date as string || "",
-        is_active: (product as Record<string, unknown>).is_active as boolean ?? true,
+        description: product.description || "",
+        expiry_date: product.expiry_date || "",
+        is_active: product.is_active ?? true,
       });
       setImageUrl(product.image_url || null);
       setImagePreview(product.image_url || null);
@@ -271,7 +271,7 @@ export const ProductForm = ({ product, onSubmit, isLoading }: ProductFormProps) 
       description: formData.description || null,
       expiry_date: formData.expiry_date || null,
       is_active: formData.is_active,
-    } as Record<string, unknown>);
+    });
   };
 
   const isSubmitting = isLoading || isUploadingImage;

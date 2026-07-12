@@ -498,6 +498,7 @@ export type Database = {
           category_id: string | null
           cost_price: number | null
           created_at: string
+          description: string | null
           expiry_date: string | null
           id: string
           image_url: string | null
@@ -520,6 +521,7 @@ export type Database = {
           category_id?: string | null
           cost_price?: number | null
           created_at?: string
+          description?: string | null
           expiry_date?: string | null
           id?: string
           image_url?: string | null
@@ -542,6 +544,7 @@ export type Database = {
           category_id?: string | null
           cost_price?: number | null
           created_at?: string
+          description?: string | null
           expiry_date?: string | null
           id?: string
           image_url?: string | null
