@@ -153,6 +153,9 @@ def main() -> None:
 
     all_findings = []
     for filepath in sorted(MIGRATIONS_DIR.glob("*.sql")):
+        # Exclure les scripts de nettoyage/récupération (DELETE globaux intentionnels)
+        if "CLEANUP_RESET_PROJECT" in filepath.name or "RECOVERY_CREATE_ORG" in filepath.name:
+            continue
         findings = check_file(filepath)
         if findings:
             all_findings.append((filepath, findings))
