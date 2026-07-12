@@ -82,7 +82,13 @@ describe("Régression : pattern check_plan_limit JSONB cassé", () => {
     const latest = getLatestFunctionDef(allMigrations, "create_product");
 
     expect(latest).not.toBeNull();
-    expect(latest!.name).toBe("20260712160000_fix_check_plan_limit_jsonb_pattern.sql");
+    // La dernière version peut être dans la migration consolidée (20260712180000)
+    // ou dans la migration individuelle (20260712160000)
+    const validNames = [
+      "20260712180000_CONSOLIDATED_all_critical_fixes.sql",
+      "20260712160000_fix_check_plan_limit_jsonb_pattern.sql",
+    ];
+    expect(validNames).toContain(latest!.name);
 
     const body = extractFunctionBody(latest!.content, "create_product");
     expect(body.length).toBeGreaterThan(0);
@@ -101,7 +107,11 @@ describe("Régression : pattern check_plan_limit JSONB cassé", () => {
     const latest = getLatestFunctionDef(allMigrations, "create_sale_with_limit");
 
     expect(latest).not.toBeNull();
-    expect(latest!.name).toBe("20260712160000_fix_check_plan_limit_jsonb_pattern.sql");
+    const validNames = [
+      "20260712180000_CONSOLIDATED_all_critical_fixes.sql",
+      "20260712160000_fix_check_plan_limit_jsonb_pattern.sql",
+    ];
+    expect(validNames).toContain(latest!.name);
 
     const body = extractFunctionBody(latest!.content, "create_sale_with_limit");
     expect(body.length).toBeGreaterThan(0);
@@ -118,7 +128,11 @@ describe("Régression : pattern check_plan_limit JSONB cassé", () => {
     const latest = getLatestFunctionDef(allMigrations, "create_first_organization");
 
     expect(latest).not.toBeNull();
-    expect(latest!.name).toBe("20260712160000_fix_check_plan_limit_jsonb_pattern.sql");
+    const validNames = [
+      "20260712180000_CONSOLIDATED_all_critical_fixes.sql",
+      "20260712160000_fix_check_plan_limit_jsonb_pattern.sql",
+    ];
+    expect(validNames).toContain(latest!.name);
 
     const body = extractFunctionBody(latest!.content, "create_first_organization");
     expect(body.length).toBeGreaterThan(0);
@@ -130,12 +144,12 @@ describe("Régression : pattern check_plan_limit JSONB cassé", () => {
     expect(body).toMatch(/\(v_plan_check->>'allowed'\)::boolean/);
   });
 
-  it("Aucune nouvelle migration après 20260712160000 ne réintroduit le pattern cassé", () => {
+  it("Aucune nouvelle migration après 20260712180000 ne réintroduit le pattern cassé", () => {
     // Ce test empêche une régression future : toute migration future
     // qui contiendrait le pattern cassé échouerait.
     const allMigrations = getAllMigrations();
     const fixMigrationIndex = allMigrations.findIndex(
-      (m) => m.name === "20260712160000_fix_check_plan_limit_jsonb_pattern.sql"
+      (m) => m.name === "20260712180000_CONSOLIDATED_all_critical_fixes.sql"
     );
     expect(fixMigrationIndex).toBeGreaterThan(-1);
 

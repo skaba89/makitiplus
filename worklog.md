@@ -1264,3 +1264,41 @@ Stage Summary:
 - 1 migration SQL à appliquer par l'utilisateur :
   20260712160000_fix_check_plan_limit_jsonb_pattern.sql
 - Commit : 25da962 — poussé sur origin/main
+
+---
+Task ID: 12
+Agent: main
+Task: Fix bug "column description does not exist" sur create_product
+
+Work Log:
+- Capture d'écran utilisateur (pasted_image_1783830856942.png) analysée avec VLM
+- Erreur identifiée : "Impossible de créer le produit: column "description" of relation "products" does not exist"
+- Cause racine : aucune migration n'avait ajouté description / expiry_date / is_active
+  à la table products, mais frontend et create_product RPC les utilisent
+- Migration 20260712170000_add_description_expiry_isactive_to_products.sql créée :
+  - ALTER TABLE products ADD COLUMN IF NOT EXISTS description TEXT
+  - ALTER TABLE products ADD COLUMN IF NOT EXISTS expiry_date DATE
+  - ALTER TABLE products ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true
+  - UPDATE products SET is_active = true WHERE is_active IS NULL
+  - DO block de vérification
+- types.ts mis à jour :
+  - Ajout description aux types products (Row, Insert, Update)
+  - Permet d'éliminer les casts (product as Record<string, unknown>).description
+- ProductForm.tsx nettoyé :
+  - Suppression des casts (product as Record<string, unknown>).description/expiry_date/is_active
+  - Suppression du cast onSubmit({...} as Record<string, unknown>)
+- Commandes exécutées :
+  - TypeScript : OK ✅
+  - ESLint : 0 errors, 9 warnings (< 10) ✅
+  - Build : OK ✅ (PWA 65 entries precache)
+  - Tests : 843/843 passent ✅ (passé de 841 à 843, +2 tests, 0 régression)
+- Commité : 976f612
+- Poussé sur origin/main ✅
+
+Stage Summary:
+- Bug critique "column description does not exist" RÉSOLVÉ
+- 3 colonnes ajoutées à la table products (description, expiry_date, is_active)
+- Type TS nettoyé (suppression des casts)
+- 1 migration SQL à appliquer par l'utilisateur :
+  20260712170000_add_description_expiry_isactive_to_products.sql
+- Commit : 976f612 — poussé sur origin/main
