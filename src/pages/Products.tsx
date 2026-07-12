@@ -121,6 +121,8 @@ const Products = () => {
   const createProductMutation = useMutation({
     mutationFn: async (product: Omit<ProductInsert, "user_id">) => {
       // Use server-side plan-enforced RPC
+      // ⚠️ Le paramètre DB s'appelle p_cost_price (et NON p_buy_price).
+      // Voir migration 20260703020000_p1_server_side_plan_enforcement.sql ligne 23.
       const { data, error } = await supabase.rpc("create_product", {
         p_name: product.name,
         p_price: product.price,
@@ -129,7 +131,7 @@ const Products = () => {
         p_unit: product.unit || 'unité',
         p_stock_quantity: product.stock_quantity ?? 0,
         p_min_stock_alert: product.min_stock_alert ?? 5,
-        p_buy_price: product.cost_price || null, // RPC param is p_buy_price, not p_cost_price
+        p_cost_price: product.cost_price || null,
         p_supplier_id: product.supplier_id || null,
         p_store_id: product.store_id || null,
         p_description: product.description || null,

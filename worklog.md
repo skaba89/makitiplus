@@ -1132,3 +1132,43 @@ Stage Summary:
   Dashboard.tsx, Customers.tsx, receiptGenerator.ts, SellerActivity.tsx
 - Fichiers créés : businessAuditFollowup.test.tsx, 20260712120000_add_discount_amount_to_sale_rpc.sql
 - Commit : f9ad7f0 — poussé sur origin/main
+
+---
+Task ID: 9
+Agent: main
+Task: Suite audit métier — priorités 9-10 (rapport rentabilité + exports enrichis)
+
+Work Log:
+- Vérifié l'état du projet : top 3 + priorités 4-8 déjà en production (commits 1db8faa, f9ad7f0)
+- Migration SQL appliquée avec succès par l'utilisateur en DB Supabase
+- Étape 1 : Migration enrich_reports_stats_with_margin.sql
+  - get_reports_stats : ajout 4 métriques (totalDiscount, totalCost, grossMargin, grossMarginPct)
+  - COGS calculé via LEFT JOIN products sur sale_items (cost_price × quantity)
+  - Gestion division par 0 (totalSales = 0 → 0)
+- Étape 2 : Reports.tsx — nouveau bloc "Rentabilité" (4 cards)
+  - Marge brute (border primary) + coût en sous-titre
+  - Taux de marge (%) avec code couleur selon seuils (30%/10%/0)
+  - Remises totales (border orange si > 0) + % du CA potentiel
+  - Bénéfice net réel (border 2px) = marge brute - dépenses + écart vs ancien calcul
+- Étape 3 : exportSalesToCSV — ajout colonne "Remise" (discount_amount)
+- Étape 4 : exportProductsToCSV — enrichissement (8 → 14 colonnes)
+  - Code-barres, marge unitaire, marge %, date de péremption, valeur stock vente/achat
+- Étape 5 : Products.tsx — passer expiry_date + barcode à l'export
+- Étape 6 : Tests de non-régression (+14 tests)
+  - exportUtils.test.ts : ventes avec remise, produits avec expiry, calculs logiques rentabilité
+- Commandes exécutées :
+  - TypeScript : OK ✅
+  - ESLint : 0 errors, 9 warnings (< 10) ✅
+  - Build : OK ✅ (PWA 65 entries precache)
+  - Tests : 821/821 passent ✅ (passé de 807 à 821, +14 tests, 0 régression)
+- Commité : 9fa7cdd
+- Poussé sur origin/main ✅
+
+Stage Summary:
+- Rapport rentabilité complet : marge brute, taux de marge, total remises, bénéfice net réel
+- Exports CSV enrichis : remise sur ventes + 6 nouvelles colonnes sur produits
+- 14 nouveaux tests de non-régression (821 total)
+- Migration SQL à appliquer : 20260712130000_enrich_reports_stats_with_margin.sql
+- Fichiers modifiés : Reports.tsx, exportUtils.ts, Products.tsx, exportUtils.test.ts
+- Fichiers créés : 20260712130000_enrich_reports_stats_with_margin.sql
+- Commit : 9fa7cdd — poussé sur origin/main
