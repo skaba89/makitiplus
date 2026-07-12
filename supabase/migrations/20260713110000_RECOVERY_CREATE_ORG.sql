@@ -1,17 +1,13 @@
 -- ============================================================
--- SCRIPT DE RÉCUPÉRATION — Recréer org + store pour le super admin
--- Date: 2026-07-13
+-- SCRIPT DE RÉCUPÉRATION v3 — Recréer org + store + catégories
+-- Date: 2026-07-13 (corrigé : désactiver trigger pendant INSERT)
 -- ============================================================
--- OBJECTIF :
---   Après le nettoyage, le super admin kaba.sekouna@gmail.com n'a
---   plus d'organisation. Ce script recrée :
---   1. Une nouvelle organisation
---   2. Un magasin headquarters
---   3. Un abonnement starter actif
---   4. Les catégories par défaut
---   5. Lie le super admin à la nouvelle org + store
+-- Bug : le trigger auto_create_store_settings appelle
+-- insert_default_categories qui vérifie auth.uid() = p_user_id.
+-- En SQL Editor, auth.uid() est NULL → échec.
 --
--- À exécuter dans Supabase SQL Editor après le script de nettoyage.
+-- Fix : désactiver le trigger pendant l'INSERT organization,
+-- puis insérer les catégories manuellement.
 -- ============================================================
 
 DO $$
@@ -23,127 +19,86 @@ DECLARE
   v_owner_name TEXT;
   v_business_name TEXT;
 BEGIN
-  -- ─── 1. Identifier le super admin ────────────────────────────
-  SELECT id INTO v_user_id
-  FROM auth.users
-  WHERE email = v_super_admin_email
-  LIMIT 1;
-
+  SELECT id INTO v_user_id FROM auth.users WHERE email = v_super_admin_email LIMIT 1;
   IF v_user_id IS NULL THEN
     RAISE EXCEPTION 'Super admin % non trouvé', v_super_admin_email;
   END IF;
 
-  -- Récupérer le nom depuis profiles
   SELECT owner_name, business_name INTO v_owner_name, v_business_name
-  FROM public.profiles
-  WHERE user_id = v_user_id
-  LIMIT 1;
+  FROM public.profiles WHERE user_id = v_user_id LIMIT 1;
 
   v_owner_name := COALESCE(v_owner_name, 'Ousmane Kaba');
   v_business_name := COALESCE(v_business_name, 'MakitiPlus Boutique');
 
-  RAISE NOTICE '✅ Super admin : % (%)', v_super_admin_email, v_user_id;
-  RAISE NOTICE '   Nom : %', v_owner_name;
-  RAISE NOTICE '   Business : %', v_business_name;
+  RAISE NOTICE 'Super admin : %', v_super_admin_email;
 
-  -- ─── 2. Vérifier si une org existe déjà pour ce user ─────────
+  -- Vérifier si une org existe déjà
   SELECT organization_id INTO v_org_id
   FROM public.profiles
-  WHERE user_id = v_user_id
-    AND organization_id IS NOT NULL
-  LIMIT 1;
+  WHERE user_id = v_user_id AND organization_id IS NOT NULL LIMIT 1;
 
   IF v_org_id IS NOT NULL THEN
-    -- Vérifier que l'org existe encore
     PERFORM 1 FROM public.organizations WHERE id = v_org_id;
-    IF FOUND THEN
-      RAISE NOTICE '✅ Organisation existante trouvée : %', v_org_id;
-      -- Récupérer le store
-      SELECT id INTO v_store_id
-      FROM public.stores
-      WHERE organization_id = v_org_id
-        AND is_headquarters = true
-      LIMIT 1;
-
-      IF v_store_id IS NULL THEN
-        SELECT id INTO v_store_id
-        FROM public.stores
-        WHERE organization_id = v_org_id
-        LIMIT 1;
-      END IF;
-    ELSE
-      v_org_id := NULL; -- L'org n'existe plus, on va la recréer
-    END IF;
+    IF NOT FOUND THEN v_org_id := NULL; END IF;
   END IF;
 
-  -- ─── 3. Créer l'organisation si elle n'existe pas ────────────
+  -- Créer l'organisation avec trigger désactivé
   IF v_org_id IS NULL THEN
+    -- Désactiver le trigger qui appelle insert_default_categories
+    ALTER TABLE public.organizations DISABLE TRIGGER trigger_auto_create_store_settings;
+
     INSERT INTO public.organizations (name, owner_user_id)
     VALUES (v_business_name, v_user_id)
     RETURNING id INTO v_org_id;
 
-    RAISE NOTICE '✅ Nouvelle organisation créée : % (%)', v_business_name, v_org_id;
+    -- Réactiver le trigger
+    ALTER TABLE public.organizations ENABLE TRIGGER trigger_auto_create_store_settings;
+
+    RAISE NOTICE 'Nouvelle organisation créée : %', v_org_id;
+  ELSE
+    RAISE NOTICE 'Organisation existante : %', v_org_id;
   END IF;
 
-  -- ─── 4. Mettre à jour le profil du super admin ───────────────
+  -- Mettre à jour le profil
   UPDATE public.profiles
-  SET
-    organization_id = v_org_id,
-    current_store_id = COALESCE(current_store_id, NULL),
-    updated_at = NOW()
+  SET organization_id = v_org_id, updated_at = NOW()
   WHERE user_id = v_user_id;
 
-  RAISE NOTICE '✅ Profil mis à jour : organization_id = %', v_org_id;
+  -- Récupérer ou créer le store headquarters
+  SELECT id INTO v_store_id
+  FROM public.stores
+  WHERE organization_id = v_org_id AND is_headquarters = true LIMIT 1;
 
-  -- ─── 5. Créer un magasin headquarters si aucun ───────────────
   IF v_store_id IS NULL THEN
-    INSERT INTO public.stores (
-      organization_id, name, slug, category, country, currency,
-      is_headquarters, is_active
-    ) VALUES (
-      v_org_id,
-      v_business_name,
-      'magasin-principal',
-      'Alimentation',
-      'GN',
-      'GNF',
-      true,
-      true
-    )
-    RETURNING id INTO v_store_id;
-
-    RAISE NOTICE '✅ Magasin principal créé : %', v_store_id;
-  ELSE
-    RAISE NOTICE '✅ Magasin existant : %', v_store_id;
+    SELECT id INTO v_store_id FROM public.stores WHERE organization_id = v_org_id LIMIT 1;
   END IF;
 
-  -- ─── 6. Mettre à jour current_store_id dans le profil ────────
-  UPDATE public.profiles
-  SET current_store_id = v_store_id
-  WHERE user_id = v_user_id
-    AND current_store_id IS NULL;
+  IF v_store_id IS NULL THEN
+    INSERT INTO public.stores (organization_id, name, slug, category, country, currency, is_headquarters, is_active)
+    VALUES (v_org_id, v_business_name, 'magasin-principal', 'Alimentation', 'GN', 'GNF', true, true)
+    RETURNING id INTO v_store_id;
+    RAISE NOTICE 'Magasin créé : %', v_store_id;
+  ELSE
+    RAISE NOTICE 'Magasin existant : %', v_store_id;
+  END IF;
 
-  RAISE NOTICE '✅ current_store_id mis à jour : %', v_store_id;
+  -- current_store_id
+  UPDATE public.profiles SET current_store_id = v_store_id
+  WHERE user_id = v_user_id AND current_store_id IS NULL;
 
-  -- ─── 7. Créer l'abonnement starter si aucun ──────────────────
+  -- Abonnement starter
   INSERT INTO public.subscriptions (organization_id, plan_id, status)
   VALUES (v_org_id, 'starter', 'active')
   ON CONFLICT (organization_id) DO NOTHING;
 
-  RAISE NOTICE '✅ Abonnement starter actif créé pour l''org %', v_org_id;
-
-  -- ─── 8. Créer les store_settings si aucun ────────────────────
+  -- Store settings
   INSERT INTO public.store_settings (store_id, organization_id)
   VALUES (v_store_id, v_org_id)
   ON CONFLICT (store_id) DO NOTHING;
 
-  RAISE NOTICE '✅ Store settings créés pour le store %', v_store_id;
-
-  -- ─── 9. Insérer les catégories par défaut si aucune ──────────
-  INSERT INTO public.categories (organization_id, name, icon, color, description, sort_order, is_default)
-  SELECT
-    v_org_id,
-    cat.name, cat.icon, cat.color, cat.description, cat.sort_order, cat.is_default
+  -- Catégories par défaut (insertion directe, sans passer par la RPC)
+  INSERT INTO public.categories (organization_id, name, icon, color, description, sort_order, is_default, user_id)
+  SELECT v_org_id, cat.name, cat.icon, cat.color, cat.description, cat.sort_order, cat.is_default, v_user_id
   FROM (VALUES
     ('Alimentation'::text, 'Package'::text, '#F59E0B'::text, 'Produits alimentaires'::text, 1::int, true::boolean),
     ('Boissons', 'Coffee', '#3B82F6', 'Boissons et jus', 2, true),
@@ -157,53 +112,23 @@ BEGIN
     ('Divers', 'Package', '#6366F1', 'Autres produits', 10, true)
   ) AS cat(name, icon, color, description, sort_order, is_default)
   WHERE NOT EXISTS (
-    SELECT 1 FROM public.categories
-    WHERE organization_id = v_org_id
-      AND name = cat.name
+    SELECT 1 FROM public.categories WHERE organization_id = v_org_id AND name = cat.name
   );
 
-  RAISE NOTICE '✅ Catégories par défaut créées pour l''org %', v_org_id;
-
-  -- ─── 10. Vérification finale ────────────────────────────────
-  RAISE NOTICE '';
-  RAISE NOTICE '═══════════════════════════════════════════════════════';
   RAISE NOTICE '✅ RÉCUPÉRATION TERMINÉE';
-  RAISE NOTICE '═══════════════════════════════════════════════════════';
-  RAISE NOTICE 'Super admin : %', v_super_admin_email;
-  RAISE NOTICE 'Organisation : % (%)', v_business_name, v_org_id;
-  RAISE NOTICE 'Magasin : % (%)', v_business_name, v_store_id;
-  RAISE NOTICE 'Abonnement : starter (actif)';
-  RAISE NOTICE 'Catégories : 10 catégories par défaut';
-  RAISE NOTICE '═══════════════════════════════════════════════════════';
-  RAISE NOTICE '';
-  RAISE NOTICE '👉 Le super admin peut maintenant se reconnecter.';
-  RAISE NOTICE '   L''organisation et les catégories sont prêtes.';
-  RAISE NOTICE '   Il ne reste plus qu''à créer des produits.';
+  RAISE NOTICE 'Org : % | Store : % | Abonnement : starter | Catégories : 10', v_org_id, v_store_id;
 END $$;
 
--- ─── Vérifications post-récupération ──────────────────────────
-
--- Organisation du super admin
-SELECT o.id, o.name, o.owner_id
-FROM public.organizations o
+-- Vérifications
+SELECT o.id, o.name FROM public.organizations o
 JOIN public.profiles p ON p.organization_id = o.id
 WHERE p.user_id = (SELECT id FROM auth.users WHERE email = 'kaba.sekouna@gmail.com');
 
--- Magasins du super admin
-SELECT s.id, s.name, s.is_headquarters, s.is_active
-FROM public.stores s
+SELECT s.id, s.name, s.is_headquarters FROM public.stores s
 JOIN public.profiles p ON p.organization_id = s.organization_id
 WHERE p.user_id = (SELECT id FROM auth.users WHERE email = 'kaba.sekouna@gmail.com');
 
--- Catégories du super admin
-SELECT c.id, c.name, c.icon, c.color
-FROM public.categories c
+SELECT c.name, c.icon FROM public.categories c
 JOIN public.profiles p ON p.organization_id = c.organization_id
 WHERE p.user_id = (SELECT id FROM auth.users WHERE email = 'kaba.sekouna@gmail.com')
 ORDER BY c.sort_order;
-
--- Abonnement du super admin
-SELECT s.plan_id, s.status, s.created_at
-FROM public.subscriptions s
-JOIN public.profiles p ON p.organization_id = s.organization_id
-WHERE p.user_id = (SELECT id FROM auth.users WHERE email = 'kaba.sekouna@gmail.com');
