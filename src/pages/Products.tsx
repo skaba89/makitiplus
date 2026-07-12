@@ -72,11 +72,15 @@ const Products = () => {
   const PAGE_SIZE = 20;
   const [currentPage, setCurrentPage] = useState(1);
 
+  // Store context — si currentStore est défini, on filtre par magasin.
+  // ⚠️ Ne PAS filtrer si currentStore est null (sinon les produits créés
+  // sans store_id n'apparaissent pas dans la liste).
+  const { currentStore } = useStore();
+
   // Reset to page 1 whenever filters change
-  const { currentStore: activeStore } = useStore();
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedCategory, activeStore]);
+  }, [searchQuery, selectedCategory, currentStore]);
 
   const filters: Array<{
     column: string;
@@ -86,9 +90,10 @@ const Products = () => {
   if (selectedCategory) {
     filters.push({ column: "category_id", operator: "eq", value: selectedCategory });
   }
-  // Filtrer par magasin si un store est sélectionné (multi-magasins)
-  const { currentStore } = useStore();
-  if (currentStore) {
+  // Filtrer par magasin UNIQUEMENT si un store est sélectionné
+  // (sinon on affiche tous les produits de l'org — utile si le produit
+  // a été créé sans store_id ou avec un store_id différent)
+  if (currentStore?.id) {
     filters.push({ column: "store_id", operator: "eq", value: currentStore.id });
   }
 
@@ -107,7 +112,7 @@ const Products = () => {
     orderBy: { column: "created_at", ascending: false },
     page: currentPage,
     pageSize: PAGE_SIZE,
-    queryKey: ["products", user?.id ?? ""],
+    queryKey: ["products", user?.id ?? "", currentStore?.id ?? "all"],
     enabled: !!user,
   });
 
