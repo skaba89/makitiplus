@@ -2,12 +2,12 @@
 
 | Champ | Valeur |
 |-------|--------|
-| Date | 2026-07-12 |
-| Branche | `hardening/national-production-readiness-no-regression` |
-| Commit de base | `977dfca` (dernier main avant hardening) |
+| Date | 2026-07-13 |
+| Branche | `main` (hardening mergé via PR #24) |
+| Commit de base | `d84880d` |
 | Owner | Dev Lead |
 | Audience | Ops, Produit, Direction |
-| Version | 1.0 |
+| Version | 2.0 |
 
 ---
 
@@ -226,3 +226,65 @@ Si tous ces critères sont remplis pendant 7 jours → passer à pilote 3-5 maga
 3. `20260712195000_harden_sales_store_scope.sql`
 
 Toutes idempotentes, rétrocompatibles, non-destructives.
+
+---
+
+## Risques restants — Résolution (v2.0, 2026-07-13)
+
+### Risque #1 : 3 migrations SQL à appliquer en prod — RÉSOLU
+
+**Solution** : Migration consolidée unique créée.
+
+- Fichier : `supabase/migrations/20260713200000_FINAL_CONSOLIDATED_ALL_FIXES.sql`
+- Aussi dans : `/home/z/my-project/download/FINAL_CONSOLIDATED_ALL_FIXES.sql`
+- Combine les 5 fixes critiques en 1 script avec transaction BEGIN/COMMIT
+- Idempotent (DROP IF EXISTS + CREATE OR REPLACE + ADD COLUMN IF NOT EXISTS)
+- Vérification finale intégrée (RAISE NOTICE ✅/❌)
+
+**Action utilisateur** : Copier-coller ce seul fichier dans Supabase SQL Editor → Run.
+
+### Risque #2 : Secrets E2E manquants — RÉSOLU
+
+**Solution** : Guide de configuration détaillé créé.
+
+- Fichier : `docs/production/E2E_SECRETS_SETUP_GUIDE.md`
+- Liste les 14 secrets requis avec descriptions et exemples
+- Procédure étape par étape (GitHub Settings → Secrets → Actions)
+- Inclut la création des comptes de test dans Supabase Auth
+
+**Action utilisateur** : Suivre le guide pour configurer les 14 secrets.
+
+### Risque #3 : Token GitHub compromis — DOCUMENTÉ
+
+**Solution** : Runbook de rotation créé (déjà en place).
+
+- Fichier : `docs/production/SECURITY_ROTATION_RUNBOOK.md`
+- 10 sections : révocation PAT, rotation Supabase/Stripe, mise à jour Render, etc.
+
+**Action utilisateur** : Aller sur https://github.com/settings/tokens → révoquer TOUTES les PAT → créer un nouveau token avec scope minimal `repo`.
+
+### Risque #4 : Vérification post-migration — RÉSOLU
+
+**Solution** : Script de vérification créé.
+
+- Fichier : `supabase/migrations/ZZ_VERIFY_POST_MIGRATION.sql`
+- Aussi dans : `/home/z/my-project/download/VERIFY_POST_MIGRATION.sql`
+- Vérifie : colonnes products, fonctions critiques, cast payment_method, store scope
+- Affiche un rapport ✅/❌ clair
+
+**Action utilisateur** : Après avoir appliqué la migration consolidée, exécuter ce script pour confirmer que tout est en place.
+
+---
+
+## Checklist finale utilisateur (à cocher)
+
+- [ ] 1. Sauvegarder la DB Supabase (Dashboard → Backups → Create backup)
+- [ ] 2. Appliquer `20260713200000_FINAL_CONSOLIDATED_ALL_FIXES.sql` dans SQL Editor
+- [ ] 3. Exécuter `ZZ_VERIFY_POST_MIGRATION.sql` pour confirmer ✅ partout
+- [ ] 4. Révoquer le token GitHub compromis (https://github.com/settings/tokens)
+- [ ] 5. Créer un nouveau token GitHub avec scope `repo`
+- [ ] 6. Configurer les 14 secrets E2E (voir E2E_SECRETS_SETUP_GUIDE.md)
+- [ ] 7. Tester le workflow release-readiness (GitHub Actions → Run workflow)
+- [ ] 8. Tester en magasin pilote : login → créer produit → vendre → vérifier rapport
+
+Une fois cette checklist terminée, le projet est **national-ready**.
