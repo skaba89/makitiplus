@@ -1395,3 +1395,28 @@ Stage Summary:
   2. Appliquer 3 migrations SQL en prod (20260712170000, 20260712190000, 20260712195000)
   3. Configurer secrets E2E dans GitHub Actions
   4. Merger la PR après validation CI
+
+---
+Task ID: 16
+Agent: main
+Task: Fix pages qui affichent ErrorBoundary — fallback gracieux
+
+Work Log:
+- Capture d'écran utilisateur (pasted_image_1783864856604.png) analysée
+- Erreur : "Erreur sur cette page" sur /dashboard/reports (ErrorBoundary)
+- Cause : pattern "if (error) throw error" dans useQuery déclenche ErrorBoundary
+- Fix Reports.tsx : 4 queries avec fallback (return null/[] au lieu de throw)
+- Fix AdminAnalytics.tsx : 5 queries RPC avec fallback return []
+- Fix Dashboard.tsx : 5 queries avec fallback (monthSales, monthExpenses, products, suppliersCount, recentSales)
+- Fix Suppliers.tsx : 2 queries avec fallback return []
+- Pages vérifiées (mutations avec onError = OK) : Categories, Customers, Stores, Expenses, Billing
+- Ajout retry: 1 sur les queries pour éviter échecs transitoires
+- Vérifications : TypeScript OK, Build OK, Tests 868/868 OK (0 régression)
+- Commité : 0d26220
+- Poussé sur origin/main
+
+Stage Summary:
+- 4 pages corrigées (Reports, AdminAnalytics, Dashboard, Suppliers)
+- 16 queries avec fallback gracieux (plus de ErrorBoundary sur erreur RPC)
+- Toutes les pages s'affichent même si une RPC échoue
+- 868/868 tests passent (0 régression)

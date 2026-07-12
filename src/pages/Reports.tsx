@@ -48,6 +48,7 @@ import {
   Truck,
   DollarSign,
   Tag,
+  BarChart3,
 } from "lucide-react";
 import { format, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -257,10 +258,27 @@ const Reports = () => {
   });
 
   // Early return for loading state — MUST be after all hooks (Rules of Hooks)
-  if (isReportsLoading) {
+  // ⚠️ Ne pas bloquer sur le skeleton si la query est désactivée (pas d'org_id)
+  // isReportsLoading est true même quand enabled=false, donc on vérifie aussi profile
+  if (isReportsLoading && profile?.organization_id) {
     return (
       <DashboardLayout>
         <ReportsPageSkeleton />
+      </DashboardLayout>
+    );
+  }
+
+  // Si pas d'organisation, afficher un message au lieu du skeleton
+  if (!profile?.organization_id) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <BarChart3 className="h-12 w-12 text-muted-foreground mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Aucune organisation</h2>
+          <p className="text-muted-foreground">
+            Vous devez appartenir à une organisation pour voir les rapports.
+          </p>
+        </div>
       </DashboardLayout>
     );
   }
