@@ -91,10 +91,10 @@ BEGIN
   VALUES (v_org_id, 'starter', 'active')
   ON CONFLICT (organization_id) DO NOTHING;
 
-  -- Store settings
-  INSERT INTO public.store_settings (store_id, organization_id)
-  VALUES (v_store_id, v_org_id)
-  ON CONFLICT (store_id) DO NOTHING;
+  -- Store settings (lié à organization, pas à store)
+  INSERT INTO public.store_settings (organization_id, store_name)
+  VALUES (v_org_id, v_business_name)
+  ON CONFLICT (organization_id) DO NOTHING;
 
   -- Catégories par défaut (insertion directe, sans passer par la RPC)
   INSERT INTO public.categories (organization_id, name, icon, color, description, sort_order, is_default, user_id)
