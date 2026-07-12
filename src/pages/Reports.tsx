@@ -111,6 +111,11 @@ const Reports = () => {
           p_end: end.toISOString(),
         });
         if (error) return null;
+        // La RPC peut retourner un tableau [{...}] ou un objet {...}
+        // selon la version Supabase. On normalise vers un objet.
+        if (Array.isArray(data)) {
+          return data[0] ?? null;
+        }
         return data;
       } catch {
         return null;
@@ -118,6 +123,7 @@ const Reports = () => {
     },
     enabled: !!user && !!profile?.organization_id,
     retry: 1,
+    staleTime: 30_000, // 30 secondes — évite les re-fetchs trop fréquents
   });
 
   // Fetch top products — declared before any early returns to respect Rules of Hooks
@@ -260,8 +266,8 @@ const Reports = () => {
 
   // Early return for loading state — MUST be after all hooks (Rules of Hooks)
   // ⚠️ Ne pas bloquer sur le skeleton si la query est désactivée (pas d'org_id)
-  // isReportsLoading est true même quand enabled=false, donc on vérifie aussi profile
-  if (isReportsLoading && profile?.organization_id) {
+  // ou si reportsStats est déjà null (RPC a échoué → on affiche la page avec des zéros)
+  if (isReportsLoading && profile?.organization_id && reportsStats === undefined) {
     return (
       <DashboardLayout>
         <ReportsPageSkeleton />
