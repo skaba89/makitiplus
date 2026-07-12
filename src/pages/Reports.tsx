@@ -101,11 +101,12 @@ const Reports = () => {
   // L'agrégation (SUM, COUNT, GROUP BY) se fait côté serveur, réduisant drastiquement le transfert.
   // Fallback gracieux : si la RPC échoue, on retourne null pour ne pas déclencher l'ErrorBoundary.
   const { data: reportsStats, isLoading: isReportsLoading } = useQuery({
-    queryKey: ["reports-stats", user?.id, period],
+    queryKey: ["reports-stats", user?.id, profile?.organization_id, period],
     queryFn: async () => {
       if (!profile?.organization_id) return null;
       try {
         const { data, error } = await supabase.rpc("get_reports_stats", {
+          p_organization_id: profile.organization_id,
           p_start: start.toISOString(),
           p_end: end.toISOString(),
         });

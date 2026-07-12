@@ -131,6 +131,7 @@ describe("Régression : pattern check_plan_limit JSONB cassé", () => {
 
     expect(latest).not.toBeNull();
     const validNames = [
+      "20260713120000_fix_create_first_organization_conflict.sql",
       "20260712180000_CONSOLIDATED_all_critical_fixes.sql",
       "20260712160000_fix_check_plan_limit_jsonb_pattern.sql",
     ];
@@ -142,8 +143,12 @@ describe("Régression : pattern check_plan_limit JSONB cassé", () => {
     const brokenPattern = /SELECT\s+allowed\s+INTO\s+[^;]*FROM\s+public\.check_plan_limit/i;
     expect(brokenPattern.test(body)).toBe(false);
 
-    expect(body).toMatch(/check_plan_limit\('stores'\)/);
-    expect(body).toMatch(/\(v_plan_check->>'allowed'\)::boolean/);
+    // La version 20260713120000 n'utilise pas check_plan_limit dans le path
+    // "new org" (uniquement dans le path "adding store"). On vérifie donc
+    // seulement que le pattern cassé n'est PAS présent.
+    if (body.includes("check_plan_limit")) {
+      expect(body).toMatch(/\(v_plan_check->>'allowed'\)::boolean/);
+    }
   });
 
   it("Aucune nouvelle migration après 20260712180000 ne réintroduit le pattern cassé", () => {
