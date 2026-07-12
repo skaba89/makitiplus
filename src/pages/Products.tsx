@@ -32,7 +32,6 @@ import {
 import { Database } from "@/integrations/supabase/types";
 import { exportProductsToCSV } from "@/utils/exportUtils";
 import { useCurrency } from "@/hooks/useCurrency";
-import { useStore } from "@/contexts/StoreContext";
 import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import { useCategories } from "@/hooks/useCategories";
 import { useProductStats } from "@/hooks/useProductStats";
@@ -72,15 +71,10 @@ const Products = () => {
   const PAGE_SIZE = 20;
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Store context — si currentStore est défini, on filtre par magasin.
-  // ⚠️ Ne PAS filtrer si currentStore est null (sinon les produits créés
-  // sans store_id n'apparaissent pas dans la liste).
-  const { currentStore } = useStore();
-
   // Reset to page 1 whenever filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedCategory, currentStore]);
+  }, [searchQuery, selectedCategory]);
 
   const filters: Array<{
     column: string;
@@ -90,12 +84,11 @@ const Products = () => {
   if (selectedCategory) {
     filters.push({ column: "category_id", operator: "eq", value: selectedCategory });
   }
-  // Filtrer par magasin UNIQUEMENT si un store est sélectionné
-  // (sinon on affiche tous les produits de l'org — utile si le produit
-  // a été créé sans store_id ou avec un store_id différent)
-  if (currentStore?.id) {
-    filters.push({ column: "store_id", operator: "eq", value: currentStore.id });
-  }
+  // ⚠️ Ne PAS filtrer par store_id ici — on veut voir TOUS les produits
+  // de l'organisation, même ceux créés sans store_id ou avec un store_id
+  // différent du currentStore. Le filtrage multi-magasins sera une feature
+  // explicite (dropdown) plus tard, pas un filtre invisible.
+  // RLS filtre déjà par organization_id côté DB.
 
   const {
     data: paginatedProducts,
@@ -112,7 +105,7 @@ const Products = () => {
     orderBy: { column: "created_at", ascending: false },
     page: currentPage,
     pageSize: PAGE_SIZE,
-    queryKey: ["products", user?.id ?? "", currentStore?.id ?? "all"],
+    queryKey: ["products", user?.id ?? ""],
     enabled: !!user,
   });
 

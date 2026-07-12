@@ -1302,3 +1302,43 @@ Stage Summary:
 - 1 migration SQL à appliquer par l'utilisateur :
   20260712170000_add_description_expiry_isactive_to_products.sql
 - Commit : 976f612 — poussé sur origin/main
+
+---
+Task ID: 14
+Agent: main
+Task: Fix 2 bugs — payment_method enum cast + produits invisibles
+
+Work Log:
+- Capture d'écran utilisateur (pasted_image_1783842022256.png) analysée
+- 2 bugs identifiés :
+  1. Erreur paiement : "column 'payment_method' is of type payment_method
+     but expression is of type text" — colonne enum, param TEXT sans cast
+  2. Produit créé non visible dans liste Products (mais visible dans POS) —
+     filtre store_id trop strict
+- Bug #1 : migration 20260712190000_fix_payment_method_enum_cast.sql
+  - create_full_sale : ajout p_payment_method::public.payment_method
+  - create_sale_with_limit : recréée (délègue à create_full_sale)
+  - Transaction BEGIN/COMMIT + GRANT EXECUTE
+- Bug #2 : Products.tsx
+  - Ne filtrer par store_id QUE si currentStore?.id est défini
+  - Si pas de store sélectionné → tous les produits de l'org
+  - QueryKey inclut currentStore?.id ?? "all" (pas de cache partagé)
+  - Suppression double appel useStore() (activeStore + currentStore)
+- Tests de non-régression (+3 tests, 850 total) :
+  - create_full_sale : dernière version contient cast ::payment_method
+  - create_sale_with_limit : valide migration 20260712190000
+  - Anti-régression : pattern cassé toujours interdit après 20260712180000
+- Commandes exécutées :
+  - TypeScript : OK ✅
+  - ESLint : 0 errors, 9 warnings (< 10) ✅
+  - Build : OK ✅ (PWA 65 entries precache)
+  - Tests : 850/850 passent ✅ (passé de 847 à 850, +3 tests, 0 régression)
+- Commité : 838b79a
+- Poussé sur origin/main ✅
+
+Stage Summary:
+- 2 bugs résolus : paiement enum + produits invisibles
+- 1 migration SQL à appliquer : 20260712190000_fix_payment_method_enum_cast.sql
+- 1 fix frontend (Render rebuild automatique)
+- 3 nouveaux tests de non-régression (850 total)
+- Commit : 838b79a — poussé sur origin/main
