@@ -108,6 +108,7 @@ describe("Régression : pattern check_plan_limit JSONB cassé", () => {
 
     expect(latest).not.toBeNull();
     const validNames = [
+      "20260712195000_harden_sales_store_scope.sql",
       "20260712190000_fix_payment_method_enum_cast.sql",
       "20260712180000_CONSOLIDATED_all_critical_fixes.sql",
       "20260712160000_fix_check_plan_limit_jsonb_pattern.sql",
@@ -183,7 +184,13 @@ describe("Régression : pattern check_plan_limit JSONB cassé", () => {
     const latest = getLatestFunctionDef(allMigrations, "create_full_sale");
 
     expect(latest).not.toBeNull();
-    expect(latest!.name).toBe("20260712190000_fix_payment_method_enum_cast.sql");
+    // La dernière version peut être dans harden_sales_store_scope (20260712195000)
+    // ou dans fix_payment_method_enum_cast (20260712190000)
+    const validNames = [
+      "20260712195000_harden_sales_store_scope.sql",
+      "20260712190000_fix_payment_method_enum_cast.sql",
+    ];
+    expect(validNames).toContain(latest!.name);
 
     const body = extractFunctionBody(latest!.content, "create_full_sale");
     expect(body.length).toBeGreaterThan(0);

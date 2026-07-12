@@ -1,0 +1,270 @@
+# Release Readiness — Workflow BLOQUANT pour déploiement national
+#
+# Contrairement au job e2e optionnel dans ci.yml, ce workflow DOIT
+# réussir pour qu'un déploiement national soit autorisé.
+#
+# Déclencheurs :
+# - pull_request vers main
+# - workflow_dispatch (manuel)
+# - tags release-* (release-v1.0.0, release-2026-07-12, etc.)
+#
+# Si les secrets E2E manquent → le workflow ÉCHOUE (pas de skip silencieux).
+
+name: Release Readiness
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  push:
+    tags:
+      - "release-*"
+
+# Annuler les runs obsolètes sur la même branche
+concurrency:
+  group: release-readiness-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ─── Job 1 : Qualité code ────────────────────────────────────
+  code-quality:
+    name: Lint + Typecheck + Build + Unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint
+        run: npx eslint src/ --ignore-pattern "src/test/**" --max-warnings 10
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Build
+        run: npm run build
+      - name: Unit tests
+        run: npx vitest run --reporter=verbose
+        env:
+          VITE_SUPABASE_URL: https://dummy.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: dummy-key
+
+  # ─── Job 2 : Validation SQL ──────────────────────────────────
+  sql-validation:
+    name: SQL migrations + undefined functions
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate SQL migrations
+        run: python3 scripts/validate_sql_migrations.py
+      - name: Check for undefined function references
+        run: python3 scripts/check_undefined_functions.py
+
+  # ─── Job 3 : Audit sécurité ──────────────────────────────────
+  security-audit:
+    name: npm audit + secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: npm audit (high/critical — blocking)
+        run: npm audit --audit-level=high
+      - name: Check for .env leaks
+        run: |
+          if git ls-files | grep -E '(^|/)\.env($|\.)' | grep -v '\.env\.example'; then
+            echo "ERROR: tracked .env file detected"
+            exit 1
+          fi
+      - name: Check for hardcoded secrets
+        run: |
+          # Stripe live keys
+          if git grep -nE '(sk_live_|rk_live_)[A-Za-z0-9]{20,}' -- . ':!*.md' ':!docs/**' ':!scripts/**'; then
+            echo "ERROR: actual Stripe live secret detected in code"
+            exit 1
+          fi
+          # Supabase service role JWT
+          if git grep -nE 'SUPABASE_SERVICE_ROLE_KEY.*eyJ[A-Za-z0-9+/=]{20,}' -- . ':!*.md' ':!docs/**' ':!scripts/**' ':!.env.example' ':!src/test/**' ':!supabase/functions/**'; then
+            echo "ERROR: actual Supabase service role key detected in code"
+            exit 1
+          fi
+          # GitHub PATs (ghp_...)
+          if git grep -nE 'ghp_[A-Za-z0-9]{36,}' -- . ':!*.md' ':!docs/**' ':!scripts/**' ':!.env.example'; then
+            echo "ERROR: actual GitHub PAT detected in code"
+            exit 1
+          fi
+
+  # ─── Job 4 : E2E Pilot (BLOQUANT) ────────────────────────────
+  e2e-pilot:
+    name: E2E Pilot (blocking)
+    needs: [code-quality, sql-validation, security-audit]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # ❌ PAS de continue-on-error — ce job doit être bloquant
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      - name: Check required secrets
+        id: check-secrets
+        run: |
+          if [ -z "${{ secrets.VITE_SUPABASE_URL }}" ]; then
+            echo "ERROR: VITE_SUPABASE_URL secret is required for release readiness"
+            exit 1
+          fi
+          if [ -z "${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}" ]; then
+            echo "ERROR: VITE_SUPABASE_PUBLISHABLE_KEY secret is required for release readiness"
+            exit 1
+          fi
+          if [ -z "${{ secrets.E2E_TEST_EMAIL }}" ] || [ -z "${{ secrets.E2E_TEST_PASSWORD }}" ]; then
+            echo "ERROR: E2E_TEST_EMAIL and E2E_TEST_PASSWORD secrets are required for release readiness"
+            exit 1
+          fi
+          echo "All required secrets are present"
+      - name: Pilot critical E2E
+        run: npm run e2e:pilot
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          E2E_BASE_URL: ${{ secrets.E2E_BASE_URL }}
+          E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+
+  # ─── Job 5 : E2E Seller Activity (BLOQUANT) ──────────────────
+  e2e-seller-activity:
+    name: E2E Seller Activity (blocking)
+    needs: [code-quality, sql-validation, security-audit]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      - name: Seller Activity E2E
+        run: npm run e2e:seller-activity
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          E2E_BASE_URL: ${{ secrets.E2E_BASE_URL }}
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL || secrets.E2E_TEST_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD || secrets.E2E_TEST_PASSWORD }}
+          E2E_MANAGER_EMAIL: ${{ secrets.E2E_MANAGER_EMAIL }}
+          E2E_MANAGER_PASSWORD: ${{ secrets.E2E_MANAGER_PASSWORD }}
+          E2E_VENDOR_EMAIL: ${{ secrets.E2E_VENDOR_EMAIL }}
+          E2E_VENDOR_PASSWORD: ${{ secrets.E2E_VENDOR_PASSWORD }}
+
+  # ─── Job 6 : E2E Staging (BLOQUANT) ──────────────────────────
+  e2e-staging:
+    name: E2E Staging (blocking)
+    needs: [code-quality, sql-validation, security-audit]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      - name: Staging real flow E2E
+        run: npm run e2e:staging
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          E2E_BASE_URL: ${{ secrets.E2E_BASE_URL }}
+          E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+
+  # ─── Job 7 : E2E Sales Store Scope (BLOQUANT) ────────────────
+  e2e-sales-store-scope:
+    name: E2E Sales Store Scope (blocking)
+    needs: [code-quality, sql-validation, security-audit]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      - name: Sales Store Scope E2E
+        run: npm run e2e:sales-store-scope
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          E2E_BASE_URL: ${{ secrets.E2E_BASE_URL }}
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL || secrets.E2E_TEST_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD || secrets.E2E_TEST_PASSWORD }}
+
+  # ─── Job 8 : Résumé final ────────────────────────────────────
+  release-readiness-summary:
+    name: Release Readiness Summary
+    needs:
+      - code-quality
+      - sql-validation
+      - security-audit
+      - e2e-pilot
+      - e2e-seller-activity
+      - e2e-staging
+      - e2e-sales-store-scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: All checks passed
+        run: |
+          echo "═══════════════════════════════════════════════════════"
+          echo "✅ RELEASE READINESS VALIDÉ"
+          echo "═══════════════════════════════════════════════════════"
+          echo ""
+          echo "Tous les checks obligatoires sont passés :"
+          echo "  ✅ Lint + Typecheck + Build + Unit tests"
+          echo "  ✅ SQL migrations validation"
+          echo "  ✅ Undefined functions check"
+          echo "  ✅ npm audit (high/critical = 0)"
+          echo "  ✅ Secret scan"
+          echo "  ✅ E2E Pilot"
+          echo "  ✅ E2E Seller Activity"
+          echo "  ✅ E2E Staging"
+          echo "  ✅ E2E Sales Store Scope"
+          echo ""
+          echo "Le projet est prêt pour déploiement national progressif."
+          echo "═══════════════════════════════════════════════════════"
