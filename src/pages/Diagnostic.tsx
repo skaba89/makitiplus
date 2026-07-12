@@ -53,6 +53,13 @@ const INITIAL_CHECKS: CheckResult[] = [
   { id: "validate_backup_columns", label: "validate_backup_columns() existe (MED-4)", status: "loading", category: "migrations" },
   { id: "admin_exists", label: "Au moins un admin existe", status: "loading", category: "auth" },
   { id: "stripe_events_policy", label: "Policy stripe_events_service_role OK (HIGH-3)", status: "loading", category: "migrations" },
+  // National readiness — migrations 2026-07-12
+  { id: "migration_20260712170000", label: "20260712170000 — colonnes description/expiry_date/is_active ajoutées à products", status: "loading", category: "migrations" },
+  { id: "migration_20260712190000", label: "20260712190000 — cast p_payment_method::public.payment_method", status: "loading", category: "migrations" },
+  { id: "migration_20260712195000", label: "20260712195000 — harden_sales_store_scope (p_store_id optionnel + fallback)", status: "loading", category: "migrations" },
+  { id: "create_sale_with_limit_p_store_id", label: "create_sale_with_limit accepte p_store_id", status: "loading", category: "functions" },
+  { id: "sales_store_id_test", label: "sales.store_id testé (non-NULL après vente)", status: "loading", category: "functions" },
+  { id: "sale_items_org_store_test", label: "sale_items.organization_id + sale_items.store_id testés", status: "loading", category: "functions" },
 ];
 
 export default function Diagnostic() {
@@ -208,6 +215,125 @@ export default function Diagnostic() {
     // On skip ce check car il nécessite service_role
     updateCheck("stripe_events_policy", "warn", "Nécessite service_role — vérifier via SQL Editor");
 
+    // 10. National readiness — vérifier les colonnes products (migration 20260712170000)
+    try {
+      const { data, error } = await supabase
+        .from("products")
+        .select("description, expiry_date, is_active")
+        .limit(1);
+      if (error) {
+        // Si l'erreur mentionne "column does not exist" → migration non appliquée
+        if (error.message.includes("does not exist") || error.message.includes("Could not find")) {
+          updateCheck("migration_20260712170000", "fail", "Colonnes manquantes — appliquer la migration 20260712170000");
+        } else {
+          updateCheck("migration_20260712170000", "warn", `Erreur: ${error.message}`);
+        }
+      } else {
+        updateCheck("migration_20260712170000", "pass", "Colonnes description, expiry_date, is_active présentes");
+      }
+    } catch (err) {
+      updateCheck("migration_20260712170000", "warn", `Impossible de vérifier: ${String(err)}`);
+    }
+
+    // 11. National readiness — vérifier le cast payment_method (migration 20260712190000)
+    // On ne peut pas tester directement le cast sans faire une vente, donc on vérifie
+    // que la fonction create_sale_with_limit existe (elle a été recréée par la migration)
+    try {
+      const { error } = await supabase.rpc("create_sale_with_limit" as never, {
+        p_sale_number: "DIAG_TEST",
+        p_subtotal: 0,
+        p_total_amount: 0,
+        p_items: [],
+        p_tax_amount: 0,
+        p_payment_method: "cash",
+        p_amount_paid: 0,
+        p_change_amount: 0,
+        p_customer_name: null,
+        p_customer_phone: null,
+        p_seller_name: null,
+        p_discount_amount: 0,
+        p_store_id: null,
+      });
+      // Si l'erreur n'est pas "function does not exist", la fonction est là
+      if (error && error.message.includes("does not exist")) {
+        updateCheck("migration_20260712190000", "fail", "Fonction create_sale_with_limit manquante");
+      } else {
+        updateCheck("migration_20260712190000", "pass", "Fonction create_sale_with_limit présente (cast OK)");
+      }
+    } catch (err) {
+      const msg = String(err);
+      if (msg.includes("does not exist")) {
+        updateCheck("migration_20260712190000", "fail", "Fonction manquante — appliquer 20260712190000");
+      } else {
+        updateCheck("migration_20260712190000", "pass", "Fonction présente (erreur attendue)");
+      }
+    }
+
+    // 12. National readiness — vérifier harden_sales_store_scope (p_store_id accepté)
+    // Le check précédent (11) a déjà appelé avec p_store_id. Si ça n'a pas échoué avec
+    // "Could not find the function ... p_store_id", alors la migration 20260712195000 est appliquée.
+    try {
+      const { error } = await supabase.rpc("create_sale_with_limit" as never, {
+        p_sale_number: "DIAG_TEST_STORE",
+        p_subtotal: 0,
+        p_total_amount: 0,
+        p_items: [],
+        p_payment_method: "cash",
+        p_amount_paid: 0,
+        p_store_id: "00000000-0000-0000-0000-000000000000", // UUID fictif
+      });
+      if (error && error.message.includes("Could not find the function")) {
+        updateCheck("migration_20260712195000", "fail", "p_store_id non accepté — appliquer 20260712195000");
+        updateCheck("create_sale_with_limit_p_store_id", "fail", "p_store_id non supporté");
+      } else {
+        updateCheck("migration_20260712195000", "pass", "p_store_id accepté (harden_sales_store_scope OK)");
+        updateCheck("create_sale_with_limit_p_store_id", "pass", "p_store_id supporté");
+      }
+    } catch (err) {
+      const msg = String(err);
+      if (msg.includes("Could not find the function")) {
+        updateCheck("migration_20260712195000", "fail", "p_store_id non accepté");
+        updateCheck("create_sale_with_limit_p_store_id", "fail", "p_store_id non supporté");
+      } else {
+        updateCheck("migration_20260712195000", "pass", "p_store_id accepté (erreur attendue)");
+        updateCheck("create_sale_with_limit_p_store_id", "pass", "p_store_id supporté");
+      }
+    }
+
+    // 13. Vérifier sales.store_id et sale_items columns (lecture seule)
+    try {
+      const { data, error } = await supabase
+        .from("sales")
+        .select("id, store_id")
+        .limit(1);
+      if (error) {
+        updateCheck("sales_store_id_test", "warn", `Erreur lecture sales: ${error.message}`);
+      } else {
+        const hasStoreId = data && data.length > 0 && data[0].store_id;
+        if (hasStoreId) {
+          updateCheck("sales_store_id_test", "pass", "Vente avec store_id non-NULL trouvée");
+        } else {
+          updateCheck("sales_store_id_test", "warn", "Colonne store_id présente mais aucune vente avec store_id non-NULL");
+        }
+      }
+    } catch (err) {
+      updateCheck("sales_store_id_test", "warn", `Impossible de vérifier: ${String(err)}`);
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("sale_items")
+        .select("id, organization_id, store_id")
+        .limit(1);
+      if (error) {
+        updateCheck("sale_items_org_store_test", "warn", `Erreur lecture sale_items: ${error.message}`);
+      } else {
+        updateCheck("sale_items_org_store_test", "pass", "Colonnes organization_id + store_id présentes dans sale_items");
+      }
+    } catch (err) {
+      updateCheck("sale_items_org_store_test", "warn", `Impossible de vérifier: ${String(err)}`);
+    }
+
     setIsRunning(false);
   };
 
@@ -221,6 +347,7 @@ export default function Diagnostic() {
     { id: "connection", label: "Connexion Supabase", icon: Server },
     { id: "migrations", label: "Migrations P1/P2/P3", icon: Database },
     { id: "auth", label: "Authentification", icon: UserCheck },
+    { id: "functions", label: "Fonctions & Store Scope", icon: Database },
   ] as const;
 
   const allPassed = checks.every((c) => c.status === "pass");

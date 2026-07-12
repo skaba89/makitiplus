@@ -14,6 +14,13 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, Package, Download, AlertTriangle } from "lucide-react";
 import { CategoryIcon } from "@/components/ui/category-icon";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -35,6 +42,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import { useCategories } from "@/hooks/useCategories";
 import { useProductStats } from "@/hooks/useProductStats";
+import { useStore } from "@/contexts/StoreContext";
 import { fetchAllRows } from "@/lib/batchedFetch";
 import { ProductWithCategory, AdjustStockRpcRow, MANAGEMENT_ROLES } from "@/types";
 import { PlanLimitGuard, FeatureGate } from "@/components/saas/PlanLimitGuard";
@@ -71,10 +79,16 @@ const Products = () => {
   const PAGE_SIZE = 20;
   const [currentPage, setCurrentPage] = useState(1);
 
+  // Filtre magasin explicite (UI visible)
+  // - "all" : tous les produits de l'org (par défaut)
+  // - storeId : produits d'un magasin spécifique
+  const [storeFilter, setStoreFilter] = useState<string>("all");
+  const { currentStore: activeCurrentStore, stores } = useStore();
+
   // Reset to page 1 whenever filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedCategory]);
+  }, [searchQuery, selectedCategory, storeFilter]);
 
   const filters: Array<{
     column: string;
@@ -84,11 +98,10 @@ const Products = () => {
   if (selectedCategory) {
     filters.push({ column: "category_id", operator: "eq", value: selectedCategory });
   }
-  // ⚠️ Ne PAS filtrer par store_id ici — on veut voir TOUS les produits
-  // de l'organisation, même ceux créés sans store_id ou avec un store_id
-  // différent du currentStore. Le filtrage multi-magasins sera une feature
-  // explicite (dropdown) plus tard, pas un filtre invisible.
-  // RLS filtre déjà par organization_id côté DB.
+  // Filtre magasin EXPLICITE (vs ancien filtre invisible)
+  if (storeFilter !== "all") {
+    filters.push({ column: "store_id", operator: "eq", value: storeFilter });
+  }
 
   const {
     data: paginatedProducts,
@@ -105,7 +118,7 @@ const Products = () => {
     orderBy: { column: "created_at", ascending: false },
     page: currentPage,
     pageSize: PAGE_SIZE,
-    queryKey: ["products", user?.id ?? ""],
+    queryKey: ["products", user?.id ?? "", storeFilter],
     enabled: !!user,
   });
 
@@ -440,15 +453,40 @@ const Products = () => {
           </div>
         )}
 
-        {/* Search */}
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Rechercher un produit..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            className="pl-10"
-          />
+        {/* Search + Store Filter */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher un produit..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          {/* Filtre magasin explicite — visible pour l'utilisateur */}
+          {stores.length > 1 && (
+            <Select value={storeFilter} onValueChange={setStoreFilter}>
+              <SelectTrigger className="w-full sm:w-56">
+                <SelectValue placeholder="Tous les magasins" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les magasins</SelectItem>
+                {activeCurrentStore && (
+                  <SelectItem value={activeCurrentStore.id}>
+                    Magasin courant ({activeCurrentStore.name})
+                  </SelectItem>
+                )}
+                {stores
+                  .filter((s) => s.id !== activeCurrentStore?.id)
+                  .map((store) => (
+                    <SelectItem key={store.id} value={store.id}>
+                      {store.name}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         {/* Category Filters */}

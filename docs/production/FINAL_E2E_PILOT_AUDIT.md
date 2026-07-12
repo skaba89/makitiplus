@@ -84,7 +84,7 @@ fe4f2df
 2. **E2E staging non exécuté** — secrets staging non configurés. À configurer :
    - E2E_BASE_URL, E2E_SUPER_ADMIN_*, E2E_ADMIN_*, E2E_VENDOR_*, E2E_TEST_ORG_NAME
 
-3. **Token GitHub compromis** — le token ghp_6oCL... a circulé en clair dans le chat. **À révoquer urgemment** sur https://github.com/settings/tokens
+3. **Token GitHub compromis** — le token ghp_xxx... a circulé en clair dans le chat. **À révoquer urgemment** sur https://github.com/settings/tokens
 
 4. **Migrations P1/P2/P3 à appliquer manuellement** — si pas déjà fait via SQL Editor
 
