@@ -85,7 +85,8 @@ describe("Régression : pattern check_plan_limit JSONB cassé", () => {
     // La dernière version peut être dans la migration consolidée (20260712180000)
     // ou dans la migration individuelle (20260712160000)
     const validNames = [
-      "20260712180000_CONSOLIDATED_all_critical_fixes.sql",
+      "20260713200000_FINAL_CONSOLIDATED_ALL_FIXES.sql",
+      "20260712140000_consolidate_create_product.sql",
       "20260712160000_fix_check_plan_limit_jsonb_pattern.sql",
     ];
     expect(validNames).toContain(latest!.name);
@@ -108,6 +109,7 @@ describe("Régression : pattern check_plan_limit JSONB cassé", () => {
 
     expect(latest).not.toBeNull();
     const validNames = [
+      "20260713200000_FINAL_CONSOLIDATED_ALL_FIXES.sql",
       "20260712195000_harden_sales_store_scope.sql",
       "20260712190000_fix_payment_method_enum_cast.sql",
       "20260712180000_CONSOLIDATED_all_critical_fixes.sql",
@@ -131,6 +133,7 @@ describe("Régression : pattern check_plan_limit JSONB cassé", () => {
 
     expect(latest).not.toBeNull();
     const validNames = [
+      "20260713200000_FINAL_CONSOLIDATED_ALL_FIXES.sql",
       "20260713120000_fix_create_first_organization_conflict.sql",
       "20260712180000_CONSOLIDATED_all_critical_fixes.sql",
       "20260712160000_fix_check_plan_limit_jsonb_pattern.sql",
@@ -192,6 +195,7 @@ describe("Régression : pattern check_plan_limit JSONB cassé", () => {
     // La dernière version peut être dans harden_sales_store_scope (20260712195000)
     // ou dans fix_payment_method_enum_cast (20260712190000)
     const validNames = [
+      "20260713200000_FINAL_CONSOLIDATED_ALL_FIXES.sql",
       "20260712195000_harden_sales_store_scope.sql",
       "20260712190000_fix_payment_method_enum_cast.sql",
     ];
