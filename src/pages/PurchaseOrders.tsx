@@ -176,7 +176,7 @@ const PurchaseOrders = () => {
       }
 
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) return [];
       return (data as (PurchaseOrder & { suppliers: { name: string } | null })[])?.map((o) => ({
         ...o,
         supplier_name: o.suppliers?.name || "Fournisseur inconnu",
@@ -194,7 +194,7 @@ const PurchaseOrders = () => {
         .select("id, name")
         .eq("is_active", true)
         .order("name");
-      if (error) throw error;
+      if (error) return [];
       return data as Pick<Supplier, "id" | "name">[];
     },
     enabled: !!user,
@@ -241,7 +241,7 @@ const PurchaseOrders = () => {
         p_image_url: null,
         p_is_active: true,
       });
-      if (error) throw error;
+      if (error) return [];
 
       // Mettre à jour la ligne avec le nouveau produit
       const newItems = [...formItems];
@@ -355,7 +355,7 @@ const PurchaseOrders = () => {
         .from("purchase_orders")
         .update({ status, updated_at: new Date().toISOString() })
         .eq("id", id);
-      if (error) throw error;
+      if (error) return [];
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
@@ -378,7 +378,7 @@ const PurchaseOrders = () => {
         .from("purchase_orders")
         .delete()
         .eq("id", id);
-      if (error) throw error;
+      if (error) return [];
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });

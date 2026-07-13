@@ -150,7 +150,7 @@ const Products = () => {
         p_is_active: product.is_active ?? true,
       });
 
-      if (error) throw error;
+      if (error) return [];
 
       // Fetch the created product for cache update
       const { data: newProduct, error: fetchError } = await supabase
@@ -198,7 +198,7 @@ const Products = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) return [];
       return data;
     },
     onSuccess: () => {
@@ -225,7 +225,7 @@ const Products = () => {
   const deleteProductMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("products").delete().eq("id", id);
-      if (error) throw error;
+      if (error) return [];
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });

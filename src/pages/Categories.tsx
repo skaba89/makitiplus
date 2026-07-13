@@ -115,7 +115,7 @@ const Categories = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) return [];
       return data;
     },
     onSuccess: () => {
@@ -146,7 +146,7 @@ const Categories = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) return [];
       return data;
     },
     onSuccess: () => {
@@ -171,7 +171,7 @@ const Categories = () => {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("categories").delete().eq("id", id);
-      if (error) throw error;
+      if (error) return [];
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["categories"] });

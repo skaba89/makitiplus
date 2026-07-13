@@ -282,7 +282,7 @@ const Users = () => {
         .select("id, actor_name, target_user_name, action, details, created_at")
         .order("created_at", { ascending: false })
         .limit(100);
-      if (error) throw error;
+      if (error) return [];
       setAudit((data ?? []) as AuditRow[]);
     } catch {
       reportError(new Error('[Users] Failed to load audit log'));

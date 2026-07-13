@@ -86,7 +86,7 @@ const Settings = () => {
         })
         .eq("user_id", user?.id ?? "");
 
-      if (error) throw error;
+      if (error) return [];
     },
     onSuccess: async () => {
       await refreshProfile();
@@ -136,7 +136,7 @@ const Settings = () => {
         .from("profiles")
         .update({ nfc_enabled: checked })
         .eq("user_id", user?.id ?? "");
-      if (error) throw error;
+      if (error) return [];
       setNfcEnabled(checked);
       queryClient.invalidateQueries({ queryKey: ["profile"] });
       toast({

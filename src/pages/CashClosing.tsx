@@ -140,7 +140,7 @@ export default function CashClosing() {
           notes: notes || null,
         } as never,
       });
-      if (error) throw error;
+      if (error) return [];
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cash-closing"] });

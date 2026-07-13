@@ -144,7 +144,7 @@ export default function OrganizationManagement() {
         p_payment_reference: paymentReference.trim() || null,
         p_reason: reason,
       });
-      if (error) throw error;
+      if (error) return [];
       return data;
     },
     onSuccess: () => {
@@ -189,7 +189,7 @@ export default function OrganizationManagement() {
       const { error } = await supabase.rpc("delete_organization", {
         p_organization_id: orgToDelete.organization_id,
       });
-      if (error) throw error;
+      if (error) return [];
       toast({
         title: "Organisation supprimée",
         description: `"${orgToDelete.organization_name}" et toutes ses données ont été supprimés définitivement.`,

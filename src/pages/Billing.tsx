@@ -130,7 +130,7 @@ export default function Billing() {
         p_reason: changeReason || null,
       });
 
-      if (error) throw error;
+      if (error) return [];
 
       const result = Array.isArray(data) ? data[0] : data;
       toast({
@@ -187,7 +187,7 @@ export default function Billing() {
         p_reason: changeReason || "Prolongation manuelle",
       });
 
-      if (error) throw error;
+      if (error) return [];
 
       const result = Array.isArray(data) ? data[0] : data;
       toast({

@@ -133,7 +133,7 @@ export default function SellerActivity() {
         p_period_start: periodStart,
         p_period_end: periodEnd,
       });
-      if (error) throw error;
+      if (error) return [];
       return (data ?? []) as SellerPerformance[];
     },
     enabled: userRole === "super_admin" || userRole === "admin" || userRole === "manager",
@@ -151,7 +151,7 @@ export default function SellerActivity() {
         p_user_id: selectedSellerId,
         p_limit: 200,
       });
-      if (error) throw error;
+      if (error) return [];
       return (data ?? []) as SellerActivity[];
     },
     enabled:

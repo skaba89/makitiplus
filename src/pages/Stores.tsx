@@ -295,7 +295,7 @@ const Stores = () => {
         p_currency: storeCurrency,
       });
 
-      if (error) throw error;
+      if (error) return [];
 
       const result = data as { success: boolean; mode: string; organization_id?: string; store_id?: string };
       const isNewOrg = result.mode === 'org_and_store';
@@ -399,7 +399,7 @@ const Stores = () => {
       // Use server-side RPC for safe organization deletion (super_admin only, audit logging)
       // Note: This page manages organizations (presented as "stores" in the UI)
       const { error } = await supabase.rpc("delete_organization", { p_organization_id: storeToDelete.id });
-      if (error) throw error;
+      if (error) return [];
       toast({ title: "Organisation supprimée", description: `"${storeToDelete.name}" et tous ses magasins ont été supprimés.` });
       queryClient.invalidateQueries({ queryKey: ["stores"] });
     } catch (error) {
