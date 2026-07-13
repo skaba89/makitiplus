@@ -9,7 +9,7 @@ const migrationFiles = fs
   .filter((file) => file.endsWith(".sql"))
   // Exclure les scripts de nettoyage/récupération qui font des DELETE globaux
   // intentionnels (vidage complet de tables pour reset)
-  .filter((file) => !file.includes("CLEANUP_RESET_PROJECT") && !file.includes("delete_user_manual") && !file.includes("clean_transactional"))
+  .filter((file) => !file.includes("CLEANUP_RESET_PROJECT") && !file.includes("clean_transactional"))
   .sort();
 
 const read = (relativePath: string) => fs.readFileSync(path.join(root, relativePath), "utf-8");
@@ -179,5 +179,17 @@ describe("POS/offline non-regression", () => {
     const offlineQueue = read("src/lib/offlineQueue.ts");
     expect(offlineQueue).toContain("create_sale_with_limit");
     expect(offlineQueue).toContain("decrementLocalStock");
+  });
+});
+
+// ─── Anti-regression: no manual destructive scripts in migrations ──
+describe("SQL safety: no manual destructive scripts in migrations", () => {
+  it("does not allow manual destructive scripts inside supabase/migrations", () => {
+    const forbidden = migrationFiles.filter((f) =>
+      f.includes("delete_user_manual") ||
+      f.includes("manual_delete") ||
+      f.includes("cleanup_reset")
+    );
+    expect(forbidden).toEqual([]);
   });
 });

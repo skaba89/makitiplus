@@ -1,3 +1,7 @@
+-- SCRIPT MANUEL DANGEREUX
+-- NE PAS EXECUTER EN PRODUCTION SANS VALIDATION SUPER_ADMIN
+-- FAIRE UNE SAUVEGARDE AVANT USAGE
+
 -- ============================================================
 -- Script : Supprimer un utilisateur directement en SQL
 -- Date: 2026-07-13

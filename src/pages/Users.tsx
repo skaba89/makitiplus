@@ -357,7 +357,8 @@ const Users = () => {
     reason?: string
   ) => {
     try {
-      // Essayer l'Edge Function d'abord
+      // L'Edge Function admin-manage-user est le SEUL chemin pour la suppression définitive.
+      // Aucun fallback destructif côté frontend — la suppression de auth.users nécessite le service_role.
       const { data, error } = await supabase.functions.invoke("admin-manage-user", {
         body: { userId: target.user_id, action, reason },
       });
@@ -374,47 +375,46 @@ const Users = () => {
       loadUsers();
       loadAudit();
     } catch (err: unknown) {
-      // Fallback : si l'Edge Function n'est pas déployée, utiliser des requêtes directes
       const message = err instanceof Error ? err.message : String(err);
+      reportError(err instanceof Error ? err : new Error(message));
+
       if (action === "delete") {
-        try {
-          // Supprimer user_roles
-          await supabase.from("user_roles").delete().eq("user_id", target.user_id);
-          // Supprimer profiles
-          await supabase.from("profiles").delete().eq("user_id", target.user_id);
-          // Supprimer auth.users (nécessite service_role — peut échouer en RLS)
-          // Si ça échoue, l'utilisateur sera sans profil ni rôle mais existera dans auth
-          toast({ title: "Utilisateur supprimé" });
-          loadUsers();
-          loadAudit();
-        } catch (fallbackErr) {
-          const fallbackMsg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
-          toast({
-            variant: "destructive",
-            title: "Erreur",
-            description: `Impossible de supprimer : ${fallbackMsg}`,
-          });
-          reportError(fallbackErr instanceof Error ? fallbackErr : new Error(fallbackMsg));
-        }
+        // PAS de fallback destructif. La suppression définitive nécessite l'Edge Function (service_role).
+        toast({
+          variant: "destructive",
+          title: "Suppression impossible",
+          description: "Edge Function admin-manage-user non disponible. La suppression définitive nécessite le service_role via Edge Function.",
+        });
       } else if (action === "deactivate") {
+        // La désactivation peut utiliser une mise à jour directe si RLS le permet
         try {
-          await supabase.from("profiles").update({ is_active: false }).eq("user_id", target.user_id);
+          const { error: updateError } = await supabase
+            .from("profiles")
+            .update({ is_active: false, deactivated_at: new Date().toISOString(), deactivation_reason: reason || null })
+            .eq("user_id", target.user_id);
+          if (updateError) throw updateError;
           toast({ title: "Utilisateur désactivé" });
           loadUsers();
           loadAudit();
         } catch (fallbackErr) {
           const fallbackMsg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
-          toast({ variant: "destructive", title: "Erreur", description: fallbackMsg });
+          reportError(fallbackErr instanceof Error ? fallbackErr : new Error(fallbackMsg));
+          toast({ variant: "destructive", title: "Erreur", description: `Désactivation impossible : ${fallbackMsg}` });
         }
       } else if (action === "reactivate") {
         try {
-          await supabase.from("profiles").update({ is_active: true }).eq("user_id", target.user_id);
+          const { error: updateError } = await supabase
+            .from("profiles")
+            .update({ is_active: true, deactivated_at: null, deactivation_reason: null })
+            .eq("user_id", target.user_id);
+          if (updateError) throw updateError;
           toast({ title: "Utilisateur réactivé" });
           loadUsers();
           loadAudit();
         } catch (fallbackErr) {
           const fallbackMsg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
-          toast({ variant: "destructive", title: "Erreur", description: fallbackMsg });
+          reportError(fallbackErr instanceof Error ? fallbackErr : new Error(fallbackMsg));
+          toast({ variant: "destructive", title: "Erreur", description: `Réactivation impossible : ${fallbackMsg}` });
         }
       } else {
         toast({ variant: "destructive", title: "Erreur", description: message || "Action impossible" });
