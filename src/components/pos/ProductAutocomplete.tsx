@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Search, Package, Plus, Minus } from "lucide-react";
+import { Search, Package, Plus, Minus, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,10 @@ import { cn } from "@/lib/utils";
 import { useProductSearch, useOfflineProductSearch, lookupBarcode, lookupBarcodeOffline } from "@/hooks/useProductSearch";
 import { useOnlineStatus } from "@/contexts/OfflineContext";
 import { reportError } from "@/lib/sentry";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { useStore } from "@/contexts/StoreContext";
 
 type Product = Database["public"]["Tables"]["products"]["Row"] & {
   categories?: { name: string; color: string | null; icon: string | null } | null;
@@ -43,11 +47,15 @@ export const ProductAutocomplete = ({
   const { formatPrice } = useCurrency();
   const orgTaxRate = useOrgTaxRate();
   const { isOnline } = useOnlineStatus();
+  const { user, profile } = useAuth();
+  const { toast } = useToast();
+  const { currentStore } = useStore();
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [isCreatingProduct, setIsCreatingProduct] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
@@ -163,8 +171,79 @@ export const ProductAutocomplete = ({
               Recherche...
             </div>
           ) : matches.length === 0 ? (
-            <div className="p-4 text-sm text-muted-foreground text-center">
-              Aucun produit trouvé
+            <div className="p-3 space-y-2">
+              <p className="text-sm text-muted-foreground text-center">
+                Aucun produit trouvé pour « {query.trim()} »
+              </p>
+              {isOnline && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full gap-2"
+                  disabled={isCreatingProduct}
+                  onClick={async () => {
+                    setIsCreatingProduct(true);
+                    try {
+                      const productName = query.trim();
+                      const { data: productId, error } = await supabase.rpc("create_product", {
+                        p_name: productName,
+                        p_price: 0,
+                        p_stock_quantity: 0,
+                        p_min_stock_alert: 0,
+                        p_cost_price: null,
+                        p_category_id: null,
+                        p_barcode: null,
+                        p_unit: "unité",
+                        p_supplier_id: null,
+                        p_store_id: currentStore?.id ?? null,
+                        p_description: null,
+                        p_image_url: null,
+                        p_is_active: true,
+                      });
+
+                      if (error) throw error;
+
+                      // Récupérer le produit créé
+                      const { data: newProduct, error: fetchError } = await supabase
+                        .from("products")
+                        .select("*, categories(name, color, icon)")
+                        .eq("id", productId)
+                        .single();
+
+                      if (fetchError) throw fetchError;
+
+                      toast({
+                        title: "Produit créé",
+                        description: `« ${productName} » ajouté. Prix à définir plus tard.`,
+                      });
+
+                      // Ajouter au panier avec prix 0
+                      if (newProduct) {
+                        onSelect(newProduct as Product, 1);
+                      }
+
+                      setQuery("");
+                      setOpen(false);
+                    } catch (err) {
+                      reportError(err instanceof Error ? err : new Error(String(err)));
+                      toast({
+                        variant: "destructive",
+                        title: "Erreur",
+                        description: "Impossible de créer le produit. Vérifiez que le nom est valide.",
+                      });
+                    } finally {
+                      setIsCreatingProduct(false);
+                    }
+                  }}
+                >
+                  <Sparkles className="h-4 w-4" />
+                  {isCreatingProduct ? "Création..." : `Créer « ${query.trim()} » rapidement`}
+                </Button>
+              )}
+              <p className="text-xs text-muted-foreground text-center">
+                Création sans prix — à définir plus tard dans Produits
+              </p>
             </div>
           ) : (
             matches.map((product, idx) => {
