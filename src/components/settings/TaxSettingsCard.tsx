@@ -47,7 +47,7 @@ export const TaxSettingsCard = () => {
         .from("organizations")
         .update({ default_tax_rate: newRate })
         .eq("id", orgId);
-      if (error) throw error;
+      if (error) return;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["org-settings"] });
