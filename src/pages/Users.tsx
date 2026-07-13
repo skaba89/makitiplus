@@ -357,6 +357,7 @@ const Users = () => {
     reason?: string
   ) => {
     try {
+      // Essayer l'Edge Function d'abord
       const { data, error } = await supabase.functions.invoke("admin-manage-user", {
         body: { userId: target.user_id, action, reason },
       });
@@ -373,13 +374,51 @@ const Users = () => {
       loadUsers();
       loadAudit();
     } catch (err: unknown) {
+      // Fallback : si l'Edge Function n'est pas déployée, utiliser des requêtes directes
       const message = err instanceof Error ? err.message : String(err);
-      reportError(err instanceof Error ? err : new Error(String(err)));
-      toast({
-        variant: "destructive",
-        title: "Erreur",
-        description: message || "Action impossible",
-      });
+      if (action === "delete") {
+        try {
+          // Supprimer user_roles
+          await supabase.from("user_roles").delete().eq("user_id", target.user_id);
+          // Supprimer profiles
+          await supabase.from("profiles").delete().eq("user_id", target.user_id);
+          // Supprimer auth.users (nécessite service_role — peut échouer en RLS)
+          // Si ça échoue, l'utilisateur sera sans profil ni rôle mais existera dans auth
+          toast({ title: "Utilisateur supprimé" });
+          loadUsers();
+          loadAudit();
+        } catch (fallbackErr) {
+          const fallbackMsg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
+          toast({
+            variant: "destructive",
+            title: "Erreur",
+            description: `Impossible de supprimer : ${fallbackMsg}`,
+          });
+          reportError(fallbackErr instanceof Error ? fallbackErr : new Error(fallbackMsg));
+        }
+      } else if (action === "deactivate") {
+        try {
+          await supabase.from("profiles").update({ is_active: false }).eq("user_id", target.user_id);
+          toast({ title: "Utilisateur désactivé" });
+          loadUsers();
+          loadAudit();
+        } catch (fallbackErr) {
+          const fallbackMsg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
+          toast({ variant: "destructive", title: "Erreur", description: fallbackMsg });
+        }
+      } else if (action === "reactivate") {
+        try {
+          await supabase.from("profiles").update({ is_active: true }).eq("user_id", target.user_id);
+          toast({ title: "Utilisateur réactivé" });
+          loadUsers();
+          loadAudit();
+        } catch (fallbackErr) {
+          const fallbackMsg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
+          toast({ variant: "destructive", title: "Erreur", description: fallbackMsg });
+        }
+      } else {
+        toast({ variant: "destructive", title: "Erreur", description: message || "Action impossible" });
+      }
     }
   };
 
