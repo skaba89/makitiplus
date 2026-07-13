@@ -138,6 +138,12 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       roles: MANAGEMENT_ROLES,
     },
     {
+      name: "Clôture caisse",
+      href: "/dashboard/cash-closing",
+      icon: Wallet,
+      roles: MANAGEMENT_ROLES,
+    },
+    {
       name: "Utilisateurs",
       href: "/dashboard/users",
       icon: Shield,

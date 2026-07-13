@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useDeferredValue } from "react";
+import { useState, useEffect, useCallback, useDeferredValue, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,7 +11,7 @@ import { StockMovementHistory } from "@/components/products/StockMovementHistory
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Package, Download, AlertTriangle } from "lucide-react";
+import { Plus, Search, Package, Download, AlertTriangle, Upload } from "lucide-react";
 import { CategoryIcon } from "@/components/ui/category-icon";
 import {
   Select,
@@ -321,6 +321,76 @@ const Products = () => {
     setIsFormOpen(true);
   };
 
+  // ─── Import CSV ───────────────────────────────────────────────
+  const csvInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImportCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const lines = text.split("\n").filter((l) => l.trim());
+      if (lines.length < 2) {
+        toast({ variant: "destructive", title: "CSV vide", description: "Le fichier doit contenir au moins 1 ligne d'en-tête + 1 produit" });
+        return;
+      }
+
+      // Parser l'en-tête
+      const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
+
+      let created = 0;
+      let errors = 0;
+
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(",").map((v) => v.trim());
+        const row: Record<string, string> = {};
+        headers.forEach((h, idx) => { row[h] = values[idx] || ""; });
+
+        const name = row["nom"] || row["name"] || "";
+        if (!name) { errors++; continue; }
+
+        const price = parseFloat(row["prix"] || row["price"] || "0") || 0;
+        const stock = parseInt(row["stock"] || row["stock_quantity"] || "0") || 0;
+        const costPrice = parseFloat(row["cout"] || row["cost_price"] || "0") || 0;
+        const barcode = row["code-barres"] || row["barcode"] || null;
+        const unit = row["unite"] || row["unit"] || "unité";
+
+        try {
+          const { error } = await supabase.rpc("create_product", {
+            p_name: name,
+            p_price: price,
+            p_stock_quantity: stock,
+            p_min_stock_alert: 5,
+            p_cost_price: costPrice || null,
+            p_category_id: null,
+            p_barcode: barcode,
+            p_unit: unit,
+            p_supplier_id: null,
+            p_store_id: null,
+            p_description: null,
+            p_image_url: null,
+            p_is_active: true,
+          });
+          if (error) { errors++; } else { created++; }
+        } catch { errors++; }
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["products-stats"] });
+
+      toast({
+        title: "Import terminé",
+        description: `${created} produit(s) importé(s)${errors > 0 ? `, ${errors} erreur(s)` : ""}`,
+      });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Erreur", description: "Impossible de lire le fichier CSV" });
+      reportError(err instanceof Error ? err : new Error(String(err)));
+    } finally {
+      if (csvInputRef.current) csvInputRef.current.value = "";
+    }
+  };
+
   const handleStockAdjust = (product: Product) => {
     setStockAdjustProduct(product);
     setIsStockAdjustOpen(true);
@@ -411,6 +481,24 @@ const Products = () => {
             </p>
           </div>
           <div className="flex gap-2">
+            {canModify && (
+              <>
+                <input
+                  ref={csvInputRef}
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={handleImportCSV}
+                  className="hidden"
+                />
+                <Button
+                  variant="outline"
+                  onClick={() => csvInputRef.current?.click()}
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  Importer CSV
+                </Button>
+              </>
+            )}
             <FeatureGate feature="exports" fallback={null}>
               <Button
                 variant="outline"

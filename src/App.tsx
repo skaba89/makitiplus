@@ -75,6 +75,7 @@ const Billing = lazyWithRecovery(() => import("./pages/Billing"));
 const Pricing = lazyWithRecovery(() => import("./pages/Pricing"));
 const Onboarding = lazyWithRecovery(() => import("./pages/Onboarding"));
 const PurchaseOrders = lazyWithRecovery(() => import("./pages/PurchaseOrders"));
+const CashClosing = lazyWithRecovery(() => import("./pages/CashClosing"));
 const AIAssistant = lazyWithRecovery(() => import("./pages/AIAssistant"));
 const OrganizationManagement = lazyWithRecovery(() => import("./pages/OrganizationManagement"));
 const SellerActivity = lazyWithRecovery(() => import("./pages/SellerActivity"));
@@ -403,6 +404,14 @@ const App = () => {
               element={
                 <ProtectedRoute allowedRoles={MANAGEMENT_ROLES}>
                   <SafePage><PurchaseOrders /></SafePage>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/cash-closing"
+              element={
+                <ProtectedRoute allowedRoles={MANAGEMENT_ROLES}>
+                  <SafePage><CashClosing /></SafePage>
                 </ProtectedRoute>
               }
             />

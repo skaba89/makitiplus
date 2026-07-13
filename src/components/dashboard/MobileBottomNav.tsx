@@ -117,6 +117,12 @@ const moreNavItems: BottomNavItem[] = [
     roles: MANAGEMENT_ROLES,
   },
   {
+    name: "Clôture",
+    href: "/dashboard/cash-closing",
+    icon: Wallet,
+    roles: MANAGEMENT_ROLES,
+  },
+  {
     name: "Abonnement",
     href: "/dashboard/billing",
     icon: CreditCard,
