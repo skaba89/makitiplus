@@ -772,29 +772,33 @@ const PurchaseOrders = () => {
                                 ))}
                               </SelectContent>
                             </Select>
-                            {/* Création rapide de produit si la liste est vide */}
-                            {(!products || products.length === 0) && (
-                              <div className="flex gap-1">
-                                <Input
-                                  type="text"
-                                  placeholder="Nom du nouveau produit..."
-                                  value={quickProductName}
-                                  onChange={(e) => setQuickProductName(e.target.value)}
-                                  className="h-9 text-sm flex-1"
-                                />
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  className="gap-1 shrink-0"
-                                  disabled={!quickProductName.trim() || isQuickCreatingProduct}
-                                  onClick={() => handleQuickCreateProduct(index)}
-                                >
-                                  <Sparkles className="h-3 w-3" />
-                                  {isQuickCreatingProduct ? "..." : "Créer"}
-                                </Button>
-                              </div>
-                            )}
+                            {/* Création rapide de produit — toujours visible */}
+                            <div className="flex gap-1">
+                              <Input
+                                type="text"
+                                placeholder="Ou créer un nouveau produit..."
+                                value={quickProductName}
+                                onChange={(e) => setQuickProductName(e.target.value)}
+                                className="h-9 text-sm flex-1"
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" && quickProductName.trim()) {
+                                    e.preventDefault();
+                                    handleQuickCreateProduct(index);
+                                  }
+                                }}
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="gap-1 shrink-0"
+                                disabled={!quickProductName.trim() || isQuickCreatingProduct}
+                                onClick={() => handleQuickCreateProduct(index)}
+                              >
+                                <Sparkles className="h-3 w-3" />
+                                {isQuickCreatingProduct ? "..." : "Créer"}
+                              </Button>
+                            </div>
                           </div>
                         )}
                       </div>
