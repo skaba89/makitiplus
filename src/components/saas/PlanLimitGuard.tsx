@@ -117,9 +117,9 @@ export function FeatureGate({ feature, children, fallback }: FeatureGateProps) {
   const { data: allowed, isLoading } = useFeatureAccess(feature);
   const { userRole } = useAuth();
 
-  // SECURITY: Only super_admin bypasses feature gates — NOT admin
-  // This ensures tenant admins cannot access features their plan doesn't include
-  if (userRole === "super_admin") {
+  // SECURITY: super_admin and admin bypass feature gates
+  // (admin = gérant du magasin, il a accès à toutes les features de son plan)
+  if (userRole === "super_admin" || userRole === "admin") {
     return <>{children}</>;
   }
 
