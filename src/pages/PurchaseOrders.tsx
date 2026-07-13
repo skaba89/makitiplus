@@ -299,7 +299,8 @@ const PurchaseOrders = () => {
           tax_amount: taxAmount,
           total_amount: subtotal + taxAmount,
           currency: "GNF",
-          created_by: user?.id ?? "",
+          // created_by reference profiles(id) — pas auth.users(id)
+          // On l'omet (nullable) pour éviter une violation FK
         })
         .select()
         .single();
