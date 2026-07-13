@@ -72,6 +72,9 @@ import {
   FileText,
   XCircle,
   Loader2,
+  Download,
+  Mail,
+  MessageCircle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -81,6 +84,7 @@ import { Supplier, Product } from "@/types";
 import { ReceiveOrderForm } from "@/components/purchase-orders/ReceiveOrderForm";
 import { reportError } from "@/lib/sentry";
 import { Lock } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -422,6 +426,187 @@ const PurchaseOrders = () => {
 
   const removeItem = (index: number) => {
     setFormItems(formItems.filter((_, i) => i !== index));
+  };
+
+  // ─── Bon de commande (BL) — téléchargement ───────────────────
+  const handleDownloadBL = (order: PurchaseOrder) => {
+    const supplierName = order.supplier_name || "Fournisseur";
+    const items = order.items || [];
+    const date = format(new Date(order.order_date), "dd/MM/yyyy", { locale: fr });
+
+    // Construire le HTML du bon de commande
+    const itemsHtml = items.map((item, idx) => `
+      <tr>
+        <td style="padding:8px;border:1px solid #ddd;">${idx + 1}</td>
+        <td style="padding:8px;border:1px solid #ddd;">${item.product_name || "-"}</td>
+        <td style="padding:8px;border:1px solid #ddd;text-align:center;">${item.quantity_ordered}</td>
+        <td style="padding:8px;border:1px solid #ddd;text-align:right;">${formatPrice(Number(item.unit_cost))}</td>
+        <td style="padding:8px;border:1px solid #ddd;text-align:right;">${formatPrice(Number(item.unit_cost) * item.quantity_ordered)}</td>
+      </tr>
+    `).join("");
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Bon de commande ${order.order_number}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
+          h1 { color: #F97316; }
+          .header { display: flex; justify-content: space-between; margin-bottom: 20px; }
+          .supplier { margin-bottom: 20px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+          th { background: #F97316; color: white; padding: 8px; border: 1px solid #ddd; text-align: left; }
+          .total { text-align: right; font-size: 18px; font-weight: bold; margin-top: 10px; }
+          .notes { margin-top: 20px; padding: 10px; background: #f5f5f5; border-radius: 5px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <h1>Bon de Commande</h1>
+            <p><strong>N° ${order.order_number}</strong></p>
+            <p>Date : ${date}</p>
+          </div>
+          <div>
+            <p><strong>${profile?.business_name || "MakitiPlus"}</strong></p>
+            <p>${profile?.address || ""}</p>
+            <p>${profile?.phone || ""}</p>
+          </div>
+        </div>
+        <div class="supplier">
+          <p><strong>Fournisseur :</strong> ${supplierName}</p>
+          ${order.expected_delivery ? `<p><strong>Livraison prévue :</strong> ${format(new Date(order.expected_delivery), "dd/MM/yyyy", { locale: fr })}</p>` : ""}
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Produit</th>
+              <th style="text-align:center;">Qté</th>
+              <th style="text-align:right;">Prix unitaire</th>
+              <th style="text-align:right;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsHtml}
+          </tbody>
+        </table>
+        <div class="total">
+          <p>Sous-total : ${formatPrice(Number(order.subtotal))}</p>
+          <p>Total : ${formatPrice(Number(order.total_amount))}</p>
+        </div>
+        ${order.notes ? `<div class="notes"><strong>Notes :</strong> ${order.notes}</div>` : ""}
+      </body>
+      </html>
+    `;
+
+    // Ouvrir dans une nouvelle fenêtre pour impression/téléchargement
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.print();
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Popup bloqué",
+        description: "Autorisez les popups pour télécharger le bon de commande.",
+      });
+    }
+  };
+
+  // ─── Envoyer par email ────────────────────────────────────────
+  const handleSendEmail = async (order: PurchaseOrder) => {
+    // Récupérer l'email du fournisseur
+    const { data: supplier } = await supabase
+      .from("suppliers")
+      .select("email, phone, name")
+      .eq("id", order.supplier_id)
+      .single();
+
+    if (!supplier?.email) {
+      toast({
+        variant: "destructive",
+        title: "Email manquant",
+        description: `Le fournisseur "${supplier?.name || ""}" n'a pas d'email. Ajoutez-le dans la page Fournisseurs.`,
+      });
+      return;
+    }
+
+    const subject = `Bon de commande ${order.order_number}`;
+    const body = `Bonjour,
+
+Veuillez trouver ci-dessous notre bon de commande :
+
+N° : ${order.order_number}
+Date : ${format(new Date(order.order_date), "dd/MM/yyyy", { locale: fr })}
+Fournisseur : ${order.supplier_name}
+Total : ${formatPrice(Number(order.total_amount))}
+
+Articles :
+${(order.items || []).map((item, i) => `${i + 1}. ${item.product_name} — Qté: ${item.quantity_ordered} — Prix: ${formatPrice(Number(item.unit_cost))}`).join("\n")}
+
+${order.notes ? `Notes : ${order.notes}` : ""}
+
+Cordialement,
+${profile?.business_name || "MakitiPlus"}
+${profile?.phone || ""}`;
+
+    // Ouvrir le client email avec mailto
+    window.location.href = `mailto:${supplier.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+    toast({
+      title: "Email préparé",
+      description: `Votre client email s'ouvre avec le bon de commande pour ${supplier.email}`,
+    });
+  };
+
+  // ─── Envoyer par WhatsApp ─────────────────────────────────────
+  const handleSendWhatsApp = async (order: PurchaseOrder) => {
+    // Récupérer le téléphone du fournisseur
+    const { data: supplier } = await supabase
+      .from("suppliers")
+      .select("phone, name")
+      .eq("id", order.supplier_id)
+      .single();
+
+    if (!supplier?.phone) {
+      toast({
+        variant: "destructive",
+        title: "Téléphone manquant",
+        description: `Le fournisseur "${supplier?.name || ""}" n'a pas de téléphone. Ajoutez-le dans la page Fournisseurs.`,
+      });
+      return;
+    }
+
+    // Nettoyer le numéro (enlever espaces, +, etc.)
+    const cleanPhone = supplier.phone.replace(/[\s+\-()]/g, "");
+
+    const message = `Bonjour,
+
+Voici notre bon de commande :
+
+N° : ${order.order_number}
+Date : ${format(new Date(order.order_date), "dd/MM/yyyy", { locale: fr })}
+Total : ${formatPrice(Number(order.total_amount))}
+
+Articles :
+${(order.items || []).map((item, i) => `${i + 1}. ${item.product_name} — Qté: ${item.quantity_ordered} — Prix: ${formatPrice(Number(item.unit_cost))}`).join("\n")}
+
+${order.notes ? `Notes : ${order.notes}` : ""}
+
+Cordialement,
+${profile?.business_name || "MakitiPlus"}`;
+
+    // Ouvrir WhatsApp avec le message pré-rempli
+    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, "_blank");
+
+    toast({
+      title: "WhatsApp ouvert",
+      description: `WhatsApp s'ouvre avec le bon de commande pour ${supplier.phone}`,
+    });
   };
 
   const handleProductSelect = (index: number, productId: string) => {
@@ -925,6 +1110,37 @@ const PurchaseOrders = () => {
                       <p className="text-sm text-muted-foreground">{selectedOrder.notes}</p>
                     </div>
                   )}
+
+                  {/* Actions : Télécharger BL + Email + WhatsApp */}
+                  <div className="flex flex-wrap gap-2 pt-2 border-t">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => handleDownloadBL(selectedOrder)}
+                    >
+                      <Download className="h-4 w-4" />
+                      Télécharger le BL
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => handleSendEmail(selectedOrder)}
+                    >
+                      <Mail className="h-4 w-4" />
+                      Email
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => handleSendWhatsApp(selectedOrder)}
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                      WhatsApp
+                    </Button>
+                  </div>
                 </div>
               )}
             </DialogContent>
