@@ -62,6 +62,7 @@ import {
   Plus,
   Search,
   Package,
+  Sparkles,
   Eye,
   Edit,
   Trash2,
@@ -148,6 +149,8 @@ const PurchaseOrders = () => {
   const [formSupplier, setFormSupplier] = useState("");
   const [formNotes, setFormNotes] = useState("");
   const [formExpectedDelivery, setFormExpectedDelivery] = useState("");
+  const [isQuickCreatingProduct, setIsQuickCreatingProduct] = useState(false);
+  const [quickProductName, setQuickProductName] = useState("");
 
   const canModify =
     userRole === "admin" || userRole === "manager" || userRole === "super_admin";
@@ -197,17 +200,75 @@ const PurchaseOrders = () => {
   const { data: products } = useQuery({
     queryKey: ["products-lookup", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("products")
-        .select("id, name, cost_price")
-        .eq("is_active", true)
-        .order("name")
-        .limit(200);
-      if (error) throw error;
-      return data as Pick<Product, "id" | "name" | "cost_price">[];
+      try {
+        const { data, error } = await supabase
+          .from("products")
+          .select("id, name, cost_price")
+          .eq("is_active", true)
+          .order("name")
+          .limit(200);
+        if (error) return [];
+        return data as Pick<Product, "id" | "name" | "cost_price">[];
+      } catch {
+        return [];
+      }
     },
     enabled: !!user && isFormOpen,
+    retry: 1,
   });
+
+  // ─── Quick create product from PO form ──────────────────────
+  const handleQuickCreateProduct = async (index: number) => {
+    if (!quickProductName.trim()) return;
+    setIsQuickCreatingProduct(true);
+    try {
+      const { data: productId, error } = await supabase.rpc("create_product", {
+        p_name: quickProductName.trim(),
+        p_price: 0,
+        p_stock_quantity: 0,
+        p_min_stock_alert: 0,
+        p_cost_price: null,
+        p_category_id: null,
+        p_barcode: null,
+        p_unit: "unité",
+        p_supplier_id: null,
+        p_store_id: storeId,
+        p_description: null,
+        p_image_url: null,
+        p_is_active: true,
+      });
+      if (error) throw error;
+
+      // Mettre à jour la ligne avec le nouveau produit
+      const newItems = [...formItems];
+      newItems[index] = {
+        ...newItems[index],
+        product_id: productId,
+        product_name: quickProductName.trim(),
+      };
+      setFormItems(newItems);
+
+      toast({
+        title: "Produit créé",
+        description: `« ${quickProductName.trim()} » ajouté. Prix à définir plus tard.`,
+      });
+
+      // Invalider le cache des produits pour que le dropdown se mette à jour
+      queryClient.invalidateQueries({ queryKey: ["products-lookup"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+
+      setQuickProductName("");
+    } catch (err) {
+      reportError(err instanceof Error ? err : new Error(String(err)));
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "Impossible de créer le produit.",
+      });
+    } finally {
+      setIsQuickCreatingProduct(false);
+    }
+  };
 
   // ─── Create order ────────────────────────────────────────────
   const createMutation = useMutation({
@@ -676,21 +737,66 @@ const PurchaseOrders = () => {
                     <div key={index} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
                       <div className="sm:col-span-4">
                         {index === 0 && <Label className="text-xs">Produit</Label>}
-                        <Select
-                          value={item.product_id || ""}
-                          onValueChange={(v) => handleProductSelect(index, v)}
-                        >
-                          <SelectTrigger className="h-9 text-sm">
-                            <SelectValue placeholder="Sélectionner" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {products?.map((p) => (
-                              <SelectItem key={p.id} value={p.id}>
-                                {p.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        {item.product_id ? (
+                          <div className="flex items-center gap-2">
+                            <Select
+                              value={item.product_id || ""}
+                              onValueChange={(v) => handleProductSelect(index, v)}
+                            >
+                              <SelectTrigger className="h-9 text-sm">
+                                <SelectValue placeholder="Sélectionner" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {products?.map((p) => (
+                                  <SelectItem key={p.id} value={p.id}>
+                                    {p.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            <Select
+                              value={item.product_id || ""}
+                              onValueChange={(v) => handleProductSelect(index, v)}
+                            >
+                              <SelectTrigger className="h-9 text-sm">
+                                <SelectValue placeholder="Sélectionner" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {products?.map((p) => (
+                                  <SelectItem key={p.id} value={p.id}>
+                                    {p.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {/* Création rapide de produit si la liste est vide */}
+                            {(!products || products.length === 0) && (
+                              <div className="flex gap-1">
+                                <Input
+                                  type="text"
+                                  placeholder="Nom du nouveau produit..."
+                                  value={quickProductName}
+                                  onChange={(e) => setQuickProductName(e.target.value)}
+                                  className="h-9 text-sm flex-1"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="gap-1 shrink-0"
+                                  disabled={!quickProductName.trim() || isQuickCreatingProduct}
+                                  onClick={() => handleQuickCreateProduct(index)}
+                                >
+                                  <Sparkles className="h-3 w-3" />
+                                  {isQuickCreatingProduct ? "..." : "Créer"}
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <div className="sm:col-span-2">
                         {index === 0 && <Label className="text-xs">Qté</Label>}
