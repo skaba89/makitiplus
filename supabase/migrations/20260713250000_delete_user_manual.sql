@@ -21,9 +21,6 @@ BEGIN
   -- Supprimer profiles
   DELETE FROM public.profiles WHERE user_id = v_user_id;
 
-  -- Supprimer app_activity
-  DELETE FROM public.app_activity WHERE user_id = v_user_id;
-
   -- Supprimer auth.users (cascade vers identities, sessions, etc.)
   DELETE FROM auth.users WHERE id = v_user_id;
 
