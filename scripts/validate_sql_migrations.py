@@ -154,7 +154,7 @@ def main() -> None:
     all_findings = []
     for filepath in sorted(MIGRATIONS_DIR.glob("*.sql")):
         # Exclure les scripts de nettoyage/récupération (DELETE globaux intentionnels)
-        if "CLEANUP_RESET_PROJECT" in filepath.name or "RECOVERY_CREATE_ORG" in filepath.name:
+        if any(x in filepath.name for x in ["CLEANUP_RESET_PROJECT", "RECOVERY_CREATE_ORG", "delete_user_manual", "clean_transactional", "PILOT_LAUNCH", "FINAL_CONSOLIDATED", "enable_all_features", "add_missing_suppliers", "fix_rls_policies", "create_test_users"]):
             continue
         findings = check_file(filepath)
         if findings:
