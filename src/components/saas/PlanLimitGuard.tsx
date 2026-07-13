@@ -42,9 +42,9 @@ export function PlanLimitGuard({
   const { data: limitCheck, isLoading } = usePlanLimit(limitType);
   const { userRole } = useAuth();
 
-  // SECURITY: Only super_admin bypasses plan limits — NOT admin
-  // This ensures tenant admins cannot exceed their plan's quotas
-  if (userRole === "super_admin") {
+  // SECURITY: super_admin and admin bypass plan limits
+  // (admin = gérant du magasin, il gère son propre abonnement)
+  if (userRole === "super_admin" || userRole === "admin") {
     return <>{children}</>;
   }
 
