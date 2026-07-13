@@ -11,19 +11,21 @@
 
 DO $$
 DECLARE
+  v_super_admin_email TEXT := 'kaba.sekouna@gmail.com';
   v_org_id UUID;
   v_business_name TEXT;
   v_user_id UUID;
   v_store_id UUID;
 BEGIN
-  -- Récupérer l'org du super admin connecté
+  -- Récupérer l'org du super admin par son email (auth.uid() est NULL en SQL Editor)
   SELECT p.organization_id, p.business_name INTO v_org_id, v_business_name
   FROM public.profiles p
-  WHERE p.user_id = auth.uid()
+  JOIN auth.users u ON u.id = p.user_id
+  WHERE u.email = v_super_admin_email
   LIMIT 1;
 
   IF v_org_id IS NULL THEN
-    RAISE EXCEPTION 'Vous devez être connecté pour créer des utilisateurs';
+    RAISE EXCEPTION 'Super admin % non trouvé ou sans organisation', v_super_admin_email;
   END IF;
 
   -- Récupérer le store
