@@ -19,6 +19,7 @@ import { CategoryIcon } from "@/components/ui/category-icon";
 import { BarcodeLabelPrinter } from "./BarcodeLabelPrinter";
 
 import { useCurrency } from "@/hooks/useCurrency";
+import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
 
 type Product = Database["public"]["Tables"]["products"]["Row"] & {
   categories?: { name: string; color: string | null; icon: string | null } | null;
@@ -49,6 +50,7 @@ const daysUntilExpiry = (expiryDate: string | null): number | null => {
 
 export const ProductList = memo(({ products, onEdit, onDelete, onStockAdjust, onStockHistory }: ProductListProps) => {
   const { formatPrice } = useCurrency();
+  const { formatDisplayPrice, isConverted } = useDisplayCurrency();
   const [labelProduct, setLabelProduct] = useState<Product | null>(null);
 
   return (
@@ -137,7 +139,7 @@ export const ProductList = memo(({ products, onEdit, onDelete, onStockAdjust, on
 
               <div className="flex items-center justify-between mb-1 sm:mb-2">
                 <span className="text-base sm:text-lg font-bold text-primary">
-                  {formatPrice(product.price)}
+                  {formatDisplayPrice(product.price, { showOriginal: isConverted })}
                 </span>
                 <span
                   className={`text-sm ${
@@ -155,9 +157,9 @@ export const ProductList = memo(({ products, onEdit, onDelete, onStockAdjust, on
               {/* Marge + péremption info */}
               <div className="flex flex-wrap items-center gap-1 mb-2 text-xs">
                 {costPrice > 0 && (
-                  <Badge variant="outline" className="text-xs gap-1" title={`Coût: ${formatPrice(costPrice)}`}>
+                  <Badge variant="outline" className="text-xs gap-1" title={`Coût: ${formatDisplayPrice(costPrice, { showOriginal: isConverted })}`}>
                     <TrendingUp className="h-3 w-3" />
-                    Marge: {formatPrice(margin)} ({marginPct}%)
+                    Marge: {formatDisplayPrice(margin, { showOriginal: isConverted })} ({marginPct}%)
                   </Badge>
                 )}
                 {product.expiry_date && !isExpired && !isExpiringSoon && (

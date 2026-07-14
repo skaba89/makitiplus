@@ -39,6 +39,8 @@ import {
 import { Database } from "@/integrations/supabase/types";
 import { exportProductsToCSV } from "@/utils/exportUtils";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
+import { CurrencyDisplaySelector } from "@/components/ui/currency-display-selector";
 import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import { useCategories } from "@/hooks/useCategories";
 import { useProductStats } from "@/hooks/useProductStats";
@@ -57,6 +59,13 @@ type ProductWithCat = ProductWithCategory;
 const Products = () => {
   const { user, profile, userRole } = useAuth();
   const { currency } = useCurrency();
+  const {
+    displayCurrencyCode,
+    orgCurrencyCode,
+    setDisplayCurrency,
+    ratesLoading,
+    refreshRates,
+  } = useDisplayCurrency();
   const { toast } = useToast();
   const { blockMutation } = useDemo();
   const queryClient = useQueryClient();
@@ -480,7 +489,14 @@ const Products = () => {
               Gérez votre inventaire de produits
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <CurrencyDisplaySelector
+              orgCurrencyCode={orgCurrencyCode}
+              displayCurrencyCode={displayCurrencyCode}
+              onDisplayCurrencyChange={setDisplayCurrency}
+              ratesLoading={ratesLoading}
+              onRefreshRates={refreshRates}
+            />
             {canModify && (
               <>
                 <input

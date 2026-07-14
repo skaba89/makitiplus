@@ -246,13 +246,16 @@ describe("P1 Fix: Frontend Products uses create_product RPC", () => {
   });
 });
 
-// ─── 7. Frontend Stores uses create_first_organization RPC ─────────
+// ─── 7. Frontend Stores uses super_admin_create_organization RPC ─────────
 describe("P1 Fix: Frontend Stores uses create_first_organization RPC", () => {
-  it("Stores.tsx calls create_first_organization RPC", () => {
+  it("Stores.tsx calls super_admin_create_organization RPC for org creation", () => {
     const source = readSrc("pages/Stores.tsx");
 
-    // Stores.tsx uses create_first_organization RPC which handles both
-    // creating a new org+store and adding a store to an existing org
-    expect(source).toMatch(/supabase\.rpc\(["']create_first_organization["']/);
+    // Stores.tsx uses super_admin_create_organization RPC for creating a new
+    // independent organization (replaced create_first_organization which was
+    // bugged — it attached the store to the existing org of the super_admin).
+    // The create_store RPC is still used for adding a store to an existing org.
+    // Note: the RPC call spans multiple lines, so we use a multiline match.
+    expect(source).toMatch(/supabase\.rpc\(\s*["']super_admin_create_organization["']/);
   });
 });
