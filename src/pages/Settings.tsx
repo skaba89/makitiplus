@@ -86,7 +86,10 @@ const Settings = () => {
         })
         .eq("user_id", user?.id ?? "");
 
-      if (error) throw error;
+      if (error) {
+        toast({ variant: "destructive", title: "Erreur", description: "Impossible de sauvegarder les paramètres" });
+        return;
+      }
     },
     onSuccess: async () => {
       await refreshProfile();
