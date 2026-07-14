@@ -293,18 +293,25 @@ const Stores = () => {
         .replace(/(^-|-$)/g, "");
 
       if (createMode === "org") {
-        // MODE ORGANISATION : créer une nouvelle organisation + son premier magasin
+        // MODE ORGANISATION : créer une NOUVELLE organisation indépendante + son premier magasin
         const finalOrgName = orgName.trim() || storeName.trim();
         const finalStoreName = storeName.trim() || orgName.trim();
 
-        const { data: newStoreId, error: orgError } = await supabase.rpc("create_first_organization", {
-          p_org_name: finalOrgName,
-          p_store_name: finalStoreName,
-          p_store_slug: slug || `store-${Date.now()}`,
-          p_store_category: storeCategory,
-          p_country: storeCountry,
-          p_currency: storeCurrency,
-        });
+        // Utiliser le nouveau RPC super_admin_create_organization qui crée
+        // une organisation INDÉPENDANTE (sans modifier le profil du super_admin)
+        const { data: orgResult, error: orgError } = await supabase.rpc(
+          "super_admin_create_organization",
+          {
+            p_org_name: finalOrgName,
+            p_store_name: finalStoreName,
+            p_store_slug: slug || `store-${Date.now()}`,
+            p_store_category: storeCategory,
+            p_country: storeCountry,
+            p_currency: storeCurrency,
+            p_city: storeCity || null,
+            p_address: null,
+          }
+        );
 
         if (orgError) {
           const msg = extractErrorMessage(orgError);
@@ -312,7 +319,20 @@ const Stores = () => {
           return;
         }
 
-        // Si un admin est renseigné, le créer via l'Edge Function
+        // Le RPC retourne une table : { org_id, store_id, success, error }
+        const orgData = Array.isArray(orgResult) && orgResult.length > 0
+          ? orgResult[0] as { org_id?: string; store_id?: string; success?: boolean; error?: string }
+          : orgResult as { org_id?: string; store_id?: string; success?: boolean; error?: string } | null;
+
+        if (!orgData?.success) {
+          const errMsg = orgData?.error || "Erreur inconnue lors de la création de l'organisation";
+          toast({ variant: "destructive", title: "Erreur", description: errMsg });
+          return;
+        }
+
+        const newOrgId = orgData.org_id;
+
+        // Si un admin est renseigné, le créer via l'Edge Function en l'associant à la NOUVELLE org
         if (adminEmail.trim() && adminPassword.trim() && adminName.trim()) {
           try {
             const { data: adminResult, error: adminError } = await supabase.functions.invoke("admin-create-user", {
@@ -323,7 +343,7 @@ const Stores = () => {
                 phone: adminPhone.trim() || null,
                 role: "admin",
                 requireEmailVerification: false,
-                targetOrganizationId: undefined, // l'Edge Function utilise l'org du super_admin
+                targetOrganizationId: newOrgId, // ← l'admin est associé à la NOUVELLE organisation
                 targetBusinessName: finalOrgName,
               },
             });
@@ -334,21 +354,21 @@ const Stores = () => {
             }
 
             toast({
-              title: "Organisation et admin créés",
-              description: `Organisation "${finalOrgName}" + magasin "${finalStoreName}" + admin "${adminName.trim()}" créés avec succès.`
+              title: "Organisation, magasin et admin créés",
+              description: `Nouvelle organisation "${finalOrgName}" + magasin "${finalStoreName}" + admin "${adminName.trim()}" créés avec succès.`
             });
           } catch (adminErr) {
             const adminMsg = adminErr instanceof Error ? adminErr.message : String(adminErr);
             toast({
               title: "Organisation créée, admin en échec",
-              description: `L'organisation a été créée mais l'admin n'a pas pu être créé : ${adminMsg}. Utilisez le bouton "Admin" pour réessayer.`,
+              description: `L'organisation "${finalOrgName}" a été créée mais l'admin n'a pas pu être créé : ${adminMsg}. Utilisez le bouton "Admin" sur cette nouvelle organisation pour réessayer.`,
               variant: "destructive",
             });
           }
         } else {
           toast({
             title: "Organisation créée",
-            description: `Organisation "${finalOrgName}" créée avec le magasin "${finalStoreName}". Ajoutez un admin via le bouton "Admin".`
+            description: `Nouvelle organisation indépendante "${finalOrgName}" créée avec le magasin "${finalStoreName}". Ajoutez un admin via le bouton "Admin".`
           });
         }
       } else {
