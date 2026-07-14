@@ -335,8 +335,19 @@ const Stores = () => {
         // Si un admin est renseigné, le créer via l'Edge Function en l'associant à la NOUVELLE org
         if (adminEmail.trim() && adminPassword.trim() && adminName.trim()) {
           try {
-            const { data: adminResult, error: adminError } = await supabase.functions.invoke("admin-create-user", {
-              body: {
+            // Utiliser fetch direct pour récupérer le vrai message d'erreur (invoke masque le body)
+            const { data: sessionData } = await supabase.auth.getSession();
+            const accessToken = sessionData.session?.access_token;
+            if (!accessToken) throw new Error("Non authentifié");
+
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+            const adminResponse = await fetch(`${supabaseUrl}/functions/v1/admin-create-user`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${accessToken}`,
+              },
+              body: JSON.stringify({
                 email: adminEmail.trim(),
                 password: adminPassword.trim(),
                 ownerName: adminName.trim(),
@@ -345,12 +356,15 @@ const Stores = () => {
                 requireEmailVerification: false,
                 targetOrganizationId: newOrgId, // ← l'admin est associé à la NOUVELLE organisation
                 targetBusinessName: finalOrgName,
-              },
+              }),
             });
 
-            const fnData = adminResult as { success?: boolean; error?: string; userId?: string } | undefined;
-            if (adminError || fnData?.error) {
-              throw new Error(fnData?.error || adminError?.message || "Erreur création admin");
+            const adminResultText = await adminResponse.text();
+            let adminResultJson: any = {};
+            try { adminResultJson = JSON.parse(adminResultText); } catch { adminResultJson = { raw: adminResultText }; }
+
+            if (!adminResponse.ok) {
+              throw new Error(adminResultJson.error || `Erreur ${adminResponse.status}: ${adminResultText}`);
             }
 
             toast({
