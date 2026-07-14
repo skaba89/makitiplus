@@ -98,6 +98,10 @@ interface RealStore {
   country: string | null;
   currency: string | null;
   created_at: string;
+  is_headquarters?: boolean;
+  is_active?: boolean;
+  city?: string | null;
+  address?: string | null;
 }
 
 interface StoreWithAdmin extends Organization {
@@ -231,7 +235,7 @@ const Stores = () => {
       // Récupérer aussi les stores réels pour afficher le détail
       const { data: realStores } = await supabase
         .from("stores")
-        .select("id, organization_id, name, slug, category, country, currency, created_at")
+        .select("id, organization_id, name, slug, category, country, currency, created_at, is_headquarters, is_active, city, address")
         .in("organization_id", orgIds)
         .order("created_at", { ascending: false });
 
