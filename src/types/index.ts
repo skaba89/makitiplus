@@ -205,7 +205,9 @@ export const INVENTORY_ROLES: AppRole[] = ["super_admin", "admin", "manager", "v
 // Product management = MANAGEMENT_ROLES only (vendeur ne doit que vendre, pas gérer les produits)
 export const PRODUCT_MANAGEMENT_ROLES: AppRole[] = ["super_admin", "admin", "manager"];
 export const FINANCIAL_ROLES: AppRole[] = ["super_admin", "admin", "manager", "comptable"];
-export const POS_ROLES: AppRole[] = ["super_admin", "admin", "manager", "vendeur"];
+// POS = admin, manager, vendeur seulement.
+// Le super_admin est un administrateur SaaS qui gère les organisations mais ne vend pas.
+export const POS_ROLES: AppRole[] = ["admin", "manager", "vendeur"];
 export const STORE_ROLES: AppRole[] = ["super_admin"];
 
 // ─── Transfer roles & types ────────────────────────────────────────────────────
