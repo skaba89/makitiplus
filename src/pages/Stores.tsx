@@ -178,6 +178,7 @@ const Stores = () => {
 
   // Formulaire nouveau magasin
   const [storeName, setStoreName] = useState("");
+  const [orgName, setOrgName] = useState("");
   const [storeCategory, setStoreCategory] = useState<StoreCategory>("epicerie");
   const [storeCountry, setStoreCountry] = useState(COUNTRIES[0]?.code || "GN");
   const [storeCurrency, setStoreCurrency] = useState(COUNTRIES[0]?.currency.code || DEFAULT_CURRENCY.code);
@@ -292,11 +293,13 @@ const Stores = () => {
         .replace(/(^-|-$)/g, "");
 
       if (createMode === "org") {
-        // MODE ORGANISATION : créer une nouvelle organisation indépendante
-        // Utiliser create_first_organization qui crée org + premier magasin
+        // MODE ORGANISATION : créer une nouvelle organisation + son premier magasin
+        const finalOrgName = orgName.trim() || storeName.trim();
+        const finalStoreName = storeName.trim() || orgName.trim();
+
         const { data, error } = await supabase.rpc("create_first_organization", {
-          p_org_name: storeName,
-          p_store_name: storeName,
+          p_org_name: finalOrgName,
+          p_store_name: finalStoreName,
           p_store_slug: slug || `store-${Date.now()}`,
           p_store_category: storeCategory,
           p_country: storeCountry,
@@ -311,7 +314,7 @@ const Stores = () => {
 
         toast({
           title: "Organisation créée",
-          description: `"${storeName}" a été créé comme nouvelle organisation. Ajoutez un admin via le bouton "Admin".`
+          description: `Organisation "${finalOrgName}" créée avec le magasin "${finalStoreName}". Ajoutez un admin via le bouton "Admin".`
         });
       } else {
         // MODE MAGASIN : ajouter un magasin à une organisation existante
@@ -344,6 +347,7 @@ const Stores = () => {
       }
 
       setStoreName("");
+      setOrgName("");
       setStoreCity("");
       setStoreCategory("epicerie");
       setTargetOrgId("");
@@ -564,9 +568,29 @@ const Stores = () => {
                   </div>
                 )}
 
+                {/* Nom de l'organisation (mode org seulement) */}
+                {createMode === "org" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="org-name">Nom de l'organisation *</Label>
+                    <div className="relative">
+                      <Store className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="org-name"
+                        value={orgName}
+                        onChange={(e) => setOrgName(e.target.value)}
+                        placeholder="Ex: Diallo & Frères SARL"
+                        className="pl-10"
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      L'organisation est l'entité juridique qui regroupe plusieurs magasins
+                    </p>
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <Label htmlFor="store-name">
-                    {createMode === "org" ? "Nom de l'organisation" : "Nom du magasin"}
+                    {createMode === "org" ? "Nom du premier magasin *" : "Nom du magasin *"}
                   </Label>
                   <div className="relative">
                     <Store className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -574,7 +598,7 @@ const Stores = () => {
                       id="store-name"
                       value={storeName}
                       onChange={(e) => setStoreName(e.target.value)}
-                      placeholder={createMode === "org" ? "Ex: Diallo & Frères SARL" : "Ex: Magasin Conakry"}
+                      placeholder={createMode === "org" ? "Ex: Magasin Conakry" : "Ex: Magasin Kamsar"}
                       className="pl-10"
                       required
                     />
