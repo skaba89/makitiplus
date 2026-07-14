@@ -62,9 +62,28 @@ export async function requireAdminContext(req: Request): Promise<AdminCtxOk | Ad
   const { data: roleData } = await adminClient
     .from('user_roles').select('role')
     .eq('user_id', user.id).in('role', ['admin', 'super_admin']).maybeSingle();
-  if (!roleData) return { ok: false, error: 'Forbidden: admin or super_admin only', status: 403 };
 
-  const isSuperAdmin = roleData.role === 'super_admin';
+  // Si pas de rôle admin/super_admin dans user_roles, vérifier si l'utilisateur
+  // possède une organisation (propriétaire d'org = super_admin implicite)
+  let isSuperAdmin = roleData?.role === 'super_admin';
+  let effectiveRole = roleData?.role;
+
+  if (!roleData) {
+    const { data: ownedOrg } = await adminClient
+      .from('organizations')
+      .select('id')
+      .eq('owner_user_id', user.id)
+      .limit(1)
+      .maybeSingle();
+
+    if (ownedOrg) {
+      // L'utilisateur possède une organisation → il est super_admin
+      isSuperAdmin = true;
+      effectiveRole = 'super_admin';
+    } else {
+      return { ok: false, error: 'Forbidden: admin or super_admin only', status: 403 };
+    }
+  }
 
   const { data: actorProfile } = await adminClient
     .from('profiles')
