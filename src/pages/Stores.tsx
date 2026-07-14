@@ -177,6 +177,11 @@ const Stores = () => {
   const [storeCategory, setStoreCategory] = useState<StoreCategory>("epicerie");
   const [storeCountry, setStoreCountry] = useState(COUNTRIES[0]?.code || "GN");
   const [storeCurrency, setStoreCurrency] = useState(COUNTRIES[0]?.currency.code || DEFAULT_CURRENCY.code);
+  const [storeCity, setStoreCity] = useState("");
+  // Mode création : "org" (nouvelle organisation) ou "store" (magasin dans org existante)
+  const [createMode, setCreateMode] = useState<"org" | "store">("org");
+  // Pour le super_admin : choix de l'organisation cible si mode "store"
+  const [targetOrgId, setTargetOrgId] = useState<string>("");
 
   // Sélection auto de la devise selon le pays
   const handleCountryChange = (countryCode: string) => {
@@ -275,7 +280,6 @@ const Stores = () => {
     if (blockMutation('Gérer les boutiques')) return;
     setCreating(true);
     try {
-      // Generate slug from store name
       const slug = storeName
         .toLowerCase()
         .normalize("NFD")
@@ -283,37 +287,64 @@ const Stores = () => {
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/(^-|-$)/g, "");
 
-      // Use create_first_organization RPC which handles:
-      // - Creating an org if user doesn't have one
-      // - Creating a store within existing org if user already has one
-      const { data, error } = await supabase.rpc("create_first_organization", {
-        p_org_name: storeName,
-        p_store_name: storeName,
-        p_store_slug: slug || `store-${Date.now()}`,
-        p_store_category: storeCategory,
-        p_country: storeCountry,
-        p_currency: storeCurrency,
-      });
+      if (createMode === "org") {
+        // MODE ORGANISATION : créer une nouvelle organisation indépendante
+        // Utiliser create_first_organization qui crée org + premier magasin
+        const { data, error } = await supabase.rpc("create_first_organization", {
+          p_org_name: storeName,
+          p_store_name: storeName,
+          p_store_slug: slug || `store-${Date.now()}`,
+          p_store_category: storeCategory,
+          p_country: storeCountry,
+          p_currency: storeCurrency,
+        });
 
-      if (error) return [];
+        if (error) {
+          const msg = extractErrorMessage(error);
+          toast({ variant: "destructive", title: "Erreur", description: msg });
+          return;
+        }
 
-      const result = data as { success: boolean; mode: string; organization_id?: string; store_id?: string };
-      const isNewOrg = result.mode === 'org_and_store';
+        toast({
+          title: "Organisation créée",
+          description: `"${storeName}" a été créé comme nouvelle organisation. Ajoutez un admin via le bouton "Admin".`
+        });
+      } else {
+        // MODE MAGASIN : ajouter un magasin à une organisation existante
+        const orgId = userRole === "super_admin" ? targetOrgId : profile?.organization_id;
+        if (!orgId) {
+          toast({ variant: "destructive", title: "Erreur", description: "Organisation cible manquante" });
+          return;
+        }
 
-      toast({ 
-        title: isNewOrg ? "Organisation créée" : "Magasin créé", 
-        description: isNewOrg 
-          ? `"${storeName}" a été créé comme nouvelle organisation avec son premier magasin.` 
-          : `"${storeName}" a été ajouté.`
-      });
+        const { data, error } = await supabase.rpc("create_store", {
+          p_organization_id: orgId,
+          p_name: storeName,
+          p_slug: slug || `store-${Date.now()}`,
+          p_category: storeCategory,
+          p_country: storeCountry,
+          p_currency: storeCurrency,
+          p_city: storeCity || null,
+        });
+
+        if (error) {
+          const msg = extractErrorMessage(error);
+          toast({ variant: "destructive", title: "Erreur", description: msg });
+          return;
+        }
+
+        toast({
+          title: "Magasin créé",
+          description: `"${storeName}" a été ajouté à l'organisation.`
+        });
+      }
+
       setStoreName("");
+      setStoreCity("");
       setStoreCategory("epicerie");
+      setTargetOrgId("");
       setDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["stores"] });
-      // Also refresh profile if new org was created
-      if (isNewOrg) {
-        queryClient.invalidateQueries({ queryKey: ["profile"] });
-      }
     } catch (error) {
       const message = extractErrorMessage(error);
       reportError(error instanceof Error ? error : new Error(message));
@@ -473,31 +504,91 @@ const Stores = () => {
               <DialogTrigger asChild>
                 <Button className="gap-2">
                   <Plus className="h-4 w-4" />
-                  Nouveau magasin
+                  {userRole === "super_admin" ? "Nouvelle organisation" : "Nouveau magasin"}
                 </Button>
               </DialogTrigger>
             <DialogContent className="sm:max-w-lg">
               <DialogHeader>
-                <DialogTitle>Créer un magasin</DialogTitle>
+                <DialogTitle>
+                  {createMode === "org" ? "Créer une organisation" : "Ajouter un magasin"}
+                </DialogTitle>
                 <DialogDescription>
-                  Ajoutez un nouveau magasin. Vous pourrez ensuite nommer un admin.
+                  {createMode === "org"
+                    ? "Créez une nouvelle organisation indépendante. Vous pourrez ensuite nommer un admin."
+                    : "Ajoutez un magasin à une organisation existante."}
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleCreateStore} className="space-y-4">
+                {/* Toggle : Organisation vs Magasin */}
+                {userRole === "super_admin" && (
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={createMode === "org" ? "default" : "outline"}
+                      onClick={() => setCreateMode("org")}
+                      className="flex-1"
+                    >
+                      Nouvelle organisation
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={createMode === "store" ? "default" : "outline"}
+                      onClick={() => setCreateMode("store")}
+                      className="flex-1"
+                    >
+                      Magasin dans org existante
+                    </Button>
+                  </div>
+                )}
+
+                {/* Sélection de l'org cible (super_admin + mode store) */}
+                {createMode === "store" && userRole === "super_admin" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="target-org">Organisation cible</Label>
+                    <Select value={targetOrgId} onValueChange={setTargetOrgId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionner une organisation" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {stores.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
                 <div className="space-y-2">
-                  <Label htmlFor="store-name">Nom du magasin</Label>
+                  <Label htmlFor="store-name">
+                    {createMode === "org" ? "Nom de l'organisation" : "Nom du magasin"}
+                  </Label>
                   <div className="relative">
                     <Store className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="store-name"
                       value={storeName}
                       onChange={(e) => setStoreName(e.target.value)}
-                      placeholder="Ex: Makiti Conakry"
+                      placeholder={createMode === "org" ? "Ex: Diallo & Frères SARL" : "Ex: Magasin Conakry"}
                       className="pl-10"
                       required
                     />
                   </div>
                 </div>
+
+                {/* Ville (mode magasin seulement) */}
+                {createMode === "store" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="store-city">Ville / Quartier (optionnel)</Label>
+                    <Input
+                      id="store-city"
+                      value={storeCity}
+                      onChange={(e) => setStoreCity(e.target.value)}
+                      placeholder="Ex: Conakry, Kamsar..."
+                    />
+                  </div>
+                )}
 
                 {/* Catégorie du magasin */}
                 <div className="space-y-2">
