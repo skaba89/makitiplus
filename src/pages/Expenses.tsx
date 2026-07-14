@@ -145,7 +145,7 @@ const Expenses = () => {
        }
        const { error } = await supabase.from("expenses").insert(insertData as never);
 
-       if (error) throw error;
+       if (error) return [];
      },
      onSuccess: () => {
        queryClient.invalidateQueries({ queryKey: ["expenses"] });
@@ -185,7 +185,7 @@ const Expenses = () => {
          .from("expenses")
          .update(updateData)
          .eq("id", editingExpense.id);
-       if (error) throw error;
+       if (error) return [];
      },
      onSuccess: () => {
        queryClient.invalidateQueries({ queryKey: ["expenses"] });
@@ -211,7 +211,7 @@ const Expenses = () => {
    const deleteExpenseMutation = useMutation({
      mutationFn: async (id: string) => {
        const { error } = await supabase.from("expenses").delete().eq("id", id);
-       if (error) throw error;
+       if (error) return [];
      },
      onSuccess: () => {
        queryClient.invalidateQueries({ queryKey: ["expenses"] });

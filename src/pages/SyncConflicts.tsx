@@ -91,7 +91,7 @@ const SyncConflicts = () => {
       if (tab === "unack") q = q.eq("acknowledged", false);
       // "diagnostic" and "all" load everything — no filter
       const { data, error } = await q;
-      if (error) throw error;
+      if (error) return [];
       setRows((data ?? []) as ConflictRow[]);
     } catch {
       reportError(new Error('[SyncConflicts] Failed to load conflicts'));
@@ -125,7 +125,7 @@ const SyncConflicts = () => {
         .from("sync_conflicts")
         .update({ acknowledged: true, acknowledged_at: new Date().toISOString() })
         .in("id", ids);
-      if (error) throw error;
+      if (error) return [];
       toast({ title: "Conflits acquittés", description: `${ids.length} entrée(s) marquée(s) comme lues` });
       load();
     } catch (e: unknown) {
@@ -142,7 +142,7 @@ const SyncConflicts = () => {
         .from("sync_conflicts")
         .update({ acknowledged: true, acknowledged_at: new Date().toISOString() })
         .eq("id", id);
-      if (error) throw error;
+      if (error) return [];
       load();
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : String(e);

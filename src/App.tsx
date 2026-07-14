@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider, QueryCache, MutationCache, QueryError
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { SentryErrorBoundary, reportError } from "@/lib/sentry";
 import { extractErrorMessage } from "@/lib/extractErrorMessage";
-import { ADMIN_ROLES, INVENTORY_ROLES, FINANCIAL_ROLES, POS_ROLES, STORE_ROLES, MANAGEMENT_ROLES } from "@/types";
+import { ADMIN_ROLES, INVENTORY_ROLES, FINANCIAL_ROLES, POS_ROLES, STORE_ROLES, MANAGEMENT_ROLES, PRODUCT_MANAGEMENT_ROLES } from "@/types";
 import { toast as sonnerToast } from "sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { OfflineProvider } from "@/contexts/OfflineContext";
@@ -75,6 +75,7 @@ const Billing = lazyWithRecovery(() => import("./pages/Billing"));
 const Pricing = lazyWithRecovery(() => import("./pages/Pricing"));
 const Onboarding = lazyWithRecovery(() => import("./pages/Onboarding"));
 const PurchaseOrders = lazyWithRecovery(() => import("./pages/PurchaseOrders"));
+const CashClosing = lazyWithRecovery(() => import("./pages/CashClosing"));
 const AIAssistant = lazyWithRecovery(() => import("./pages/AIAssistant"));
 const OrganizationManagement = lazyWithRecovery(() => import("./pages/OrganizationManagement"));
 const SellerActivity = lazyWithRecovery(() => import("./pages/SellerActivity"));
@@ -273,7 +274,7 @@ const App = () => {
             <Route
               path="/dashboard/products"
               element={
-                <ProtectedRoute allowedRoles={INVENTORY_ROLES}>
+                <ProtectedRoute allowedRoles={PRODUCT_MANAGEMENT_ROLES}>
                   <SafePage><Products /></SafePage>
                 </ProtectedRoute>
               }
@@ -403,6 +404,14 @@ const App = () => {
               element={
                 <ProtectedRoute allowedRoles={MANAGEMENT_ROLES}>
                   <SafePage><PurchaseOrders /></SafePage>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/cash-closing"
+              element={
+                <ProtectedRoute allowedRoles={MANAGEMENT_ROLES}>
+                  <SafePage><CashClosing /></SafePage>
                 </ProtectedRoute>
               }
             />

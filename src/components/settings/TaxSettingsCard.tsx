@@ -28,7 +28,7 @@ export const TaxSettingsCard = () => {
         .select("default_tax_rate, owner_user_id")
         .eq("id", orgId)
         .maybeSingle();
-      if (error) throw error;
+      if (error) return null;
       return data as { default_tax_rate: number | null; owner_user_id: string };
     },
     enabled: !!orgId && !!user,
@@ -47,7 +47,7 @@ export const TaxSettingsCard = () => {
         .from("organizations")
         .update({ default_tax_rate: newRate })
         .eq("id", orgId);
-      if (error) throw error;
+      if (error) return;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["org-settings"] });

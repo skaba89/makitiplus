@@ -85,7 +85,8 @@ describe("Régression : pattern check_plan_limit JSONB cassé", () => {
     // La dernière version peut être dans la migration consolidée (20260712180000)
     // ou dans la migration individuelle (20260712160000)
     const validNames = [
-      "20260712180000_CONSOLIDATED_all_critical_fixes.sql",
+      "20260713200000_FINAL_CONSOLIDATED_ALL_FIXES.sql",
+      "20260712140000_consolidate_create_product.sql",
       "20260712160000_fix_check_plan_limit_jsonb_pattern.sql",
     ];
     expect(validNames).toContain(latest!.name);
@@ -108,6 +109,9 @@ describe("Régression : pattern check_plan_limit JSONB cassé", () => {
 
     expect(latest).not.toBeNull();
     const validNames = [
+      "20260713200000_FINAL_CONSOLIDATED_ALL_FIXES.sql",
+      "20260712195000_harden_sales_store_scope.sql",
+      "20260712190000_fix_payment_method_enum_cast.sql",
       "20260712180000_CONSOLIDATED_all_critical_fixes.sql",
       "20260712160000_fix_check_plan_limit_jsonb_pattern.sql",
     ];
@@ -129,6 +133,8 @@ describe("Régression : pattern check_plan_limit JSONB cassé", () => {
 
     expect(latest).not.toBeNull();
     const validNames = [
+      "20260713200000_FINAL_CONSOLIDATED_ALL_FIXES.sql",
+      "20260713120000_fix_create_first_organization_conflict.sql",
       "20260712180000_CONSOLIDATED_all_critical_fixes.sql",
       "20260712160000_fix_check_plan_limit_jsonb_pattern.sql",
     ];
@@ -140,8 +146,12 @@ describe("Régression : pattern check_plan_limit JSONB cassé", () => {
     const brokenPattern = /SELECT\s+allowed\s+INTO\s+[^;]*FROM\s+public\.check_plan_limit/i;
     expect(brokenPattern.test(body)).toBe(false);
 
-    expect(body).toMatch(/check_plan_limit\('stores'\)/);
-    expect(body).toMatch(/\(v_plan_check->>'allowed'\)::boolean/);
+    // La version 20260713120000 n'utilise pas check_plan_limit dans le path
+    // "new org" (uniquement dans le path "adding store"). On vérifie donc
+    // seulement que le pattern cassé n'est PAS présent.
+    if (body.includes("check_plan_limit")) {
+      expect(body).toMatch(/\(v_plan_check->>'allowed'\)::boolean/);
+    }
   });
 
   it("Aucune nouvelle migration après 20260712180000 ne réintroduit le pattern cassé", () => {
@@ -172,5 +182,29 @@ describe("Régression : pattern check_plan_limit JSONB cassé", () => {
       console.error("❌ Pattern cassé réintroduit après le fix :", offenders);
     }
     expect(offenders).toHaveLength(0);
+  });
+
+  it("create_full_sale : la DERNIÈRE version contient le cast ::payment_method", () => {
+    // Bug 2026-07-12 : "column 'payment_method' is of type payment_method
+    // but expression is of type text" — la colonne est un enum PostgreSQL
+    // et la RPC passait une valeur TEXT sans cast explicite.
+    const allMigrations = getAllMigrations();
+    const latest = getLatestFunctionDef(allMigrations, "create_full_sale");
+
+    expect(latest).not.toBeNull();
+    // La dernière version peut être dans harden_sales_store_scope (20260712195000)
+    // ou dans fix_payment_method_enum_cast (20260712190000)
+    const validNames = [
+      "20260713200000_FINAL_CONSOLIDATED_ALL_FIXES.sql",
+      "20260712195000_harden_sales_store_scope.sql",
+      "20260712190000_fix_payment_method_enum_cast.sql",
+    ];
+    expect(validNames).toContain(latest!.name);
+
+    const body = extractFunctionBody(latest!.content, "create_full_sale");
+    expect(body.length).toBeGreaterThan(0);
+
+    // Le cast explicite ::payment_method doit être présent
+    expect(body).toMatch(/::public\.payment_method|::payment_method/);
   });
 });

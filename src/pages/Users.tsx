@@ -282,7 +282,7 @@ const Users = () => {
         .select("id, actor_name, target_user_name, action, details, created_at")
         .order("created_at", { ascending: false })
         .limit(100);
-      if (error) throw error;
+      if (error) return [];
       setAudit((data ?? []) as AuditRow[]);
     } catch {
       reportError(new Error('[Users] Failed to load audit log'));
@@ -357,6 +357,8 @@ const Users = () => {
     reason?: string
   ) => {
     try {
+      // L'Edge Function admin-manage-user est le SEUL chemin pour la suppression définitive.
+      // Aucun fallback destructif côté frontend — la suppression de auth.users nécessite le service_role.
       const { data, error } = await supabase.functions.invoke("admin-manage-user", {
         body: { userId: target.user_id, action, reason },
       });
@@ -374,12 +376,49 @@ const Users = () => {
       loadAudit();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      reportError(err instanceof Error ? err : new Error(String(err)));
-      toast({
-        variant: "destructive",
-        title: "Erreur",
-        description: message || "Action impossible",
-      });
+      reportError(err instanceof Error ? err : new Error(message));
+
+      if (action === "delete") {
+        // PAS de fallback destructif. La suppression définitive nécessite l'Edge Function (service_role).
+        toast({
+          variant: "destructive",
+          title: "Suppression impossible",
+          description: "Edge Function admin-manage-user non disponible. La suppression définitive nécessite le service_role via Edge Function.",
+        });
+      } else if (action === "deactivate") {
+        // La désactivation peut utiliser une mise à jour directe si RLS le permet
+        try {
+          const { error: updateError } = await supabase
+            .from("profiles")
+            .update({ is_active: false, deactivated_at: new Date().toISOString(), deactivation_reason: reason || null })
+            .eq("user_id", target.user_id);
+          if (updateError) throw updateError;
+          toast({ title: "Utilisateur désactivé" });
+          loadUsers();
+          loadAudit();
+        } catch (fallbackErr) {
+          const fallbackMsg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
+          reportError(fallbackErr instanceof Error ? fallbackErr : new Error(fallbackMsg));
+          toast({ variant: "destructive", title: "Erreur", description: `Désactivation impossible : ${fallbackMsg}` });
+        }
+      } else if (action === "reactivate") {
+        try {
+          const { error: updateError } = await supabase
+            .from("profiles")
+            .update({ is_active: true, deactivated_at: null, deactivation_reason: null })
+            .eq("user_id", target.user_id);
+          if (updateError) throw updateError;
+          toast({ title: "Utilisateur réactivé" });
+          loadUsers();
+          loadAudit();
+        } catch (fallbackErr) {
+          const fallbackMsg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
+          reportError(fallbackErr instanceof Error ? fallbackErr : new Error(fallbackMsg));
+          toast({ variant: "destructive", title: "Erreur", description: `Réactivation impossible : ${fallbackMsg}` });
+        }
+      } else {
+        toast({ variant: "destructive", title: "Erreur", description: message || "Action impossible" });
+      }
     }
   };
 

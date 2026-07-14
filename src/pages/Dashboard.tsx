@@ -18,6 +18,7 @@ import {
   Truck,
   DollarSign,
   BarChart3,
+  MessageCircle,
 } from "lucide-react";
 import { CategoryIcon } from "@/components/ui/category-icon";
 import { startOfDay, endOfDay, startOfMonth, endOfMonth } from "date-fns";
@@ -113,7 +114,7 @@ const Dashboard = () => {
         query = query.eq("organization_id", profile.organization_id);
       }
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) return [];
       return data;
     },
     enabled: !!user,
@@ -132,7 +133,7 @@ const Dashboard = () => {
         query = query.eq("organization_id", profile.organization_id);
       }
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) return [];
       return data;
     },
     enabled: !!user,
@@ -150,7 +151,7 @@ const Dashboard = () => {
         query = query.eq("organization_id", profile.organization_id);
       }
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) return [] as DashboardProduct[];
       return data as DashboardProduct[];
     },
     enabled: !!user,
@@ -168,7 +169,7 @@ const Dashboard = () => {
         query = query.eq("organization_id", profile.organization_id);
       }
       const { count, error } = await query;
-      if (error) throw error;
+      if (error) return 0;
       return count || 0;
     },
     enabled: !!user,
@@ -188,7 +189,7 @@ const Dashboard = () => {
         query = query.eq("organization_id", profile.organization_id);
       }
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) return [];
       return data;
     },
     enabled: !!user && !!profile?.organization_id,
@@ -271,13 +272,45 @@ const Dashboard = () => {
   return (
     <DashboardLayout>
       <div className="space-y-8">
-        <div>
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">
-            Bonjour, {profile?.owner_name?.split(" ")[0] || "Utilisateur"}
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Voici un aperçu de votre activité - {userRole && roleLabels[userRole]}
-          </p>
+        <div className="flex items-start justify-between flex-wrap gap-3">
+          <div>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">
+              Bonjour, {profile?.owner_name?.split(" ")[0] || "Utilisateur"}
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Voici un aperçu de votre activité - {userRole && roleLabels[userRole]}
+            </p>
+          </div>
+          {/* Bouton envoyer résumé par WhatsApp */}
+          {userRole && FINANCIAL_ROLES.includes(userRole) && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => {
+                const phone = prompt("Numéro WhatsApp du gérant (ex: 224622000000):");
+                if (!phone) return;
+                const cleanPhone = phone.replace(/[\s+\-()]/g, "");
+                const today = format(new Date(), "dd/MM/yyyy");
+                const msg = `📊 *Rapport MakitiPlus — ${today}*
+
+💰 Ventes du jour : ${formatPrice(totalSalesToday)}
+🛒 Transactions : ${transactionsToday}
+📦 Produits en stock : ${totalProducts}
+⚠️ Stock bas : ${lowStockProducts.length}
+💸 Dépenses du mois : ${formatPrice(totalExpensesMonth)}
+📊 Bénéfice net : ${netProfit >= 0 ? "+" : ""}${formatPrice(netProfit)}
+
+${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 5).map(p => `• ${p.name} (${p.stock_quantity})`).join("\n")}` : "✅ Aucune alerte de stock"}
+
+— MakitiPlus`;
+                window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, "_blank");
+              }}
+            >
+              <MessageCircle className="h-4 w-4" />
+              Rapport WhatsApp
+            </Button>
+          )}
         </div>
 
         {/* Stats */}

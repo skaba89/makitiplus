@@ -33,6 +33,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { useBranding } from "@/contexts/BrandingContext";
 import { useThemeSettings } from "@/contexts/ThemeContext";
 import { usePOSCartStore, useCartTotal, useCartSubtotal, useCartDiscount } from "@/contexts/POSCartContext";
+import { useStore } from "@/contexts/StoreContext";
 import { reportError } from "@/lib/sentry";
 import { logger } from "@/lib/logger";
 import { ReceiptData } from "@/utils/receiptGenerator";
@@ -71,6 +72,7 @@ export function useOfflineSale(options?: {
   const { currency } = useCurrency();
   const { branding } = useBranding();
   const { settings } = useThemeSettings();
+  const { currentStore } = useStore();
   const queryClient = useQueryClient();
   const cart = usePOSCartStore((s) => s.items);
   const cartTotal = useCartTotal();
@@ -161,6 +163,7 @@ export function useOfflineSale(options?: {
           p_seller_name: profile?.owner_name || null,
           p_items: saleItems,
           p_discount_amount: discountAmount,
+          p_store_id: currentStore?.id ?? null,
         });
 
         if (rpcError || !rpcSaleId) {
@@ -258,6 +261,7 @@ export function useOfflineSale(options?: {
           p_seller_name: profile?.owner_name || null,
           p_items: saleItems,
           p_discount_amount: discountAmount,
+          p_store_id: currentStore?.id ?? null,
         },
         userId: user?.id,
         organizationId: orgId ?? undefined,

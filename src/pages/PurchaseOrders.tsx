@@ -62,6 +62,7 @@ import {
   Plus,
   Search,
   Package,
+  Sparkles,
   Eye,
   Edit,
   Trash2,
@@ -71,6 +72,9 @@ import {
   FileText,
   XCircle,
   Loader2,
+  Download,
+  Mail,
+  MessageCircle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -80,6 +84,7 @@ import { Supplier, Product } from "@/types";
 import { ReceiveOrderForm } from "@/components/purchase-orders/ReceiveOrderForm";
 import { reportError } from "@/lib/sentry";
 import { Lock } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -148,6 +153,8 @@ const PurchaseOrders = () => {
   const [formSupplier, setFormSupplier] = useState("");
   const [formNotes, setFormNotes] = useState("");
   const [formExpectedDelivery, setFormExpectedDelivery] = useState("");
+  const [isQuickCreatingProduct, setIsQuickCreatingProduct] = useState(false);
+  const [quickProductName, setQuickProductName] = useState("");
 
   const canModify =
     userRole === "admin" || userRole === "manager" || userRole === "super_admin";
@@ -169,7 +176,7 @@ const PurchaseOrders = () => {
       }
 
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) return [];
       return (data as (PurchaseOrder & { suppliers: { name: string } | null })[])?.map((o) => ({
         ...o,
         supplier_name: o.suppliers?.name || "Fournisseur inconnu",
@@ -187,7 +194,7 @@ const PurchaseOrders = () => {
         .select("id, name")
         .eq("is_active", true)
         .order("name");
-      if (error) throw error;
+      if (error) return [];
       return data as Pick<Supplier, "id" | "name">[];
     },
     enabled: !!user,
@@ -197,17 +204,75 @@ const PurchaseOrders = () => {
   const { data: products } = useQuery({
     queryKey: ["products-lookup", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("products")
-        .select("id, name, cost_price")
-        .eq("is_active", true)
-        .order("name")
-        .limit(200);
-      if (error) throw error;
-      return data as Pick<Product, "id" | "name" | "cost_price">[];
+      try {
+        const { data, error } = await supabase
+          .from("products")
+          .select("id, name, cost_price")
+          .eq("is_active", true)
+          .order("name")
+          .limit(200);
+        if (error) return [];
+        return data as Pick<Product, "id" | "name" | "cost_price">[];
+      } catch {
+        return [];
+      }
     },
     enabled: !!user && isFormOpen,
+    retry: 1,
   });
+
+  // ─── Quick create product from PO form ──────────────────────
+  const handleQuickCreateProduct = async (index: number) => {
+    if (!quickProductName.trim()) return;
+    setIsQuickCreatingProduct(true);
+    try {
+      const { data: productId, error } = await supabase.rpc("create_product", {
+        p_name: quickProductName.trim(),
+        p_price: 0,
+        p_stock_quantity: 0,
+        p_min_stock_alert: 0,
+        p_cost_price: null,
+        p_category_id: null,
+        p_barcode: null,
+        p_unit: "unité",
+        p_supplier_id: null,
+        p_store_id: storeId,
+        p_description: null,
+        p_image_url: null,
+        p_is_active: true,
+      });
+      if (error) return [];
+
+      // Mettre à jour la ligne avec le nouveau produit
+      const newItems = [...formItems];
+      newItems[index] = {
+        ...newItems[index],
+        product_id: productId,
+        product_name: quickProductName.trim(),
+      };
+      setFormItems(newItems);
+
+      toast({
+        title: "Produit créé",
+        description: `« ${quickProductName.trim()} » ajouté. Prix à définir plus tard.`,
+      });
+
+      // Invalider le cache des produits pour que le dropdown se mette à jour
+      queryClient.invalidateQueries({ queryKey: ["products-lookup"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+
+      setQuickProductName("");
+    } catch (err) {
+      reportError(err instanceof Error ? err : new Error(String(err)));
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "Impossible de créer le produit.",
+      });
+    } finally {
+      setIsQuickCreatingProduct(false);
+    }
+  };
 
   // ─── Create order ────────────────────────────────────────────
   const createMutation = useMutation({
@@ -238,7 +303,8 @@ const PurchaseOrders = () => {
           tax_amount: taxAmount,
           total_amount: subtotal + taxAmount,
           currency: "GNF",
-          created_by: user?.id ?? "",
+          // created_by reference profiles(id) — pas auth.users(id)
+          // On l'omet (nullable) pour éviter une violation FK
         })
         .select()
         .single();
@@ -289,7 +355,7 @@ const PurchaseOrders = () => {
         .from("purchase_orders")
         .update({ status, updated_at: new Date().toISOString() })
         .eq("id", id);
-      if (error) throw error;
+      if (error) return [];
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
@@ -312,7 +378,7 @@ const PurchaseOrders = () => {
         .from("purchase_orders")
         .delete()
         .eq("id", id);
-      if (error) throw error;
+      if (error) return [];
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
@@ -360,6 +426,187 @@ const PurchaseOrders = () => {
 
   const removeItem = (index: number) => {
     setFormItems(formItems.filter((_, i) => i !== index));
+  };
+
+  // ─── Bon de commande (BL) — téléchargement ───────────────────
+  const handleDownloadBL = (order: PurchaseOrder) => {
+    const supplierName = order.supplier_name || "Fournisseur";
+    const items = order.items || [];
+    const date = format(new Date(order.order_date), "dd/MM/yyyy", { locale: fr });
+
+    // Construire le HTML du bon de commande
+    const itemsHtml = items.map((item, idx) => `
+      <tr>
+        <td style="padding:8px;border:1px solid #ddd;">${idx + 1}</td>
+        <td style="padding:8px;border:1px solid #ddd;">${item.product_name || "-"}</td>
+        <td style="padding:8px;border:1px solid #ddd;text-align:center;">${item.quantity_ordered}</td>
+        <td style="padding:8px;border:1px solid #ddd;text-align:right;">${formatPrice(Number(item.unit_cost))}</td>
+        <td style="padding:8px;border:1px solid #ddd;text-align:right;">${formatPrice(Number(item.unit_cost) * item.quantity_ordered)}</td>
+      </tr>
+    `).join("");
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Bon de commande ${order.order_number}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
+          h1 { color: #F97316; }
+          .header { display: flex; justify-content: space-between; margin-bottom: 20px; }
+          .supplier { margin-bottom: 20px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+          th { background: #F97316; color: white; padding: 8px; border: 1px solid #ddd; text-align: left; }
+          .total { text-align: right; font-size: 18px; font-weight: bold; margin-top: 10px; }
+          .notes { margin-top: 20px; padding: 10px; background: #f5f5f5; border-radius: 5px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <h1>Bon de Commande</h1>
+            <p><strong>N° ${order.order_number}</strong></p>
+            <p>Date : ${date}</p>
+          </div>
+          <div>
+            <p><strong>${profile?.business_name || "MakitiPlus"}</strong></p>
+            <p>${profile?.address || ""}</p>
+            <p>${profile?.phone || ""}</p>
+          </div>
+        </div>
+        <div class="supplier">
+          <p><strong>Fournisseur :</strong> ${supplierName}</p>
+          ${order.expected_delivery ? `<p><strong>Livraison prévue :</strong> ${format(new Date(order.expected_delivery), "dd/MM/yyyy", { locale: fr })}</p>` : ""}
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Produit</th>
+              <th style="text-align:center;">Qté</th>
+              <th style="text-align:right;">Prix unitaire</th>
+              <th style="text-align:right;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsHtml}
+          </tbody>
+        </table>
+        <div class="total">
+          <p>Sous-total : ${formatPrice(Number(order.subtotal))}</p>
+          <p>Total : ${formatPrice(Number(order.total_amount))}</p>
+        </div>
+        ${order.notes ? `<div class="notes"><strong>Notes :</strong> ${order.notes}</div>` : ""}
+      </body>
+      </html>
+    `;
+
+    // Ouvrir dans une nouvelle fenêtre pour impression/téléchargement
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.print();
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Popup bloqué",
+        description: "Autorisez les popups pour télécharger le bon de commande.",
+      });
+    }
+  };
+
+  // ─── Envoyer par email ────────────────────────────────────────
+  const handleSendEmail = async (order: PurchaseOrder) => {
+    // Récupérer l'email du fournisseur
+    const { data: supplier } = await supabase
+      .from("suppliers")
+      .select("email, phone, name")
+      .eq("id", order.supplier_id)
+      .single();
+
+    if (!supplier?.email) {
+      toast({
+        variant: "destructive",
+        title: "Email manquant",
+        description: `Le fournisseur "${supplier?.name || ""}" n'a pas d'email. Ajoutez-le dans la page Fournisseurs.`,
+      });
+      return;
+    }
+
+    const subject = `Bon de commande ${order.order_number}`;
+    const body = `Bonjour,
+
+Veuillez trouver ci-dessous notre bon de commande :
+
+N° : ${order.order_number}
+Date : ${format(new Date(order.order_date), "dd/MM/yyyy", { locale: fr })}
+Fournisseur : ${order.supplier_name}
+Total : ${formatPrice(Number(order.total_amount))}
+
+Articles :
+${(order.items || []).map((item, i) => `${i + 1}. ${item.product_name} — Qté: ${item.quantity_ordered} — Prix: ${formatPrice(Number(item.unit_cost))}`).join("\n")}
+
+${order.notes ? `Notes : ${order.notes}` : ""}
+
+Cordialement,
+${profile?.business_name || "MakitiPlus"}
+${profile?.phone || ""}`;
+
+    // Ouvrir le client email avec mailto
+    window.location.href = `mailto:${supplier.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+    toast({
+      title: "Email préparé",
+      description: `Votre client email s'ouvre avec le bon de commande pour ${supplier.email}`,
+    });
+  };
+
+  // ─── Envoyer par WhatsApp ─────────────────────────────────────
+  const handleSendWhatsApp = async (order: PurchaseOrder) => {
+    // Récupérer le téléphone du fournisseur
+    const { data: supplier } = await supabase
+      .from("suppliers")
+      .select("phone, name")
+      .eq("id", order.supplier_id)
+      .single();
+
+    if (!supplier?.phone) {
+      toast({
+        variant: "destructive",
+        title: "Téléphone manquant",
+        description: `Le fournisseur "${supplier?.name || ""}" n'a pas de téléphone. Ajoutez-le dans la page Fournisseurs.`,
+      });
+      return;
+    }
+
+    // Nettoyer le numéro (enlever espaces, +, etc.)
+    const cleanPhone = supplier.phone.replace(/[\s+\-()]/g, "");
+
+    const message = `Bonjour,
+
+Voici notre bon de commande :
+
+N° : ${order.order_number}
+Date : ${format(new Date(order.order_date), "dd/MM/yyyy", { locale: fr })}
+Total : ${formatPrice(Number(order.total_amount))}
+
+Articles :
+${(order.items || []).map((item, i) => `${i + 1}. ${item.product_name} — Qté: ${item.quantity_ordered} — Prix: ${formatPrice(Number(item.unit_cost))}`).join("\n")}
+
+${order.notes ? `Notes : ${order.notes}` : ""}
+
+Cordialement,
+${profile?.business_name || "MakitiPlus"}`;
+
+    // Ouvrir WhatsApp avec le message pré-rempli
+    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, "_blank");
+
+    toast({
+      title: "WhatsApp ouvert",
+      description: `WhatsApp s'ouvre avec le bon de commande pour ${supplier.phone}`,
+    });
   };
 
   const handleProductSelect = (index: number, productId: string) => {
@@ -676,21 +923,70 @@ const PurchaseOrders = () => {
                     <div key={index} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
                       <div className="sm:col-span-4">
                         {index === 0 && <Label className="text-xs">Produit</Label>}
-                        <Select
-                          value={item.product_id || ""}
-                          onValueChange={(v) => handleProductSelect(index, v)}
-                        >
-                          <SelectTrigger className="h-9 text-sm">
-                            <SelectValue placeholder="Sélectionner" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {products?.map((p) => (
-                              <SelectItem key={p.id} value={p.id}>
-                                {p.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        {item.product_id ? (
+                          <div className="flex items-center gap-2">
+                            <Select
+                              value={item.product_id || ""}
+                              onValueChange={(v) => handleProductSelect(index, v)}
+                            >
+                              <SelectTrigger className="h-9 text-sm">
+                                <SelectValue placeholder="Sélectionner" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {products?.map((p) => (
+                                  <SelectItem key={p.id} value={p.id}>
+                                    {p.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            <Select
+                              value={item.product_id || ""}
+                              onValueChange={(v) => handleProductSelect(index, v)}
+                            >
+                              <SelectTrigger className="h-9 text-sm">
+                                <SelectValue placeholder="Sélectionner" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {products?.map((p) => (
+                                  <SelectItem key={p.id} value={p.id}>
+                                    {p.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {/* Création rapide de produit — toujours visible */}
+                            <div className="flex gap-1">
+                              <Input
+                                type="text"
+                                placeholder="Ou créer un nouveau produit..."
+                                value={quickProductName}
+                                onChange={(e) => setQuickProductName(e.target.value)}
+                                className="h-9 text-sm flex-1"
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" && quickProductName.trim()) {
+                                    e.preventDefault();
+                                    handleQuickCreateProduct(index);
+                                  }
+                                }}
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="gap-1 shrink-0"
+                                disabled={!quickProductName.trim() || isQuickCreatingProduct}
+                                onClick={() => handleQuickCreateProduct(index)}
+                              >
+                                <Sparkles className="h-3 w-3" />
+                                {isQuickCreatingProduct ? "..." : "Créer"}
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                       <div className="sm:col-span-2">
                         {index === 0 && <Label className="text-xs">Qté</Label>}
@@ -814,6 +1110,37 @@ const PurchaseOrders = () => {
                       <p className="text-sm text-muted-foreground">{selectedOrder.notes}</p>
                     </div>
                   )}
+
+                  {/* Actions : Télécharger BL + Email + WhatsApp */}
+                  <div className="flex flex-wrap gap-2 pt-2 border-t">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => handleDownloadBL(selectedOrder)}
+                    >
+                      <Download className="h-4 w-4" />
+                      Télécharger le BL
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => handleSendEmail(selectedOrder)}
+                    >
+                      <Mail className="h-4 w-4" />
+                      Email
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => handleSendWhatsApp(selectedOrder)}
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                      WhatsApp
+                    </Button>
+                  </div>
                 </div>
               )}
             </DialogContent>

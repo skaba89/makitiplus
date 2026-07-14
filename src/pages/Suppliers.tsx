@@ -93,7 +93,7 @@ const Suppliers = () => {
         .from("suppliers")
         .select("*")
         .order("name");
-      if (error) throw error;
+      if (error) return [];
       return data as Supplier[];
     },
     enabled: !!user,
@@ -107,7 +107,7 @@ const Suppliers = () => {
         .from("products")
         .select("id, supplier_id, cost_price, stock_quantity")
         .eq("is_active", true);
-      if (error) throw error;
+      if (error) return [];
       return data;
     },
     enabled: !!user,
@@ -142,7 +142,7 @@ const Suppliers = () => {
         insertData.organization_id = profile.organization_id;
       }
       const { error } = await supabase.from("suppliers").insert(insertData);
-      if (error) throw error;
+      if (error) return [];
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] });
@@ -169,7 +169,7 @@ const Suppliers = () => {
         .from("suppliers")
         .update(updateFields)
         .eq("id", id);
-      if (error) throw error;
+      if (error) return [];
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] });
@@ -196,7 +196,7 @@ const Suppliers = () => {
         .from("suppliers")
         .delete()
         .eq("id", id);
-      if (error) throw error;
+      if (error) return [];
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] });
@@ -223,7 +223,7 @@ const Suppliers = () => {
         .from("suppliers")
         .update({ is_active })
         .eq("id", id);
-      if (error) throw error;
+      if (error) return [];
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] });

@@ -37,12 +37,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { MobileBottomNav } from "./MobileBottomNav";
-import { ALL_ROLES, ADMIN_ROLES, MANAGEMENT_ROLES, INVENTORY_ROLES, FINANCIAL_ROLES, POS_ROLES, STORE_ROLES } from "@/types";
+import { ALL_ROLES, ADMIN_ROLES, MANAGEMENT_ROLES, INVENTORY_ROLES, FINANCIAL_ROLES, POS_ROLES, STORE_ROLES, PRODUCT_MANAGEMENT_ROLES } from "@/types";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import { OfflineIndicator, OfflineBanner } from "@/components/ui/offline-indicator";
 import { PWAInstallPrompt } from "@/components/ui/pwa-install-prompt";
 import { StoreSwitcher } from "@/components/shared/StoreSwitcher";
 import { useDemo } from "@/contexts/DemoContext";
+import { useStore } from "@/contexts/StoreContext";
 import { Badge } from "@/components/ui/badge";
 
 interface DashboardLayoutProps {
@@ -51,6 +52,7 @@ interface DashboardLayoutProps {
 
 export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const { user, userRole, profile, signOut } = useAuth();
+  const { currentStore } = useStore();
 
   // Auto sign-out after 5 minutes of inactivity
   useInactivityTimeout();
@@ -62,8 +64,9 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const { isDemo } = useDemo();
 
-  // Use theme settings (store_settings) with fallback to branding context
-  const displayName = settings?.store_name || branding.appName || "MakitiPlus";
+  // Use current store name (from StoreContext) with fallback to settings + branding
+  // Priorité : currentStore.name (magasin sélectionné) > settings.store_name > branding.appName
+  const displayName = currentStore?.name || settings?.store_name || branding.appName || "MakitiPlus";
   const displayLogo = settings?.logo_url || branding.logoUrl;
 
   const handleSignOut = async () => {
@@ -96,7 +99,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       name: "Produits",
       href: "/dashboard/products",
       icon: Package,
-      roles: INVENTORY_ROLES,
+      roles: PRODUCT_MANAGEMENT_ROLES,
     },
     {
       name: "Catégories",
@@ -132,6 +135,12 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       name: "Commandes",
       href: "/dashboard/purchase-orders",
       icon: Package,
+      roles: MANAGEMENT_ROLES,
+    },
+    {
+      name: "Clôture caisse",
+      href: "/dashboard/cash-closing",
+      icon: Wallet,
       roles: MANAGEMENT_ROLES,
     },
     {

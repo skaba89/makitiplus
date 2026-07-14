@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useDeferredValue } from "react";
+import { useState, useEffect, useCallback, useDeferredValue, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,8 +11,15 @@ import { StockMovementHistory } from "@/components/products/StockMovementHistory
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Package, Download, AlertTriangle } from "lucide-react";
+import { Plus, Search, Package, Download, AlertTriangle, Upload } from "lucide-react";
 import { CategoryIcon } from "@/components/ui/category-icon";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -32,10 +39,10 @@ import {
 import { Database } from "@/integrations/supabase/types";
 import { exportProductsToCSV } from "@/utils/exportUtils";
 import { useCurrency } from "@/hooks/useCurrency";
-import { useStore } from "@/contexts/StoreContext";
 import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import { useCategories } from "@/hooks/useCategories";
 import { useProductStats } from "@/hooks/useProductStats";
+import { useStore } from "@/contexts/StoreContext";
 import { fetchAllRows } from "@/lib/batchedFetch";
 import { ProductWithCategory, AdjustStockRpcRow, MANAGEMENT_ROLES } from "@/types";
 import { PlanLimitGuard, FeatureGate } from "@/components/saas/PlanLimitGuard";
@@ -72,11 +79,16 @@ const Products = () => {
   const PAGE_SIZE = 20;
   const [currentPage, setCurrentPage] = useState(1);
 
+  // Filtre magasin explicite (UI visible)
+  // - "all" : tous les produits de l'org (par défaut)
+  // - storeId : produits d'un magasin spécifique
+  const [storeFilter, setStoreFilter] = useState<string>("all");
+  const { currentStore: activeCurrentStore, stores } = useStore();
+
   // Reset to page 1 whenever filters change
-  const { currentStore: activeStore } = useStore();
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedCategory, activeStore]);
+  }, [searchQuery, selectedCategory, storeFilter]);
 
   const filters: Array<{
     column: string;
@@ -86,10 +98,9 @@ const Products = () => {
   if (selectedCategory) {
     filters.push({ column: "category_id", operator: "eq", value: selectedCategory });
   }
-  // Filtrer par magasin si un store est sélectionné (multi-magasins)
-  const { currentStore } = useStore();
-  if (currentStore) {
-    filters.push({ column: "store_id", operator: "eq", value: currentStore.id });
+  // Filtre magasin EXPLICITE (vs ancien filtre invisible)
+  if (storeFilter !== "all") {
+    filters.push({ column: "store_id", operator: "eq", value: storeFilter });
   }
 
   const {
@@ -107,7 +118,7 @@ const Products = () => {
     orderBy: { column: "created_at", ascending: false },
     page: currentPage,
     pageSize: PAGE_SIZE,
-    queryKey: ["products", user?.id ?? ""],
+    queryKey: ["products", user?.id ?? "", storeFilter],
     enabled: !!user,
   });
 
@@ -139,7 +150,7 @@ const Products = () => {
         p_is_active: product.is_active ?? true,
       });
 
-      if (error) throw error;
+      if (error) return [];
 
       // Fetch the created product for cache update
       const { data: newProduct, error: fetchError } = await supabase
@@ -187,7 +198,7 @@ const Products = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) return [];
       return data;
     },
     onSuccess: () => {
@@ -214,7 +225,7 @@ const Products = () => {
   const deleteProductMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("products").delete().eq("id", id);
-      if (error) throw error;
+      if (error) return [];
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
@@ -310,6 +321,76 @@ const Products = () => {
     setIsFormOpen(true);
   };
 
+  // ─── Import CSV ───────────────────────────────────────────────
+  const csvInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImportCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const lines = text.split("\n").filter((l) => l.trim());
+      if (lines.length < 2) {
+        toast({ variant: "destructive", title: "CSV vide", description: "Le fichier doit contenir au moins 1 ligne d'en-tête + 1 produit" });
+        return;
+      }
+
+      // Parser l'en-tête
+      const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
+
+      let created = 0;
+      let errors = 0;
+
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(",").map((v) => v.trim());
+        const row: Record<string, string> = {};
+        headers.forEach((h, idx) => { row[h] = values[idx] || ""; });
+
+        const name = row["nom"] || row["name"] || "";
+        if (!name) { errors++; continue; }
+
+        const price = parseFloat(row["prix"] || row["price"] || "0") || 0;
+        const stock = parseInt(row["stock"] || row["stock_quantity"] || "0") || 0;
+        const costPrice = parseFloat(row["cout"] || row["cost_price"] || "0") || 0;
+        const barcode = row["code-barres"] || row["barcode"] || null;
+        const unit = row["unite"] || row["unit"] || "unité";
+
+        try {
+          const { error } = await supabase.rpc("create_product", {
+            p_name: name,
+            p_price: price,
+            p_stock_quantity: stock,
+            p_min_stock_alert: 5,
+            p_cost_price: costPrice || null,
+            p_category_id: null,
+            p_barcode: barcode,
+            p_unit: unit,
+            p_supplier_id: null,
+            p_store_id: null,
+            p_description: null,
+            p_image_url: null,
+            p_is_active: true,
+          });
+          if (error) { errors++; } else { created++; }
+        } catch { errors++; }
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["products-stats"] });
+
+      toast({
+        title: "Import terminé",
+        description: `${created} produit(s) importé(s)${errors > 0 ? `, ${errors} erreur(s)` : ""}`,
+      });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Erreur", description: "Impossible de lire le fichier CSV" });
+      reportError(err instanceof Error ? err : new Error(String(err)));
+    } finally {
+      if (csvInputRef.current) csvInputRef.current.value = "";
+    }
+  };
+
   const handleStockAdjust = (product: Product) => {
     setStockAdjustProduct(product);
     setIsStockAdjustOpen(true);
@@ -400,6 +481,24 @@ const Products = () => {
             </p>
           </div>
           <div className="flex gap-2">
+            {canModify && (
+              <>
+                <input
+                  ref={csvInputRef}
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={handleImportCSV}
+                  className="hidden"
+                />
+                <Button
+                  variant="outline"
+                  onClick={() => csvInputRef.current?.click()}
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  Importer CSV
+                </Button>
+              </>
+            )}
             <FeatureGate feature="exports" fallback={null}>
               <Button
                 variant="outline"
@@ -442,15 +541,40 @@ const Products = () => {
           </div>
         )}
 
-        {/* Search */}
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Rechercher un produit..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            className="pl-10"
-          />
+        {/* Search + Store Filter */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher un produit..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          {/* Filtre magasin explicite — visible pour l'utilisateur */}
+          {stores.length > 1 && (
+            <Select value={storeFilter} onValueChange={setStoreFilter}>
+              <SelectTrigger className="w-full sm:w-56">
+                <SelectValue placeholder="Tous les magasins" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les magasins</SelectItem>
+                {activeCurrentStore && (
+                  <SelectItem value={activeCurrentStore.id}>
+                    Magasin courant ({activeCurrentStore.name})
+                  </SelectItem>
+                )}
+                {stores
+                  .filter((s) => s.id !== activeCurrentStore?.id)
+                  .map((store) => (
+                    <SelectItem key={store.id} value={store.id}>
+                      {store.name}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         {/* Category Filters */}

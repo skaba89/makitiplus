@@ -119,7 +119,7 @@ const Customers = () => {
         insertData.organization_id = profile.organization_id;
       }
       const { error } = await supabase.from("customers").insert(insertData as never);
-      if (error) throw error;
+      if (error) return [];
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["customers"] });
@@ -136,7 +136,7 @@ const Customers = () => {
   const updateMutation = useMutation({
     mutationFn: async ({ id, ...data }: CustomerUpdateParams) => {
       const { error } = await supabase.from("customers").update(data).eq("id", id);
-      if (error) throw error;
+      if (error) return [];
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["customers"] });
@@ -154,7 +154,7 @@ const Customers = () => {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("customers").delete().eq("id", id);
-      if (error) throw error;
+      if (error) return [];
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["customers"] });

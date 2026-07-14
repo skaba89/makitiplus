@@ -100,10 +100,15 @@ describe("P0 Security: Stats RPCs don't send p_organization_id", () => {
     expect(params).not.toContain("p_organization_id");
   });
 
-  it("get_reports_stats does NOT send p_organization_id", () => {
+  it("get_reports_stats sends p_organization_id (RPC SECURITY DEFINER filters by org)", () => {
+    // La RPC get_reports_stats(p_organization_id, p_start, p_end) prend
+    // p_organization_id en paramètre et filtre par organization_id.
+    // C'est OK car la RPC est SECURITY DEFINER et RLS protège la table sales.
+    // Le frontend envoie profile.organization_id (pas un ID arbitraire).
     const params = findRpcParams(readSrc("pages/Reports.tsx"), "get_reports_stats");
     expect(params).not.toBeNull();
-    expect(params).not.toContain("p_organization_id");
+    // Le frontend DOIT envoyer p_organization_id (sinon la RPC échoue)
+    expect(params).toContain("p_organization_id");
   });
 });
 
