@@ -396,21 +396,31 @@ const Stores = () => {
     if (!storeToDelete) return;
     if (blockMutation('Gérer les boutiques')) return;
     try {
-      // Use server-side RPC for safe organization deletion (super_admin only, audit logging)
-      // Note: This page manages organizations (presented as "stores" in the UI)
-      const { error } = await supabase.rpc("delete_organization", { p_organization_id: storeToDelete.id });
-      if (error) return [];
-      toast({ title: "Organisation supprimée", description: `"${storeToDelete.name}" et tous ses magasins ont été supprimés.` });
+      // Si c'est une organisation (storeToDelete.real_stores existe), supprimer l'org
+      // Si c'est un magasin spécifique (storeToDelete.storeToDeleteId existe), supprimer le store
+      if (storeToDelete.storeToDeleteId) {
+        // Supprimer un magasin spécifique
+        const { error } = await supabase.rpc("delete_store", { p_store_id: storeToDelete.storeToDeleteId });
+        if (error) {
+          const msg = extractErrorMessage(error);
+          toast({ variant: "destructive", title: "Erreur", description: msg });
+          return;
+        }
+        toast({ title: "Magasin supprimé", description: `"${storeToDelete.storeToDeleteName}" a été supprimé.` });
+      } else {
+        // Supprimer l'organisation entière
+        const { error } = await supabase.rpc("delete_organization", { p_organization_id: storeToDelete.id });
+        if (error) return [];
+        toast({ title: "Organisation supprimée", description: `"${storeToDelete.name}" et tous ses magasins ont été supprimés.` });
+      }
       queryClient.invalidateQueries({ queryKey: ["stores"] });
     } catch (error) {
       const message = extractErrorMessage(error);
       reportError(error instanceof Error ? error : new Error(message));
-      // Handle permission errors
       const isPermissionDenied = message.includes('Accès refusé') || message.includes('super administrateur');
-      const isNotFound = message.includes('introuvable');
       toast({
         variant: "destructive",
-        title: isPermissionDenied ? "Accès refusé" : isNotFound ? "Introuvable" : "Erreur",
+        title: isPermissionDenied ? "Accès refusé" : "Erreur",
         description: isPermissionDenied
           ? "Seul un super administrateur peut supprimer une organisation."
           : message,
@@ -723,15 +733,53 @@ const Stores = () => {
                             <UserPlus className="h-3 w-3" />
                             Admin
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="text-destructive"
-                            onClick={() => handleDeleteStore(store)}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
+                          {/* Bouton supprimer organisation (super_admin only) */}
+                          {userRole === "super_admin" && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-destructive"
+                              onClick={() => {
+                                setStoreToDelete({ ...store, storeToDeleteId: undefined, storeToDeleteName: undefined });
+                                setDeleteDialogOpen(true);
+                              }}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          )}
                         </div>
+                        {/* Magasins individuels sous l'organisation */}
+                        {store.real_stores && store.real_stores.length > 0 && (
+                          <div className="mt-2 space-y-1">
+                            <p className="text-xs text-muted-foreground font-medium">Magasins ({store.real_stores.length}) :</p>
+                            {store.real_stores.map((rs) => (
+                              <div key={rs.id} className="flex items-center justify-between text-xs bg-muted/30 rounded px-2 py-1">
+                                <span className="flex items-center gap-1">
+                                  <Store className="h-3 w-3 text-primary" />
+                                  {rs.name}
+                                  {rs.is_headquarters && <Badge variant="outline" className="text-[10px] px-1">Siège</Badge>}
+                                </span>
+                                {(userRole === "super_admin" || userRole === "admin") && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-5 w-5 p-0 text-destructive"
+                                    onClick={() => {
+                                      setStoreToDelete({
+                                        ...store,
+                                        storeToDeleteId: rs.id,
+                                        storeToDeleteName: rs.name,
+                                      } as StoreWithAdmin & { storeToDeleteId?: string; storeToDeleteName?: string });
+                                      setDeleteDialogOpen(true);
+                                    }}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -816,11 +864,15 @@ const Stores = () => {
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Supprimer cette organisation</AlertDialogTitle>
+              <AlertDialogTitle>
+                {storeToDelete?.storeToDeleteId
+                  ? `Supprimer le magasin "${storeToDelete.storeToDeleteName}"`
+                  : `Supprimer l'organisation "${storeToDelete?.name}"`}
+              </AlertDialogTitle>
               <AlertDialogDescription>
-                Êtes-vous sûr de vouloir supprimer l'organisation "{storeToDelete?.name}" ? 
-                Cela supprimera également tous ses magasins, abonnements et données associées. 
-                Cette action est irréversible.
+                {storeToDelete?.storeToDeleteId
+                  ? "Ce magasin et ses données (ventes, stock) seront supprimés. L'organisation restera intacte. Cette action est irréversible."
+                  : "Cette organisation et tous ses magasins, abonnements et données associées seront supprimés. Cette action est irréversible."}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
