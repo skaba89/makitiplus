@@ -187,6 +187,11 @@ const Stores = () => {
   const [createMode, setCreateMode] = useState<"org" | "store">("org");
   // Pour le super_admin : choix de l'organisation cible si mode "store"
   const [targetOrgId, setTargetOrgId] = useState<string>("");
+  // Admin à créer en même temps que l'organisation
+  const [adminName, setAdminName] = useState("");
+  const [adminEmail, setAdminEmail] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
+  const [adminPhone, setAdminPhone] = useState("");
 
   // Sélection auto de la devise selon le pays
   const handleCountryChange = (countryCode: string) => {
@@ -198,11 +203,7 @@ const Stores = () => {
   };
   const [creating, setCreating] = useState(false);
 
-  // Formulaire nouvel admin
-  const [adminEmail, setAdminEmail] = useState("");
-  const [adminPassword, setAdminPassword] = useState("");
-  const [adminName, setAdminName] = useState("");
-  const [adminPhone, setAdminPhone] = useState("");
+  // Formulaire nouvel admin (réutilisé pour le dialogue "Ajouter admin")
   const [creatingAdmin, setCreatingAdmin] = useState(false);
 
   // Récupération des magasins avec React Query — requête groupée pour éviter N+1
@@ -297,7 +298,7 @@ const Stores = () => {
         const finalOrgName = orgName.trim() || storeName.trim();
         const finalStoreName = storeName.trim() || orgName.trim();
 
-        const { data, error } = await supabase.rpc("create_first_organization", {
+        const { data: newStoreId, error: orgError } = await supabase.rpc("create_first_organization", {
           p_org_name: finalOrgName,
           p_store_name: finalStoreName,
           p_store_slug: slug || `store-${Date.now()}`,
@@ -306,16 +307,51 @@ const Stores = () => {
           p_currency: storeCurrency,
         });
 
-        if (error) {
-          const msg = extractErrorMessage(error);
+        if (orgError) {
+          const msg = extractErrorMessage(orgError);
           toast({ variant: "destructive", title: "Erreur", description: msg });
           return;
         }
 
-        toast({
-          title: "Organisation créée",
-          description: `Organisation "${finalOrgName}" créée avec le magasin "${finalStoreName}". Ajoutez un admin via le bouton "Admin".`
-        });
+        // Si un admin est renseigné, le créer via l'Edge Function
+        if (adminEmail.trim() && adminPassword.trim() && adminName.trim()) {
+          try {
+            const { data: adminResult, error: adminError } = await supabase.functions.invoke("admin-create-user", {
+              body: {
+                email: adminEmail.trim(),
+                password: adminPassword.trim(),
+                ownerName: adminName.trim(),
+                phone: adminPhone.trim() || null,
+                role: "admin",
+                requireEmailVerification: false,
+                targetOrganizationId: undefined, // l'Edge Function utilise l'org du super_admin
+                targetBusinessName: finalOrgName,
+              },
+            });
+
+            const fnData = adminResult as { success?: boolean; error?: string; userId?: string } | undefined;
+            if (adminError || fnData?.error) {
+              throw new Error(fnData?.error || adminError?.message || "Erreur création admin");
+            }
+
+            toast({
+              title: "Organisation et admin créés",
+              description: `Organisation "${finalOrgName}" + magasin "${finalStoreName}" + admin "${adminName.trim()}" créés avec succès.`
+            });
+          } catch (adminErr) {
+            const adminMsg = adminErr instanceof Error ? adminErr.message : String(adminErr);
+            toast({
+              title: "Organisation créée, admin en échec",
+              description: `L'organisation a été créée mais l'admin n'a pas pu être créé : ${adminMsg}. Utilisez le bouton "Admin" pour réessayer.`,
+              variant: "destructive",
+            });
+          }
+        } else {
+          toast({
+            title: "Organisation créée",
+            description: `Organisation "${finalOrgName}" créée avec le magasin "${finalStoreName}". Ajoutez un admin via le bouton "Admin".`
+          });
+        }
       } else {
         // MODE MAGASIN : ajouter un magasin à une organisation existante
         const orgId = userRole === "super_admin" ? targetOrgId : profile?.organization_id;
@@ -349,6 +385,10 @@ const Stores = () => {
       setStoreName("");
       setOrgName("");
       setStoreCity("");
+      setAdminName("");
+      setAdminEmail("");
+      setAdminPassword("");
+      setAdminPhone("");
       setStoreCategory("epicerie");
       setTargetOrgId("");
       setDialogOpen(false);
@@ -674,6 +714,61 @@ const Stores = () => {
                     </Select>
                   </div>
                 </div>
+
+                {/* Section administrateur (mode org seulement) */}
+                {createMode === "org" && (
+                  <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
+                    <p className="text-sm font-medium">Administrateur de l'organisation (optionnel)</p>
+                    <p className="text-xs text-muted-foreground">
+                      Créez l'administrateur en même temps que l'organisation. Il pourra se connecter immédiatement.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label htmlFor="admin-name" className="text-xs">Nom complet</Label>
+                        <Input
+                          id="admin-name"
+                          value={adminName}
+                          onChange={(e) => setAdminName(e.target.value)}
+                          placeholder="Ex: Mamadou Diallo"
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="admin-phone" className="text-xs">Téléphone</Label>
+                        <Input
+                          id="admin-phone"
+                          value={adminPhone}
+                          onChange={(e) => setAdminPhone(e.target.value)}
+                          placeholder="Ex: +224 622 000 000"
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="admin-email" className="text-xs">Email</Label>
+                      <Input
+                        id="admin-email"
+                        type="email"
+                        value={adminEmail}
+                        onChange={(e) => setAdminEmail(e.target.value)}
+                        placeholder="Ex: admin@boutique.com"
+                        className="h-9 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="admin-password" className="text-xs">Mot de passe</Label>
+                      <Input
+                        id="admin-password"
+                        type="password"
+                        value={adminPassword}
+                        onChange={(e) => setAdminPassword(e.target.value)}
+                        placeholder="Min. 8 caractères, 1 majuscule, 1 chiffre"
+                        className="h-9 text-sm"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <DialogFooter>
                   <Button type="submit" disabled={creating}>
                     {creating ? "Création..." : "Créer le magasin"}
