@@ -85,12 +85,15 @@ export default defineConfig(({ mode }) => ({
         cleanupOutdatedCaches: true,
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/~oauth/, /^\/api\//],
-        // Fix: utiliser un revision fixe au lieu de Date.now() pour éviter
-        // les conflits de cache "add-to-cache-list-conflicting-entries"
-        additionalManifestEntries: [
-          { url: "/offline.html", revision: "makitiplus-offline-v1" },
-        ],
+        // Pas de additionalManifestEntries pour offline.html — Workbox l'ajoute
+        // automatiquement via globPatterns avec un hash. Sinon : conflit
+        // "add-to-cache-list-conflicting-entries" (2 révisions pour le même fichier).
         globPatterns: ["**/*.{js,css,html,svg,png,ico,webmanifest,woff2}"],
+        globIgnores: ["**/offline.html"],
+        // Precache offline.html explicitement (une seule entrée, pas de conflit)
+        additionalManifestEntries: [
+          { url: "/offline.html", revision: "makitiplus-offline-v2" },
+        ],
         runtimeCaching: [
           // HTML navigations — NetworkFirst with offline.html fallback
           // M4 fix: If network is unreachable AND index.html isn't cached,
