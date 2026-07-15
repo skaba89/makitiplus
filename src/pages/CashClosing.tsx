@@ -20,6 +20,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
+import { CurrencyDisplaySelector } from "@/components/ui/currency-display-selector";
 import { useToast } from "@/hooks/use-toast";
 import { reportError } from "@/lib/sentry";
 import { extractErrorMessage } from "@/lib/extractErrorMessage";
@@ -49,6 +51,15 @@ const PAYMENT_ICONS: Record<string, string> = {
 export default function CashClosing() {
   const { user, profile } = useAuth();
   const { formatPrice } = useCurrency();
+  const {
+    formatDisplayPrice,
+    displayCurrencyCode,
+    orgCurrencyCode,
+    setDisplayCurrency,
+    ratesLoading,
+    refreshRates,
+    isConverted,
+  } = useDisplayCurrency();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -215,14 +226,23 @@ export default function CashClosing() {
     <DashboardLayout>
       <div className="space-y-6 max-w-3xl mx-auto">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Wallet className="h-6 w-6 text-primary" />
-            Clôture de Caisse
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            {format(today, "EEEE dd MMMM yyyy", { locale: fr })}
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <Wallet className="h-6 w-6 text-primary" />
+              Clôture de Caisse
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              {format(today, "EEEE dd MMMM yyyy", { locale: fr })}
+            </p>
+          </div>
+          <CurrencyDisplaySelector
+            orgCurrencyCode={orgCurrencyCode}
+            displayCurrencyCode={displayCurrencyCode}
+            onDisplayCurrencyChange={setDisplayCurrency}
+            ratesLoading={ratesLoading}
+            onRefreshRates={refreshRates}
+          />
         </div>
 
         {/* Résumé des ventes par mode de paiement */}
@@ -259,7 +279,7 @@ export default function CashClosing() {
                       </div>
                     </div>
                     <span className="font-bold text-lg">
-                      {formatPrice(s.total)}
+                      {formatDisplayPrice(s.total, { showOriginal: isConverted })}
                     </span>
                   </div>
                 ))}
@@ -274,7 +294,7 @@ export default function CashClosing() {
             <CardContent className="pt-6">
               <div className="text-sm text-muted-foreground mb-1">Total ventes</div>
               <div className="text-2xl font-bold text-primary">
-                {formatPrice(totalSales)}
+                {formatDisplayPrice(totalSales, { showOriginal: isConverted })}
               </div>
             </CardContent>
           </Card>
@@ -282,7 +302,7 @@ export default function CashClosing() {
             <CardContent className="pt-6">
               <div className="text-sm text-muted-foreground mb-1">Dépenses</div>
               <div className="text-2xl font-bold text-destructive">
-                {formatPrice(totalExpenses)}
+                {formatDisplayPrice(totalExpenses, { showOriginal: isConverted })}
               </div>
             </CardContent>
           </Card>
@@ -292,7 +312,7 @@ export default function CashClosing() {
                 Caisse attendue (espèces - dépenses)
               </div>
               <div className="text-2xl font-bold text-primary">
-                {formatPrice(expectedCash)}
+                {formatDisplayPrice(expectedCash, { showOriginal: isConverted })}
               </div>
             </CardContent>
           </Card>
@@ -346,12 +366,12 @@ export default function CashClosing() {
                     {difference === 0
                       ? "Caisse parfaite — aucun écart"
                       : difference > 0
-                      ? `Excédent de ${formatPrice(Math.abs(difference))}`
-                      : `Manque de ${formatPrice(Math.abs(difference))}`}
+                      ? `Excédent de ${formatDisplayPrice(Math.abs(difference), { showOriginal: isConverted })}`
+                      : `Manque de ${formatDisplayPrice(Math.abs(difference), { showOriginal: isConverted })}`}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Attendu : {formatPrice(expectedCash)} | Réel :{" "}
-                    {formatPrice(parseFloat(actualCash) || 0)}
+                    Attendu : {formatDisplayPrice(expectedCash, { showOriginal: isConverted })} | Réel : {" "}
+                    {formatDisplayPrice(parseFloat(actualCash) || 0, { showOriginal: isConverted })}
                   </p>
                 </div>
               </div>

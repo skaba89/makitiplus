@@ -57,6 +57,8 @@ import { Database } from "@/integrations/supabase/types";
 import { FINANCIAL_ROLES } from "@/types";
 import { useExpenseStats } from "@/hooks/useExpenseStats";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
+import { CurrencyDisplaySelector } from "@/components/ui/currency-display-selector";
 import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import { reportError } from "@/lib/sentry";
  
@@ -93,6 +95,15 @@ const Expenses = () => {
   const { toast } = useToast();
   const { blockMutation } = useDemo();
   const { formatPrice } = useCurrency();
+  const {
+    formatDisplayPrice,
+    displayCurrencyCode,
+    orgCurrencyCode,
+    setDisplayCurrency,
+    ratesLoading,
+    refreshRates,
+    isConverted,
+  } = useDisplayCurrency();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
@@ -309,6 +320,14 @@ const Expenses = () => {
              </p>
            </div>
  
+           <div className="flex flex-wrap items-center gap-2">
+             <CurrencyDisplaySelector
+               orgCurrencyCode={orgCurrencyCode}
+               displayCurrencyCode={displayCurrencyCode}
+               onDisplayCurrencyChange={setDisplayCurrency}
+               ratesLoading={ratesLoading}
+               onRefreshRates={refreshRates}
+             />
            <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
              {canModify && (
                <DialogTrigger asChild>
@@ -409,6 +428,7 @@ const Expenses = () => {
                </form>
              </DialogContent>
            </Dialog>
+           </div>
          </div>
  
          {/* Stats Cards */}
@@ -422,7 +442,7 @@ const Expenses = () => {
              </CardHeader>
              <CardContent>
                <div className="text-lg sm:text-2xl font-bold text-destructive">
-                 {formatPrice(thisMonthExpenses)}
+                 {formatDisplayPrice(thisMonthExpenses, { showOriginal: isConverted })}
                </div>
              </CardContent>
            </Card>
@@ -502,7 +522,7 @@ const Expenses = () => {
                              {expense.description || "-"}
                            </TableCell>
                            <TableCell className="text-right font-medium text-destructive">
-                             -{formatPrice(expense.amount)}
+                             -{formatDisplayPrice(expense.amount, { showOriginal: isConverted })}
                            </TableCell>
                            <TableCell>
                              {canModify && (
