@@ -481,13 +481,33 @@ const Users = () => {
     }
     setResetting(true);
     try {
-      const { data, error } = await supabase.functions.invoke("admin-manage-user", {
-        body: { userId: resetTarget.user_id, action: "reset_password", newPassword },
+      // Utiliser fetch direct pour récupérer le VRAI message d'erreur
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("Non authentifié");
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const response = await fetch(`${supabaseUrl}/functions/v1/admin-manage-user`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          userId: resetTarget.user_id,
+          action: "reset_password",
+          newPassword,
+        }),
       });
-      const fnData = data as AdminActionResponse | undefined;
-      if (error || fnData?.error) {
-        throw new Error(fnData?.error || error?.message || "Erreur");
+
+      const resultText = await response.text();
+      let resultJson: { success?: boolean; error?: string } = {};
+      try { resultJson = JSON.parse(resultText); } catch { resultJson = { error: resultText }; }
+
+      if (!response.ok) {
+        throw new Error(resultJson.error || `Erreur ${response.status}`);
       }
+
       toast({
         title: "Mot de passe réinitialisé",
         description: `Nouveau mot de passe défini pour ${resetTarget.owner_name}. Sessions déconnectées.`,

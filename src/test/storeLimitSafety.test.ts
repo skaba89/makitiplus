@@ -15,11 +15,15 @@ describe("Store creation plan-limit safety", () => {
     expect(sql).toContain("Seuls les administrateurs peuvent créer des boutiques");
   });
 
-  it("frontend store creation still uses the onboarding RPC but server-side quota is enforced", () => {
+  it("frontend store creation uses the appropriate RPC (super_admin_create_organization or create_store)", () => {
     const stores = read("src/pages/Stores.tsx");
     const sql = read("supabase/migrations/20260706190000_enforce_store_limit_in_first_org_rpc.sql");
 
-    expect(stores).toContain("create_first_organization");
+    // Stores.tsx uses super_admin_create_organization for new org creation
+    // (replaced create_first_organization which was bugged) and create_store
+    // for adding a store to an existing org.
+    expect(stores).toContain("super_admin_create_organization");
+    expect(stores).toContain("create_store");
     expect(sql).toContain("check_plan_limit('stores')");
   });
 });

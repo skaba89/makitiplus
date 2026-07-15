@@ -59,6 +59,8 @@ import {
   Eye,
 } from "lucide-react";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useExchangeRates, convertAmount } from "@/hooks/useExchangeRates";
+import { getCurrencyByCode, formatPrice as formatPriceUtil, COUNTRIES } from "@/utils/currencies";
 import { reportError } from "@/lib/sentry";
 import { FeatureGate } from "@/components/saas/PlanLimitGuard";
 import { format } from "date-fns";
@@ -181,9 +183,54 @@ const movementTypeLabels: Record<string, string> = {
 const AdminAnalytics = () => {
   const { userRole } = useAuth();
   const navigate = useNavigate();
-  const { formatPrice } = useCurrency();
+  const { formatPrice, currency: orgCurrency } = useCurrency();
+  const { rates, loading: ratesLoading } = useExchangeRates();
   const [period, setPeriod] = useState<Period>("month");
   const [selectedStoreId, setSelectedStoreId] = useState<string>("all");
+
+  // Devise pivot pour comparer les organisations entre elles (toutes devises confondues)
+  const PIVOT_CURRENCY = "EUR";
+  const pivotCurrencyConfig = getCurrencyByCode(PIVOT_CURRENCY) || {
+    code: "EUR",
+    symbol: "€",
+    displaySymbol: "€",
+    name: "Euro",
+    position: "after" as const,
+    decimals: 2,
+  };
+
+  /**
+   * Formate un montant dans une devise source donnée en le convertissant
+   * vers la devise pivot (EUR) pour permettre la comparaison cross-org.
+   * Si les taux ne sont pas disponibles, affiche dans la devise source.
+   */
+  const formatPivotPrice = (amount: number, fromCurrency?: string): string => {
+    const sourceCurrency = fromCurrency || orgCurrency.code;
+    if (!rates) {
+      // Pas de taux → afficher dans la devise source
+      const sourceConfig = getCurrencyByCode(sourceCurrency);
+      return sourceConfig
+        ? formatPriceUtil(amount, sourceConfig)
+        : `${amount} ${sourceCurrency}`;
+    }
+    const converted = convertAmount(amount, sourceCurrency, PIVOT_CURRENCY, rates);
+    if (converted === null) {
+      const sourceConfig = getCurrencyByCode(sourceCurrency);
+      return sourceConfig
+        ? `${formatPriceUtil(amount, sourceConfig)} (taux N/A)`
+        : `${amount} ${sourceCurrency}`;
+    }
+    return formatPriceUtil(converted, pivotCurrencyConfig);
+  };
+
+  /**
+   * Déduit le code devise ISO depuis le code pays (ex: "GN" → "GNF")
+   */
+  const getCurrencyFromCountry = (countryCode?: string): string => {
+    if (!countryCode) return orgCurrency.code;
+    const country = COUNTRIES.find((c) => c.code === countryCode);
+    return country?.currency.code || orgCurrency.code;
+  };
 
   // ====== DATA QUERIES ======
 
@@ -371,6 +418,17 @@ const AdminAnalytics = () => {
             <p className="text-muted-foreground mt-1">
               Vue globale et détaillée sur l'ensemble de vos magasins
             </p>
+            {rates && (
+              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                <span className="inline-block w-2 h-2 rounded-full bg-green-500"></span>
+                Montants convertis en € (EUR pivot) pour comparer les magasins de devises différentes
+              </p>
+            )}
+            {ratesLoading && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Chargement des taux de change...
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-3 flex-wrap">
             <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
@@ -405,9 +463,9 @@ const AdminAnalytics = () => {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {[
             { label: "Magasins", value: globalStats.totalStores, icon: Store, color: "text-blue-600" },
-            { label: "Ventes totales", value: formatPrice(globalStats.totalSales), icon: ShoppingCart, color: "text-green-600" },
+            { label: "Ventes totales (€)", value: ratesLoading ? "..." : formatPivotPrice(globalStats.totalSales), icon: ShoppingCart, color: "text-green-600" },
             { label: "Transactions", value: globalStats.totalTransactions, icon: TrendingUp, color: "text-primary" },
-            { label: "Dépenses", value: formatPrice(globalStats.totalExpenses), icon: Wallet, color: "text-orange-600" },
+            { label: "Dépenses (€)", value: ratesLoading ? "..." : formatPivotPrice(globalStats.totalExpenses), icon: Wallet, color: "text-orange-600" },
             { label: "Produits actifs", value: globalStats.totalProducts, icon: Package, color: "text-purple-600" },
             { label: "Alertes stock", value: globalStats.totalLowStock, icon: AlertTriangle, color: "text-destructive" },
           ].map((kpi) => (
@@ -539,13 +597,13 @@ const AdminAnalytics = () => {
                               <Badge variant="outline">{storeCategoryLabels[store.store_category] || store.store_category}</Badge>
                             </TableCell>
                             <TableCell>{store.city || "—"}</TableCell>
-                            <TableCell className="text-right font-semibold text-green-600">{formatPrice(Number(store.total_sales))}</TableCell>
+                            <TableCell className="text-right font-semibold text-green-600">{formatPivotPrice(Number(store.total_sales), getCurrencyFromCountry(store.country))}</TableCell>
                             <TableCell className="text-right">{store.transaction_count}</TableCell>
-                            <TableCell className="text-right">{formatPrice(Number(store.avg_basket))}</TableCell>
-                            <TableCell className="text-right text-orange-600">{formatPrice(Number(store.total_expenses))}</TableCell>
+                            <TableCell className="text-right">{formatPivotPrice(Number(store.avg_basket), getCurrencyFromCountry(store.country))}</TableCell>
+                            <TableCell className="text-right text-orange-600">{formatPivotPrice(Number(store.total_expenses), getCurrencyFromCountry(store.country))}</TableCell>
                             <TableCell className="text-right font-semibold">
                               <span className={Number(store.net_revenue) >= 0 ? "text-green-600" : "text-destructive"}>
-                                {Number(store.net_revenue) >= 0 ? "+" : ""}{formatPrice(Number(store.net_revenue))}
+                                {Number(store.net_revenue) >= 0 ? "+" : ""}{formatPivotPrice(Number(store.net_revenue), getCurrencyFromCountry(store.country))}
                               </span>
                             </TableCell>
                             <TableCell className="text-right">{store.active_product_count}</TableCell>

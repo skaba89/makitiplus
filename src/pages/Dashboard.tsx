@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
+import { CurrencyDisplaySelector } from "@/components/ui/currency-display-selector";
 import {
   TrendingUp,
   ShoppingCart,
@@ -45,6 +47,15 @@ const EXPIRY_WARNING_DAYS = 7;
 const Dashboard = () => {
   const { user, profile, userRole } = useAuth();
   const { formatPrice } = useCurrency();
+  const {
+    formatDisplayPrice,
+    displayCurrencyCode,
+    orgCurrencyCode,
+    setDisplayCurrency,
+    ratesLoading,
+    refreshRates,
+    isConverted,
+  } = useDisplayCurrency();
   const navigate = useNavigate();
 
   const today = new Date();
@@ -241,14 +252,14 @@ const Dashboard = () => {
   const stats = [
     {
       title: "Ventes du jour",
-      value: formatPrice(totalSalesToday),
+      value: formatDisplayPrice(totalSalesToday, { showOriginal: isConverted }),
       change: `${transactionsToday} vente(s)`,
       trend: "up" as const,
       icon: ShoppingCart,
     },
     {
       title: "Ventes du mois",
-      value: formatPrice(totalSalesMonth),
+      value: formatDisplayPrice(totalSalesMonth, { showOriginal: isConverted }),
       change: (dashboardStats?.monthCreditCount ?? 0) > 0 ? `${dashboardStats.monthCreditCount} à crédit` : "voir rapports",
       trend: "up" as const,
       icon: BarChart3,
@@ -262,7 +273,7 @@ const Dashboard = () => {
     },
     {
       title: "Dépenses du mois",
-      value: formatPrice(totalExpensesMonth),
+      value: formatDisplayPrice(totalExpensesMonth, { showOriginal: isConverted }),
       change: `${monthExpenses?.length || 0} dépense(s)`,
       trend: "down" as const,
       icon: Wallet,
@@ -282,6 +293,14 @@ const Dashboard = () => {
             </p>
           </div>
           {/* Bouton envoyer résumé par WhatsApp */}
+          <div className="flex items-center gap-2">
+            <CurrencyDisplaySelector
+              orgCurrencyCode={orgCurrencyCode}
+              displayCurrencyCode={displayCurrencyCode}
+              onDisplayCurrencyChange={setDisplayCurrency}
+              ratesLoading={ratesLoading}
+              onRefreshRates={refreshRates}
+            />
           {userRole && FINANCIAL_ROLES.includes(userRole) && (
             <Button
               variant="outline"
@@ -311,6 +330,7 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
               Rapport WhatsApp
             </Button>
           )}
+          </div>
         </div>
 
         {/* Stats */}
@@ -349,7 +369,7 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
             </CardHeader>
             <CardContent>
               <div className={`text-2xl font-bold ${netProfit >= 0 ? "text-green-600" : "text-destructive"}`}>
-                {netProfit >= 0 ? "+" : ""}{formatPrice(netProfit)}
+                {netProfit >= 0 ? "+" : ""}{formatDisplayPrice(netProfit, { showOriginal: isConverted })}
               </div>
               <div className="flex items-center gap-1 mt-1">
                 {netProfit >= 0 ? (
@@ -358,7 +378,7 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
                   <ArrowDownRight className="h-4 w-4 text-destructive" />
                 )}
                 <span className={`text-sm ${netProfit >= 0 ? "text-green-600" : "text-destructive"}`}>
-                  Ventes {formatPrice(totalSalesMonth)} − Dépenses {formatPrice(totalExpensesMonth)}
+                  Ventes {formatDisplayPrice(totalSalesMonth, { showOriginal: isConverted })} − Dépenses {formatDisplayPrice(totalExpensesMonth, { showOriginal: isConverted })}
                 </span>
               </div>
             </CardContent>
@@ -604,7 +624,7 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-primary">{formatPrice(sale.total_amount)}</p>
+                        <p className="font-bold text-primary">{formatDisplayPrice(sale.total_amount, { showOriginal: isConverted })}</p>
                         <Badge variant="outline" className="text-xs">
                           {paymentLabels[sale.payment_method] || sale.payment_method}
                         </Badge>
@@ -633,14 +653,14 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
                     <TrendingUp className="h-4 w-4 text-primary" />
                     <span className="text-sm">Ventes totales</span>
                   </div>
-                  <span className="font-bold text-primary">{formatPrice(totalSalesMonth)}</span>
+                  <span className="font-bold text-primary">{formatDisplayPrice(totalSalesMonth, { showOriginal: isConverted })}</span>
                 </div>
                 <div className="flex items-center justify-between p-3 bg-destructive/5 rounded-lg">
                   <div className="flex items-center gap-2">
                     <Wallet className="h-4 w-4 text-destructive" />
                     <span className="text-sm">Depenses</span>
                   </div>
-                  <span className="font-bold text-destructive">{formatPrice(totalExpensesMonth)}</span>
+                  <span className="font-bold text-destructive">{formatDisplayPrice(totalExpensesMonth, { showOriginal: isConverted })}</span>
                 </div>
                 <div className="flex items-center justify-between p-3 rounded-lg border-2 border-dashed">
                   <div className="flex items-center gap-2">
@@ -648,7 +668,7 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
                     <span className="text-sm font-medium">Resultat net</span>
                   </div>
                   <span className={`font-bold ${netProfit >= 0 ? "text-success" : "text-destructive"}`}>
-                    {formatPrice(netProfit)}
+                    {formatDisplayPrice(netProfit, { showOriginal: isConverted })}
                   </span>
                 </div>
               </div>
@@ -666,7 +686,7 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <Badge variant="secondary" className="text-micro">x{item.total_quantity}</Badge>
-                          <span className="font-medium">{formatPrice(item.total_revenue)}</span>
+                          <span className="font-medium">{formatDisplayPrice(item.total_revenue, { showOriginal: isConverted })}</span>
                         </div>
                       </div>
                     ))}

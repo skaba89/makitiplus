@@ -80,6 +80,9 @@ export default defineConfig(({ mode }) => ({
       devOptions: { enabled: false },
       manifest: false,
       workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/~oauth/, /^\/api\//],
         // Fix: utiliser un revision fixe au lieu de Date.now() pour éviter

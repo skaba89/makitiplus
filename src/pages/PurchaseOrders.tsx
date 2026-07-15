@@ -78,6 +78,8 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
+import { CurrencyDisplaySelector } from "@/components/ui/currency-display-selector";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Supplier, Product } from "@/types";
@@ -138,6 +140,15 @@ const PurchaseOrders = () => {
   const { toast } = useToast();
   const { blockMutation } = useDemo();
   const { formatPrice } = useCurrency();
+  const {
+    formatDisplayPrice,
+    displayCurrencyCode,
+    orgCurrencyCode,
+    setDisplayCurrency,
+    ratesLoading,
+    refreshRates,
+    isConverted,
+  } = useDisplayCurrency();
   const queryClient = useQueryClient();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -663,6 +674,13 @@ ${profile?.business_name || "MakitiPlus"}`;
                 Gérez vos commandes d'approvisionnement
               </p>
             </div>
+            <CurrencyDisplaySelector
+              orgCurrencyCode={orgCurrencyCode}
+              displayCurrencyCode={displayCurrencyCode}
+              onDisplayCurrencyChange={setDisplayCurrency}
+              ratesLoading={ratesLoading}
+              onRefreshRates={refreshRates}
+            />
             {canModify && (
               <Button
                 onClick={() => {
@@ -713,7 +731,7 @@ ${profile?.business_name || "MakitiPlus"}`;
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Valeur totale</p>
-                    <p className="text-2xl font-bold">{formatPrice(totalValue)}</p>
+                    <p className="text-2xl font-bold">{formatDisplayPrice(totalValue, { showOriginal: isConverted })}</p>
                   </div>
                 </div>
               </CardContent>
@@ -793,7 +811,7 @@ ${profile?.business_name || "MakitiPlus"}`;
                               </Badge>
                             </TableCell>
                             <TableCell className="text-right font-medium">
-                              {formatPrice(Number(order.total_amount))}
+                              {formatDisplayPrice(Number(order.total_amount), { showOriginal: isConverted })}
                             </TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-1">
@@ -1011,7 +1029,7 @@ ${profile?.business_name || "MakitiPlus"}`;
                       <div className="sm:col-span-2">
                         {index === 0 && <Label className="text-xs">Total</Label>}
                         <div className="h-9 px-3 flex items-center text-sm font-medium bg-muted rounded-md">
-                          {formatPrice(item.line_total)}
+                          {formatDisplayPrice(item.line_total, { showOriginal: isConverted })}
                         </div>
                       </div>
                       <div className="sm:col-span-1">
@@ -1034,10 +1052,10 @@ ${profile?.business_name || "MakitiPlus"}`;
                 <div className="flex justify-end border-t pt-4">
                   <div className="text-right space-y-1">
                     <p className="text-sm">
-                      Sous-total : <span className="font-medium">{formatPrice(formItems.reduce((s, i) => s + i.line_total, 0))}</span>
+                      Sous-total : <span className="font-medium">{formatDisplayPrice(formItems.reduce((s, i) => s + i.line_total, 0), { showOriginal: isConverted })}</span>
                     </p>
                     <p className="text-lg font-bold">
-                      Total : {formatPrice(formItems.reduce((s, i) => s + i.line_total, 0))}
+                      Total : {formatDisplayPrice(formItems.reduce((s, i) => s + i.line_total, 0), { showOriginal: isConverted })}
                     </p>
                   </div>
                 </div>
@@ -1101,7 +1119,7 @@ ${profile?.business_name || "MakitiPlus"}`;
                     <div>
                       <p className="text-muted-foreground">Montant total</p>
                       <p className="font-bold text-lg">
-                        {formatPrice(Number(selectedOrder.total_amount))}
+                        {formatDisplayPrice(Number(selectedOrder.total_amount), { showOriginal: isConverted })}
                       </p>
                     </div>
                   </div>

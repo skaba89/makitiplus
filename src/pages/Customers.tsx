@@ -12,6 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
+import { CurrencyDisplaySelector } from "@/components/ui/currency-display-selector";
 import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import {
   Dialog,
@@ -66,6 +68,15 @@ const Customers = () => {
   const { toast } = useToast();
   const { blockMutation } = useDemo();
   const { formatPrice, currency } = useCurrency();
+  const {
+    formatDisplayPrice,
+    displayCurrencyCode,
+    orgCurrencyCode,
+    setDisplayCurrency,
+    ratesLoading,
+    refreshRates,
+    isConverted,
+  } = useDisplayCurrency();
   const queryClient = useQueryClient();
   const [searchInput, setSearchInput] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -307,7 +318,7 @@ const Customers = () => {
                 <div className="p-2 rounded-lg bg-destructive/10"><Wallet className="h-5 w-5 text-destructive" /></div>
                 <div>
                   <p className="text-sm text-muted-foreground">Crédits en cours</p>
-                  <p className="text-lg sm:text-2xl font-bold text-destructive">{formatPrice(totalCredit)}</p>
+                  <p className="text-lg sm:text-2xl font-bold text-destructive">{formatDisplayPrice(totalCredit, { showOriginal: isConverted })}</p>
                 </div>
               </div>
             </CardContent>
@@ -370,10 +381,10 @@ const Customers = () => {
                     <TableRow key={customer.id}>
                       <TableCell className="font-medium">{customer.name}</TableCell>
                       <TableCell className="hidden sm:table-cell">{customer.phone || "-"}</TableCell>
-                      <TableCell className="hidden md:table-cell">{formatPrice(Number(customer.total_purchases))}</TableCell>
+                      <TableCell className="hidden md:table-cell">{formatDisplayPrice(Number(customer.total_purchases), { showOriginal: isConverted })}</TableCell>
                       <TableCell>
                         {Number(customer.total_credit) > 0 ? (
-                          <Badge variant="destructive">{formatPrice(Number(customer.total_credit))}</Badge>
+                          <Badge variant="destructive">{formatDisplayPrice(Number(customer.total_credit), { showOriginal: isConverted })}</Badge>
                         ) : (
                           <Badge variant="secondary">0</Badge>
                         )}

@@ -12,6 +12,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
+import { CurrencyDisplaySelector } from "@/components/ui/currency-display-selector";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -102,6 +104,15 @@ const ROLE_STYLES: Record<string, { label: string; variant: "default" | "seconda
 export default function SellerActivity() {
   const { userRole } = useAuth();
   const { formatPrice } = useCurrency();
+  const {
+    formatDisplayPrice,
+    displayCurrencyCode,
+    orgCurrencyCode,
+    setDisplayCurrency,
+    ratesLoading,
+    refreshRates,
+    isConverted,
+  } = useDisplayCurrency();
   const { toast } = useToast();
 
   const [periodFilter, setPeriodFilter] = useState<string>("month");
@@ -272,7 +283,7 @@ export default function SellerActivity() {
             <CardContent className="pt-6">
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-amber-600" />
-                <div className="text-lg font-bold">{formatPrice(stats.totalRevenue)}</div>
+                <div className="text-lg font-bold">{formatDisplayPrice(stats.totalRevenue, { showOriginal: isConverted })}</div>
               </div>
               <p className="text-xs text-muted-foreground">Chiffre d'affaires</p>
             </CardContent>
@@ -370,8 +381,8 @@ export default function SellerActivity() {
                                   <Badge variant={roleStyle.variant}>{roleStyle.label}</Badge>
                                 </TableCell>
                                 <TableCell className="text-right font-medium">{Number(seller.total_sales)}</TableCell>
-                                <TableCell className="text-right font-medium">{formatPrice(Number(seller.total_revenue))}</TableCell>
-                                <TableCell className="text-right">{formatPrice(Number(seller.avg_sale_amount))}</TableCell>
+                                <TableCell className="text-right font-medium">{formatDisplayPrice(Number(seller.total_revenue), { showOriginal: isConverted })}</TableCell>
+                                <TableCell className="text-right">{formatDisplayPrice(Number(seller.avg_sale_amount), { showOriginal: isConverted })}</TableCell>
                                 <TableCell className="text-sm">
                                   {seller.last_login_at
                                     ? format(new Date(seller.last_login_at), "dd/MM/yyyy HH:mm")
