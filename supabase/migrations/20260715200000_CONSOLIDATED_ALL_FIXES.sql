@@ -7,15 +7,14 @@
 -- Il est IDEMPOTENT : peut être exécuté plusieurs fois sans erreur.
 -- (CREATE OR REPLACE, ON CONFLICT DO NOTHING, DROP IF EXISTS)
 --
--- Résultats attendus après exécution :
--- ✅ Le super_admin peut créer des organisations INDÉPENDANTES
--- ✅ Le super_admin voit TOUS les magasins de TOUTES les orgs
--- ✅ Le super_admin peut gérer les abonnements de n'importe quelle org
--- ✅ Le super_admin peut réinitialiser les mots de passe des admins
--- ✅ Les admins d'org ne voient PAS le super_admin dans leur liste
--- ✅ Pas de doublon de store lors de la création d'org
--- ✅ Login refonctionne pour tous les utilisateurs
--- ✅ Tous les utilisateurs ont un rôle dans user_roles
+-- Ordre des opérations :
+--   1. is_super_admin() robuste
+--   2. Promouvoir owners → super_admin
+--   3. RPC super_admin_create_organization
+--   4. Nettoyer doublons stores
+--   5. DROP policies (AVANT has_role car elles en dépendent)
+--   6. DROP + CREATE has_role()
+--   7. CREATE policies (stores, user_roles, profiles, audit_log)
 -- ════════════════════════════════════════════════════════════════
 
 BEGIN;
@@ -23,7 +22,6 @@ BEGIN;
 -- ════════════════════════════════════════════════════════════════
 -- 1. is_super_admin() ROBUSTE
 --    Vérifie user_roles ET organizations.owner_user_id
---    (tout propriétaire d'org est implicitement super_admin)
 -- ════════════════════════════════════════════════════════════════
 CREATE OR REPLACE FUNCTION public.is_super_admin()
 RETURNS boolean
@@ -45,7 +43,6 @@ $$;
 -- 2. PROMOUVOIR LES OWNERS D'ORG EN super_admin DANS user_roles
 --    + Créer les user_roles manquants pour tous les profils
 -- ════════════════════════════════════════════════════════════════
--- Les owners d'org → super_admin
 INSERT INTO public.user_roles (user_id, role)
 SELECT DISTINCT o.owner_user_id, 'super_admin'::public.app_role
 FROM public.organizations o
@@ -57,7 +54,6 @@ WHERE o.owner_user_id IS NOT NULL
   )
 ON CONFLICT DO NOTHING;
 
--- Les profils sans user_roles → admin (si owner d'org) ou vendeur (sinon)
 INSERT INTO public.user_roles (user_id, role)
 SELECT 
   p.user_id,
@@ -74,8 +70,6 @@ ON CONFLICT DO NOTHING;
 
 -- ════════════════════════════════════════════════════════════════
 -- 3. RPC super_admin_create_organization (VERSION FINALE)
---    Crée une organisation INDÉPENDANTE avec son premier magasin.
---    Désactive LES DEUX triggers pour éviter le doublon de store.
 -- ════════════════════════════════════════════════════════════════
 CREATE OR REPLACE FUNCTION public.super_admin_create_organization(
   p_org_name TEXT,
@@ -129,7 +123,6 @@ BEGIN
     v_store_cat := 'autre'::public.store_category;
   END;
 
-  -- 1. Créer l'org en désactivant LES DEUX triggers (évite le doublon)
   BEGIN
     ALTER TABLE public.organizations DISABLE TRIGGER trigger_auto_create_store_settings;
     ALTER TABLE public.organizations DISABLE TRIGGER on_organization_created;
@@ -145,7 +138,6 @@ BEGIN
     RETURN;
   END;
 
-  -- 2. Créer le premier magasin (le SEUL)
   BEGIN
     INSERT INTO public.stores (
       organization_id, name, slug, category, country, currency,
@@ -162,7 +154,6 @@ BEGIN
     RETURN;
   END;
 
-  -- 3. Abonnement starter
   BEGIN
     INSERT INTO public.subscriptions (organization_id, plan_id, status)
     VALUES (v_org_id, 'starter', 'active')
@@ -170,7 +161,6 @@ BEGIN
   EXCEPTION WHEN OTHERS THEN NULL;
   END;
 
-  -- 4. Store settings
   BEGIN
     INSERT INTO public.store_settings (organization_id, store_name)
     VALUES (v_org_id, p_store_name)
@@ -178,7 +168,6 @@ BEGIN
   EXCEPTION WHEN OTHERS THEN NULL;
   END;
 
-  -- 5. Catégories par défaut
   BEGIN
     INSERT INTO public.categories (organization_id, name, icon, color, description, sort_order, is_default, user_id)
     SELECT v_org_id, cat.name, cat.icon, cat.color, cat.description, cat.sort_order, cat.is_default, v_user_id
@@ -211,7 +200,6 @@ GRANT EXECUTE ON FUNCTION public.super_admin_create_organization(
 
 -- ════════════════════════════════════════════════════════════════
 -- 4. NETTOYER LES DOUBLONS DE STORES EXISTANTS
---    (store.name = organization.name créé par l'ancien trigger)
 -- ════════════════════════════════════════════════════════════════
 DELETE FROM public.stores s
 USING public.organizations o
@@ -224,9 +212,21 @@ WHERE s.organization_id = o.id
   );
 
 -- ════════════════════════════════════════════════════════════════
--- 5. has_role() ROBUSTE (vérifie user_roles)
+-- 5. DROP ALL POLICIES that depend on has_role()
+--    (AVANT de dropper has_role, sinon erreur 2BP01)
+-- ════════════════════════════════════════════════════════════════
+DROP POLICY IF EXISTS "stores_select_org_member" ON public.stores;
+DROP POLICY IF EXISTS "Users can view their own role" ON public.user_roles;
+DROP POLICY IF EXISTS "user_roles_select_own" ON public.user_roles;
+DROP POLICY IF EXISTS "user_roles_select_scoped" ON public.user_roles;
+DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
+DROP POLICY IF EXISTS "profiles_select_own" ON public.profiles;
+DROP POLICY IF EXISTS "profiles_select_scoped" ON public.profiles;
+DROP POLICY IF EXISTS "admins_view_audit_log" ON public.user_audit_log;
+
+-- ════════════════════════════════════════════════════════════════
+-- 6. DROP + CREATE has_role() (avec nouveaux noms de paramètres)
 --    ⚠️ DROP nécessaire car on change le nom du paramètre
---    (doit être fait AVANT les policies qui l'utilisent)
 -- ════════════════════════════════════════════════════════════════
 DROP FUNCTION IF EXISTS public.has_role(uuid, text);
 
@@ -245,10 +245,8 @@ $$;
 GRANT EXECUTE ON FUNCTION public.has_role(uuid, text) TO authenticated;
 
 -- ════════════════════════════════════════════════════════════════
--- 6. POLICIES RLS — stores (super_admin voit tout)
+-- 7. (RE)CREATE POLICIES RLS — stores (super_admin voit tout)
 -- ════════════════════════════════════════════════════════════════
-DROP POLICY IF EXISTS "stores_select_org_member" ON public.stores;
-
 CREATE POLICY "stores_select_org_member"
   ON public.stores FOR SELECT TO authenticated
   USING (
@@ -260,20 +258,13 @@ CREATE POLICY "stores_select_org_member"
   );
 
 -- ════════════════════════════════════════════════════════════════
--- 7. POLICIES RLS — user_roles (priorité à user_id=auth.uid())
+-- 8. (RE)CREATE POLICIES RLS — user_roles (priorité user_id=auth.uid())
 -- ════════════════════════════════════════════════════════════════
-DROP POLICY IF EXISTS "Users can view their own role" ON public.user_roles;
-DROP POLICY IF EXISTS "user_roles_select_own" ON public.user_roles;
-DROP POLICY IF EXISTS "user_roles_select_scoped" ON public.user_roles;
-
 CREATE POLICY "user_roles_select_scoped"
   ON public.user_roles FOR SELECT TO authenticated
   USING (
-    -- RÈGLE 1 : son propre rôle (ESSSENTIEL pour login)
     user_id = auth.uid()
-    -- RÈGLE 2 : super_admin voit tout
     OR public.is_super_admin()
-    -- RÈGLE 3 : admin voit les rôles de son org (sauf super_admin)
     OR (
       public.has_role(auth.uid(), 'admin')
       AND role != 'super_admin'::public.app_role
@@ -281,20 +272,13 @@ CREATE POLICY "user_roles_select_scoped"
   );
 
 -- ════════════════════════════════════════════════════════════════
--- 8. POLICIES RLS — profiles (priorité à user_id=auth.uid())
+-- 9. (RE)CREATE POLICIES RLS — profiles (priorité user_id=auth.uid())
 -- ════════════════════════════════════════════════════════════════
-DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
-DROP POLICY IF EXISTS "profiles_select_own" ON public.profiles;
-DROP POLICY IF EXISTS "profiles_select_scoped" ON public.profiles;
-
 CREATE POLICY "profiles_select_scoped"
   ON public.profiles FOR SELECT TO authenticated
   USING (
-    -- RÈGLE 1 : son propre profil (ESSENTIEL pour login)
     user_id = auth.uid()
-    -- RÈGLE 2 : super_admin voit tout
     OR public.is_super_admin()
-    -- RÈGLE 3 : admin voit les profils de son org (sauf super_admin)
     OR (
       public.has_role(auth.uid(), 'admin')
       AND organization_id = public.get_user_organization_id()
@@ -302,7 +286,6 @@ CREATE POLICY "profiles_select_scoped"
         SELECT ur.user_id FROM public.user_roles ur WHERE ur.role = 'super_admin'
       )
     )
-    -- RÈGLE 4 : autres voient les profils de leur org (sauf super_admin)
     OR (
       organization_id = public.get_user_organization_id()
       AND user_id NOT IN (
@@ -312,10 +295,8 @@ CREATE POLICY "profiles_select_scoped"
   );
 
 -- ════════════════════════════════════════════════════════════════
--- 9. POLICIES RLS — user_audit_log (filtré pour admins)
+-- 10. (RE)CREATE POLICIES RLS — user_audit_log (filtré pour admins)
 -- ════════════════════════════════════════════════════════════════
-DROP POLICY IF EXISTS "admins_view_audit_log" ON public.user_audit_log;
-
 CREATE POLICY "admins_view_audit_log"
   ON public.user_audit_log FOR SELECT TO authenticated
   USING (
@@ -341,7 +322,7 @@ CREATE POLICY "admins_view_audit_log"
 COMMIT;
 
 -- ════════════════════════════════════════════════════════════════
--- VÉRIFICATION FINALE
+-- VÉRIFICATION FINALE (hors transaction pour voir les NOTICE)
 -- ════════════════════════════════════════════════════════════════
 DO $$
 DECLARE
