@@ -62,6 +62,8 @@ import {
   DollarSign,
   Percent,
   TrendingDown,
+  X,
+  Filter,
 } from "lucide-react";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useExchangeRates, convertAmount } from "@/hooks/useExchangeRates";
@@ -597,48 +599,105 @@ const AdminAnalytics = () => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tous les magasins</SelectItem>
+                <SelectItem value="all">🌍 Toutes les organisations</SelectItem>
                 {(storesSummary || []).map((store) => (
                   <SelectItem key={store.organization_id} value={store.organization_id}>
-                    {store.store_name}
+                    🏪 {store.store_name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {selectedStoreId !== "all" && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedStoreId("all")}
+                className="gap-1"
+              >
+                <X className="h-3.5 w-3.5" />
+                Réinitialiser
+              </Button>
+            )}
           </div>
         </div>
 
-        {/* Global KPIs enriched */}
+        {/* Active filter banner */}
+        {selectedStoreId !== "all" && (
+          <div className="flex items-center gap-2 p-3 bg-primary/10 border border-primary/30 rounded-lg">
+            <Filter className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium">
+              Filtrage actif : {" "}
+              <span className="text-primary">
+                {(storesSummary || []).find(s => s.organization_id === selectedStoreId)?.store_name || "Organisation"}
+              </span>
+            </span>
+            <span className="text-xs text-muted-foreground">
+              — Toutes les données ci-dessous sont filtrées pour cette organisation uniquement
+            </span>
+          </div>
+        )}
+
+        {/* Global KPIs enriched — filtered by selected org if applicable */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          {[
-            { label: "Organisations", value: globalKpis?.total_orgs ?? "—", icon: Store, color: "text-blue-600" },
-            { label: "Magasins", value: globalKpis?.total_stores ?? globalStats.totalStores, icon: Store, color: "text-blue-600" },
-            { label: "Utilisateurs", value: globalKpis?.total_users ?? "—", icon: Users, color: "text-indigo-600" },
-            { label: "Transactions", value: globalKpis?.total_transactions ?? globalStats.totalTransactions, icon: TrendingUp, color: "text-primary" },
-            { label: "Ventes (€)", value: ratesLoading ? "..." : formatPivotPrice(globalKpis?.total_sales ?? globalStats.totalSales), icon: ShoppingCart, color: "text-green-600" },
+          {(() => {
+            // Si une org est sélectionnée, utiliser ses KPIs spécifiques
+            const selectedOrgKpis = selectedStoreId !== "all"
+              ? (orgKpis || []).find(o => o.organization_id === selectedStoreId)
+              : null;
+            
+            const kpis = selectedOrgKpis ? {
+              total_orgs: 1,
+              total_stores: selectedOrgKpis.store_count,
+              total_users: 0, // pas disponible par org dans globalKpis
+              total_active_users: 0,
+              total_transactions: selectedOrgKpis.transaction_count,
+              total_sales: selectedOrgKpis.total_sales,
+              total_expenses: selectedOrgKpis.total_expenses,
+              net_revenue: selectedOrgKpis.net_revenue,
+              avg_basket: selectedOrgKpis.avg_basket,
+              total_cost: selectedOrgKpis.total_cost,
+              gross_margin: selectedOrgKpis.gross_margin,
+              gross_margin_pct: selectedOrgKpis.total_sales > 0 
+                ? (selectedOrgKpis.gross_margin / selectedOrgKpis.total_sales) * 100 
+                : 0,
+              total_customers: selectedOrgKpis.customer_count,
+              total_products: 0,
+              total_active_products: selectedOrgKpis.active_products,
+              low_stock_count: selectedOrgKpis.low_stock_count,
+              previous_period_sales: 0,
+              sales_growth_pct: 0,
+            } : (globalKpis || null);
+
+            return [
+            { label: selectedStoreId !== "all" ? "Organisation" : "Organisations", value: selectedStoreId !== "all" ? "1" : (kpis?.total_orgs ?? "—"), icon: Store, color: "text-blue-600" },
+            { label: "Magasins", value: kpis?.total_stores ?? globalStats.totalStores, icon: Store, color: "text-blue-600" },
+            { label: "Transactions", value: kpis?.total_transactions ?? globalStats.totalTransactions, icon: TrendingUp, color: "text-primary" },
+            { label: "Ventes (€)", value: ratesLoading ? "..." : formatPivotPrice(kpis?.total_sales ?? globalStats.totalSales), icon: ShoppingCart, color: "text-green-600" },
             {
               label: "Croissance",
-              value: globalKpis ? `${globalKpis.sales_growth_pct >= 0 ? "+" : ""}${globalKpis.sales_growth_pct.toFixed(1)}%` : "—",
-              icon: globalKpis && globalKpis.sales_growth_pct >= 0 ? TrendingUp : TrendingDown,
-              color: globalKpis && globalKpis.sales_growth_pct >= 0 ? "text-green-600" : "text-destructive",
+              value: kpis && kpis.sales_growth_pct ? `${kpis.sales_growth_pct >= 0 ? "+" : ""}${kpis.sales_growth_pct.toFixed(1)}%` : "—",
+              icon: kpis && kpis.sales_growth_pct >= 0 ? TrendingUp : TrendingDown,
+              color: kpis && kpis.sales_growth_pct >= 0 ? "text-green-600" : "text-destructive",
             },
-            { label: "Dépenses (€)", value: ratesLoading ? "..." : formatPivotPrice(globalKpis?.total_expenses ?? globalStats.totalExpenses), icon: Wallet, color: "text-orange-600" },
-            { label: "Bénéfice net (€)", value: ratesLoading ? "..." : formatPivotPrice(globalKpis?.net_revenue ?? (globalStats.totalSales - globalStats.totalExpenses)), icon: DollarSign, color: globalKpis && globalKpis.net_revenue >= 0 ? "text-green-600" : "text-destructive" },
-            { label: "Panier moyen (€)", value: ratesLoading ? "..." : formatPivotPrice(globalKpis?.avg_basket ?? 0), icon: ShoppingCart, color: "text-purple-600" },
-            { label: "Marge brute (€)", value: ratesLoading ? "..." : formatPivotPrice(globalKpis?.gross_margin ?? 0), icon: DollarSign, color: "text-emerald-600" },
-            { label: "Marge %", value: globalKpis ? `${globalKpis.gross_margin_pct.toFixed(1)}%` : "—", icon: Percent, color: "text-emerald-600" },
-            { label: "Alertes stock", value: globalKpis?.low_stock_count ?? globalStats.totalLowStock, icon: AlertTriangle, color: "text-destructive" },
-          ].map((kpi) => (
-            <Card key={kpi.label} className="card-elevated">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <kpi.icon className={`h-5 w-5 ${kpi.color}`} />
-                </div>
-                <p className="text-xl font-bold">{kpi.value}</p>
-                <p className="text-xs text-muted-foreground">{kpi.label}</p>
-              </CardContent>
-            </Card>
-          ))}
+            { label: "Dépenses (€)", value: ratesLoading ? "..." : formatPivotPrice(kpis?.total_expenses ?? globalStats.totalExpenses), icon: Wallet, color: "text-orange-600" },
+            { label: "Bénéfice net (€)", value: ratesLoading ? "..." : formatPivotPrice(kpis?.net_revenue ?? (globalStats.totalSales - globalStats.totalExpenses)), icon: DollarSign, color: kpis && kpis.net_revenue >= 0 ? "text-green-600" : "text-destructive" },
+            { label: "Panier moyen (€)", value: ratesLoading ? "..." : formatPivotPrice(kpis?.avg_basket ?? 0), icon: ShoppingCart, color: "text-purple-600" },
+            { label: "Marge brute (€)", value: ratesLoading ? "..." : formatPivotPrice(kpis?.gross_margin ?? 0), icon: DollarSign, color: "text-emerald-600" },
+            { label: "Marge %", value: kpis ? `${kpis.gross_margin_pct.toFixed(1)}%` : "—", icon: Percent, color: "text-emerald-600" },
+            { label: "Clients", value: kpis?.total_customers ?? globalStats.totalCustomers, icon: Users, color: "text-indigo-600" },
+            { label: "Alertes stock", value: kpis?.low_stock_count ?? globalStats.totalLowStock, icon: AlertTriangle, color: "text-destructive" },
+            ].map((kpi) => (
+              <Card key={kpi.label} className="card-elevated">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <kpi.icon className={`h-5 w-5 ${kpi.color}`} />
+                  </div>
+                  <p className="text-xl font-bold">{kpi.value}</p>
+                  <p className="text-xs text-muted-foreground">{kpi.label}</p>
+                </CardContent>
+              </Card>
+            ));
+          })()}
         </div>
 
         {/* Tabs */}
@@ -956,6 +1015,11 @@ const AdminAnalytics = () => {
                 <CardTitle className="flex items-center gap-2">
                   <Users className="h-5 w-5" />
                   Utilisateurs par organisation
+                  {selectedStoreId !== "all" && (
+                    <Badge variant="secondary" className="ml-2">
+                      Filtré : {(storesSummary || []).find(s => s.organization_id === selectedStoreId)?.store_name}
+                    </Badge>
+                  )}
                 </CardTitle>
                 <CardDescription>
                   Répartition des utilisateurs (admin, manager, vendeur, comptable) par organisation.
@@ -965,9 +1029,13 @@ const AdminAnalytics = () => {
               <CardContent>
                 {loadingUsersPerOrg ? (
                   <p className="text-muted-foreground text-center py-8">Chargement...</p>
-                ) : (usersPerOrg || []).length === 0 ? (
-                  <p className="text-muted-foreground text-center py-8">Aucune organisation</p>
-                ) : (
+                ) : (() => {
+                  const filteredUsers = selectedStoreId !== "all"
+                    ? (usersPerOrg || []).filter(u => u.organization_id === selectedStoreId)
+                    : (usersPerOrg || []);
+                  return filteredUsers.length === 0 ? (
+                    <p className="text-muted-foreground text-center py-8">Aucune organisation</p>
+                  ) : (
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
@@ -982,7 +1050,7 @@ const AdminAnalytics = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {(usersPerOrg || []).map((u) => (
+                        {filteredUsers.map((u) => (
                           <TableRow key={u.organization_id}>
                             <TableCell className="font-medium">{u.org_name}</TableCell>
                             <TableCell className="text-center">
@@ -1002,59 +1070,65 @@ const AdminAnalytics = () => {
                       </TableBody>
                     </Table>
                   </div>
-                )}
+                  );
+                })()}
               </CardContent>
             </Card>
 
             {/* Summary cards */}
-            {(usersPerOrg || []).length > 0 && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2 mb-1">
-                      <UserCog className="h-4 w-4 text-purple-600" />
-                      <span className="text-xs text-muted-foreground">Total admins</span>
-                    </div>
-                    <p className="text-xl font-bold">
-                      {(usersPerOrg || []).reduce((s, u) => s + u.admin_count, 0)}
-                    </p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Users className="h-4 w-4 text-blue-600" />
-                      <span className="text-xs text-muted-foreground">Total vendeurs</span>
-                    </div>
-                    <p className="text-xl font-bold">
-                      {(usersPerOrg || []).reduce((s, u) => s + u.vendeur_count, 0)}
-                    </p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Users className="h-4 w-4 text-green-600" />
-                      <span className="text-xs text-muted-foreground">Total managers</span>
-                    </div>
-                    <p className="text-xl font-bold">
-                      {(usersPerOrg || []).reduce((s, u) => s + u.manager_count, 0)}
-                    </p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Users className="h-4 w-4 text-orange-600" />
-                      <span className="text-xs text-muted-foreground">Total users</span>
-                    </div>
-                    <p className="text-xl font-bold">
-                      {(usersPerOrg || []).reduce((s, u) => s + u.total_users, 0)}
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
+            {(() => {
+              const filteredUsers = selectedStoreId !== "all"
+                ? (usersPerOrg || []).filter(u => u.organization_id === selectedStoreId)
+                : (usersPerOrg || []);
+              return filteredUsers.length > 0 && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2 mb-1">
+                        <UserCog className="h-4 w-4 text-purple-600" />
+                        <span className="text-xs text-muted-foreground">Total admins</span>
+                      </div>
+                      <p className="text-xl font-bold">
+                        {filteredUsers.reduce((s, u) => s + u.admin_count, 0)}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Users className="h-4 w-4 text-blue-600" />
+                        <span className="text-xs text-muted-foreground">Total vendeurs</span>
+                      </div>
+                      <p className="text-xl font-bold">
+                        {filteredUsers.reduce((s, u) => s + u.vendeur_count, 0)}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Users className="h-4 w-4 text-green-600" />
+                        <span className="text-xs text-muted-foreground">Total managers</span>
+                      </div>
+                      <p className="text-xl font-bold">
+                        {filteredUsers.reduce((s, u) => s + u.manager_count, 0)}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Users className="h-4 w-4 text-orange-600" />
+                        <span className="text-xs text-muted-foreground">Total users</span>
+                      </div>
+                      <p className="text-xl font-bold">
+                        {filteredUsers.reduce((s, u) => s + u.total_users, 0)}
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+              );
+            })()}
           </TabsContent>
 
           {/* TAB: Seller Performance */}
