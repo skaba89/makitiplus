@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
         status: ctx.status, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
-    const { user, adminClient, actorProfile, ipAddress } = ctx;
+    const { user, adminClient, actorProfile, ipAddress, isSuperAdmin } = ctx;
 
     const { userId, action, reason, newPassword } = await req.json();
     // Sanitize reason: strip HTML tags to prevent stored XSS
@@ -50,29 +50,58 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Reject actions on other admins
-    const { data: targetRole } = await adminClient
+    // Vérifier le rôle de la cible
+    const { data: targetRoleData } = await adminClient
       .from('user_roles').select('role')
-      .eq('user_id', userId).eq('role', 'admin').maybeSingle();
-    if (targetRole) {
-      return new Response(JSON.stringify({ error: 'Impossible de modifier un administrateur' }), {
+      .eq('user_id', userId).maybeSingle();
+    const targetRole = targetRoleData?.role;
+
+    // Sécurité :
+    // - Un admin simple ne peut PAS modifier un autre admin (ni super_admin)
+    // - Le super_admin PEUT modifier les admins (mais pas les autres super_admins)
+    if (targetRole === 'super_admin') {
+      return new Response(JSON.stringify({ error: 'Impossible de modifier un super administrateur' }), {
+        status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+      });
+    }
+    if (targetRole === 'admin' && !isSuperAdmin) {
+      return new Response(JSON.stringify({ error: 'Impossible de modifier un administrateur (réservé au super admin)' }), {
         status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
 
-    // STRICT ORG SCOPE: target must belong to actor's organization
-    if (!actorProfile.organization_id) {
-      return new Response(JSON.stringify({ error: 'Admin sans boutique associée' }), {
-        status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
-      });
+    // ORG SCOPE :
+    // - Le super_admin peut modifier n'importe quel user de n'importe quelle org
+    // - Un admin simple ne peut modifier que les users de SA propre org
+    let targetProfile: { user_id: string; owner_name: string | null; phone: string | null; organization_id: string | null; is_active: boolean | null };
+    if (isSuperAdmin) {
+      // Super admin : charger le profil cible directement (pas de restriction d'org)
+      const { data: targetProfileData, error: targetError } = await adminClient
+        .from('profiles')
+        .select('user_id, owner_name, phone, organization_id, is_active')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (targetError || !targetProfileData) {
+        return new Response(JSON.stringify({ error: 'Utilisateur introuvable' }), {
+          status: 404, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+        });
+      }
+      targetProfile = targetProfileData;
+    } else {
+      // Admin simple : vérifier que la cible est dans la même org
+      if (!actorProfile.organization_id) {
+        return new Response(JSON.stringify({ error: 'Admin sans boutique associée' }), {
+          status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+        });
+      }
+      const scope = await loadTargetInSameOrg(adminClient, userId, actorProfile.organization_id);
+      if (!scope.ok) {
+        return new Response(JSON.stringify({ error: scope.error }), {
+          status: scope.status, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+        });
+      }
+      targetProfile = scope.targetProfile;
     }
-    const scope = await loadTargetInSameOrg(adminClient, userId, actorProfile.organization_id);
-    if (!scope.ok) {
-      return new Response(JSON.stringify({ error: scope.error }), {
-        status: scope.status, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
-      });
-    }
-    const targetProfile = scope.targetProfile;
 
     if (action === 'deactivate') {
       const { error } = await adminClient.from('profiles').update({
