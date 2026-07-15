@@ -224,7 +224,28 @@ WHERE s.organization_id = o.id
   );
 
 -- ════════════════════════════════════════════════════════════════
--- 5. POLICIES RLS — stores (super_admin voit tout)
+-- 5. has_role() ROBUSTE (vérifie user_roles)
+--    ⚠️ DROP nécessaire car on change le nom du paramètre
+--    (doit être fait AVANT les policies qui l'utilisent)
+-- ════════════════════════════════════════════════════════════════
+DROP FUNCTION IF EXISTS public.has_role(uuid, text);
+
+CREATE FUNCTION public.has_role(_user_id uuid, _role text)
+RETURNS boolean
+LANGUAGE sql
+STABLE SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.user_roles 
+    WHERE user_id = _user_id AND role = _role
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION public.has_role(uuid, text) TO authenticated;
+
+-- ════════════════════════════════════════════════════════════════
+-- 6. POLICIES RLS — stores (super_admin voit tout)
 -- ════════════════════════════════════════════════════════════════
 DROP POLICY IF EXISTS "stores_select_org_member" ON public.stores;
 
@@ -239,7 +260,7 @@ CREATE POLICY "stores_select_org_member"
   );
 
 -- ════════════════════════════════════════════════════════════════
--- 6. POLICIES RLS — user_roles (priorité à user_id=auth.uid())
+-- 7. POLICIES RLS — user_roles (priorité à user_id=auth.uid())
 -- ════════════════════════════════════════════════════════════════
 DROP POLICY IF EXISTS "Users can view their own role" ON public.user_roles;
 DROP POLICY IF EXISTS "user_roles_select_own" ON public.user_roles;
@@ -260,7 +281,7 @@ CREATE POLICY "user_roles_select_scoped"
   );
 
 -- ════════════════════════════════════════════════════════════════
--- 7. POLICIES RLS — profiles (priorité à user_id=auth.uid())
+-- 8. POLICIES RLS — profiles (priorité à user_id=auth.uid())
 -- ════════════════════════════════════════════════════════════════
 DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
 DROP POLICY IF EXISTS "profiles_select_own" ON public.profiles;
@@ -291,7 +312,7 @@ CREATE POLICY "profiles_select_scoped"
   );
 
 -- ════════════════════════════════════════════════════════════════
--- 8. POLICIES RLS — user_audit_log (filtré pour admins)
+-- 9. POLICIES RLS — user_audit_log (filtré pour admins)
 -- ════════════════════════════════════════════════════════════════
 DROP POLICY IF EXISTS "admins_view_audit_log" ON public.user_audit_log;
 
@@ -316,21 +337,6 @@ CREATE POLICY "admins_view_audit_log"
       )
     )
   );
-
--- ════════════════════════════════════════════════════════════════
--- 9. has_role() ROBUSTE (vérifie user_roles ET profiles)
--- ════════════════════════════════════════════════════════════════
-CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role text)
-RETURNS boolean
-LANGUAGE sql
-STABLE SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.user_roles 
-    WHERE user_id = _user_id AND role = _role
-  );
-$$;
 
 COMMIT;
 
