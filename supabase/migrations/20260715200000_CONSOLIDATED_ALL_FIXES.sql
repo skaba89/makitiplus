@@ -227,6 +227,7 @@ DROP POLICY IF EXISTS "admins_view_audit_log" ON public.user_audit_log;
 -- ════════════════════════════════════════════════════════════════
 -- 6. DROP + CREATE has_role() (avec nouveaux noms de paramètres)
 --    ⚠️ DROP nécessaire car on change le nom du paramètre
+--    ⚠️ Le paramètre _role doit être casté en app_role (enum)
 -- ════════════════════════════════════════════════════════════════
 DROP FUNCTION IF EXISTS public.has_role(uuid, text);
 
@@ -238,7 +239,7 @@ SET search_path = public
 AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.user_roles 
-    WHERE user_id = _user_id AND role = _role
+    WHERE user_id = _user_id AND role = _role::public.app_role
   );
 $$;
 
