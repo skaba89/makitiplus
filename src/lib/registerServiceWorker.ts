@@ -57,8 +57,29 @@ export const registerServiceWorker = () => {
   }
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register(SW_URL, { type: "classic" }).catch((e) => {
-      /* registration failure — non-critical, PWA will just be unavailable */
+    navigator.serviceWorker.register(SW_URL, { type: "classic" }).then((registration) => {
+      // Detect new version available
+      registration.addEventListener("updatefound", () => {
+        const newWorker = registration.installing;
+        if (!newWorker) return;
+        newWorker.addEventListener("statechange", () => {
+          if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+            // New version installed — force immediate activation
+            logger.info("[MalitiPlus] Nouvelle version disponible — activation...");
+            newWorker.postMessage({ type: "SKIP_WAITING" });
+            // Reload once the new SW takes control
+            navigator.serviceWorker.addEventListener("controllerchange", () => {
+              window.location.reload();
+            }, { once: true });
+          }
+        });
+      });
+
+      // Also check for updates every 60 minutes
+      setInterval(() => {
+        registration.update().catch(() => {});
+      }, 60 * 60 * 1000);
+    }).catch((e) => {
       logger.warn("[MalikiPlus] Service Worker registration échouée :", e);
     });
   });
