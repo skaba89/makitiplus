@@ -56,6 +56,8 @@ import { fr } from "date-fns/locale";
 import { exportSalesToCSV, exportExpensesToCSV } from "@/utils/exportUtils";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
+import { CurrencyDisplaySelector } from "@/components/ui/currency-display-selector";
 import { fetchAllRows } from "@/lib/batchedFetch";
 import { reportError } from "@/lib/sentry";
 import { ReportsPageSkeleton } from "@/components/skeletons/PageSkeletons";
@@ -82,6 +84,15 @@ const Reports = () => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const { formatPrice, currency } = useCurrency();
+  const {
+    formatDisplayPrice,
+    displayCurrencyCode,
+    orgCurrencyCode,
+    setDisplayCurrency,
+    ratesLoading,
+    refreshRates,
+    isConverted,
+  } = useDisplayCurrency();
   const [period, setPeriod] = useState<"day" | "week" | "month">("day");
 
   const getDateRange = () => {
@@ -380,6 +391,13 @@ const Reports = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <CurrencyDisplaySelector
+              orgCurrencyCode={orgCurrencyCode}
+              displayCurrencyCode={displayCurrencyCode}
+              onDisplayCurrencyChange={setDisplayCurrency}
+              ratesLoading={ratesLoading}
+              onRefreshRates={refreshRates}
+            />
             <Tabs value={period} onValueChange={(v) => setPeriod(v as typeof period)}>
               <TabsList className="flex flex-wrap">
                 <TabsTrigger value="day" className="gap-1.5">
@@ -468,7 +486,7 @@ const Reports = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-lg sm:text-2xl font-bold">{formatPrice(totalSales)}</div>
+              <div className="text-lg sm:text-2xl font-bold">{formatDisplayPrice(totalSales, { showOriginal: isConverted })}</div>
               <div className="flex items-center gap-1 mt-1">
                 <ArrowUpRight className="h-4 w-4 text-success" />
                 <span className="text-success text-sm">{totalTransactions} ventes</span>
@@ -489,7 +507,7 @@ const Reports = () => {
               <div className="text-lg sm:text-2xl font-bold">{totalTransactions}</div>
               <div className="text-muted-foreground text-sm mt-1">
                 {totalTransactions > 0
-                  ? `Panier moyen: ${formatPrice(Math.round(totalSales / totalTransactions))}`
+                  ? `Panier moyen: ${formatDisplayPrice(Math.round(totalSales / totalTransactions), { showOriginal: isConverted })}`
                   : "Aucune vente"}
               </div>
             </CardContent>
@@ -505,7 +523,7 @@ const Reports = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-lg sm:text-2xl font-bold">{formatPrice(totalExpenses)}</div>
+              <div className="text-lg sm:text-2xl font-bold">{formatDisplayPrice(totalExpenses, { showOriginal: isConverted })}</div>
               <div className="flex items-center gap-1 mt-1">
                 <ArrowDownRight className="h-4 w-4 text-destructive" />
                 <span className="text-destructive text-sm">
@@ -526,7 +544,7 @@ const Reports = () => {
             </CardHeader>
             <CardContent>
               <div className={`text-lg sm:text-2xl font-bold ${netProfit >= 0 ? "text-success" : "text-destructive"}`}>
-                {formatPrice(netProfit)}
+                {formatDisplayPrice(netProfit, { showOriginal: isConverted })}
               </div>
               <div className="text-muted-foreground text-sm mt-1">
                 Ventes - Dépenses
@@ -562,14 +580,14 @@ const Reports = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-lg sm:text-2xl font-bold text-primary">
-                  {formatPrice(grossMargin)}
+                  {formatDisplayPrice(grossMargin, { showOriginal: isConverted })}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
                   Ventes - Coût des marchandises
                 </div>
                 {totalCost > 0 && (
                   <div className="text-xs text-muted-foreground mt-0.5">
-                    Coût: {formatPrice(totalCost)}
+                    Coût: {formatDisplayPrice(totalCost, { showOriginal: isConverted })}
                   </div>
                 )}
               </CardContent>
@@ -615,7 +633,7 @@ const Reports = () => {
               </CardHeader>
               <CardContent>
                 <div className={`text-lg sm:text-2xl font-bold ${totalDiscount > 0 ? "text-orange-600" : ""}`}>
-                  {formatPrice(totalDiscount)}
+                  {formatDisplayPrice(totalDiscount, { showOriginal: isConverted })}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
                   {totalSales > 0
@@ -641,7 +659,7 @@ const Reports = () => {
                 <div className={`text-lg sm:text-2xl font-bold ${
                   netProfitWithMargin >= 0 ? "text-success" : "text-destructive"
                 }`}>
-                  {netProfitWithMargin >= 0 ? "+" : ""}{formatPrice(netProfitWithMargin)}
+                  {netProfitWithMargin >= 0 ? "+" : ""}{formatDisplayPrice(netProfitWithMargin, { showOriginal: isConverted })}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
                   Marge brute - Dépenses
@@ -649,7 +667,7 @@ const Reports = () => {
                 <div className="text-xs text-muted-foreground mt-0.5">
                   {netProfitWithMargin !== netProfit && (
                     <span title="Écart vs calcul simple (CA - Dépenses)">
-                      vs {formatPrice(netProfit)} (CA - Dép.)
+                      vs {formatDisplayPrice(netProfit, { showOriginal: isConverted })} (CA - Dép.)
                     </span>
                   )}
                 </div>
@@ -746,7 +764,7 @@ const Reports = () => {
                     </div>
                     <div className="text-right">
                       <p className="font-bold text-primary">
-                        {formatPrice(product.revenue)}
+                        {formatDisplayPrice(product.revenue, { showOriginal: isConverted })}
                       </p>
                     </div>
                   </div>
@@ -836,7 +854,7 @@ const Reports = () => {
                             <TableCell className="text-center">{s.product_count}</TableCell>
                             <TableCell className="text-center">{s.total_stock}</TableCell>
                             <TableCell className="text-right font-medium">
-                              {formatPrice(s.stock_value_at_cost)}
+                              {formatDisplayPrice(s.stock_value_at_cost, { showOriginal: isConverted })}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -850,7 +868,7 @@ const Reports = () => {
                             {supplierReport.reduce((s, r) => s + r.total_stock, 0)}
                           </TableCell>
                           <TableCell className="text-right">
-                            {formatPrice(supplierReport.reduce((s, r) => s + r.stock_value_at_cost, 0))}
+                            {formatDisplayPrice(supplierReport.reduce((s, r) => s + r.stock_value_at_cost, 0), { showOriginal: isConverted })}
                           </TableCell>
                         </TableRow>
                       </TableBody>
@@ -878,7 +896,7 @@ const Reports = () => {
               <CardContent>
                 <p className="text-sm text-muted-foreground">
                   <strong>{orphanProducts.count}</strong> produit(s) ne sont associés à aucun fournisseur,
-                  représentant une valeur de stock de <strong>{formatPrice(orphanProducts.totalValue)}</strong>.
+                  représentant une valeur de stock de <strong>{formatDisplayPrice(orphanProducts.totalValue, { showOriginal: isConverted })}</strong>.
                   Associez-les à un fournisseur pour un meilleur suivi de vos approvisionnements.
                 </p>
               </CardContent>
