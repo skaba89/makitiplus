@@ -57,13 +57,18 @@ import {
   Activity,
   ArrowUpDown,
   Eye,
+  Users,
+  UserCog,
+  DollarSign,
+  Percent,
+  TrendingDown,
 } from "lucide-react";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useExchangeRates, convertAmount } from "@/hooks/useExchangeRates";
 import { getCurrencyByCode, formatPrice as formatPriceUtil, COUNTRIES } from "@/utils/currencies";
 import { reportError } from "@/lib/sentry";
 import { FeatureGate } from "@/components/saas/PlanLimitGuard";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 
 const COLORS = ["#E57E4D", "#F59E0B", "#10B981", "#3B82F6", "#8B5CF6", "#EC4899", "#14B8A6", "#F97316"];
@@ -141,6 +146,84 @@ interface PaymentDistribution {
   total_amount: number;
   transaction_count: number;
   percentage: number;
+}
+
+interface UsersPerOrg {
+  organization_id: string;
+  org_name: string;
+  admin_count: number;
+  manager_count: number;
+  vendeur_count: number;
+  comptable_count: number;
+  total_users: number;
+  active_users: number;
+}
+
+interface SellerPerformance {
+  seller_id: string;
+  seller_name: string;
+  seller_role: string;
+  organization_id: string;
+  org_name: string;
+  store_name: string;
+  total_sales: number;
+  total_revenue: number;
+  avg_sale_amount: number;
+  last_sale_at: string | null;
+  last_login_at: string | null;
+}
+
+interface OrgKpis {
+  organization_id: string;
+  org_name: string;
+  store_count: number;
+  transaction_count: number;
+  total_sales: number;
+  total_expenses: number;
+  net_revenue: number;
+  avg_basket: number;
+  total_cost: number;
+  gross_margin: number;
+  customer_count: number;
+  active_products: number;
+  low_stock_count: number;
+  store_names: string[] | null;
+}
+
+interface GlobalKpis {
+  total_orgs: number;
+  total_stores: number;
+  total_users: number;
+  total_active_users: number;
+  total_transactions: number;
+  total_sales: number;
+  total_expenses: number;
+  net_revenue: number;
+  avg_basket: number;
+  total_cost: number;
+  gross_margin: number;
+  gross_margin_pct: number;
+  total_customers: number;
+  total_products: number;
+  total_active_products: number;
+  low_stock_count: number;
+  previous_period_sales: number;
+  sales_growth_pct: number;
+}
+
+interface ProductRankingDetailed {
+  product_id: string;
+  product_name: string;
+  org_name: string;
+  category_name: string;
+  quantity_sold: number;
+  revenue: number;
+  cost: number;
+  margin: number;
+  margin_pct: number;
+  stock_quantity: number;
+  revenue_pct_of_total: number;
+  rank_type: string;
 }
 
 const storeCategoryLabels: Record<string, string> = {
@@ -317,6 +400,72 @@ const AdminAnalytics = () => {
     enabled: userRole === "super_admin",
   });
 
+  // 6. Users per organization
+  const { data: usersPerOrg, isLoading: loadingUsersPerOrg } = useQuery({
+    queryKey: ["admin-users-per-org"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_admin_users_per_org");
+      if (error) return [];
+      return (data || []) as UsersPerOrg[];
+    },
+    enabled: userRole === "super_admin",
+  });
+
+  // 7. Seller performance
+  const { data: sellerPerformance, isLoading: loadingSellerPerf } = useQuery({
+    queryKey: ["admin-seller-performance", period, selectedStoreId],
+    queryFn: async () => {
+      const params: Record<string, unknown> = { p_period: period };
+      if (selectedStoreId !== "all") {
+        params.p_organization_id = selectedStoreId;
+      }
+      const { data, error } = await supabase.rpc("get_admin_seller_performance", params);
+      if (error) return [];
+      return (data || []) as SellerPerformance[];
+    },
+    enabled: userRole === "super_admin",
+  });
+
+  // 8. Org KPIs
+  const { data: orgKpis, isLoading: loadingOrgKpis } = useQuery({
+    queryKey: ["admin-org-kpis", period],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_admin_org_kpis", { p_period: period });
+      if (error) return [];
+      return (data || []) as OrgKpis[];
+    },
+    enabled: userRole === "super_admin",
+  });
+
+  // 9. Global KPIs (enrichis)
+  const { data: globalKpis, isLoading: loadingGlobalKpis } = useQuery({
+    queryKey: ["admin-global-kpis", period],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_admin_global_kpis", { p_period: period });
+      if (error) return null;
+      return data as unknown as GlobalKpis | null;
+    },
+    enabled: userRole === "super_admin",
+  });
+
+  // 10. Product ranking detailed (top + bad)
+  const { data: productRankingDetailed, isLoading: loadingProductRanking } = useQuery({
+    queryKey: ["admin-product-ranking-detailed", period, selectedStoreId],
+    queryFn: async () => {
+      const params: Record<string, unknown> = {
+        p_period: period,
+        p_limit: 10,
+      };
+      if (selectedStoreId !== "all") {
+        params.p_organization_id = selectedStoreId;
+      }
+      const { data, error } = await supabase.rpc("get_admin_product_ranking_detailed", params);
+      if (error) return [];
+      return (data || []) as ProductRankingDetailed[];
+    },
+    enabled: userRole === "super_admin",
+  });
+
   // ====== DERIVED DATA ======
 
   const topArticles = useMemo(() => 
@@ -459,15 +608,26 @@ const AdminAnalytics = () => {
           </div>
         </div>
 
-        {/* Global KPIs */}
+        {/* Global KPIs enriched */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {[
-            { label: "Magasins", value: globalStats.totalStores, icon: Store, color: "text-blue-600" },
-            { label: "Ventes totales (€)", value: ratesLoading ? "..." : formatPivotPrice(globalStats.totalSales), icon: ShoppingCart, color: "text-green-600" },
-            { label: "Transactions", value: globalStats.totalTransactions, icon: TrendingUp, color: "text-primary" },
-            { label: "Dépenses (€)", value: ratesLoading ? "..." : formatPivotPrice(globalStats.totalExpenses), icon: Wallet, color: "text-orange-600" },
-            { label: "Produits actifs", value: globalStats.totalProducts, icon: Package, color: "text-purple-600" },
-            { label: "Alertes stock", value: globalStats.totalLowStock, icon: AlertTriangle, color: "text-destructive" },
+            { label: "Organisations", value: globalKpis?.total_orgs ?? "—", icon: Store, color: "text-blue-600" },
+            { label: "Magasins", value: globalKpis?.total_stores ?? globalStats.totalStores, icon: Store, color: "text-blue-600" },
+            { label: "Utilisateurs", value: globalKpis?.total_users ?? "—", icon: Users, color: "text-indigo-600" },
+            { label: "Transactions", value: globalKpis?.total_transactions ?? globalStats.totalTransactions, icon: TrendingUp, color: "text-primary" },
+            { label: "Ventes (€)", value: ratesLoading ? "..." : formatPivotPrice(globalKpis?.total_sales ?? globalStats.totalSales), icon: ShoppingCart, color: "text-green-600" },
+            {
+              label: "Croissance",
+              value: globalKpis ? `${globalKpis.sales_growth_pct >= 0 ? "+" : ""}${globalKpis.sales_growth_pct.toFixed(1)}%` : "—",
+              icon: globalKpis && globalKpis.sales_growth_pct >= 0 ? TrendingUp : TrendingDown,
+              color: globalKpis && globalKpis.sales_growth_pct >= 0 ? "text-green-600" : "text-destructive",
+            },
+            { label: "Dépenses (€)", value: ratesLoading ? "..." : formatPivotPrice(globalKpis?.total_expenses ?? globalStats.totalExpenses), icon: Wallet, color: "text-orange-600" },
+            { label: "Bénéfice net (€)", value: ratesLoading ? "..." : formatPivotPrice(globalKpis?.net_revenue ?? (globalStats.totalSales - globalStats.totalExpenses)), icon: DollarSign, color: globalKpis && globalKpis.net_revenue >= 0 ? "text-green-600" : "text-destructive" },
+            { label: "Panier moyen (€)", value: ratesLoading ? "..." : formatPivotPrice(globalKpis?.avg_basket ?? 0), icon: ShoppingCart, color: "text-purple-600" },
+            { label: "Marge brute (€)", value: ratesLoading ? "..." : formatPivotPrice(globalKpis?.gross_margin ?? 0), icon: DollarSign, color: "text-emerald-600" },
+            { label: "Marge %", value: globalKpis ? `${globalKpis.gross_margin_pct.toFixed(1)}%` : "—", icon: Percent, color: "text-emerald-600" },
+            { label: "Alertes stock", value: globalKpis?.low_stock_count ?? globalStats.totalLowStock, icon: AlertTriangle, color: "text-destructive" },
           ].map((kpi) => (
             <Card key={kpi.label} className="card-elevated">
               <CardContent className="p-4">
@@ -483,22 +643,36 @@ const AdminAnalytics = () => {
 
         {/* Tabs */}
         <Tabs defaultValue="stores" className="space-y-4">
-          <TabsList className="grid grid-cols-2 sm:grid-cols-4 gap-1 h-auto p-1">
+          <TabsList className="grid grid-cols-2 sm:grid-cols-6 gap-1 h-auto p-1">
             <TabsTrigger value="stores" className="text-xs sm:text-sm">
               <Store className="h-4 w-4 mr-1" />
-              Classement Magasins
+              <span className="hidden lg:inline">Classement Magasins</span>
+              <span className="lg:hidden">Magasins</span>
             </TabsTrigger>
             <TabsTrigger value="articles" className="text-xs sm:text-sm">
               <Trophy className="h-4 w-4 mr-1" />
-              Top / Bad Articles
+              <span className="hidden lg:inline">Top / Bad Articles</span>
+              <span className="lg:hidden">Articles</span>
+            </TabsTrigger>
+            <TabsTrigger value="users" className="text-xs sm:text-sm">
+              <Users className="h-4 w-4 mr-1" />
+              <span className="hidden lg:inline">Utilisateurs</span>
+              <span className="lg:hidden">Users</span>
+            </TabsTrigger>
+            <TabsTrigger value="sellers" className="text-xs sm:text-sm">
+              <UserCog className="h-4 w-4 mr-1" />
+              <span className="hidden lg:inline">Performance Vendeurs</span>
+              <span className="lg:hidden">Vendeurs</span>
             </TabsTrigger>
             <TabsTrigger value="movements" className="text-xs sm:text-sm">
               <Activity className="h-4 w-4 mr-1" />
-              Mouvements Stock
+              <span className="hidden lg:inline">Mouvements Stock</span>
+              <span className="lg:hidden">Stock</span>
             </TabsTrigger>
             <TabsTrigger value="trends" className="text-xs sm:text-sm">
               <TrendingUp className="h-4 w-4 mr-1" />
-              Tendances
+              <span className="hidden lg:inline">Tendances</span>
+              <span className="lg:hidden">Trends</span>
             </TabsTrigger>
           </TabsList>
 
@@ -767,6 +941,178 @@ const AdminAnalytics = () => {
                             </TableRow>
                           );
                         })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* TAB: Users per Organization */}
+          <TabsContent value="users" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Utilisateurs par organisation
+                </CardTitle>
+                <CardDescription>
+                  Répartition des utilisateurs (admin, manager, vendeur, comptable) par organisation.
+                  Le super_admin n'est pas compté (réservé à la plateforme).
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loadingUsersPerOrg ? (
+                  <p className="text-muted-foreground text-center py-8">Chargement...</p>
+                ) : (usersPerOrg || []).length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">Aucune organisation</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Organisation</TableHead>
+                          <TableHead className="text-center">Admins</TableHead>
+                          <TableHead className="text-center">Managers</TableHead>
+                          <TableHead className="text-center">Vendeurs</TableHead>
+                          <TableHead className="text-center">Comptables</TableHead>
+                          <TableHead className="text-center font-bold">Total</TableHead>
+                          <TableHead className="text-center">Actifs</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(usersPerOrg || []).map((u) => (
+                          <TableRow key={u.organization_id}>
+                            <TableCell className="font-medium">{u.org_name}</TableCell>
+                            <TableCell className="text-center">
+                              <Badge variant="secondary">{u.admin_count}</Badge>
+                            </TableCell>
+                            <TableCell className="text-center">{u.manager_count}</TableCell>
+                            <TableCell className="text-center">{u.vendeur_count}</TableCell>
+                            <TableCell className="text-center">{u.comptable_count}</TableCell>
+                            <TableCell className="text-center font-bold">{u.total_users}</TableCell>
+                            <TableCell className="text-center">
+                              <Badge variant={u.active_users === u.total_users ? "default" : "outline"}>
+                                {u.active_users}/{u.total_users}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Summary cards */}
+            {(usersPerOrg || []).length > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <UserCog className="h-4 w-4 text-purple-600" />
+                      <span className="text-xs text-muted-foreground">Total admins</span>
+                    </div>
+                    <p className="text-xl font-bold">
+                      {(usersPerOrg || []).reduce((s, u) => s + u.admin_count, 0)}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Users className="h-4 w-4 text-blue-600" />
+                      <span className="text-xs text-muted-foreground">Total vendeurs</span>
+                    </div>
+                    <p className="text-xl font-bold">
+                      {(usersPerOrg || []).reduce((s, u) => s + u.vendeur_count, 0)}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Users className="h-4 w-4 text-green-600" />
+                      <span className="text-xs text-muted-foreground">Total managers</span>
+                    </div>
+                    <p className="text-xl font-bold">
+                      {(usersPerOrg || []).reduce((s, u) => s + u.manager_count, 0)}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Users className="h-4 w-4 text-orange-600" />
+                      <span className="text-xs text-muted-foreground">Total users</span>
+                    </div>
+                    <p className="text-xl font-bold">
+                      {(usersPerOrg || []).reduce((s, u) => s + u.total_users, 0)}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* TAB: Seller Performance */}
+          <TabsContent value="sellers" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <UserCog className="h-5 w-5" />
+                  Performance par vendeur — {periodLabels[period]}
+                </CardTitle>
+                <CardDescription>
+                  KPIs par vendeur : nombre de ventes, CA généré, panier moyen, dernière activité.
+                  {selectedStoreId !== "all" && " Filtré par organisation."}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loadingSellerPerf ? (
+                  <p className="text-muted-foreground text-center py-8">Chargement...</p>
+                ) : (sellerPerformance || []).length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">Aucun vendeur sur cette période</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Vendeur</TableHead>
+                          <TableHead>Rôle</TableHead>
+                          <TableHead>Organisation</TableHead>
+                          <TableHead className="text-center">Ventes</TableHead>
+                          <TableHead className="text-right">CA généré (€)</TableHead>
+                          <TableHead className="text-right">Panier moyen (€)</TableHead>
+                          <TableHead>Dernière vente</TableHead>
+                          <TableHead>Dernière connexion</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(sellerPerformance || []).map((s) => (
+                          <TableRow key={s.seller_id}>
+                            <TableCell className="font-medium">{s.seller_name}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="capitalize">{s.seller_role}</Badge>
+                            </TableCell>
+                            <TableCell>{s.org_name}</TableCell>
+                            <TableCell className="text-center font-bold">{s.total_sales}</TableCell>
+                            <TableCell className="text-right font-semibold text-green-600">
+                              {formatPivotPrice(s.total_revenue)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {formatPivotPrice(s.avg_sale_amount)}
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground">
+                              {s.last_sale_at ? formatDistanceToNow(new Date(s.last_sale_at), { addSuffix: true, locale: fr }) : "—"}
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground">
+                              {s.last_login_at ? formatDistanceToNow(new Date(s.last_login_at), { addSuffix: true, locale: fr }) : "—"}
+                            </TableCell>
+                          </TableRow>
+                        ))}
                       </TableBody>
                     </Table>
                   </div>
