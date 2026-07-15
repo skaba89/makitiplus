@@ -36,9 +36,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, CheckCircle, AlertTriangle, CreditCard, Calendar, TrendingUp, Clock, Shield, Mail, Phone, Banknote, Copy, Check } from "lucide-react";
+import { Loader2, CheckCircle, AlertTriangle, CreditCard, Calendar, TrendingUp, Clock, Shield, Mail, Phone, Banknote, Copy, Check, Building2, Store } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { useEffect, useState, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -81,9 +82,60 @@ export default function Billing() {
   const [changeReason, setChangeReason] = useState("");
   const [copied, setCopied] = useState(false);
 
+  // Super admin: sélection d'une organisation cible
+  const [targetOrgId, setTargetOrgId] = useState<string>("");
+
   // SECURITY: Only super_admin can manually change plans — NOT admin
   const isPlatformSuperAdmin = userRole === "super_admin";
   const isTenantAdmin = userRole === "admin";
+
+  // Fetch toutes les organisations + leurs abonnements (super_admin seulement)
+  const { data: allOrgs = [], isLoading: orgsLoading } = useQuery({
+    queryKey: ["all-orgs-with-subs"],
+    enabled: isPlatformSuperAdmin,
+    queryFn: async () => {
+      // 1. Toutes les organisations
+      const { data: orgs, error: orgsError } = await supabase
+        .from("organizations")
+        .select("id, name, owner_user_id, created_at")
+        .order("created_at", { ascending: false });
+      if (orgsError) throw orgsError;
+      if (!orgs || orgs.length === 0) return [];
+
+      // 2. Tous les abonnements de ces orgs
+      const { data: subs } = await supabase
+        .from("subscriptions")
+        .select("organization_id, plan_id, status, current_period_end")
+        .in("organization_id", orgs.map((o) => o.id));
+
+      // 3. Tous les stores de ces orgs (pour afficher le nombre de magasins)
+      const { data: stores } = await supabase
+        .from("stores")
+        .select("organization_id, id, name")
+        .in("organization_id", orgs.map((o) => o.id));
+
+      // 4. Fusionner
+      return orgs.map((org) => {
+        const sub = subs?.find((s) => s.organization_id === org.id);
+        const orgStores = stores?.filter((s) => s.organization_id === org.id) || [];
+        return {
+          id: org.id,
+          name: org.name,
+          created_at: org.created_at,
+          plan_id: sub?.plan_id || "starter",
+          status: sub?.status || "active",
+          current_period_end: sub?.current_period_end,
+          stores_count: orgStores.length,
+          stores: orgStores.map((s) => ({ id: s.id, name: s.name })),
+        };
+      });
+    },
+  });
+
+  // L'org cible pour les actions (super_admin = org sélectionnée, admin = son org)
+  const effectiveTargetOrgId = isPlatformSuperAdmin
+    ? targetOrgId || (allOrgs[0]?.id ?? "")
+    : null; // sera résolu via profile pour admin
 
   // Handle Stripe Checkout return URLs
   useEffect(() => {
@@ -113,34 +165,54 @@ export default function Billing() {
       return;
     }
 
+    // Super_admin doit sélectionner une org cible
+    if (isPlatformSuperAdmin && !effectiveTargetOrgId) {
+      toast({ title: "Organisation requise", description: "Sélectionnez une organisation à modifier.", variant: "destructive" });
+      return;
+    }
+
     setIsChangingPlan(true);
     try {
-      // Get organization_id for the target org
-      const { data: orgData } = await supabase
-        .from("profiles")
-        .select("organization_id")
-        .eq("user_id", user?.id)
-        .single();
+      // Pour super_admin : utiliser l'org sélectionnée. Pour admin : son propre org.
+      const orgIdToUse = isPlatformSuperAdmin
+        ? effectiveTargetOrgId
+        : (await supabase
+            .from("profiles")
+            .select("organization_id")
+            .eq("user_id", user?.id)
+            .single()
+          ).data?.organization_id;
+
+      if (!orgIdToUse) {
+        toast({ title: "Erreur", description: "Impossible de déterminer l'organisation cible.", variant: "destructive" });
+        return;
+      }
 
       const { data, error } = await supabase.rpc("admin_update_organization_subscription", {
-        p_organization_id: orgData?.organization_id,
+        p_organization_id: orgIdToUse,
         p_plan_id: selectedPlan,
         p_duration: selectedDuration,
         p_payment_reference: paymentRef || null,
         p_reason: changeReason || null,
       });
 
-      if (error) return [];
+      if (error) {
+        toast({ title: "Erreur", description: error.message, variant: "destructive" });
+        return;
+      }
 
       const result = Array.isArray(data) ? data[0] : data;
+      const planLabel = selectedPlan === "croissance" ? "Croissance" : selectedPlan === "enterprise" ? "Enterprise" : selectedPlan === "pilot_national" ? "Pilote National" : "Starter";
+      const targetOrgName = allOrgs.find((o) => o.id === orgIdToUse)?.name || "Organisation";
       toast({
         title: "Plan mis à jour",
-        description: `Plan changé vers ${selectedPlan === "croissance" ? "Croissance" : selectedPlan === "enterprise" ? "Enterprise" : "Starter"} (${selectedDuration}). ${result?.event_type === "upgraded" ? "Upgrade" : result?.event_type === "downgraded" ? "Downgrade" : "Renouvellement"} effectué.`,
+        description: `Organisation "${targetOrgName}" → Plan ${planLabel} (${selectedDuration}). ${result?.event_type === "upgraded" ? "Upgrade" : result?.event_type === "downgraded" ? "Downgrade" : "Renouvellement"} effectué.`,
       });
 
       queryClient.invalidateQueries({ queryKey: ["subscription"] });
       queryClient.invalidateQueries({ queryKey: ["plan-limit"] });
       queryClient.invalidateQueries({ queryKey: ["feature-access"] });
+      queryClient.invalidateQueries({ queryKey: ["all-orgs-with-subs"] });
       setChangeDialogOpen(false);
       setSelectedPlan("");
       setSelectedDuration("1_month");
@@ -155,7 +227,7 @@ export default function Billing() {
     } finally {
       setIsChangingPlan(false);
     }
-  }, [blockMutation, selectedPlan, selectedDuration, paymentRef, changeReason, user, queryClient, toast]);
+  }, [blockMutation, selectedPlan, selectedDuration, paymentRef, changeReason, user, queryClient, toast, isPlatformSuperAdmin, effectiveTargetOrgId, allOrgs]);
 
   /**
    * handleExtendSubscription — super_admin only
@@ -166,37 +238,64 @@ export default function Billing() {
     // Demo mode: block ALL subscription mutations
     if (blockMutation("Prolonger l'abonnement")) return;
 
-    if (!subscription?.plan_id) {
-      toast({ title: "Aucun plan actif", description: "Aucun abonnement à prolonger.", variant: "destructive" });
-      return;
-    }
+    // Pour super_admin : utiliser le plan de l'org sélectionnée.
+    // Pour admin : utiliser son propre plan.
+    let planId: string | undefined;
+    let orgIdToUse: string | null | undefined;
 
-    setIsChangingPlan(true);
-    try {
+    if (isPlatformSuperAdmin) {
+      if (!effectiveTargetOrgId) {
+        toast({ title: "Organisation requise", description: "Sélectionnez une organisation à prolonger.", variant: "destructive" });
+        return;
+      }
+      orgIdToUse = effectiveTargetOrgId;
+      planId = allOrgs.find((o) => o.id === effectiveTargetOrgId)?.plan_id;
+    } else {
+      if (!subscription?.plan_id) {
+        toast({ title: "Aucun plan actif", description: "Aucun abonnement à prolonger.", variant: "destructive" });
+        return;
+      }
+      planId = subscription.plan_id;
       const { data: orgData } = await supabase
         .from("profiles")
         .select("organization_id")
         .eq("user_id", user?.id)
         .single();
+      orgIdToUse = orgData?.organization_id;
+    }
 
+    if (!planId || !orgIdToUse) {
+      toast({ title: "Erreur", description: "Plan ou organisation introuvable.", variant: "destructive" });
+      return;
+    }
+
+    setIsChangingPlan(true);
+    try {
       const { data, error } = await supabase.rpc("admin_update_organization_subscription", {
-        p_organization_id: orgData?.organization_id,
-        p_plan_id: subscription.plan_id,
+        p_organization_id: orgIdToUse,
+        p_plan_id: planId,
         p_duration: duration,
         p_payment_reference: paymentRef || null,
         p_reason: changeReason || "Prolongation manuelle",
       });
 
-      if (error) return [];
+      if (error) {
+        toast({ title: "Erreur", description: error.message, variant: "destructive" });
+        return;
+      }
 
       const result = Array.isArray(data) ? data[0] : data;
+      const targetOrgName = isPlatformSuperAdmin
+        ? allOrgs.find((o) => o.id === orgIdToUse)?.name || "Organisation"
+        : "";
       toast({
         title: "Abonnement prolongé",
-        description: `Plan ${subscription.plan_id} prolongé de ${duration === "1_year" ? "1 an" : duration === "6_months" ? "6 mois" : duration === "3_months" ? "3 mois" : "1 mois"}.`,
+        description: `${isPlatformSuperAdmin ? `"${targetOrgName}" — ` : ""}Plan ${planId} prolongé de ${duration === "1_year" ? "1 an" : duration === "6_months" ? "6 mois" : duration === "3_months" ? "3 mois" : "1 mois"}.`,
       });
 
       queryClient.invalidateQueries({ queryKey: ["subscription"] });
       queryClient.invalidateQueries({ queryKey: ["plan-limit"] });
+      queryClient.invalidateQueries({ queryKey: ["all-orgs-with-subs"] });
     } catch (err: unknown) {
       toast({
         title: "Erreur",
@@ -206,7 +305,7 @@ export default function Billing() {
     } finally {
       setIsChangingPlan(false);
     }
-  }, [blockMutation, subscription, paymentRef, changeReason, user, queryClient, toast]);
+  }, [blockMutation, subscription, paymentRef, changeReason, user, queryClient, toast, isPlatformSuperAdmin, effectiveTargetOrgId, allOrgs]);
 
   // Copy contact info
   const handleCopy = (text: string) => {
@@ -419,6 +518,67 @@ export default function Billing() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Sélecteur d'organisation cible (super_admin) */}
+            <div className="space-y-3 p-4 bg-background border-2 border-purple-200 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-purple-600" />
+                <label className="text-sm font-medium">Organisation cible</label>
+              </div>
+              <Select value={effectiveTargetOrgId} onValueChange={setTargetOrgId}>
+                <SelectTrigger>
+                  <SelectValue placeholder={orgsLoading ? "Chargement..." : "Sélectionner une organisation"} />
+                </SelectTrigger>
+                <SelectContent className="max-h-80">
+                  {allOrgs.map((org) => (
+                    <SelectItem key={org.id} value={org.id}>
+                      <span className="flex items-center gap-2">
+                        <Store className="h-3 w-3 text-purple-500" />
+                        <span className="font-medium">{org.name}</span>
+                        <Badge variant="outline" className="text-xs ml-1 capitalize">
+                          {org.plan_id}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          ({org.stores_count} magasin{org.stores_count > 1 ? "s" : ""})
+                        </span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {/* Détails de l'org sélectionnée */}
+              {effectiveTargetOrgId && (() => {
+                const selectedOrg = allOrgs.find((o) => o.id === effectiveTargetOrgId);
+                if (!selectedOrg) return null;
+                return (
+                  <div className="mt-2 p-3 bg-purple-50/50 dark:bg-purple-950/20 rounded-md border border-purple-100">
+                    <div className="flex flex-wrap items-center gap-3 text-sm">
+                      <span className="font-medium">{selectedOrg.name}</span>
+                      <Badge variant="outline" className="capitalize">{selectedOrg.plan_id}</Badge>
+                      <Badge variant={STATUS_LABELS[selectedOrg.status]?.variant || "outline"}>
+                        {STATUS_LABELS[selectedOrg.status]?.label || selectedOrg.status}
+                      </Badge>
+                      {selectedOrg.current_period_end && (
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          Expire le {new Date(selectedOrg.current_period_end).toLocaleDateString("fr-FR")}
+                        </span>
+                      )}
+                    </div>
+                    {selectedOrg.stores.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {selectedOrg.stores.map((s) => (
+                          <span key={s.id} className="text-xs px-2 py-0.5 bg-muted rounded">
+                            <Store className="h-3 w-3 inline mr-1" />
+                            {s.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+
             {/* Change Plan — with Dialog */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-muted/50 rounded-lg">
               <div className="flex-1">
@@ -450,6 +610,7 @@ export default function Billing() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="starter">Starter — Gratuit</SelectItem>
+                          <SelectItem value="pilot_national">Pilote National — Gratuit (7 jours)</SelectItem>
                           <SelectItem value="croissance">Croissance — 39,90 EUR/mois</SelectItem>
                           <SelectItem value="enterprise">Enterprise — 99,90 EUR/mois</SelectItem>
                         </SelectContent>
