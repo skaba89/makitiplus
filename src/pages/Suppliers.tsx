@@ -12,6 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
+import { CurrencyDisplaySelector } from "@/components/ui/currency-display-selector";
 import {
   Dialog,
   DialogContent,
@@ -67,6 +69,15 @@ const Suppliers = () => {
   const { toast } = useToast();
   const { blockMutation } = useDemo();
   const { formatPrice } = useCurrency();
+  const {
+    formatDisplayPrice,
+    displayCurrencyCode,
+    orgCurrencyCode,
+    setDisplayCurrency,
+    ratesLoading,
+    refreshRates,
+    isConverted,
+  } = useDisplayCurrency();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -375,7 +386,7 @@ const Suppliers = () => {
                     Valeur du stock fournisseur
                   </p>
                   <p className="text-2xl font-bold">
-                    {formatPrice(totalStockValue)}
+                    {formatDisplayPrice(totalStockValue, { showOriginal: isConverted })}
                   </p>
                 </div>
               </div>
