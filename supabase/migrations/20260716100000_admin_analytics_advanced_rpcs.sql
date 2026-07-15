@@ -70,7 +70,7 @@ RETURNS TABLE (
   last_sale_at TIMESTAMPTZ,
   last_login_at TIMESTAMPTZ
 )
-LANGUAGE sql
+LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
@@ -136,7 +136,7 @@ RETURNS TABLE (
   low_stock_count BIGINT,
   store_names TEXT[]
 )
-LANGUAGE sql
+LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
@@ -211,7 +211,7 @@ RETURNS TABLE (
   previous_period_sales NUMERIC,
   sales_growth_pct NUMERIC
 )
-LANGUAGE sql
+LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
@@ -304,7 +304,7 @@ RETURNS TABLE (
   revenue_pct_of_total NUMERIC,
   rank_type TEXT
 )
-LANGUAGE sql
+LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
