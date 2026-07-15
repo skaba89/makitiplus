@@ -13,6 +13,8 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
+import { useOrgSelector } from "@/hooks/useOrgSelector";
+import { OrgSelector } from "@/components/ui/org-selector";
 import { CurrencyDisplaySelector } from "@/components/ui/currency-display-selector";
 import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import {
@@ -68,6 +70,7 @@ const Customers = () => {
   const { toast } = useToast();
   const { blockMutation } = useDemo();
   const { formatPrice, currency } = useCurrency();
+  const { effectiveOrgId } = useOrgSelector();
   const {
     formatDisplayPrice,
     displayCurrencyCode,
@@ -249,7 +252,7 @@ const Customers = () => {
                   // Fetch ALL customers for full export (not just current page)
                   const allCustomers = await fetchAllRows<Customer>("customers", "*", {
                     filters: profile?.organization_id
-                      ? [{ column: "organization_id", operator: "eq" as const, value: profile.organization_id }]
+                      ? [{ column: "organization_id", operator: "eq" as const, value: effectiveOrgId }]
                       : [],
                   });
                   if (allCustomers && allCustomers.length > 0) {
