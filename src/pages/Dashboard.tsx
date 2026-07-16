@@ -67,8 +67,11 @@ const Dashboard = () => {
   // ⚡ Stats du Dashboard via RPC — une seule requête au lieu de 5+ fetchAllRows
   // L'agrégation (SUM, COUNT) se fait côté serveur, réduisant drastiquement le transfert de données
   const { data: dashboardStats, isLoading: isLoadingStats } = useQuery({
-    queryKey: ["dashboard-stats", user?.id],
+    queryKey: ["dashboard-stats", user?.id, effectiveOrgId],
     queryFn: async () => {
+      // Pour super_admin : ne pas appeler le RPC (il utilise le profil du user,
+      // pas l'org sélectionnée). Les queries client-side sont utilisées à la place.
+      if (isSuperAdmin) return null;
       const { data, error } = await supabase.rpc("get_dashboard_stats", {
         p_day_start: dayStart,
         p_day_end: dayEnd,
@@ -83,14 +86,16 @@ const Dashboard = () => {
       // RPC returns array with single object
       return Array.isArray(data) ? data[0] : data;
     },
-    enabled: !!user,
+    enabled: !!user && !isSuperAdmin,
     retry: 1,
   });
 
   // Produits les plus vendus (30 derniers jours) — RPC avec agrégation serveur
+  // Pour super_admin : ne pas appeler le RPC (utilise le profil du user)
   const { data: topProducts } = useQuery({
-    queryKey: ["dashboard-top-products", user?.id],
+    queryKey: ["dashboard-top-products", user?.id, effectiveOrgId],
     queryFn: async () => {
+      if (isSuperAdmin) return [];
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       const { data, error } = await supabase.rpc("get_top_products", {
@@ -108,7 +113,7 @@ const Dashboard = () => {
       if (data && typeof data === "object") return [data];
       return [];
     },
-    enabled: !!user,
+    enabled: !!user && !isSuperAdmin,
     retry: 1,
   });
 
