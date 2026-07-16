@@ -9,6 +9,13 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
 import { CurrencyDisplaySelector } from "@/components/ui/currency-display-selector";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   TrendingUp,
   ShoppingCart,
   Package,
@@ -58,6 +65,30 @@ const Dashboard = () => {
   } = useDisplayCurrency();
   const navigate = useNavigate();
 
+  // Super admin: sélecteur d'organisation pour voir les données de n'importe quelle org
+  const isSuperAdmin = userRole === "super_admin";
+  const [selectedOrgId, setSelectedOrgId] = useState<string>("");
+  const [selectedStoreId, setSelectedStoreId] = useState<string>("");
+
+  // Fetch toutes les organisations (super_admin seulement)
+  const { data: allOrgs = [] } = useQuery({
+    queryKey: ["dashboard-all-orgs"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("organizations")
+        .select("id, name, country, currency")
+        .order("name");
+      if (error) return [];
+      return data as { id: string; name: string; country: string | null; currency: string | null }[];
+    },
+    enabled: isSuperAdmin,
+  });
+
+  // L'org effective pour les queries :
+  // - super_admin → org sélectionnée (ou toutes si vide)
+  // - autres → leur org de profil
+  const effectiveOrgId = isSuperAdmin ? (selectedOrgId || undefined) : (profile?.organization_id || undefined);
+
   const today = new Date();
   const dayStart = startOfDay(today).toISOString();
   const dayEnd = endOfDay(today).toISOString();
@@ -66,8 +97,10 @@ const Dashboard = () => {
 
   // ⚡ Stats du Dashboard via RPC — une seule requête au lieu de 5+ fetchAllRows
   // L'agrégation (SUM, COUNT) se fait côté serveur, réduisant drastiquement le transfert de données
+  // ⚠️ Pour super_admin, on désactive le RPC (qui utilise le profil du user) et on utilise
+  //    les queries client-side qui respectent effectiveOrgId (sélecteur d'org)
   const { data: dashboardStats, isLoading: isLoadingStats } = useQuery({
-    queryKey: ["dashboard-stats", user?.id],
+    queryKey: ["dashboard-stats", user?.id, effectiveOrgId],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_dashboard_stats", {
         p_day_start: dayStart,
@@ -83,7 +116,7 @@ const Dashboard = () => {
       // RPC returns array with single object
       return Array.isArray(data) ? data[0] : data;
     },
-    enabled: !!user,
+    enabled: !!user && !isSuperAdmin,
     retry: 1,
   });
 
@@ -108,11 +141,11 @@ const Dashboard = () => {
       if (data && typeof data === "object") return [data];
       return [];
     },
-    enabled: !!user,
+    enabled: !!user && !isSuperAdmin,
     retry: 1,
   });
 
-  // Month sales (for profit calculation)
+  // Month sales (for profit calculation) — client-side, respecte effectiveOrgId
   const { data: monthSales } = useQuery({
     queryKey: ["dashboard-sales-month", user?.id],
     queryFn: async () => {
@@ -121,8 +154,8 @@ const Dashboard = () => {
         .select("total_amount")
         .gte("created_at", monthStart)
         .lte("created_at", monthEnd);
-      if (profile?.organization_id) {
-        query = query.eq("organization_id", profile.organization_id);
+      if (effectiveOrgId) {
+        query = query.eq("organization_id", effectiveOrgId);
       }
       const { data, error } = await query;
       if (error) return [];
@@ -140,8 +173,8 @@ const Dashboard = () => {
         .select("amount")
         .gte("expense_date", format(startOfMonth(today), "yyyy-MM-dd"))
         .lte("expense_date", format(endOfMonth(today), "yyyy-MM-dd"));
-      if (profile?.organization_id) {
-        query = query.eq("organization_id", profile.organization_id);
+      if (effectiveOrgId) {
+        query = query.eq("organization_id", effectiveOrgId);
       }
       const { data, error } = await query;
       if (error) return [];
@@ -158,8 +191,8 @@ const Dashboard = () => {
         .from("products")
         .select("id, name, stock_quantity, min_stock_alert, expiry_date, categories(icon), suppliers(name)")
         .eq("is_active", true);
-      if (profile?.organization_id) {
-        query = query.eq("organization_id", profile.organization_id);
+      if (effectiveOrgId) {
+        query = query.eq("organization_id", effectiveOrgId);
       }
       const { data, error } = await query;
       if (error) return [] as DashboardProduct[];
@@ -176,8 +209,8 @@ const Dashboard = () => {
         .from("suppliers")
         .select("*", { count: "exact", head: true })
         .eq("is_active", true);
-      if (profile?.organization_id) {
-        query = query.eq("organization_id", profile.organization_id);
+      if (effectiveOrgId) {
+        query = query.eq("organization_id", effectiveOrgId);
       }
       const { count, error } = await query;
       if (error) return 0;
@@ -188,7 +221,7 @@ const Dashboard = () => {
 
   // Recent sales
   const { data: recentSales } = useQuery({
-    queryKey: ["dashboard-recent-sales", user?.id, profile?.organization_id],
+    queryKey: ["dashboard-recent-sales", user?.id, effectiveOrgId],
     queryFn: async () => {
       let query = supabase
         .from("sales")
@@ -196,14 +229,14 @@ const Dashboard = () => {
         .order("created_at", { ascending: false })
         .limit(5);
       // Filtrer par organisation si disponible (évite de voir les ventes d'autres orgs)
-      if (profile?.organization_id) {
-        query = query.eq("organization_id", profile.organization_id);
+      if (effectiveOrgId) {
+        query = query.eq("organization_id", effectiveOrgId);
       }
       const { data, error } = await query;
       if (error) return [];
       return data;
     },
-    enabled: !!user && !!profile?.organization_id,
+    enabled: !!user && (isSuperAdmin || !!profile?.organization_id),
   });
 
   // Dérivés depuis dashboardStats RPC (agrégation serveur) + fallback client-side
@@ -293,7 +326,22 @@ const Dashboard = () => {
             </p>
           </div>
           {/* Bouton envoyer résumé par WhatsApp */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {isSuperAdmin && (
+              <Select value={selectedOrgId} onValueChange={setSelectedOrgId}>
+                <SelectTrigger className="w-full sm:w-[220px]">
+                  <SelectValue placeholder="🌍 Toutes les organisations" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">🌍 Toutes les organisations</SelectItem>
+                  {allOrgs.map((org) => (
+                    <SelectItem key={org.id} value={org.id}>
+                      🏪 {org.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <CurrencyDisplaySelector
               orgCurrencyCode={orgCurrencyCode}
               displayCurrencyCode={displayCurrencyCode}

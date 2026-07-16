@@ -79,6 +79,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
+import { useOrgSelector } from "@/hooks/useOrgSelector";
+import { OrgSelector } from "@/components/ui/org-selector";
 import { CurrencyDisplaySelector } from "@/components/ui/currency-display-selector";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -140,6 +142,7 @@ const PurchaseOrders = () => {
   const { toast } = useToast();
   const { blockMutation } = useDemo();
   const { formatPrice } = useCurrency();
+  const { effectiveOrgId } = useOrgSelector();
   const {
     formatDisplayPrice,
     displayCurrencyCode,
@@ -183,7 +186,7 @@ const PurchaseOrders = () => {
         query = query.eq("status", statusFilter);
       }
       if (profile?.organization_id) {
-        query = query.eq("organization_id", profile.organization_id);
+        query = query.eq("organization_id", effectiveOrgId);
       }
 
       const { data, error } = await query;
@@ -674,6 +677,7 @@ ${profile?.business_name || "MakitiPlus"}`;
                 Gérez vos commandes d'approvisionnement
               </p>
             </div>
+            <OrgSelector />
             <CurrencyDisplaySelector
               orgCurrencyCode={orgCurrencyCode}
               displayCurrencyCode={displayCurrencyCode}

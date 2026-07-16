@@ -58,6 +58,8 @@ import { FINANCIAL_ROLES } from "@/types";
 import { useExpenseStats } from "@/hooks/useExpenseStats";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
+import { useOrgSelector } from "@/hooks/useOrgSelector";
+import { OrgSelector } from "@/components/ui/org-selector";
 import { CurrencyDisplaySelector } from "@/components/ui/currency-display-selector";
 import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import { reportError } from "@/lib/sentry";
@@ -95,6 +97,7 @@ const Expenses = () => {
   const { toast } = useToast();
   const { blockMutation } = useDemo();
   const { formatPrice } = useCurrency();
+  const { effectiveOrgId } = useOrgSelector();
   const {
     formatDisplayPrice,
     displayCurrencyCode,
@@ -321,7 +324,8 @@ const Expenses = () => {
            </div>
  
            <div className="flex flex-wrap items-center gap-2">
-             <CurrencyDisplaySelector
+             <OrgSelector />
+            <CurrencyDisplaySelector
                orgCurrencyCode={orgCurrencyCode}
                displayCurrencyCode={displayCurrencyCode}
                onDisplayCurrencyChange={setDisplayCurrency}

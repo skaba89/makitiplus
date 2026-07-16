@@ -57,6 +57,8 @@ import { exportSalesToCSV, exportExpensesToCSV } from "@/utils/exportUtils";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
+import { useOrgSelector } from "@/hooks/useOrgSelector";
+import { OrgSelector } from "@/components/ui/org-selector";
 import { CurrencyDisplaySelector } from "@/components/ui/currency-display-selector";
 import { fetchAllRows } from "@/lib/batchedFetch";
 import { reportError } from "@/lib/sentry";
@@ -84,6 +86,7 @@ const Reports = () => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const { formatPrice, currency } = useCurrency();
+  const { effectiveOrgId } = useOrgSelector();
   const {
     formatDisplayPrice,
     displayCurrencyCode,
@@ -118,7 +121,7 @@ const Reports = () => {
       if (!profile?.organization_id) return null;
       try {
         const { data, error } = await supabase.rpc("get_reports_stats", {
-          p_organization_id: profile.organization_id,
+          p_organization_id: effectiveOrgId,
           p_start: start.toISOString(),
           p_end: end.toISOString(),
         });
@@ -391,6 +394,7 @@ const Reports = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <OrgSelector />
             <CurrencyDisplaySelector
               orgCurrencyCode={orgCurrencyCode}
               displayCurrencyCode={displayCurrencyCode}
@@ -424,7 +428,7 @@ const Reports = () => {
                     try {
                       const sales = await fetchAllRows<Sale>("sales", "*, sale_items(*)", {
                         filters: [
-                          ...(profile?.organization_id ? [{ column: "organization_id", operator: "eq" as const, value: profile.organization_id }] : []),
+                          ...(effectiveOrgId ? [{ column: "organization_id", operator: "eq" as const, value: effectiveOrgId }] : []),
                           { column: "created_at", operator: "gte", value: start.toISOString() },
                           { column: "created_at", operator: "lte", value: end.toISOString() },
                         ],
@@ -449,7 +453,7 @@ const Reports = () => {
                     try {
                       const expenses = await fetchAllRows<Expense>("expenses", "*", {
                         filters: [
-                          ...(profile?.organization_id ? [{ column: "organization_id", operator: "eq" as const, value: profile.organization_id }] : []),
+                          ...(effectiveOrgId ? [{ column: "organization_id", operator: "eq" as const, value: effectiveOrgId }] : []),
                           { column: "expense_date", operator: "gte", value: format(start, "yyyy-MM-dd") },
                           { column: "expense_date", operator: "lte", value: format(end, "yyyy-MM-dd") },
                         ],

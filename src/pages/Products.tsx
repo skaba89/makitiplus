@@ -40,7 +40,9 @@ import { Database } from "@/integrations/supabase/types";
 import { exportProductsToCSV } from "@/utils/exportUtils";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
+import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { CurrencyDisplaySelector } from "@/components/ui/currency-display-selector";
+import { OrgSelector } from "@/components/ui/org-selector";
 import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import { useCategories } from "@/hooks/useCategories";
 import { useProductStats } from "@/hooks/useProductStats";
@@ -66,6 +68,7 @@ const Products = () => {
     ratesLoading,
     refreshRates,
   } = useDisplayCurrency();
+  const { effectiveOrgId } = useOrgSelector();
   const { toast } = useToast();
   const { blockMutation } = useDemo();
   const queryClient = useQueryClient();
@@ -111,6 +114,10 @@ const Products = () => {
   if (storeFilter !== "all") {
     filters.push({ column: "store_id", operator: "eq", value: storeFilter });
   }
+  // Filtre organisation (super_admin peut sélectionner une org, autres = leur org)
+  if (effectiveOrgId) {
+    filters.push({ column: "organization_id", operator: "eq", value: effectiveOrgId });
+  }
 
   const {
     data: paginatedProducts,
@@ -127,7 +134,7 @@ const Products = () => {
     orderBy: { column: "created_at", ascending: false },
     page: currentPage,
     pageSize: PAGE_SIZE,
-    queryKey: ["products", user?.id ?? "", storeFilter],
+    queryKey: ["products", user?.id ?? "", storeFilter, effectiveOrgId],
     enabled: !!user,
   });
 
@@ -432,8 +439,8 @@ const Products = () => {
   const handleExport = useCallback(async () => {
     try {
       const filters: Array<{ column: string; operator: "eq"; value: unknown }> = [];
-      if (profile?.organization_id) {
-        filters.push({ column: "organization_id", operator: "eq", value: profile.organization_id });
+      if (effectiveOrgId) {
+        filters.push({ column: "organization_id", operator: "eq", value: effectiveOrgId });
       }
       const data = await fetchAllRows<ProductWithCat>(
         "products",
@@ -474,7 +481,7 @@ const Products = () => {
     } catch {
       toast({ variant: "destructive", title: "Erreur", description: "Impossible d'exporter les produits" });
     }
-  }, [currency, toast, profile?.organization_id]);
+  }, [currency, toast, effectiveOrgId]);
 
   return (
     <DashboardLayout>
@@ -490,6 +497,7 @@ const Products = () => {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <OrgSelector />
             <CurrencyDisplaySelector
               orgCurrencyCode={orgCurrencyCode}
               displayCurrencyCode={displayCurrencyCode}

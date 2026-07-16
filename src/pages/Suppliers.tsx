@@ -13,6 +13,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
+import { useOrgSelector } from "@/hooks/useOrgSelector";
+import { OrgSelector } from "@/components/ui/org-selector";
 import { CurrencyDisplaySelector } from "@/components/ui/currency-display-selector";
 import {
   Dialog,
@@ -69,6 +71,7 @@ const Suppliers = () => {
   const { toast } = useToast();
   const { blockMutation } = useDemo();
   const { formatPrice } = useCurrency();
+  const { effectiveOrgId } = useOrgSelector();
   const {
     formatDisplayPrice,
     displayCurrencyCode,
