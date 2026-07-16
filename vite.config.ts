@@ -85,11 +85,10 @@ export default defineConfig(({ mode }) => ({
         cleanupOutdatedCaches: true,
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/~oauth/, /^\/api\//],
-        // Fix: utiliser un revision fixe au lieu de Date.now() pour éviter
-        // les conflits de cache "add-to-cache-list-conflicting-entries"
-        additionalManifestEntries: [
-          { url: "/offline.html", revision: "makitiplus-offline-v1" },
-        ],
+        // PAS de additionalManifestEntries — globPatterns gère tous les HTML
+        // (index.html + offline.html) avec des hashes auto uniques.
+        // L'ancien additionalManifestEntries pour offline.html causait le conflit
+        // "add-to-cache-list-conflicting-entries" (2 entrées pour le même fichier).
         globPatterns: ["**/*.{js,css,html,svg,png,ico,webmanifest,woff2}"],
         runtimeCaching: [
           // HTML navigations — NetworkFirst with offline.html fallback
