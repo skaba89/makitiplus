@@ -21,12 +21,12 @@ export function OrgSelector() {
   if (!isSuperAdmin) return null;
 
   return (
-    <Select value={selectedOrgId} onValueChange={setSelectedOrgId}>
+    <Select value={selectedOrgId || "all"} onValueChange={(v) => setSelectedOrgId(v === "all" ? "" : v)}>
       <SelectTrigger className="w-full sm:w-[220px]">
         <SelectValue placeholder={loading ? "Chargement..." : "🌍 Toutes les organisations"} />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="">🌍 Toutes les organisations</SelectItem>
+        <SelectItem value="all">🌍 Toutes les organisations</SelectItem>
         {allOrgs.map((org) => (
           <SelectItem key={org.id} value={org.id}>
             🏪 {org.name}
