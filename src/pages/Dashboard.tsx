@@ -7,7 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
+import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { CurrencyDisplaySelector } from "@/components/ui/currency-display-selector";
+import { OrgSelector } from "@/components/ui/org-selector";
 import {
   TrendingUp,
   ShoppingCart,
@@ -56,6 +58,7 @@ const Dashboard = () => {
     refreshRates,
     isConverted,
   } = useDisplayCurrency();
+  const { isSuperAdmin, effectiveOrgId } = useOrgSelector();
   const navigate = useNavigate();
 
   const today = new Date();
@@ -126,8 +129,8 @@ const Dashboard = () => {
         .select("total_amount")
         .gte("created_at", monthStart)
         .lte("created_at", monthEnd);
-      if (profile?.organization_id) {
-        query = query.eq("organization_id", profile.organization_id);
+      if (effectiveOrgId) {
+        query = query.eq("organization_id", effectiveOrgId);
       }
       const { data, error } = await query;
       if (error) return [];
@@ -145,8 +148,8 @@ const Dashboard = () => {
         .select("amount")
         .gte("expense_date", format(startOfMonth(today), "yyyy-MM-dd"))
         .lte("expense_date", format(endOfMonth(today), "yyyy-MM-dd"));
-      if (profile?.organization_id) {
-        query = query.eq("organization_id", profile.organization_id);
+      if (effectiveOrgId) {
+        query = query.eq("organization_id", effectiveOrgId);
       }
       const { data, error } = await query;
       if (error) return [];
@@ -163,8 +166,8 @@ const Dashboard = () => {
         .from("products")
         .select("id, name, stock_quantity, min_stock_alert, expiry_date, categories(icon), suppliers(name)")
         .eq("is_active", true);
-      if (profile?.organization_id) {
-        query = query.eq("organization_id", profile.organization_id);
+      if (effectiveOrgId) {
+        query = query.eq("organization_id", effectiveOrgId);
       }
       const { data, error } = await query;
       if (error) return [] as DashboardProduct[];
@@ -181,8 +184,8 @@ const Dashboard = () => {
         .from("suppliers")
         .select("*", { count: "exact", head: true })
         .eq("is_active", true);
-      if (profile?.organization_id) {
-        query = query.eq("organization_id", profile.organization_id);
+      if (effectiveOrgId) {
+        query = query.eq("organization_id", effectiveOrgId);
       }
       const { count, error } = await query;
       if (error) return 0;
@@ -201,14 +204,14 @@ const Dashboard = () => {
         .order("created_at", { ascending: false })
         .limit(5);
       // Filtrer par organisation si disponible (évite de voir les ventes d'autres orgs)
-      if (profile?.organization_id) {
-        query = query.eq("organization_id", profile.organization_id);
+      if (effectiveOrgId) {
+        query = query.eq("organization_id", effectiveOrgId);
       }
       const { data, error } = await query;
       if (error) return [];
       return data;
     },
-    enabled: !!user && !!profile?.organization_id,
+    enabled: !!user && (isSuperAdmin || !!profile?.organization_id),
   });
 
   // Dérivés depuis dashboardStats RPC (agrégation serveur) + fallback client-side
@@ -298,7 +301,8 @@ const Dashboard = () => {
             </p>
           </div>
           {/* Bouton envoyer résumé par WhatsApp */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <OrgSelector />
             <CurrencyDisplaySelector
               orgCurrencyCode={orgCurrencyCode}
               displayCurrencyCode={displayCurrencyCode}
