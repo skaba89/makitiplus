@@ -194,16 +194,15 @@ export const ProductList = memo(({ products, onEdit, onDelete, onStockAdjust, on
 
               {/* Edit / Delete buttons */}
               <div className="flex gap-2">
-                {product.barcode && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setLabelProduct(product)}
-                    aria-label="Imprimer l'étiquette"
-                  >
-                    <Printer className="h-4 w-4" />
-                  </Button>
-                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setLabelProduct(product)}
+                  aria-label="Imprimer l'étiquette code-barres"
+                  title="Imprimer l'étiquette code-barres"
+                >
+                  <Printer className="h-4 w-4" />
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"
