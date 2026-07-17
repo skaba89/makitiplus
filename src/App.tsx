@@ -9,6 +9,7 @@ import { extractErrorMessage } from "@/lib/extractErrorMessage";
 import { ADMIN_ROLES, INVENTORY_ROLES, FINANCIAL_ROLES, POS_ROLES, STORE_ROLES, MANAGEMENT_ROLES, PRODUCT_MANAGEMENT_ROLES } from "@/types";
 import { toast as sonnerToast } from "sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { OrgSelectorProvider } from "@/contexts/OrgSelectorContext";
 import { OfflineProvider } from "@/contexts/OfflineContext";
 import { BrandingProvider } from "@/contexts/BrandingContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
@@ -241,6 +242,7 @@ const App = () => {
     <QueryErrorResetBoundary>
     <SentryErrorBoundary fallback={<ErrorFallback />}>
     <AuthProvider>
+    <OrgSelectorProvider>
     <OfflineProvider>
     <DemoProvider>
     <StoreProvider>
@@ -439,6 +441,7 @@ const App = () => {
     </StoreProvider>
     </DemoProvider>
     </OfflineProvider>
+    </OrgSelectorProvider>
     </AuthProvider>
     </SentryErrorBoundary>
     </QueryErrorResetBoundary>
