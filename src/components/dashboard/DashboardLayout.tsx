@@ -2,6 +2,7 @@ import { ReactNode, useState, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBranding } from "@/contexts/BrandingContext";
+import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { useThemeSettings } from "@/contexts/ThemeContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -58,6 +59,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   useInactivityTimeout();
   const { branding } = useBranding();
   const { settings } = useThemeSettings();
+  const { isSuperAdmin, selectedOrgName } = useOrgSelector();
   const location = useLocation();
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -65,8 +67,11 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const { isDemo } = useDemo();
 
   // Use current store name (from StoreContext) with fallback to settings + branding
-  // Priorité : currentStore.name (magasin sélectionné) > settings.store_name > branding.appName
-  const displayName = currentStore?.name || settings?.store_name || branding.appName || "MakitiPlus";
+  // Priorité : currentStore.name > settings.store_name > branding.appName
+  // Pour super_admin : si une org est sélectionnée, utiliser son nom
+  const displayName = isSuperAdmin && selectedOrgName
+    ? selectedOrgName
+    : (currentStore?.name || settings?.store_name || branding.appName || "MakitiPlus");
   const displayLogo = settings?.logo_url || branding.logoUrl;
 
   const handleSignOut = async () => {
@@ -306,7 +311,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             <div>
               <span className="font-bold text-sidebar-foreground">{displayName}</span>
               {isDemo && <Badge variant="outline" className="ml-1.5 text-xs border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950/30">Démo</Badge>}
-              <p className="text-xs text-muted-foreground">{profile?.business_name}</p>
+              <p className="text-xs text-muted-foreground">{isSuperAdmin && selectedOrgName ? selectedOrgName : profile?.business_name}</p>
             </div>
           </div>
           {/* Online indicator in sidebar header */}
@@ -369,7 +374,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel className="flex items-center gap-2">
                 <Store className="h-4 w-4" />
-                {profile?.business_name}
+                {isSuperAdmin && selectedOrgName ? selectedOrgName : profile?.business_name}
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
