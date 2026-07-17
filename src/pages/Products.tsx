@@ -59,6 +59,7 @@ type ProductWithCat = ProductWithCategory;
 
 const Products = () => {
   const { user, profile, userRole } = useAuth();
+  const { effectiveOrgId } = useOrgSelector();
   const { currency } = useCurrency();
   const {
     displayCurrencyCode,

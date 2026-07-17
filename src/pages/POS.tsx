@@ -58,6 +58,7 @@ type PaymentMethod = Database["public"]["Enums"]["payment_method"];
 
 const POS = () => {
   const { user, profile } = useAuth();
+  const { effectiveOrgId } = useOrgSelector();
   const { toast } = useToast();
   const { blockMutation } = useDemo();
   const { currency, formatPrice } = useCurrency();

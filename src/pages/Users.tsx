@@ -157,6 +157,7 @@ const formatDate = (iso: string | null) => {
 
 const Users = () => {
   const { toast } = useToast();
+  const { effectiveOrgId } = useOrgSelector();
   const { user, userRole, profile } = useAuth();
   const { blockMutation } = useDemo();
   const [users, setUsers] = useState<UserRow[]>([]);

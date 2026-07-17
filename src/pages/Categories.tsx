@@ -48,6 +48,7 @@ const PRESET_ICONS = ["Package", "Wheat", "CupSoda", "Sparkles", "Brush", "Wrenc
 
 const Categories = () => {
   const { user, profile, userRole } = useAuth();
+  const { effectiveOrgId } = useOrgSelector();
   const { toast } = useToast();
   const { blockMutation } = useDemo();
   const queryClient = useQueryClient();
