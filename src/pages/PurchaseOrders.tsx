@@ -210,7 +210,7 @@ const PurchaseOrders = () => {
       if (error) return [];
       return data as Pick<Supplier, "id" | "name">[];
     },
-    enabled: !!user,
+    enabled: !!user && !!effectiveOrgId,
   });
 
   // ─── Fetch products for form ─────────────────────────────────

@@ -129,7 +129,7 @@ const Products = () => {
     page: currentPage,
     pageSize: PAGE_SIZE,
     queryKey: ["products", user?.id ?? "", storeFilter],
-    enabled: !!user,
+    enabled: !!user && !!effectiveOrgId,
   });
 
   // ── Product stats via RPC hook ──

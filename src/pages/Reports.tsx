@@ -180,7 +180,7 @@ const Reports = () => {
         return [];
       }
     },
-    enabled: !!user,
+    enabled: !!user && !!effectiveOrgId,
     retry: 1,
   });
 
@@ -246,7 +246,7 @@ const Reports = () => {
         return [];
       }
     },
-    enabled: !!user,
+    enabled: !!user && !!effectiveOrgId,
     retry: 1,
   });
 
@@ -274,7 +274,7 @@ const Reports = () => {
         return { count: 0, totalValue: 0 };
       }
     },
-    enabled: !!user,
+    enabled: !!user && !!effectiveOrgId,
     retry: 1,
   });
 

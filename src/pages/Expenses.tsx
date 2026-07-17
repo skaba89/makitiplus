@@ -131,7 +131,7 @@ const Expenses = () => {
     page: currentPage,
     pageSize: PAGE_SIZE,
     queryKey: ["expenses", user?.id ?? "", filterCategory],
-    enabled: !!user,
+    enabled: !!user && !!effectiveOrgId,
   });
 
   // Stats via RPC hook
