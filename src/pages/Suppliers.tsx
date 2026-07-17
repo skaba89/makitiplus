@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
@@ -69,6 +70,7 @@ const Suppliers = () => {
   const { toast } = useToast();
   const { blockMutation } = useDemo();
   const { formatPrice } = useCurrency();
+  const { effectiveOrgId } = useOrgSelector();
   const {
     formatDisplayPrice,
     displayCurrencyCode,
@@ -149,8 +151,8 @@ const Suppliers = () => {
         ...data,
         user_id: user?.id ?? "",
       };
-      if (profile?.organization_id) {
-        insertData.organization_id = profile.organization_id;
+      if (effectiveOrgId) {
+        insertData.organization_id = effectiveOrgId;
       }
       const { error } = await supabase.from("suppliers").insert(insertData);
       if (error) return [];

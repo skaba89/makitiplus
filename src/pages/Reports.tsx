@@ -54,6 +54,7 @@ import {
 import { format, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
 import { fr } from "date-fns/locale";
 import { exportSalesToCSV, exportExpensesToCSV } from "@/utils/exportUtils";
+import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
@@ -84,6 +85,7 @@ const Reports = () => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const { formatPrice, currency } = useCurrency();
+  const { effectiveOrgId } = useOrgSelector();
   const {
     formatDisplayPrice,
     displayCurrencyCode,
@@ -113,12 +115,12 @@ const Reports = () => {
   // L'agrégation (SUM, COUNT, GROUP BY) se fait côté serveur, réduisant drastiquement le transfert.
   // Fallback gracieux : si la RPC échoue, on retourne null pour ne pas déclencher l'ErrorBoundary.
   const { data: reportsStats, isLoading: isReportsLoading } = useQuery({
-    queryKey: ["reports-stats", user?.id, profile?.organization_id, period],
+    queryKey: ["reports-stats", user?.id, effectiveOrgId, period],
     queryFn: async () => {
-      if (!profile?.organization_id) return null;
+      if (!effectiveOrgId) return null;
       try {
         const { data, error } = await supabase.rpc("get_reports_stats", {
-          p_organization_id: profile.organization_id,
+          p_organization_id: effectiveOrgId,
           p_start: start.toISOString(),
           p_end: end.toISOString(),
         });
@@ -133,7 +135,7 @@ const Reports = () => {
         return null;
       }
     },
-    enabled: !!user && !!profile?.organization_id,
+    enabled: !!user && !!effectiveOrgId,
     retry: 1,
     staleTime: 30_000, // 30 secondes — évite les re-fetchs trop fréquents
   });
@@ -279,7 +281,7 @@ const Reports = () => {
   // Early return for loading state — MUST be after all hooks (Rules of Hooks)
   // ⚠️ Ne pas bloquer sur le skeleton si la query est désactivée (pas d'org_id)
   // ou si reportsStats est déjà null (RPC a échoué → on affiche la page avec des zéros)
-  if (isReportsLoading && profile?.organization_id && reportsStats === undefined) {
+  if (isReportsLoading && effectiveOrgId && reportsStats === undefined) {
     return (
       <DashboardLayout>
         <ReportsPageSkeleton />
@@ -288,7 +290,7 @@ const Reports = () => {
   }
 
   // Si pas d'organisation, afficher un message au lieu du skeleton
-  if (!profile?.organization_id) {
+  if (!effectiveOrgId) {
     return (
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -424,7 +426,7 @@ const Reports = () => {
                     try {
                       const sales = await fetchAllRows<Sale>("sales", "*, sale_items(*)", {
                         filters: [
-                          ...(profile?.organization_id ? [{ column: "organization_id", operator: "eq" as const, value: profile.organization_id }] : []),
+                          ...(effectiveOrgId ? [{ column: "organization_id", operator: "eq" as const, value: effectiveOrgId }] : []),
                           { column: "created_at", operator: "gte", value: start.toISOString() },
                           { column: "created_at", operator: "lte", value: end.toISOString() },
                         ],
@@ -449,7 +451,7 @@ const Reports = () => {
                     try {
                       const expenses = await fetchAllRows<Expense>("expenses", "*", {
                         filters: [
-                          ...(profile?.organization_id ? [{ column: "organization_id", operator: "eq" as const, value: profile.organization_id }] : []),
+                          ...(effectiveOrgId ? [{ column: "organization_id", operator: "eq" as const, value: effectiveOrgId }] : []),
                           { column: "expense_date", operator: "gte", value: format(start, "yyyy-MM-dd") },
                           { column: "expense_date", operator: "lte", value: format(end, "yyyy-MM-dd") },
                         ],

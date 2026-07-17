@@ -28,6 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useOrgTaxRate } from "@/hooks/useOrgTaxRate";
@@ -73,10 +74,10 @@ const POS = () => {
 
   // Hydrate cart from IndexedDB on mount (org-scoped)
   useEffect(() => {
-    if (profile?.organization_id && !isHydrated) {
-      hydrateFromDB(profile.organization_id);
+    if (effectiveOrgId && !isHydrated) {
+      hydrateFromDB(effectiveOrgId);
     }
-  }, [profile?.organization_id, isHydrated, hydrateFromDB]);
+  }, [effectiveOrgId, isHydrated, hydrateFromDB]);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
   const [lastReceiptData, setLastReceiptData] = useState<ReceiptData | null>(null);
@@ -162,7 +163,7 @@ const POS = () => {
     // C3 fix: Use offline barcode lookup when offline
     try {
       const found = isOnline
-        ? await lookupBarcode(barcode, profile?.organization_id)
+        ? await lookupBarcode(barcode, effectiveOrgId)
         : await lookupBarcodeOffline(barcode);
       if (found) {
         addToCart(found as Product);
@@ -235,7 +236,7 @@ const POS = () => {
             <div className="flex gap-2">
               <ProductAutocomplete
                 inputRef={searchInputRef}
-                organizationId={profile?.organization_id}
+                organizationId={effectiveOrgId}
                 onSelect={(p, qty) => {
                   if (p.stock_quantity === 0) {
                     toast({

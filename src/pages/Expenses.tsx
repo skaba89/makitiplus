@@ -55,6 +55,7 @@ import { format } from "date-fns";
 import { formatDate } from "@/lib/utils";
 import { Database } from "@/integrations/supabase/types";
 import { FINANCIAL_ROLES } from "@/types";
+import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { useExpenseStats } from "@/hooks/useExpenseStats";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
@@ -95,6 +96,7 @@ const Expenses = () => {
   const { toast } = useToast();
   const { blockMutation } = useDemo();
   const { formatPrice } = useCurrency();
+  const { effectiveOrgId } = useOrgSelector();
   const {
     formatDisplayPrice,
     displayCurrencyCode,
@@ -151,8 +153,8 @@ const Expenses = () => {
          description: description || null,
          expense_date: expenseDate,
        };
-       if (profile?.organization_id) {
-         insertData.organization_id = profile.organization_id;
+       if (effectiveOrgId) {
+         insertData.organization_id = effectiveOrgId;
        }
        const { error } = await supabase.from("expenses").insert(insertData as never);
 

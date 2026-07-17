@@ -76,6 +76,7 @@ import {
   Mail,
   MessageCircle,
 } from "lucide-react";
+import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
@@ -140,6 +141,7 @@ const PurchaseOrders = () => {
   const { toast } = useToast();
   const { blockMutation } = useDemo();
   const { formatPrice } = useCurrency();
+  const { effectiveOrgId } = useOrgSelector();
   const {
     formatDisplayPrice,
     displayCurrencyCode,
@@ -182,8 +184,8 @@ const PurchaseOrders = () => {
       if (statusFilter !== "all") {
         query = query.eq("status", statusFilter);
       }
-      if (profile?.organization_id) {
-        query = query.eq("organization_id", profile.organization_id);
+      if (effectiveOrgId) {
+        query = query.eq("organization_id", effectiveOrgId);
       }
 
       const { data, error } = await query;
@@ -193,7 +195,7 @@ const PurchaseOrders = () => {
         supplier_name: o.suppliers?.name || "Fournisseur inconnu",
       }));
     },
-    enabled: !!user && !!profile?.organization_id,
+    enabled: !!user && !!effectiveOrgId,
   });
 
   // ─── Fetch suppliers for form ────────────────────────────────
@@ -290,7 +292,7 @@ const PurchaseOrders = () => {
     mutationFn: async () => {
       // Generate order number
       const { data: orderNumber } = await supabase.rpc("generate_order_number", {
-        p_org_id: profile?.organization_id ?? "",
+        p_org_id: effectiveOrgId ?? "",
       });
 
       const subtotal = formItems.reduce((s, i) => s + i.line_total, 0);
@@ -302,7 +304,7 @@ const PurchaseOrders = () => {
       const { data: order, error: orderError } = await supabase
         .from("purchase_orders")
         .insert({
-          organization_id: profile?.organization_id ?? "",
+          organization_id: effectiveOrgId ?? "",
           store_id: storeId,
           supplier_id: formSupplier,
           order_number: orderNumber || `BC-${Date.now()}`,

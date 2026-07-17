@@ -10,6 +10,7 @@ import { StockAdjustDialog } from "@/components/products/StockAdjustDialog";
 import { StockMovementHistory } from "@/components/products/StockMovementHistory";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, Package, Download, AlertTriangle, Upload } from "lucide-react";
 import { CategoryIcon } from "@/components/ui/category-icon";
@@ -432,8 +433,8 @@ const Products = () => {
   const handleExport = useCallback(async () => {
     try {
       const filters: Array<{ column: string; operator: "eq"; value: unknown }> = [];
-      if (profile?.organization_id) {
-        filters.push({ column: "organization_id", operator: "eq", value: profile.organization_id });
+      if (effectiveOrgId) {
+        filters.push({ column: "organization_id", operator: "eq", value: effectiveOrgId });
       }
       const data = await fetchAllRows<ProductWithCat>(
         "products",
@@ -474,7 +475,7 @@ const Products = () => {
     } catch {
       toast({ variant: "destructive", title: "Erreur", description: "Impossible d'exporter les produits" });
     }
-  }, [currency, toast, profile?.organization_id]);
+  }, [currency, toast, effectiveOrgId]);
 
   return (
     <DashboardLayout>
