@@ -195,7 +195,7 @@ const PurchaseOrders = () => {
         supplier_name: o.suppliers?.name || "Fournisseur inconnu",
       }));
     },
-    enabled: !!user && !!effectiveOrgId,
+    enabled: !!user,
   });
 
   // ─── Fetch suppliers for form ────────────────────────────────
@@ -210,7 +210,7 @@ const PurchaseOrders = () => {
       if (error) return [];
       return data as Pick<Supplier, "id" | "name">[];
     },
-    enabled: !!user && !!effectiveOrgId,
+    enabled: !!user,
   });
 
   // ─── Fetch products for form ─────────────────────────────────

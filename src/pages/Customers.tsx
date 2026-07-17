@@ -111,7 +111,7 @@ const Customers = () => {
     page: currentPage,
     pageSize: PAGE_SIZE,
     queryKey: ["customers", user?.id ?? "", showCreditOnly ? "credit" : "all"],
-    enabled: !!user && !!effectiveOrgId,
+    enabled: !!user,
   });
 
   // Stats via RPC hook

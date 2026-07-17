@@ -135,7 +135,7 @@ const Reports = () => {
         return null;
       }
     },
-    enabled: !!user && !!effectiveOrgId,
+    enabled: !!user,
     retry: 1,
     staleTime: 30_000, // 30 secondes — évite les re-fetchs trop fréquents
   });
@@ -180,7 +180,7 @@ const Reports = () => {
         return [];
       }
     },
-    enabled: !!user && !!effectiveOrgId,
+    enabled: !!user,
     retry: 1,
   });
 
@@ -246,7 +246,7 @@ const Reports = () => {
         return [];
       }
     },
-    enabled: !!user && !!effectiveOrgId,
+    enabled: !!user,
     retry: 1,
   });
 
@@ -274,7 +274,7 @@ const Reports = () => {
         return { count: 0, totalValue: 0 };
       }
     },
-    enabled: !!user && !!effectiveOrgId,
+    enabled: !!user,
     retry: 1,
   });
 
