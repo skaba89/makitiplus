@@ -196,7 +196,7 @@ const Dashboard = () => {
 
   // Recent sales
   const { data: recentSales } = useQuery({
-    queryKey: ["dashboard-recent-sales", user?.id, profile?.organization_id],
+    queryKey: ["dashboard-recent-sales", user?.id, effectiveOrgId],
     queryFn: async () => {
       let query = supabase
         .from("sales")
@@ -211,7 +211,7 @@ const Dashboard = () => {
       if (error) return [];
       return data;
     },
-    enabled: !!user && (isSuperAdmin || !!profile?.organization_id),
+    enabled: !!user,
   });
 
   // Dérivés depuis dashboardStats RPC (agrégation serveur) + fallback client-side

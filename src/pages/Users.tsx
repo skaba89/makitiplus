@@ -55,6 +55,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -247,7 +248,7 @@ const Users = () => {
       // pour éviter d'afficher des super_admins ou des users d'autres orgs
       // à un admin simple (defense-in-depth).
       const isSuperAdmin = userRole === "super_admin";
-      const currentOrgId = profile?.organization_id;
+      const currentOrgId = effectiveOrgId;
       const filtered = isSuperAdmin
         ? merged
         : merged.filter((u) => {

@@ -1,3 +1,4 @@
+import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,11 +14,12 @@ import { logger } from "@/lib/logger";
  */
 export function useExpenseStats() {
   const { user, profile } = useAuth();
+  const { effectiveOrgId } = useOrgSelector();
 
   return useQuery<ExpenseStatsRpc>({
     queryKey: ["expenses-stats", user?.id],
     queryFn: async () => {
-      if (!profile?.organization_id) {
+      if (!effectiveOrgId) {
         return { monthTotal: 0, monthCount: 0 };
       }
       const { data, error } = await supabase.rpc("get_expense_stats");
@@ -31,6 +33,6 @@ export function useExpenseStats() {
         monthCount: typed.monthCount ?? 0,
       };
     },
-    enabled: !!user && !!profile?.organization_id,
+    enabled: !!user && !!effectiveOrgId,
   });
 }
