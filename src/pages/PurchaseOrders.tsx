@@ -200,13 +200,17 @@ const PurchaseOrders = () => {
 
   // ─── Fetch suppliers for form ────────────────────────────────
   const { data: suppliers } = useQuery({
-    queryKey: ["suppliers", user?.id],
+    queryKey: ["suppliers", user?.id, effectiveOrgId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("suppliers")
         .select("id, name")
         .eq("is_active", true)
         .order("name");
+      if (effectiveOrgId) {
+        query = query.eq("organization_id", effectiveOrgId);
+      }
+      const { data, error } = await query;
       if (error) return [];
       return data as Pick<Supplier, "id" | "name">[];
     },
@@ -215,13 +219,17 @@ const PurchaseOrders = () => {
 
   // ─── Fetch products for form ─────────────────────────────────
   const { data: products } = useQuery({
-    queryKey: ["products-lookup", user?.id],
+    queryKey: ["products-lookup", user?.id, effectiveOrgId],
     queryFn: async () => {
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from("products")
           .select("id, name, cost_price")
-          .eq("is_active", true)
+          .eq("is_active", true);
+        if (effectiveOrgId) {
+          query = query.eq("organization_id", effectiveOrgId);
+        }
+        const { data, error } = await query
           .order("name")
           .limit(200);
         if (error) return [];

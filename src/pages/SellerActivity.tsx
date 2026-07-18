@@ -1,3 +1,4 @@
+import { useOrgSelector } from "@/hooks/useOrgSelector";
 /**
  * Seller Activity Page — Admin/Manager Only
  *
@@ -103,6 +104,7 @@ const ROLE_STYLES: Record<string, { label: string; variant: "default" | "seconda
 
 export default function SellerActivity() {
   const { userRole } = useAuth();
+  const { effectiveOrgId } = useOrgSelector();
   const { formatPrice } = useCurrency();
   const {
     formatDisplayPrice,
@@ -138,7 +140,7 @@ export default function SellerActivity() {
 
   // ─── Fetch seller performance ─────────────────────────────
   const { data: sellers, isLoading, error, refetch } = useQuery({
-    queryKey: ["seller-performance", periodFilter],
+    queryKey: ["seller-performance", periodFilter, effectiveOrgId],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_seller_performance", {
         p_period_start: periodStart,
@@ -156,7 +158,7 @@ export default function SellerActivity() {
     isLoading: activitiesLoading,
     error: activitiesError,
   } = useQuery({
-    queryKey: ["seller-activities", selectedSellerId],
+    queryKey: ["seller-activities", selectedSellerId, effectiveOrgId],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_seller_activities", {
         p_user_id: selectedSellerId,

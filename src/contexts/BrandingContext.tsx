@@ -1,3 +1,4 @@
+import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
 import { useAuth } from "./AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -133,13 +134,14 @@ function applyBrandingToDOM(branding: BrandingConfig) {
 
 export const BrandingProvider = ({ children }: { children: ReactNode }) => {
   const { user, profile } = useAuth();
+  const { effectiveOrgId } = useOrgSelector();
   const [branding, setBranding] = useState<BrandingConfig>(DEFAULT_BRANDING);
   const [isLoading, setIsLoading] = useState(true);
 
   // Load branding from organization
   useEffect(() => {
     const loadBranding = async () => {
-      if (!profile?.organization_id) {
+      if (!effectiveOrgId) {
         // No org — use defaults + user theme preference
         setBranding((prev) => ({
           ...prev,
@@ -154,7 +156,7 @@ export const BrandingProvider = ({ children }: { children: ReactNode }) => {
         const { data, error } = await supabase
           .from("organizations")
           .select("brand_color, accent_color, logo_url, app_name, theme_mode, receipt_template, font_family, language")
-          .eq("id", profile.organization_id)
+          .eq("id", effectiveOrgId)
           .single();
 
         if (error) {
@@ -187,7 +189,7 @@ export const BrandingProvider = ({ children }: { children: ReactNode }) => {
     };
 
     loadBranding();
-  }, [profile?.organization_id, profile?.theme_mode, profile?.language]);
+  }, [effectiveOrgId, profile?.theme_mode, profile?.language]);
 
   // Apply branding to DOM whenever it changes
   useEffect(() => {
@@ -205,7 +207,7 @@ export const BrandingProvider = ({ children }: { children: ReactNode }) => {
   }, [branding]);
 
   const updateBranding = useCallback(async (updates: Partial<BrandingConfig>) => {
-    if (!profile?.organization_id) return;
+    if (!effectiveOrgId) return;
 
     const newBranding = { ...branding, ...updates };
     setBranding(newBranding);
@@ -225,7 +227,7 @@ export const BrandingProvider = ({ children }: { children: ReactNode }) => {
       const { error } = await supabase
         .from("organizations")
         .update(dbUpdates)
-        .eq("id", profile.organization_id);
+        .eq("id", effectiveOrgId);
 
       if (error) throw error;
 
@@ -245,7 +247,7 @@ export const BrandingProvider = ({ children }: { children: ReactNode }) => {
       setBranding(branding);
       throw err;
     }
-  }, [branding, profile?.organization_id, user?.id]);
+  }, [branding, effectiveOrgId, user?.id]);
 
   const uploadLogo = useCallback(async (file: File): Promise<string | null> => {
     if (!user) return null;

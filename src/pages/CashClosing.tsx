@@ -78,6 +78,7 @@ export default function CashClosing() {
         const { data, error } = await supabase
           .from("sales")
           .select("total_amount, payment_method, amount_paid, change_amount")
+          .eq("organization_id", effectiveOrgId)
           .gte("created_at", dayStart)
           .lte("created_at", dayEnd);
 
@@ -114,6 +115,7 @@ export default function CashClosing() {
         const { data, error } = await supabase
           .from("expenses")
           .select("amount")
+          .eq("organization_id", effectiveOrgId)
           .eq("expense_date", format(today, "yyyy-MM-dd"));
         if (error) return 0;
         return (data || []).reduce((sum, e) => sum + Number(e.amount), 0);

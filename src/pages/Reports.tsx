@@ -152,9 +152,9 @@ const Reports = () => {
             product_name,
             quantity,
             total_price,
-            sales!inner(user_id, created_at)
+            sales!inner(organization_id, created_at)
           `)
-          .eq("sales.user_id", user?.id ?? "")
+          .eq("sales.organization_id", effectiveOrgId ?? "")
           .gte("sales.created_at", start.toISOString())
           .lte("sales.created_at", end.toISOString());
 
@@ -187,20 +187,28 @@ const Reports = () => {
   // Fetch supplier analytics (products with supplier info)
   // Fallback : si is_active n'existe pas en DB, réessayer sans filtre
   const { data: supplierReport } = useQuery({
-    queryKey: ["reports-suppliers", user?.id],
+    queryKey: ["reports-suppliers", user?.id, effectiveOrgId],
     queryFn: async () => {
       try {
         let products = null as Awaited<ReturnType<typeof supabase.from>["data"]> | null;
-        const { data: productsData, error: productsError } = await supabase
+        let productsQuery = supabase
           .from("products")
           .select("id, name, cost_price, price, stock_quantity, supplier_id, suppliers(id, name)")
           .eq("is_active", true);
+        if (effectiveOrgId) {
+          productsQuery = productsQuery.eq("organization_id", effectiveOrgId);
+        }
+        const { data: productsData, error: productsError } = await productsQuery;
 
         if (productsError) {
           if (productsError.message.includes("does not exist") || productsError.message.includes("Could not find")) {
-            const { data: retryData } = await supabase
+            let retryQuery = supabase
               .from("products")
               .select("id, name, cost_price, price, stock_quantity, supplier_id, suppliers(id, name)");
+            if (effectiveOrgId) {
+              retryQuery = retryQuery.eq("organization_id", effectiveOrgId);
+            }
+            const { data: retryData } = await retryQuery;
             products = retryData;
           } else {
             return [];
@@ -211,10 +219,14 @@ const Reports = () => {
 
         const supplierMap = new Map<string, SupplierReport>();
 
-        const { data: allSuppliers } = await supabase
+        let suppliersQuery = supabase
           .from("suppliers")
           .select("id, name")
           .eq("is_active", true);
+        if (effectiveOrgId) {
+          suppliersQuery = suppliersQuery.eq("organization_id", effectiveOrgId);
+        }
+        const { data: allSuppliers } = await suppliersQuery;
 
         allSuppliers?.forEach((s) => {
           supplierMap.set(s.id, {
@@ -253,14 +265,18 @@ const Reports = () => {
   // Products without supplier
   // Fallback : { count: 0, totalValue: 0 } si erreur
   const { data: orphanProducts } = useQuery({
-    queryKey: ["reports-orphan-products", user?.id],
+    queryKey: ["reports-orphan-products", user?.id, effectiveOrgId],
     queryFn: async () => {
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from("products")
           .select("id, name, cost_price, price, stock_quantity")
           .eq("is_active", true)
           .is("supplier_id", null);
+        if (effectiveOrgId) {
+          query = query.eq("organization_id", effectiveOrgId);
+        }
+        const { data, error } = await query;
 
         if (error) return { count: 0, totalValue: 0 };
 
