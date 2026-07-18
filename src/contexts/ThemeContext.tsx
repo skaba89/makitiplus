@@ -1,3 +1,4 @@
+import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -96,19 +97,20 @@ export const useThemeSettings = () => {
 
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const { profile, user } = useAuth();
+  const { effectiveOrgId } = useOrgSelector();
   const queryClient = useQueryClient();
   const [isUpdating, setIsUpdating] = useState(false);
 
   // Fetch store settings
   const { data: settings, isLoading } = useQuery({
-    queryKey: ["storeSettings", profile?.organization_id],
+    queryKey: ["storeSettings", effectiveOrgId],
     queryFn: async () => {
-      if (!profile?.organization_id) return null;
+      if (!effectiveOrgId) return null;
 
       const { data, error } = await supabase
         .from("store_settings")
         .select("*")
-        .eq("organization_id", profile.organization_id)
+        .eq("organization_id", effectiveOrgId)
         .maybeSingle();
 
       if (error) {
@@ -127,7 +129,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
         const { data: newSettings, error: insertError } = await supabase
           .from("store_settings")
           .insert({
-            organization_id: profile.organization_id,
+            organization_id: effectiveOrgId,
             store_name: profile.business_name,
           })
           .select()
@@ -146,7 +148,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
 
       return data as StoreSettings;
     },
-    enabled: !!profile?.organization_id,
+    enabled: !!effectiveOrgId,
     staleTime: 5 * 60 * 1000,
   });
 

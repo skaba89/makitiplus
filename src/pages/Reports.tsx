@@ -54,6 +54,7 @@ import {
 import { format, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
 import { fr } from "date-fns/locale";
 import { exportSalesToCSV, exportExpensesToCSV } from "@/utils/exportUtils";
+import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
@@ -116,9 +117,9 @@ const Reports = () => {
   // L'agrégation (SUM, COUNT, GROUP BY) se fait côté serveur, réduisant drastiquement le transfert.
   // Fallback gracieux : si la RPC échoue, on retourne null pour ne pas déclencher l'ErrorBoundary.
   const { data: reportsStats, isLoading: isReportsLoading } = useQuery({
-    queryKey: ["reports-stats", user?.id, profile?.organization_id, period],
+    queryKey: ["reports-stats", user?.id, effectiveOrgId, period],
     queryFn: async () => {
-      if (!profile?.organization_id) return null;
+      if (!effectiveOrgId) return null;
       try {
         const { data, error } = await supabase.rpc("get_reports_stats", {
           p_organization_id: effectiveOrgId,
@@ -136,7 +137,7 @@ const Reports = () => {
         return null;
       }
     },
-    enabled: !!user && !!profile?.organization_id,
+    enabled: !!user,
     retry: 1,
     staleTime: 30_000, // 30 secondes — évite les re-fetchs trop fréquents
   });
@@ -153,9 +154,9 @@ const Reports = () => {
             product_name,
             quantity,
             total_price,
-            sales!inner(user_id, created_at)
+            sales!inner(organization_id, created_at)
           `)
-          .eq("sales.user_id", user?.id ?? "")
+          .eq("sales.organization_id", effectiveOrgId ?? "")
           .gte("sales.created_at", start.toISOString())
           .lte("sales.created_at", end.toISOString());
 
@@ -188,20 +189,28 @@ const Reports = () => {
   // Fetch supplier analytics (products with supplier info)
   // Fallback : si is_active n'existe pas en DB, réessayer sans filtre
   const { data: supplierReport } = useQuery({
-    queryKey: ["reports-suppliers", user?.id],
+    queryKey: ["reports-suppliers", user?.id, effectiveOrgId],
     queryFn: async () => {
       try {
         let products = null as Awaited<ReturnType<typeof supabase.from>["data"]> | null;
-        const { data: productsData, error: productsError } = await supabase
+        let productsQuery = supabase
           .from("products")
           .select("id, name, cost_price, price, stock_quantity, supplier_id, suppliers(id, name)")
           .eq("is_active", true);
+        if (effectiveOrgId) {
+          productsQuery = productsQuery.eq("organization_id", effectiveOrgId);
+        }
+        const { data: productsData, error: productsError } = await productsQuery;
 
         if (productsError) {
           if (productsError.message.includes("does not exist") || productsError.message.includes("Could not find")) {
-            const { data: retryData } = await supabase
+            let retryQuery = supabase
               .from("products")
               .select("id, name, cost_price, price, stock_quantity, supplier_id, suppliers(id, name)");
+            if (effectiveOrgId) {
+              retryQuery = retryQuery.eq("organization_id", effectiveOrgId);
+            }
+            const { data: retryData } = await retryQuery;
             products = retryData;
           } else {
             return [];
@@ -212,10 +221,14 @@ const Reports = () => {
 
         const supplierMap = new Map<string, SupplierReport>();
 
-        const { data: allSuppliers } = await supabase
+        let suppliersQuery = supabase
           .from("suppliers")
           .select("id, name")
           .eq("is_active", true);
+        if (effectiveOrgId) {
+          suppliersQuery = suppliersQuery.eq("organization_id", effectiveOrgId);
+        }
+        const { data: allSuppliers } = await suppliersQuery;
 
         allSuppliers?.forEach((s) => {
           supplierMap.set(s.id, {
@@ -254,14 +267,18 @@ const Reports = () => {
   // Products without supplier
   // Fallback : { count: 0, totalValue: 0 } si erreur
   const { data: orphanProducts } = useQuery({
-    queryKey: ["reports-orphan-products", user?.id],
+    queryKey: ["reports-orphan-products", user?.id, effectiveOrgId],
     queryFn: async () => {
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from("products")
           .select("id, name, cost_price, price, stock_quantity")
           .eq("is_active", true)
           .is("supplier_id", null);
+        if (effectiveOrgId) {
+          query = query.eq("organization_id", effectiveOrgId);
+        }
+        const { data, error } = await query;
 
         if (error) return { count: 0, totalValue: 0 };
 
@@ -282,7 +299,7 @@ const Reports = () => {
   // Early return for loading state — MUST be after all hooks (Rules of Hooks)
   // ⚠️ Ne pas bloquer sur le skeleton si la query est désactivée (pas d'org_id)
   // ou si reportsStats est déjà null (RPC a échoué → on affiche la page avec des zéros)
-  if (isReportsLoading && profile?.organization_id && reportsStats === undefined) {
+  if (isReportsLoading && effectiveOrgId && reportsStats === undefined) {
     return (
       <DashboardLayout>
         <ReportsPageSkeleton />
@@ -291,7 +308,7 @@ const Reports = () => {
   }
 
   // Si pas d'organisation, afficher un message au lieu du skeleton
-  if (!profile?.organization_id) {
+  if (!effectiveOrgId) {
     return (
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center py-20 text-center">

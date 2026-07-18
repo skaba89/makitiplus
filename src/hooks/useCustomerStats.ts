@@ -1,3 +1,4 @@
+import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,11 +14,12 @@ import { logger } from "@/lib/logger";
  */
 export function useCustomerStats() {
   const { user, profile } = useAuth();
+  const { effectiveOrgId } = useOrgSelector();
 
   return useQuery<CustomerStatsRpc>({
     queryKey: ["customers-stats", user?.id],
     queryFn: async () => {
-      if (!profile?.organization_id) {
+      if (!effectiveOrgId) {
         return { totalCustomers: 0, totalCredit: 0, customersWithCredit: 0 };
       }
       const { data, error } = await supabase.rpc("get_customer_stats");
@@ -32,6 +34,6 @@ export function useCustomerStats() {
         customersWithCredit: typed.customersWithCredit ?? 0,
       };
     },
-    enabled: !!user && !!profile?.organization_id,
+    enabled: !!user,
   });
 }

@@ -195,6 +195,18 @@ const Auth = () => {
     setIsLoading(true);
 
     try {
+      // Valider la politique de mot de passe (min 8, maj, min, chiffre, symbole)
+      const pwdCheck = checkPassword(signupPassword);
+      if (!pwdCheck.ok) {
+        toast({
+          variant: "destructive",
+          title: "Mot de passe non conforme",
+          description: pwdCheck.errors.join(" • "),
+        });
+        setIsLoading(false);
+        return;
+      }
+
       const validation = signupSchema.safeParse({
         email: signupEmail,
         password: signupPassword,

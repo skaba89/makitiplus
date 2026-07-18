@@ -1,3 +1,4 @@
+import { useOrgSelector } from "@/hooks/useOrgSelector";
 /**
  * Store Context — Multi-store switching for MakitiPlus
  *
@@ -52,6 +53,7 @@ const StoreContext = createContext<StoreContextValue | undefined>(undefined);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const { user, profile } = useAuth();
+  const { effectiveOrgId } = useOrgSelector();
   const queryClient = useQueryClient();
   const [localCurrentStore, setLocalCurrentStore] = useState<Store | null>(null);
 
@@ -67,14 +69,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const { data: fallbackData, error: fallbackError } = await supabase
           .from("stores")
           .select("*")
-          .eq("organization_id", profile?.organization_id || "")
+          .eq("organization_id", effectiveOrgId || "")
           .eq("is_active", true);
         if (fallbackError) return [];
         return (fallbackData as Store[]) || [];
       }
       return (data as Store[]) || [];
     },
-    enabled: !!user && !!profile?.organization_id,
+    enabled: !!user,
     staleTime: 2 * 60 * 1000,
     retry: 1,
   });

@@ -1,3 +1,4 @@
+import { useOrgSelector } from "@/hooks/useOrgSelector";
 /**
  * useOfflineSale — Offline-first sale creation for MakitiPlus POS
  *
@@ -65,6 +66,7 @@ export function useOfflineSale(options?: {
   onSaleComplete?: (data: SaleCompleteData) => void;
 }) {
   const { user, profile } = useAuth();
+  const { effectiveOrgId } = useOrgSelector();
   const { blockMutation } = useDemo();
   const { isOnline } = useOnlineStatus();
   const { toast } = useToast();
@@ -146,7 +148,7 @@ export function useOfflineSale(options?: {
         total_price: item.product.price * item.quantity,
       }));
 
-      const orgId = profile?.organization_id || null;
+      const orgId = effectiveOrgId || profile?.organization_id || null;
 
       // ─── ONLINE PATH: Atomic RPC ─────────────────────────
       if (isOnline) {
@@ -383,7 +385,7 @@ export function useOfflineSale(options?: {
         footerText: result.offline
           ? `HORS-LIGNE — Sera synchronisée à la reconnexion\n${settings?.receipt_footer || ""}`
           : settings?.receipt_footer || undefined,
-        organizationId: profile?.organization_id ?? undefined,
+        organizationId: effectiveOrgId ?? profile?.organization_id ?? undefined,
         taxRate: orgTaxRate,
       };
 

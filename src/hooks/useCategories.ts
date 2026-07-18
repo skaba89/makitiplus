@@ -1,3 +1,4 @@
+import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -20,11 +21,12 @@ type Category = Database["public"]["Tables"]["categories"]["Row"] & {
  */
 export function useCategories() {
   const { user, profile } = useAuth();
+  const { effectiveOrgId } = useOrgSelector();
 
   return useQuery<Category[]>({
     queryKey: ["categories", user?.id],
     queryFn: async () => {
-      if (!profile?.organization_id) return [];
+      if (!effectiveOrgId) return [];
 
       // Try RPC first (includes product_count)
       try {
@@ -49,14 +51,14 @@ export function useCategories() {
       const { data, error } = await supabase
         .from("categories")
         .select("*, products(count)")
-        .eq("organization_id", profile.organization_id)
+        .eq("organization_id", effectiveOrgId)
         .order("name")
         .limit(500);
 
       if (error) throw error;
       return (data as Category[]) || [];
     },
-    enabled: !!user && !!profile?.organization_id,
+    enabled: !!user,
     staleTime: 60_000, // 1 minute — categories rarely change
   });
 }

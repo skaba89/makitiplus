@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
 import { CurrencyDisplaySelector } from "@/components/ui/currency-display-selector";
@@ -51,6 +52,7 @@ const PAYMENT_ICONS: Record<string, string> = {
 export default function CashClosing() {
   const { user, profile } = useAuth();
   const { formatPrice } = useCurrency();
+  const { effectiveOrgId, isSuperAdmin } = useOrgSelector();
   const {
     formatDisplayPrice,
     displayCurrencyCode,
@@ -71,11 +73,12 @@ export default function CashClosing() {
   const { data: salesByMethod, isLoading } = useQuery({
     queryKey: ["cash-closing", user?.id, dayStart],
     queryFn: async () => {
-      if (!profile?.organization_id) return [];
+      if (!effectiveOrgId) return [];
       try {
         const { data, error } = await supabase
           .from("sales")
           .select("total_amount, payment_method, amount_paid, change_amount")
+          .eq("organization_id", effectiveOrgId)
           .gte("created_at", dayStart)
           .lte("created_at", dayEnd);
 
@@ -99,7 +102,7 @@ export default function CashClosing() {
         return [];
       }
     },
-    enabled: !!user && !!profile?.organization_id,
+    enabled: !!user,
     retry: 1,
   });
 
@@ -107,11 +110,12 @@ export default function CashClosing() {
   const { data: expensesToday } = useQuery({
     queryKey: ["expenses-today", user?.id, dayStart],
     queryFn: async () => {
-      if (!profile?.organization_id) return 0;
+      if (!effectiveOrgId) return 0;
       try {
         const { data, error } = await supabase
           .from("expenses")
           .select("amount")
+          .eq("organization_id", effectiveOrgId)
           .eq("expense_date", format(today, "yyyy-MM-dd"));
         if (error) return 0;
         return (data || []).reduce((sum, e) => sum + Number(e.amount), 0);

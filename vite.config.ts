@@ -85,21 +85,12 @@ export default defineConfig(({ mode }) => ({
         cleanupOutdatedCaches: true,
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/~oauth/, /^\/api\//],
-        // ⚠️ offline.html est EXCLU du precache pour éviter tout conflit
-        // "add-to-cache-list-conflicting-entries". Il est géré uniquement
-        // via runtime caching (NetworkFirst avec handlerDidError fallback).
-        globPatterns: ["**/*.{js,css,svg,png,ico,webmanifest,woff2}"],
-        globIgnores: ["**/offline.html", "**/index.html"],
+        // PAS de additionalManifestEntries — globPatterns gère tous les HTML
+        // (index.html + offline.html) avec des hashes auto uniques.
+        // L'ancien additionalManifestEntries pour offline.html causait le conflit
+        // "add-to-cache-list-conflicting-entries" (2 entrées pour le même fichier).
+        globPatterns: ["**/*.{js,css,html,svg,png,ico,webmanifest,woff2}"],
         runtimeCaching: [
-          // offline.html — CacheFirst (mise en cache au premier accès)
-          {
-            urlPattern: ({ url }) => url.pathname === "/offline.html",
-            handler: "CacheFirst",
-            options: {
-              cacheName: "offline-page",
-              expiration: { maxEntries: 1, maxAgeSeconds: 60 * 60 * 24 * 365 },
-            },
-          },
           // HTML navigations — NetworkFirst with offline.html fallback
           // M4 fix: If network is unreachable AND index.html isn't cached,
           // show /offline.html instead of the browser's default error page
@@ -114,9 +105,8 @@ export default defineConfig(({ mode }) => ({
                 {
                   handlerDidError: async () => {
                     // When NetworkFirst fails entirely (offline + no cache),
-                    // return the cached offline page instead of an error
-                    const cache = await caches.open("offline-page");
-                    const response = await cache.match("/offline.html");
+                    // return the precached offline page instead of an error
+                    const response = await caches.match("/offline.html");
                     return response || Response.error();
                   },
                 },

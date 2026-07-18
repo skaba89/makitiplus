@@ -10,6 +10,7 @@ import { StockAdjustDialog } from "@/components/products/StockAdjustDialog";
 import { StockMovementHistory } from "@/components/products/StockMovementHistory";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, Package, Download, AlertTriangle, Upload } from "lucide-react";
 import { CategoryIcon } from "@/components/ui/category-icon";
@@ -60,6 +61,7 @@ type ProductWithCat = ProductWithCategory;
 
 const Products = () => {
   const { user, profile, userRole } = useAuth();
+  const { effectiveOrgId } = useOrgSelector();
   const { currency } = useCurrency();
   const {
     displayCurrencyCode,

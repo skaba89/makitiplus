@@ -1,3 +1,4 @@
+import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,10 +23,11 @@ type ProductSearchResult = Database["public"]["Tables"]["products"]["Row"] & {
  */
 export function useProductSearch(query: string, limit = 8) {
   const { user, profile } = useAuth();
+  const { effectiveOrgId } = useOrgSelector();
   const trimmed = query.trim();
 
   return useQuery<ProductSearchResult[]>({
-    queryKey: ["product-search", trimmed, limit, profile?.organization_id],
+    queryKey: ["product-search", trimmed, limit, effectiveOrgId],
     queryFn: async () => {
       if (!trimmed) return [];
 
@@ -40,8 +42,8 @@ export function useProductSearch(query: string, limit = 8) {
         .or(orFilter);
 
       // Filtre organization_id — defense-in-depth (+ performance index)
-      if (profile?.organization_id) {
-        queryBuilder = queryBuilder.eq("organization_id", profile.organization_id);
+      if (effectiveOrgId) {
+        queryBuilder = queryBuilder.eq("organization_id", effectiveOrgId);
       }
 
       const { data, error } = await queryBuilder
@@ -51,7 +53,7 @@ export function useProductSearch(query: string, limit = 8) {
       if (error) throw error;
       return (data as ProductSearchResult[]) ?? [];
     },
-    enabled: !!user && !!profile?.organization_id && trimmed.length > 0,
+    enabled: !!user && trimmed.length > 0,
     staleTime: 10_000, // 10 seconds — search results are ephemeral
   });
 }

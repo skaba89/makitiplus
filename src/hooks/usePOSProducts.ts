@@ -1,3 +1,4 @@
+import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -29,12 +30,13 @@ export function usePOSProducts({
   pageSize = 24,
 }: UsePOSProductsOptions) {
   const { user, profile } = useAuth();
+  const { effectiveOrgId } = useOrgSelector();
 
   return useInfiniteQuery({
     queryKey: [
       "pos-products",
       user?.id,
-      profile?.organization_id,
+      effectiveOrgId,
       categoryId ?? "all",
       showOutOfStock ? "with-oos" : "in-stock",
       searchQuery ?? "",
@@ -50,8 +52,8 @@ export function usePOSProducts({
         .eq("is_active", true);
 
       // Filtre organization_id — defense-in-depth (+ performance index)
-      if (profile?.organization_id) {
-        query = query.eq("organization_id", profile.organization_id);
+      if (effectiveOrgId) {
+        query = query.eq("organization_id", effectiveOrgId);
       }
 
       // Category filter
@@ -86,7 +88,7 @@ export function usePOSProducts({
       return loaded < lastPage.totalCount ? lastPage.page + 1 : undefined;
     },
     initialPageParam: 0,
-    enabled: !!user && !!profile?.organization_id,
+    enabled: !!user,
     staleTime: 30_000, // 30 seconds — keep POS data fresh
   });
 }

@@ -1,3 +1,4 @@
+import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -57,6 +58,7 @@ export function usePaginatedQuery<T = unknown>(
     enabled = true,
   } = options;
   const { profile } = useAuth();
+  const { effectiveOrgId } = useOrgSelector();
 
   // Stable serialisation of filters for the query key
   const filtersKey = filters.map((f) => `${f.column}${f.operator}${String(f.value)}`).join("|");
@@ -79,8 +81,8 @@ export function usePaginatedQuery<T = unknown>(
         .range(from, to);
 
       // Defense-in-depth: always filter by organization_id
-      if (profile?.organization_id) {
-        query = query.eq("organization_id", profile.organization_id);
+      if (effectiveOrgId) {
+        query = query.eq("organization_id", effectiveOrgId);
       }
 
       // Apply filters

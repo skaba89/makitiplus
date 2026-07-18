@@ -83,6 +83,25 @@ async function renderBarcodeToCanvas(barcodeValue: string): Promise<string | nul
   }
 }
 
+/**
+ * Génère un code-barres automatique si le produit n'en a pas.
+ * Format : MK + timestamp + random (12 chiffres, compatible CODE128).
+ */
+function generateAutoBarcode(productId?: string): string {
+  const timestamp = Date.now().toString().slice(-8);
+  const random = Math.floor(Math.random() * 1000).toString().padStart(3, "0");
+  return `MK${timestamp}${random}`;
+}
+
+/**
+ * Retourne le code-barres à utiliser pour l'impression :
+ * - Si le produit en a un → l'utiliser
+ * - Sinon → en générer un automatiquement
+ */
+function getBarcodeForPrinting(product: Product): string {
+  return product.barcode || generateAutoBarcode();
+}
+
 /* ------------------------------------------------------------------ */
 /*  Unicode sanitiser for jsPDF                                        */
 /* ------------------------------------------------------------------ */
@@ -107,6 +126,7 @@ function drawLabel(
   y: number,
   barcodeImageData: string | null,
   formatPrice: (n: number) => string,
+  effectiveBarcode?: string,
 ): void {
   const cellW = LABEL_CELL.w;
   const cellH = LABEL_CELL.h;
@@ -114,6 +134,7 @@ function drawLabel(
   const padY = 2;  // vertical padding inside label
   const innerW = cellW - padX * 2;
   let curY = y + padY;
+  const barcodeValue = effectiveBarcode || product.barcode || "";
 
   /* ── Dashed cut border ── */
   doc.setDrawColor(160, 160, 160);
@@ -149,12 +170,12 @@ function drawLabel(
       undefined,
       "NONE", // no compression — keeps bars sharp
     );
-  } else if (product.barcode) {
+  } else if (barcodeValue) {
     // Fallback: barcode number as text
     doc.setFontSize(FONT.num + 1);
     doc.setFont("courier", "bold");
     doc.text(
-      sanitizeForPdf(product.barcode),
+      sanitizeForPdf(barcodeValue),
       x + cellW / 2,
       curY + FONT.barcodeH / 2,
       { align: "center" },
@@ -165,9 +186,9 @@ function drawLabel(
   /* ── Barcode number ── */
   doc.setFontSize(FONT.num);
   doc.setFont("courier", "normal");
-  if (product.barcode) {
+  if (barcodeValue) {
     const spaced = sanitizeForPdf(
-      product.barcode.replace(/(.{4})/g, "$1 ").trim(),
+      barcodeValue.replace(/(.{4})/g, "$1 ").trim(),
     );
     doc.text(spaced, x + cellW / 2, curY + FONT.num * 0.38, {
       align: "center",
@@ -202,10 +223,9 @@ async function buildLabelPDF(
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   await ensurePdfFont(doc);
 
-  // Pre-render barcode image once
-  const barcodeImageData = product.barcode
-    ? await renderBarcodeToCanvas(product.barcode)
-    : null;
+  // Pre-render barcode image once — génère un code-barres si manquant
+  const effectiveBarcode = getBarcodeForPrinting(product);
+  const barcodeImageData = await renderBarcodeToCanvas(effectiveBarcode);
 
   let labelIndex = 0;
 
@@ -218,7 +238,7 @@ async function buildLabelPDF(
       for (let col = 0; col < COLS && labelIndex < copies; col++) {
         const x = MARGIN_X + col * (LABEL_CELL.w + GAP_X);
         const y = MARGIN_Y + row * (LABEL_CELL.h + GAP_Y);
-        drawLabel(doc, product, x, y, barcodeImageData, formatPrice);
+        drawLabel(doc, product, x, y, barcodeImageData, formatPrice, effectiveBarcode);
         labelIndex++;
       }
     }

@@ -7,14 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
+import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { CurrencyDisplaySelector } from "@/components/ui/currency-display-selector";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { OrgSelector } from "@/components/ui/org-selector";
 import {
   TrendingUp,
   ShoppingCart,
@@ -63,31 +58,8 @@ const Dashboard = () => {
     refreshRates,
     isConverted,
   } = useDisplayCurrency();
+  const { isSuperAdmin, effectiveOrgId } = useOrgSelector();
   const navigate = useNavigate();
-
-  // Super admin: sélecteur d'organisation pour voir les données de n'importe quelle org
-  const isSuperAdmin = userRole === "super_admin";
-  const [selectedOrgId, setSelectedOrgId] = useState<string>("");
-  const [selectedStoreId, setSelectedStoreId] = useState<string>("");
-
-  // Fetch toutes les organisations (super_admin seulement)
-  const { data: allOrgs = [] } = useQuery({
-    queryKey: ["dashboard-all-orgs"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("organizations")
-        .select("id, name, country, currency")
-        .order("name");
-      if (error) return [];
-      return data as { id: string; name: string; country: string | null; currency: string | null }[];
-    },
-    enabled: isSuperAdmin,
-  });
-
-  // L'org effective pour les queries :
-  // - super_admin → org sélectionnée (ou toutes si vide)
-  // - autres → leur org de profil
-  const effectiveOrgId = isSuperAdmin ? (selectedOrgId || undefined) : (profile?.organization_id || undefined);
 
   const today = new Date();
   const dayStart = startOfDay(today).toISOString();
@@ -97,11 +69,12 @@ const Dashboard = () => {
 
   // ⚡ Stats du Dashboard via RPC — une seule requête au lieu de 5+ fetchAllRows
   // L'agrégation (SUM, COUNT) se fait côté serveur, réduisant drastiquement le transfert de données
-  // ⚠️ Pour super_admin, on désactive le RPC (qui utilise le profil du user) et on utilise
-  //    les queries client-side qui respectent effectiveOrgId (sélecteur d'org)
   const { data: dashboardStats, isLoading: isLoadingStats } = useQuery({
     queryKey: ["dashboard-stats", user?.id, effectiveOrgId],
     queryFn: async () => {
+      // Pour super_admin : ne pas appeler le RPC (il utilise le profil du user,
+      // pas l'org sélectionnée). Les queries client-side sont utilisées à la place.
+      if (isSuperAdmin) return null;
       const { data, error } = await supabase.rpc("get_dashboard_stats", {
         p_day_start: dayStart,
         p_day_end: dayEnd,
@@ -121,9 +94,11 @@ const Dashboard = () => {
   });
 
   // Produits les plus vendus (30 derniers jours) — RPC avec agrégation serveur
+  // Pour super_admin : ne pas appeler le RPC (utilise le profil du user)
   const { data: topProducts } = useQuery({
-    queryKey: ["dashboard-top-products", user?.id],
+    queryKey: ["dashboard-top-products", user?.id, effectiveOrgId],
     queryFn: async () => {
+      if (isSuperAdmin) return [];
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       const { data, error } = await supabase.rpc("get_top_products", {
@@ -145,7 +120,7 @@ const Dashboard = () => {
     retry: 1,
   });
 
-  // Month sales (for profit calculation) — client-side, respecte effectiveOrgId
+  // Month sales (for profit calculation)
   const { data: monthSales } = useQuery({
     queryKey: ["dashboard-sales-month", user?.id],
     queryFn: async () => {
@@ -236,7 +211,7 @@ const Dashboard = () => {
       if (error) return [];
       return data;
     },
-    enabled: !!user && (isSuperAdmin || !!profile?.organization_id),
+    enabled: !!user,
   });
 
   // Dérivés depuis dashboardStats RPC (agrégation serveur) + fallback client-side
@@ -327,21 +302,7 @@ const Dashboard = () => {
           </div>
           {/* Bouton envoyer résumé par WhatsApp */}
           <div className="flex items-center gap-2 flex-wrap">
-            {isSuperAdmin && (
-              <Select value={selectedOrgId} onValueChange={setSelectedOrgId}>
-                <SelectTrigger className="w-full sm:w-[220px]">
-                  <SelectValue placeholder="🌍 Toutes les organisations" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">🌍 Toutes les organisations</SelectItem>
-                  {allOrgs.map((org) => (
-                    <SelectItem key={org.id} value={org.id}>
-                      🏪 {org.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+            <OrgSelector />
             <CurrencyDisplaySelector
               orgCurrencyCode={orgCurrencyCode}
               displayCurrencyCode={displayCurrencyCode}

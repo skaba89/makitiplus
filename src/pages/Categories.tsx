@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDemo } from "@/contexts/DemoContext";
+import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { useCategories } from "@/hooks/useCategories";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { DEFAULT_CATEGORY_COLOR, PRESET_COLORS } from "@/constants/colors";
@@ -47,6 +48,7 @@ const PRESET_ICONS = ["Package", "Wheat", "CupSoda", "Sparkles", "Brush", "Wrenc
 
 const Categories = () => {
   const { user, profile, userRole } = useAuth();
+  const { effectiveOrgId } = useOrgSelector();
   const { toast } = useToast();
   const { blockMutation } = useDemo();
   const queryClient = useQueryClient();
@@ -87,8 +89,8 @@ const Categories = () => {
       };
 
       // Explicitly set organization_id from profile to avoid relying solely on trigger
-      if (profile?.organization_id) {
-        insertData.organization_id = profile.organization_id;
+      if (effectiveOrgId) {
+        insertData.organization_id = effectiveOrgId;
       }
 
       // Only include sort_order if the column exists in the database

@@ -27,6 +27,20 @@ vi.mock("@/contexts/AuthContext", () => ({
   }),
 }));
 
+
+// Mock org selector — default: not super admin, uses profile org
+vi.mock("@/hooks/useOrgSelector", () => ({
+  useOrgSelector: () => ({
+    isSuperAdmin: false,
+    effectiveOrgId: "test-org-id",
+    selectedOrgId: "",
+    setSelectedOrgId: vi.fn(),
+    allOrgs: [],
+    loading: false,
+    selectedOrgName: null,
+  }),
+}));
+
 import { useCategories } from "@/hooks/useCategories";
 
 function createWrapper() {

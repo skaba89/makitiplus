@@ -10,11 +10,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
-import { useOrgSelector } from "@/hooks/useOrgSelector";
-import { OrgSelector } from "@/components/ui/org-selector";
 import { CurrencyDisplaySelector } from "@/components/ui/currency-display-selector";
 import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import {
@@ -129,8 +128,8 @@ const Customers = () => {
         ...data,
         user_id: user?.id ?? "",
       };
-      if (profile?.organization_id) {
-        insertData.organization_id = profile.organization_id;
+      if (effectiveOrgId) {
+        insertData.organization_id = effectiveOrgId;
       }
       const { error } = await supabase.from("customers").insert(insertData as never);
       if (error) return [];
@@ -251,7 +250,7 @@ const Customers = () => {
                 try {
                   // Fetch ALL customers for full export (not just current page)
                   const allCustomers = await fetchAllRows<Customer>("customers", "*", {
-                    filters: profile?.organization_id
+                    filters: effectiveOrgId
                       ? [{ column: "organization_id", operator: "eq" as const, value: effectiveOrgId }]
                       : [],
                   });

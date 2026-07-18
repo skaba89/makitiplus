@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
@@ -101,12 +102,16 @@ const Suppliers = () => {
 
   // ─── Récupération des fournisseurs ────────────────────────────────────────
   const { data: suppliers, isLoading } = useQuery({
-    queryKey: ["suppliers", user?.id],
+    queryKey: ["suppliers", user?.id, effectiveOrgId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("suppliers")
         .select("*")
         .order("name");
+      if (effectiveOrgId) {
+        query = query.eq("organization_id", effectiveOrgId);
+      }
+      const { data, error } = await query;
       if (error) return [];
       return data as Supplier[];
     },
@@ -115,12 +120,16 @@ const Suppliers = () => {
 
   // ─── Récupération des produits (pour compter par fournisseur) ─────────────
   const { data: products } = useQuery({
-    queryKey: ["products", user?.id],
+    queryKey: ["products", user?.id, effectiveOrgId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("products")
         .select("id, supplier_id, cost_price, stock_quantity")
         .eq("is_active", true);
+      if (effectiveOrgId) {
+        query = query.eq("organization_id", effectiveOrgId);
+      }
+      const { data, error } = await query;
       if (error) return [];
       return data;
     },
@@ -152,8 +161,8 @@ const Suppliers = () => {
         ...data,
         user_id: user?.id ?? "",
       };
-      if (profile?.organization_id) {
-        insertData.organization_id = profile.organization_id;
+      if (effectiveOrgId) {
+        insertData.organization_id = effectiveOrgId;
       }
       const { error } = await supabase.from("suppliers").insert(insertData);
       if (error) return [];
