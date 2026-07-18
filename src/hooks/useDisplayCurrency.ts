@@ -178,7 +178,8 @@ export function useDisplayCurrency(): DisplayCurrencyHook {
     } catch {
       // ignore
     }
-    window.location.reload();
+    // Déclencher un re-fetch sans recharger la page
+    window.dispatchEvent(new CustomEvent("makitiplus-refresh-rates"));
   }, []);
 
   return {

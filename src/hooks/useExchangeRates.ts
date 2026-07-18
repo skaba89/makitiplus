@@ -156,6 +156,13 @@ export function useExchangeRates(): UseExchangeRatesResult {
     fetchRates();
   }, [fetchRates]);
 
+  // Écouter l'événement custom pour forcer le refresh sans recharger la page
+  useEffect(() => {
+    const handler = () => fetchRates();
+    window.addEventListener("makitiplus-refresh-rates", handler);
+    return () => window.removeEventListener("makitiplus-refresh-rates", handler);
+  }, [fetchRates]);
+
   const convert = useCallback(
     (amount: number, from: string, to: string): number | null => {
       return convertAmount(amount, from, to, rates);

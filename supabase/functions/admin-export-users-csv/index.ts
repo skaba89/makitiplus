@@ -43,13 +43,21 @@ Deno.serve(async (req) => {
         status: ctx.status, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
-    const { user, adminClient, actorProfile, ipAddress } = ctx;
-    if (!actorProfile.organization_id) {
+    const { user, adminClient, actorProfile, ipAddress, isSuperAdmin } = ctx;
+    
+    // Pour super_admin : accepter un targetOrganizationId dans le body
+    // Sinon : utiliser l'org du profil
+    const body = await req.json().catch(() => ({}));
+    const targetOrgId = isSuperAdmin 
+      ? (body.targetOrganizationId || actorProfile.organization_id)
+      : actorProfile.organization_id;
+    
+    if (!targetOrgId) {
       return new Response(JSON.stringify({ error: 'Admin sans boutique associée' }), {
         status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
-    const orgId = actorProfile.organization_id;
+    const orgId = targetOrgId;
 
     // Load profiles + roles strictly scoped to this org
     const { data: profiles, error: profilesErr } = await adminClient

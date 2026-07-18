@@ -360,7 +360,7 @@ const Stores = () => {
             });
 
             const adminResultText = await adminResponse.text();
-            let adminResultJson: any = {};
+            let adminResultJson: { error?: string; success?: boolean; userId?: string; raw?: string } = {};
             try { adminResultJson = JSON.parse(adminResultText); } catch { adminResultJson = { raw: adminResultText }; }
 
             if (!adminResponse.ok) {
