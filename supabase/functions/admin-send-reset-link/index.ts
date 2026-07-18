@@ -97,12 +97,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Block targeting other admins
+    // Block targeting other admins AND super_admins
     const { data: targetRole } = await adminClient
       .from('user_roles').select('role')
-      .eq('user_id', userId).eq('role', 'admin').maybeSingle();
+      .eq('user_id', userId).in('role', ['admin', 'super_admin']).maybeSingle();
     if (targetRole) {
-      return new Response(JSON.stringify({ error: 'Impossible de cibler un autre administrateur' }), {
+      return new Response(JSON.stringify({ error: 'Impossible de cibler un administrateur' }), {
         status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
