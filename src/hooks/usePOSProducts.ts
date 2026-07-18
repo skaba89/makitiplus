@@ -88,7 +88,7 @@ export function usePOSProducts({
       return loaded < lastPage.totalCount ? lastPage.page + 1 : undefined;
     },
     initialPageParam: 0,
-    enabled: !!user && !!effectiveOrgId,
+    enabled: !!user,
     staleTime: 30_000, // 30 seconds — keep POS data fresh
   });
 }

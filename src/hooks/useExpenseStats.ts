@@ -33,6 +33,6 @@ export function useExpenseStats() {
         monthCount: typed.monthCount ?? 0,
       };
     },
-    enabled: !!user && !!effectiveOrgId,
+    enabled: !!user,
   });
 }

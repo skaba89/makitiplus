@@ -1,3 +1,4 @@
+import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,11 +14,12 @@ import { logger } from "@/lib/logger";
  */
 export function useSupplierStats() {
   const { user, profile } = useAuth();
+  const { effectiveOrgId } = useOrgSelector();
 
   return useQuery<SupplierStatsRpc>({
     queryKey: ["suppliers-stats", user?.id],
     queryFn: async () => {
-      if (!profile?.organization_id) {
+      if (!effectiveOrgId) {
         return { totalSuppliers: 0, activeSuppliers: 0, totalProducts: 0, totalSupplyValue: 0 };
       }
       const { data, error } = await supabase.rpc("get_supplier_stats");
@@ -33,6 +35,6 @@ export function useSupplierStats() {
         totalSupplyValue: typed.totalSupplyValue ?? 0,
       };
     },
-    enabled: !!user && !!profile?.organization_id,
+    enabled: !!user,
   });
 }

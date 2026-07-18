@@ -68,6 +68,6 @@ export function useProductStats() {
         categoryCounts: typed.categoryCounts ?? {},
       };
     },
-    enabled: !!user && (isSuperAdmin || !!profile?.organization_id),
+    enabled: !!user,
   });
 }

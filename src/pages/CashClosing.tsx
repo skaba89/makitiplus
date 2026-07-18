@@ -101,7 +101,7 @@ export default function CashClosing() {
         return [];
       }
     },
-    enabled: !!user && !!effectiveOrgId,
+    enabled: !!user,
     retry: 1,
   });
 

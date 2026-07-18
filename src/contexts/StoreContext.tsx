@@ -74,7 +74,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       return (data as Store[]) || [];
     },
-    enabled: !!user && !!profile?.organization_id,
+    enabled: !!user,
     staleTime: 2 * 60 * 1000,
     retry: 1,
   });

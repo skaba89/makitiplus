@@ -1,3 +1,4 @@
+import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useOnlineStatus } from "@/contexts/OfflineContext";
 import { enqueueMutation, cacheData, getCachedData, OFFLINE_STORES, type OfflineStoreName } from "@/lib/offlineQueue";
@@ -27,6 +28,7 @@ export function useOfflineQuery<T extends { id: string }>(
 ) {
   const { isOnline } = useOnlineStatus();
   const { user } = useAuth();
+  const { effectiveOrgId } = useOrgSelector();
 
   const query = useQuery({
     queryKey,
@@ -89,6 +91,7 @@ export function useOfflineMutation<TData = unknown>(
   const { isOnline } = useOnlineStatus();
   const queryClient = useQueryClient();
   const { user, profile } = useAuth();
+  const { effectiveOrgId } = useOrgSelector();
 
   return useMutation({
     mutationFn: async (mutationData: {
@@ -103,7 +106,7 @@ export function useOfflineMutation<TData = unknown>(
           data: mutationData.data || {},
           filter: mutationData.filter,
           userId: user?.id,
-          organizationId: profile?.organization_id,
+          organizationId: effectiveOrgId || profile?.organization_id,
         });
 
         return { offline: true, queued: true } as unknown as TData;

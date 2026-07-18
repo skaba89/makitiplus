@@ -34,6 +34,6 @@ export function useCustomerStats() {
         customersWithCredit: typed.customersWithCredit ?? 0,
       };
     },
-    enabled: !!user && !!effectiveOrgId,
+    enabled: !!user,
   });
 }

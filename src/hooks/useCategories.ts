@@ -58,7 +58,7 @@ export function useCategories() {
       if (error) throw error;
       return (data as Category[]) || [];
     },
-    enabled: !!user && !!effectiveOrgId,
+    enabled: !!user,
     staleTime: 60_000, // 1 minute — categories rarely change
   });
 }

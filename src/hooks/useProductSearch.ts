@@ -53,7 +53,7 @@ export function useProductSearch(query: string, limit = 8) {
       if (error) throw error;
       return (data as ProductSearchResult[]) ?? [];
     },
-    enabled: !!user && !!effectiveOrgId && trimmed.length > 0,
+    enabled: !!user && trimmed.length > 0,
     staleTime: 10_000, // 10 seconds — search results are ephemeral
   });
 }
