@@ -1,7 +1,9 @@
-import { createContext, useContext, useState, useMemo, type ReactNode } from "react";
+import { createContext, useContext, useState, useMemo, useEffect, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+
+const ORG_STORAGE_KEY = "makitiplus_selected_org";
 
 /**
  * Contexte global pour le sélecteur d'organisation (super_admin).
@@ -42,7 +44,38 @@ const OrgSelectorContext = createContext<OrgSelectorContextValue | null>(null);
 export function OrgSelectorProvider({ children }: { children: ReactNode }) {
   const { userRole, profile } = useAuth();
   const isSuperAdmin = userRole === "super_admin";
-  const [selectedOrgId, setSelectedOrgId] = useState<string>("");
+  const [selectedOrgId, setSelectedOrgIdState] = useState<string>(() => {
+    try {
+      return localStorage.getItem(ORG_STORAGE_KEY) || "";
+    } catch {
+      return "";
+    }
+  });
+
+  // Persister la sélection dans localStorage
+  const setSelectedOrgId = (id: string) => {
+    setSelectedOrgIdState(id);
+    try {
+      if (id) {
+        localStorage.setItem(ORG_STORAGE_KEY, id);
+      } else {
+        localStorage.removeItem(ORG_STORAGE_KEY);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  // Nettoyer le localStorage au logout
+  useEffect(() => {
+    if (!isSuperAdmin) {
+      try {
+        localStorage.removeItem(ORG_STORAGE_KEY);
+      } catch {
+        // ignore
+      }
+    }
+  }, [isSuperAdmin]);
 
   const { data: allOrgs = [], isLoading: loading } = useQuery({
     queryKey: ["all-organizations-for-selector"],
