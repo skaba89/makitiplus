@@ -25,6 +25,9 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { CategoryIcon } from "@/components/ui/category-icon";
+import { ProductKpisCard } from "@/components/products/ProductKpisCard";
+import { EnhancedDashboardStats } from "@/components/reports/EnhancedDashboardStats";
+import { SellerKpisCard } from "@/components/reports/SellerKpisCard";
 import { startOfDay, endOfDay, startOfMonth, endOfMonth } from "date-fns";
 import { format } from "date-fns";
 import { formatDateTime } from "@/lib/utils";
@@ -705,6 +708,10 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
             </CardContent>
           </Card>
         </div>
+
+        <EnhancedDashboardStats />
+        <ProductKpisCard />
+        <SellerKpisCard />
       </div>
     </DashboardLayout>
   );

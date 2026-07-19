@@ -64,6 +64,10 @@ import { reportError } from "@/lib/sentry";
 import { ReportsPageSkeleton } from "@/components/skeletons/PageSkeletons";
 import { CHART_COLORS } from "@/constants/colors";
 import { FeatureGate } from "@/components/saas/PlanLimitGuard";
+import { ProductKpisCard } from "@/components/products/ProductKpisCard";
+import { EnhancedDashboardStats } from "@/components/reports/EnhancedDashboardStats";
+import { SellerKpisCard } from "@/components/reports/SellerKpisCard";
+import { CategoryKpisCard } from "@/components/reports/CategoryKpisCard";
 import type { Database } from "@/integrations/supabase/types";
 
 type Sale = Database["public"]["Tables"]["sales"]["Row"];
@@ -906,6 +910,11 @@ const Reports = () => {
           )}
         </div>
         </FeatureGate>
+
+        <EnhancedDashboardStats />
+        <ProductKpisCard />
+        <CategoryKpisCard />
+        <SellerKpisCard />
       </div>
     </DashboardLayout>
   );
