@@ -1,10 +1,11 @@
-import { useEffect, lazy, Suspense, Component, type ReactNode } from "react";
+import { useEffect, lazy, Suspense, Component, useState, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider, QueryCache, MutationCache, QueryErrorResetBoundary } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { SentryErrorBoundary, reportError } from "@/lib/sentry";
+import { repairPwaCache, isPwaCacheError } from "@/lib/pwaRepair";
 import { extractErrorMessage } from "@/lib/extractErrorMessage";
 import { ADMIN_ROLES, INVENTORY_ROLES, FINANCIAL_ROLES, POS_ROLES, STORE_ROLES, MANAGEMENT_ROLES, PRODUCT_MANAGEMENT_ROLES } from "@/types";
 import { toast as sonnerToast } from "sonner";
@@ -113,33 +114,55 @@ const ErrorFallback = () => (
 );
 
 /** Page-level error fallback — shows inline error with option to go back */
-const PageErrorFallback = () => (
-  <div className="flex flex-col items-center justify-center min-h-[60vh] bg-background p-8 text-center">
-    <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
-    <h2 className="text-xl font-bold text-foreground mb-2">Erreur sur cette page</h2>
-    <p className="text-muted-foreground mb-4 max-w-md">
-      Une erreur inattendue s'est produite. Essayez de recharger la page.
-    </p>
-    <div className="flex gap-3">
-      <Button variant="outline" onClick={() => window.history.back()}>
-        Retour
-      </Button>
-      <Button onClick={() => window.location.reload()}>
-        Recharger
-      </Button>
+const PageErrorFallback = ({ error }: { error?: Error }) => {
+  const showPwaRepair = error ? isPwaCacheError(error) : false;
+  const [repairing, setRepairing] = useState(false);
+
+  const handleRepair = async () => {
+    setRepairing(true);
+    await repairPwaCache();
+  };
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] bg-background p-8 text-center">
+      <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
+      <h2 className="text-xl font-bold text-foreground mb-2">Erreur sur cette page</h2>
+      <p className="text-muted-foreground mb-4 max-w-md">
+        Une erreur inattendue s'est produite. Essayez de recharger la page.
+      </p>
+      {showPwaRepair && (
+        <div className="mb-4 p-3 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-800 max-w-md">
+          <p className="text-sm text-amber-800 dark:text-amber-200 mb-2">
+            Une ancienne version de l'application est peut-être en cache.
+            Cliquez sur "Réparer l'application" pour vider le cache technique.
+            <strong> Vos ventes hors-ligne ne seront pas supprimées.</strong>
+          </p>
+          <Button onClick={handleRepair} disabled={repairing} variant="default" className="w-full">
+            {repairing ? "Réparation en cours..." : "Réparer l'application"}
+          </Button>
+        </div>
+      )}
+      <div className="flex gap-3">
+        <Button variant="outline" onClick={() => window.history.back()}>
+          Retour
+        </Button>
+        <Button onClick={() => window.location.reload()}>
+          Recharger
+        </Button>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 /** Page-level error boundary for critical pages (POS, Reports) */
-class PageErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
-  state = { hasError: false };
-  static getDerivedStateFromError() { return { hasError: true }; }
+class PageErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
+  state = { hasError: false, error: null as Error | null };
+  static getDerivedStateFromError(error: Error) { return { hasError: true, error }; }
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     reportError(error);
   }
   render() {
-    if (this.state.hasError) return <PageErrorFallback />;
+    if (this.state.hasError) return <PageErrorFallback error={this.state.error} />;
     return this.props.children;
   }
 }
