@@ -30,3 +30,43 @@
 - risques restants : 
   - Les 3 migrations P0 doivent être exécutées sur Supabase
   - Les ventes anciennes auront cost_price = 0 (pas d'erreur, marge = revenue)
+
+## P1 — Résultats
+- types Supabase régénérés : ⚠️ Reporté (nécessite exécution migrations d'abord)
+- AdminAnalytics erreurs RPC : ✅ `if (error) return []` remplacé par `reportError(new Error(...))` sur 5 RPCs
+- SQL validator renforcé : ⚠️ Reporté (P1.3 — à traiter séparément)
+- tests ajoutés : ✅ `src/test/adminAnalyticsRegression.test.ts` (5 tests)
+- commandes exécutées : typecheck ✅, build ✅, tests ✅ (973/973), SQL validator ✅
+- résultat : P1 VALIDÉ ✅
+- risques restants : Types Supabase à régénérer après exécution des migrations
+
+## P2 — Résultats
+- PWA repair ajouté : ✅ `src/lib/pwaRepair.ts` (repairPwaCache + isPwaCacheError)
+- ErrorBoundary amélioré : ✅ Bouton "Réparer l'application" avec détection d'erreurs PWA
+- AdminAnalytics renommage : ⚠️ Reporté (risque de régression trop élevé pour renommage cosmétique)
+- tests ajoutés : ✅ `src/test/pwaRepair.test.ts` (9 tests)
+- commandes exécutées : typecheck ✅, build ✅, tests ✅ (982/982)
+- résultat : P2 VALIDÉ ✅
+- risques restants : Aucun
+
+## Résumé global
+- Branche : `hotfix/deep-production-stabilization-priority-by-priority`
+- Commits : P0 (`1c40bd4`), P1 (`bfe9d5c`), P2 (`a64ec46`)
+- Tests : 982/982 ✅ (+24 nouveaux)
+- Build : ✅
+- TypeScript : ✅ 0 erreur
+- SQL validator : ✅
+- npm audit : ✅ 0 vulnérabilité
+
+## Migrations à exécuter sur Supabase (ORDRE IMPORTANT)
+1. `20260719100000_security_fixes_audit.sql` (RLS bypass 9 tables)
+2. `20260719130000_add_sale_items_cost_price_snapshot.sql` (cost_price column)
+3. `20260719130000_product_kpis_fix_rownumber.sql` (RPC KPIs corrigé)
+4. `20260719140000_update_create_full_sale_cost_price.sql` (sale avec cost_price)
+
+## Décision
+- Démo commerciale : OUI ✅
+- Pilote 1 magasin : OUI ✅
+- Pilote 3 à 5 magasins : OUI ✅ (après exécution des migrations)
+- Déploiement régional : CONDITIONNEL ⚠️ (nécessite E2E + Release Readiness)
+- Déploiement national : CONDITIONNEL ⚠️ (nécessite E2E + Release Readiness + secrets)
