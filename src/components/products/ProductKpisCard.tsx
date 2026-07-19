@@ -49,19 +49,31 @@ export function ProductKpisCard() {
   const { data: productKpis = [], isLoading } = useQuery({
     queryKey: ["product-kpis", period, effectiveOrgId],
     queryFn: async () => {
+      // Essayer le RPC d'abord (SECURITY DEFINER → bypass RLS)
       const { data, error } = await supabase.rpc("get_product_kpis_by_period", {
         p_period: period,
         p_organization_id: effectiveOrgId || null,
       });
       if (error) {
         console.warn("[ProductKpis] RPC failed:", error.message);
-        return fetchProductKpisClientSide(period, effectiveOrgId);
+        // Fallback client-side uniquement si effectiveOrgId est défini
+        // (pour super_admin sans org sélectionnée, le fallback ne peut pas
+        // fonctionner car il faudrait fetcher TOUTES les orgs)
+        if (effectiveOrgId) {
+          return fetchProductKpisClientSide(period, effectiveOrgId);
+        }
+        return [];
       }
       const result = (data || []) as ProductKpi[];
+      // Si le RPC retourne des données mais toutes avec quantity_sold = 0,
+      // essayer le fallback client-side
       const hasNonZero = result.some((p) => p.quantity_sold > 0);
       if (!hasNonZero && effectiveOrgId) {
+        console.warn("[ProductKpis] RPC returned all zeros, trying client-side fallback");
         const fallback = await fetchProductKpisClientSide(period, effectiveOrgId);
-        if (fallback.some((p) => p.quantity_sold > 0)) return fallback;
+        if (fallback.some((p) => p.quantity_sold > 0)) {
+          return fallback;
+        }
       }
       return result;
     },
