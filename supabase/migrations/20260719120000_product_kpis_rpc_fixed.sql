@@ -33,7 +33,7 @@ DECLARE
   v_org_id UUID;
   v_total_revenue NUMERIC;
 BEGIN
-  v_org_id := COALESCE(p_organization_id, public.get_user_organization_id());
+  v_org_id := p_organization_id; -- NULL = TOUTES les orgs (ne pas utiliser get_user_organization_id)
   v_end_date := NOW();
   v_start_date := CASE 
     WHEN p_period = 'day' THEN date_trunc('day', NOW())
