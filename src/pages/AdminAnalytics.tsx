@@ -326,7 +326,7 @@ const AdminAnalytics = () => {
       const { data, error } = await supabase.rpc("get_admin_stores_summary", {
         p_period: period,
       });
-      if (error) return [];
+      if (error) { reportError(new Error(`AdminAnalytics RPC failed: ${error.message}`)); return []; }
       return (data || []) as StoreSummary[];
     },
     enabled: userRole === "super_admin",
@@ -344,7 +344,7 @@ const AdminAnalytics = () => {
         params.p_organization_id = selectedStoreId;
       }
       const { data, error } = await supabase.rpc("get_admin_article_ranking", params);
-      if (error) return [];
+      if (error) { reportError(new Error(`AdminAnalytics RPC failed: ${error.message}`)); return []; }
       return (data || []) as ArticleRanking[];
     },
     enabled: userRole === "super_admin",
@@ -362,7 +362,7 @@ const AdminAnalytics = () => {
         params.p_organization_id = selectedStoreId;
       }
       const { data, error } = await supabase.rpc("get_admin_stock_movements", params);
-      if (error) return [];
+      if (error) { reportError(new Error(`AdminAnalytics RPC failed: ${error.message}`)); return []; }
       return (data || []) as StockMovement[];
     },
     enabled: userRole === "super_admin",
@@ -379,7 +379,7 @@ const AdminAnalytics = () => {
         params.p_organization_id = selectedStoreId;
       }
       const { data, error } = await supabase.rpc("get_admin_sales_trend", params);
-      if (error) return [];
+      if (error) { reportError(new Error(`AdminAnalytics RPC failed: ${error.message}`)); return []; }
       return (data || []) as SalesTrend[];
     },
     enabled: userRole === "super_admin",
@@ -396,7 +396,7 @@ const AdminAnalytics = () => {
         params.p_organization_id = selectedStoreId;
       }
       const { data, error } = await supabase.rpc("get_admin_payment_distribution", params);
-      if (error) return [];
+      if (error) { reportError(new Error(`AdminAnalytics RPC failed: ${error.message}`)); return []; }
       return (data || []) as PaymentDistribution[];
     },
     enabled: userRole === "super_admin",

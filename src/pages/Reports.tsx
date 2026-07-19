@@ -67,6 +67,7 @@ import { ReportsPageSkeleton } from "@/components/skeletons/PageSkeletons";
 import { CHART_COLORS } from "@/constants/colors";
 import { FeatureGate } from "@/components/saas/PlanLimitGuard";
 import type { Database } from "@/integrations/supabase/types";
+import { ProductKpisCard } from "@/components/products/ProductKpisCard";
 
 type Sale = Database["public"]["Tables"]["sales"]["Row"];
 type Expense = Database["public"]["Tables"]["expenses"]["Row"];
@@ -925,6 +926,8 @@ const Reports = () => {
           )}
         </div>
         </FeatureGate>
+
+        <ProductKpisCard />
       </div>
     </DashboardLayout>
   );

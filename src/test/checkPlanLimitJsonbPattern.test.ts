@@ -195,6 +195,7 @@ describe("Régression : pattern check_plan_limit JSONB cassé", () => {
     // La dernière version peut être dans harden_sales_store_scope (20260712195000)
     // ou dans fix_payment_method_enum_cast (20260712190000)
     const validNames = [
+      "20260719140000_update_create_full_sale_cost_price.sql",
       "20260713200000_FINAL_CONSOLIDATED_ALL_FIXES.sql",
       "20260712195000_harden_sales_store_scope.sql",
       "20260712190000_fix_payment_method_enum_cast.sql",
