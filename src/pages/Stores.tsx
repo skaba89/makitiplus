@@ -1,4 +1,4 @@
-import { useState, ReactNode } from "react";
+import { useState, useEffect, ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
@@ -164,7 +164,7 @@ const CategoryBadge = ({ value }: { value: StoreCategory | null }) => {
 };
 
 const Stores = () => {
-  const { userRole } = useAuth();
+  const { userRole, profile } = useAuth();
   const { toast } = useToast();
   const { blockMutation } = useDemo();
   const queryClient = useQueryClient();
@@ -184,6 +184,14 @@ const Stores = () => {
   const [storeCity, setStoreCity] = useState("");
   // Mode création : "org" (nouvelle organisation) ou "store" (magasin dans org existante)
   const [createMode, setCreateMode] = useState<"org" | "store">("org");
+  // Un admin normal (non-super_admin) ne peut jamais créer d'organisation indépendante —
+  // il ne voit pas le toggle org/magasin, donc on le force en mode "store" dès que son
+  // rôle est connu, sinon il resterait bloqué sur le formulaire "créer une organisation".
+  useEffect(() => {
+    if (userRole && userRole !== "super_admin") {
+      setCreateMode("store");
+    }
+  }, [userRole]);
   // Pour le super_admin : choix de l'organisation cible si mode "store"
   const [targetOrgId, setTargetOrgId] = useState<string>("");
   // Admin à créer en même temps que l'organisation
@@ -292,8 +300,11 @@ const Stores = () => {
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/(^-|-$)/g, "");
 
-      if (createMode === "org") {
+      if (createMode === "org" && userRole === "super_admin") {
         // MODE ORGANISATION : créer une NOUVELLE organisation indépendante + son premier magasin
+        // (réservé au super_admin — le toggle org/magasin n'est visible que pour lui ;
+        //  un admin normal reste sur createMode="org" par défaut mais doit toujours
+        //  passer par la branche "ajouter un magasin à mon organisation" ci-dessous)
         const finalOrgName = orgName.trim() || storeName.trim();
         const finalStoreName = storeName.trim() || orgName.trim();
 

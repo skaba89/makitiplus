@@ -145,6 +145,11 @@ const StoreCustomization = () => {
     (settings?.template as TemplateName) || "default"
   );
 
+  // Receipt paper size (stored in settings.extra_settings.receiptPaperSize)
+  const [receiptPaperSize, setReceiptPaperSize] = useState<"58mm" | "80mm" | "A4">(
+    ((settings?.extra_settings as Record<string, string>)?.receiptPaperSize as "58mm" | "80mm" | "A4") || "80mm"
+  );
+
   // Sync state when settings load
   useEffect(() => {
     if (settings) {
@@ -254,10 +259,10 @@ const StoreCustomization = () => {
       receipt_footer: receiptFooter,
       receipt_show_logo: receiptShowLogo,
       receipt_show_tax: receiptShowTax,
-      extra_settings: { ...currentExtra, receiptPaperSize },
+      extra_settings: { ...(settings?.extra_settings as Record<string, unknown> | undefined), receiptPaperSize },
     });
     toast({ title: "Paramètres de ticket enregistrés" });
-  }, [receiptFooter, receiptShowLogo, receiptShowTax, updateSettings, toast]);
+  }, [receiptFooter, receiptShowLogo, receiptShowTax, receiptPaperSize, settings?.extra_settings, updateSettings, toast]);
 
   const handleReset = useCallback(async () => {
     if (blockMutation('Réinitialiser le thème')) return;
