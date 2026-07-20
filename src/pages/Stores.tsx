@@ -112,6 +112,16 @@ interface StoreWithAdmin extends Organization {
   store_count?: number;
 }
 
+/**
+ * Cible de suppression sélectionnée dans le dialog de confirmation.
+ * storeToDeleteId/storeToDeleteName sont renseignés quand on supprime un
+ * magasin précis (real_stores) plutôt que l'organisation entière.
+ */
+type DeletionTarget = StoreWithAdmin & {
+  storeToDeleteId?: string;
+  storeToDeleteName?: string;
+};
+
 // Catégories de magasins avec labels et icônes Lucide
 interface CategoryConfig {
   value: StoreCategory;
@@ -173,7 +183,7 @@ const Stores = () => {
   const [selectedStore, setSelectedStore] = useState<StoreWithAdmin | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [storeToDelete, setStoreToDelete] = useState<StoreWithAdmin | null>(null);
+  const [storeToDelete, setStoreToDelete] = useState<DeletionTarget | null>(null);
 
   // Formulaire nouveau magasin
   const [storeName, setStoreName] = useState("");
@@ -1017,7 +1027,7 @@ const Stores = () => {
                                         ...store,
                                         storeToDeleteId: rs.id,
                                         storeToDeleteName: rs.name,
-                                      } as StoreWithAdmin & { storeToDeleteId?: string; storeToDeleteName?: string });
+                                      });
                                       setDeleteDialogOpen(true);
                                     }}
                                   >
@@ -1187,7 +1197,7 @@ const Stores = () => {
                                         ...store,
                                         storeToDeleteId: rs.id,
                                         storeToDeleteName: rs.name,
-                                      } as StoreWithAdmin & { storeToDeleteId?: string; storeToDeleteName?: string });
+                                      });
                                       setDeleteDialogOpen(true);
                                     }}
                                   >
