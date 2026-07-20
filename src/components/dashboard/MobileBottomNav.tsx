@@ -108,7 +108,7 @@ const moreNavItems: BottomNavItem[] = [
     name: "Magasins",
     href: "/dashboard/stores",
     icon: Store,
-    roles: STORE_ROLES,
+    roles: ADMIN_ROLES,
   },
   {
     name: "Commandes",
