@@ -70,15 +70,18 @@ export const ReceiveOrderForm = ({
     setIsSubmitting(true);
 
     try {
-      // Build the items payload for the RPC
-      const rpcItems = items.map((item) => ({
-        id: item.id,
-        quantity_received: item.quantity_received,
-      }));
+      // Build the items payload for the RPC — product_id/quantity, pas id/quantity_received
+      // (la fonction receive_purchase_order lit v_item->>'product_id' et v_item->>'quantity')
+      const rpcItems = items
+        .filter((item) => item.product_id)
+        .map((item) => ({
+          product_id: item.product_id,
+          quantity: item.quantity_received,
+        }));
 
       const { error } = await supabase.rpc("receive_purchase_order", {
         p_order_id: orderId,
-        p_items: rpcItems,
+        p_received_items: rpcItems,
       });
 
       if (error) throw error;

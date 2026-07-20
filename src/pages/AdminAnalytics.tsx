@@ -323,9 +323,7 @@ const AdminAnalytics = () => {
   const { data: storesSummary, isLoading: loadingSummary } = useQuery({
     queryKey: ["admin-stores-summary", period],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_admin_stores_summary", {
-        p_period: period,
-      });
+      const { data, error } = await supabase.rpc("get_admin_stores_summary");
       if (error) { reportError(new Error(`AdminAnalytics RPC failed: ${error.message}`)); return []; }
       return (data || []) as StoreSummary[];
     },
