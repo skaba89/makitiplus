@@ -298,10 +298,10 @@ const PurchaseOrders = () => {
   // ─── Create order ────────────────────────────────────────────
   const createMutation = useMutation({
     mutationFn: async () => {
-      // Generate order number
-      const { data: orderNumber } = await supabase.rpc("generate_order_number", {
-        p_org_id: effectiveOrgId ?? "",
-      });
+      // Generate order number — l'org est déterminée côté serveur via
+      // get_user_organization_id(), pas de paramètre d'org côté client
+      const { data: orderNumber, error: orderNumberError } = await supabase.rpc("generate_order_number");
+      if (orderNumberError) throw orderNumberError;
 
       const subtotal = formItems.reduce((s, i) => s + i.line_total, 0);
       const taxAmount = formItems.reduce(
