@@ -225,13 +225,23 @@ const Stores = () => {
 
   // Récupération des magasins avec React Query — requête groupée pour éviter N+1
   const { data: stores = [], isLoading: loading } = useQuery({
-    queryKey: ["stores"],
+    queryKey: ["stores", userRole, profile?.organization_id],
     queryFn: async () => {
-      // 1. Récupérer toutes les organisations
-      const { data: orgs, error: orgsError } = await supabase
+      // 1. Récupérer les organisations — toutes pour le super_admin (vue
+      // plateforme), seulement la sienne pour un admin normal. La RLS
+      // (members_can_view_org) applique déjà ce filtre côté serveur,
+      // mais on le réaffirme ici en défense en profondeur (même
+      // principe que Users.tsx loadUsers()) plutôt que de compter
+      // uniquement sur la RLS.
+      let orgsQuery = supabase
         .from("organizations")
         .select("*")
         .order("created_at", { ascending: false });
+      if (userRole !== "super_admin") {
+        if (!profile?.organization_id) return [];
+        orgsQuery = orgsQuery.eq("id", profile.organization_id);
+      }
+      const { data: orgs, error: orgsError } = await orgsQuery;
 
       if (orgsError) throw orgsError;
       if (!orgs || orgs.length === 0) return [];
