@@ -70,7 +70,6 @@ const Products = () => {
     ratesLoading,
     refreshRates,
   } = useDisplayCurrency();
-  const { effectiveOrgId } = useOrgSelector();
   const { toast } = useToast();
   const { blockMutation } = useDemo();
   const queryClient = useQueryClient();
