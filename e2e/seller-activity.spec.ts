@@ -8,14 +8,14 @@
  * - Detail panel can be opened if rows exist
  *
  * Secrets:
- * - E2E_BASE_URL (default: http://localhost:5173)
+ * - E2E_BASE_URL (default: http://localhost:8080)
  * - E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD (or fallback to E2E_TEST_*)
  * - E2E_MANAGER_EMAIL / E2E_MANAGER_PASSWORD
  * - E2E_VENDOR_EMAIL / E2E_VENDOR_PASSWORD
  */
 import { test, expect, type Page } from "@playwright/test";
 
-const BASE_URL = process.env.E2E_BASE_URL || "http://localhost:5173";
+const BASE_URL = process.env.E2E_BASE_URL || "http://localhost:8080";
 const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL || process.env.E2E_TEST_EMAIL;
 const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD || process.env.E2E_TEST_PASSWORD;
 const MANAGER_EMAIL = process.env.E2E_MANAGER_EMAIL;

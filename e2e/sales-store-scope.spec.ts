@@ -12,7 +12,7 @@
  * - retour online : sync garde le bon store_id
  *
  * Secrets requis :
- * - E2E_BASE_URL (default: http://localhost:5173)
+ * - E2E_BASE_URL (default: http://localhost:8080)
  * - E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD (or fallback to E2E_TEST_*)
  *
  * Si secrets manquent → test skip proprement (pas d'échec silencieux).
@@ -23,7 +23,7 @@
  */
 import { test, expect, type Page } from "@playwright/test";
 
-const BASE_URL = process.env.E2E_BASE_URL || "http://localhost:5173";
+const BASE_URL = process.env.E2E_BASE_URL || "http://localhost:8080";
 const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL || process.env.E2E_TEST_EMAIL;
 const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD || process.env.E2E_TEST_PASSWORD;
 

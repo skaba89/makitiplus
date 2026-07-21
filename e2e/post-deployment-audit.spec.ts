@@ -7,7 +7,7 @@
  * Prérequis :
  * - VITE_SUPABASE_URL et VITE_SUPABASE_PUBLISHABLE_KEY dans l'environnement
  * - E2E_TEST_EMAIL et E2E_TEST_PASSWORD (compte admin de test)
- * - Application déployée et accessible (E2E_BASE_URL ou localhost:5173)
+ * - Application déployée et accessible (E2E_BASE_URL ou localhost:8080)
  *
  * Lancement :
  *   npx playwright test e2e/post-deployment-audit.spec.ts
