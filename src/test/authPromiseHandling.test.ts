@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import fs from "fs";
 import path from "path";
 
-const source = fs.readFileSync(path.join(process.cwd(), "src/contexts/AuthContext.tsx"), "utf-8");
+// Normalisé en LF : sur Windows, `core.autocrlf` peut checkout ce fichier en CRLF,
+// ce qui ferait échouer les assertions littérales `\n` ci-dessous sans rapport avec
+// le comportement réellement testé (le wrapping Promise.resolve, pas le style de fin de ligne).
+const source = fs
+  .readFileSync(path.join(process.cwd(), "src/contexts/AuthContext.tsx"), "utf-8")
+  .replace(/\r\n/g, "\n");
 
 describe("AuthContext Supabase thenable handling", () => {
   it("does not call catch directly on supabase.rpc thenables", () => {

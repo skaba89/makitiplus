@@ -18,6 +18,7 @@
  * Actions destructives protégées par E2E_ALLOW_DESTRUCTIVE=true
  */
 import { test, expect } from "@playwright/test";
+import { assertSafeForDestructiveAction } from "../src/lib/pilotProtection";
 
 const BASE_URL = process.env.E2E_BASE_URL || "http://localhost:5173";
 const SUPER_ADMIN_EMAIL = process.env.E2E_SUPER_ADMIN_EMAIL;
@@ -197,7 +198,7 @@ test.describe("Scénario D — Vente cash", () => {
     }
 
     // Valider
-    await page.getByRole("button", { name: /valider|confirmer|i }).first().click().catch(() => {});
+    await page.getByRole("button", { name: /valider|confirmer/i }).first().click().catch(() => {});
 
     // Vérifier confirmation
     await expect(page.getByText(/reçu|confirmation|vendu|succès/i).first()).toBeVisible({
@@ -325,6 +326,11 @@ test.describe("Scénario G — Suppression organisation sécurisée", () => {
   test.skip(process.env.E2E_ALLOW_DESTRUCTIVE !== "true", "E2E_ALLOW_DESTRUCTIVE=true requis");
 
   test("suppression organisation avec nom exact", async ({ page }) => {
+    // Garde-fou anti-pilote (P0.1) : lève une erreur — donc fait échouer ce test —
+    // si TEST_ORG_NAME correspond à Diallo & Frères (le magasin pilote réel), quelle
+    // que soit la configuration de E2E_ALLOW_DESTRUCTIVE. Voir src/lib/pilotProtection.ts.
+    assertSafeForDestructiveAction(TEST_ORG_NAME);
+
     await login(page, SUPER_ADMIN_EMAIL!, SUPER_ADMIN_PASSWORD!);
 
     await page.goto(`${BASE_URL}/dashboard/admin/organizations`);

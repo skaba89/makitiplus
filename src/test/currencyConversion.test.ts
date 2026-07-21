@@ -105,8 +105,9 @@ describe("useExchangeRates hook", () => {
   it("l'URL de l'API est open.er-api.com (gratuite, sans clé)", async () => {
     // Vérification statique : le hook utilise open.er-api.com
     const fs = await import("fs");
+    const path = await import("path");
     const content = fs.readFileSync(
-      "/home/z/my-project/makitiplus/src/hooks/useExchangeRates.ts",
+      path.join(process.cwd(), "src/hooks/useExchangeRates.ts"),
       "utf-8",
     );
     expect(content).toContain("open.er-api.com");

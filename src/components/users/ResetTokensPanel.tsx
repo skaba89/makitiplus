@@ -76,7 +76,7 @@ export const ResetTokensPanel = ({ users }: { users: UserOption[] }) => {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
-  const userMap = new Map(users.map((u) => [u.user_id, u.name]));
+  const userMap = useMemo(() => new Map(users.map((u) => [u.user_id, u.name])), [users]);
 
   const load = async () => {
     setLoading(true);
