@@ -20,7 +20,7 @@
 import { test, expect } from "@playwright/test";
 import { assertSafeForDestructiveAction } from "../src/lib/pilotProtection";
 
-const BASE_URL = process.env.E2E_BASE_URL || "http://localhost:5173";
+const BASE_URL = process.env.E2E_BASE_URL || "http://localhost:8080";
 const SUPER_ADMIN_EMAIL = process.env.E2E_SUPER_ADMIN_EMAIL;
 const SUPER_ADMIN_PASSWORD = process.env.E2E_SUPER_ADMIN_PASSWORD;
 const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL;
@@ -47,6 +47,12 @@ async function login(page: import("@playwright/test").Page, email: string, passw
 // ---------------------------------------------------------------------------
 // Scénario A — Diagnostic
 // ---------------------------------------------------------------------------
+// Scindé en deux describe distincts : `test.skip(condition, reason)` appelé nu
+// à l'intérieur d'un describe() (hors du corps d'un test()) s'applique à TOUTE
+// la suite englobante en Playwright — un seul describe ici aurait donc aussi
+// sauté le test "sans auth" (censé tourner sans aucun secret) dès que
+// E2E_SUPER_ADMIN_EMAIL manque. C'est précisément ce qui s'est produit en CI :
+// les 22 tests du fichier étaient rapportés "skipped", y compris celui-ci.
 test.describe("Scénario A — Diagnostic", () => {
   test("statut global visible sans auth, clé Supabase masquée", async ({ page }) => {
     await page.goto(`${BASE_URL}/diagnostic`);
@@ -64,7 +70,9 @@ test.describe("Scénario A — Diagnostic", () => {
     // Le détail technique doit être masqué pour les non-connectés
     await expect(page.getByText(/détails techniques réservés|se connecter/i)).toBeVisible();
   });
+});
 
+test.describe("Scénario A — Diagnostic (super_admin)", () => {
   test.skip(!hasSuperAdmin, "E2E_SUPER_ADMIN_EMAIL/PASSWORD requis");
 
   test("détails techniques visibles si super_admin connecté", async ({ page }) => {
@@ -255,8 +263,13 @@ test.describe("Scénario E — Vente offline simulée", () => {
 
 // ---------------------------------------------------------------------------
 // Scénario F — Billing sécurité
+//
+// Deux describe distincts (même raison que Scénario A) : deux test.skip()
+// bruts dans un seul describe s'accumulent en OR sur TOUTE la suite — avec
+// seulement E2E_ADMIN_EMAIL configuré (hasSuperAdmin=false), le test admin
+// aurait été sauté lui aussi alors qu'il ne dépend que de hasAdmin.
 // ---------------------------------------------------------------------------
-test.describe("Scénario F — Billing sécurité", () => {
+test.describe("Scénario F — Billing sécurité (admin)", () => {
   test.skip(!hasAdmin, "E2E_ADMIN_EMAIL/PASSWORD requis");
 
   test("admin boutique ne voit pas gestion manuelle des abonnements", async ({ page }) => {
@@ -274,7 +287,9 @@ test.describe("Scénario F — Billing sécurité", () => {
 
     expect(manualMgmt).toBe(false);
   });
+});
 
+test.describe("Scénario F — Billing sécurité (super_admin)", () => {
   test.skip(!hasSuperAdmin, "E2E_SUPER_ADMIN_EMAIL/PASSWORD requis");
 
   test("super_admin voit la gestion manuelle des abonnements", async ({ page }) => {
@@ -291,6 +306,14 @@ test.describe("Scénario F — Billing sécurité", () => {
 
 // ---------------------------------------------------------------------------
 // Scénario G — Suppression organisation sécurisée
+//
+// Le test destructif est isolé dans un describe imbriqué avec sa propre
+// condition de skip (E2E_ALLOW_DESTRUCTIVE) — même raison que Scénarios A/F :
+// deux test.skip() bruts dans un seul describe s'accumulent en OR sur toute
+// la suite, ce qui aurait sauté le test "bouton désactivé" (non-destructif,
+// ne dépend que de hasSuperAdmin) dès que E2E_ALLOW_DESTRUCTIVE n'est pas
+// "true" — soit dans la quasi-totalité des runs légitimes (RULE 1, défaut
+// sûr). Le describe imbriqué hérite déjà de la garde hasSuperAdmin du parent.
 // ---------------------------------------------------------------------------
 test.describe("Scénario G — Suppression organisation sécurisée", () => {
   test.skip(!hasSuperAdmin, "E2E_SUPER_ADMIN_EMAIL/PASSWORD requis");
@@ -322,32 +345,34 @@ test.describe("Scénario G — Suppression organisation sécurisée", () => {
     }
   });
 
-  // Test destructif — protégé par E2E_ALLOW_DESTRUCTIVE
-  test.skip(process.env.E2E_ALLOW_DESTRUCTIVE !== "true", "E2E_ALLOW_DESTRUCTIVE=true requis");
+  test.describe("destructif", () => {
+    // Test destructif — protégé par E2E_ALLOW_DESTRUCTIVE
+    test.skip(process.env.E2E_ALLOW_DESTRUCTIVE !== "true", "E2E_ALLOW_DESTRUCTIVE=true requis");
 
-  test("suppression organisation avec nom exact", async ({ page }) => {
-    // Garde-fou anti-pilote (P0.1) : lève une erreur — donc fait échouer ce test —
-    // si TEST_ORG_NAME correspond à Diallo & Frères (le magasin pilote réel), quelle
-    // que soit la configuration de E2E_ALLOW_DESTRUCTIVE. Voir src/lib/pilotProtection.ts.
-    assertSafeForDestructiveAction(TEST_ORG_NAME);
+    test("suppression organisation avec nom exact", async ({ page }) => {
+      // Garde-fou anti-pilote (P0.1) : lève une erreur — donc fait échouer ce test —
+      // si TEST_ORG_NAME correspond à Diallo & Frères (le magasin pilote réel), quelle
+      // que soit la configuration de E2E_ALLOW_DESTRUCTIVE. Voir src/lib/pilotProtection.ts.
+      assertSafeForDestructiveAction(TEST_ORG_NAME);
 
-    await login(page, SUPER_ADMIN_EMAIL!, SUPER_ADMIN_PASSWORD!);
+      await login(page, SUPER_ADMIN_EMAIL!, SUPER_ADMIN_PASSWORD!);
 
-    await page.goto(`${BASE_URL}/dashboard/admin/organizations`);
-    await page.waitForLoadState("networkidle");
+      await page.goto(`${BASE_URL}/dashboard/admin/organizations`);
+      await page.waitForLoadState("networkidle");
 
-    // Ce test ne s'exécute que si E2E_ALLOW_DESTRUCTIVE=true
-    // Et utilise TEST_ORG_NAME pour cibler une org de test jetable
-    if (!TEST_ORG_NAME) {
-      test.skip();
-      return;
-    }
+      // Ce test ne s'exécute que si E2E_ALLOW_DESTRUCTIVE=true
+      // Et utilise TEST_ORG_NAME pour cibler une org de test jetable
+      if (!TEST_ORG_NAME) {
+        test.skip();
+        return;
+      }
 
-    // Trouver l'org de test et ouvrir le dialog de suppression
-    const orgRow = page.getByText(TEST_ORG_NAME).first();
-    await orgRow.click().catch(() => {});
+      // Trouver l'org de test et ouvrir le dialog de suppression
+      const orgRow = page.getByText(TEST_ORG_NAME).first();
+      await orgRow.click().catch(() => {});
 
-    // ... procédure de suppression avec nom exact
-    // Ce test est intentionnellement minimal — à compléter selon l'UI
+      // ... procédure de suppression avec nom exact
+      // Ce test est intentionnellement minimal — à compléter selon l'UI
+    });
   });
 });
