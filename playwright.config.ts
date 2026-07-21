@@ -16,8 +16,14 @@ export default defineConfig({
   reporter: process.env.CI
     ? [["html", { open: "never" }], ["github"]]
     : [["html", { open: "on-failure" }]],
-  timeout: 30_000,
-  expect: { timeout: 10_000 },
+  // En CI (runner GitHub Actions, CPU limité), le premier chargement de page
+  // déclenche la compilation à la demande de tous les modules importés par
+  // main.tsx (serveur de dev Vite non-bundlé) — nettement plus lent qu'en
+  // local. Marges relevées pour absorber ce cold-compile initial sans masquer
+  // de vrais bugs (voir audit P0.5 : 1er run post-fix Vite encore en échec
+  // sur des timeouts de 10s dépassés dès le tout premier test).
+  timeout: process.env.CI ? 60_000 : 30_000,
+  expect: { timeout: process.env.CI ? 20_000 : 10_000 },
 
   use: {
     baseURL: process.env.E2E_BASE_URL || "http://localhost:8080",
@@ -41,6 +47,6 @@ export default defineConfig({
     command: "npm run dev",
     url: "http://localhost:8080",
     reuseExistingServer: !process.env.CI,
-    timeout: 30_000,
+    timeout: process.env.CI ? 90_000 : 30_000,
   },
 });
