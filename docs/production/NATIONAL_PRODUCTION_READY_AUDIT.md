@@ -113,7 +113,11 @@ Les 4 tests unitaires en échec (voir tableau initial) ont été corrigés indiv
 
 **Risque déjà documenté en P0 (rappel)** : le job `code-quality` du même workflow exécute `npx tsc --noEmit` (ligne 46) — c'est le même script cassé identifié dans l'audit initial (`tsconfig.json` racine `files: []` sans `-p`), qui **ne détecte jamais** les 387 erreurs de type réelles. Ce gate CI est donc actuellement un faux gate. **Ne pas corriger isolément** (basculer vers `-p tsconfig.app.json` ferait immédiatement échouer ce job bloquant sur les 387 erreurs existantes) — à traiter conjointement avec le triage des erreurs de types dans P1.1.
 
-**Lancement effectif du workflow** : non exécuté dans cette session — déclencher `release-readiness.yml` nécessite soit de pousser cette branche (elle n'est pas encore publiée sur `origin`), soit un déclenchement manuel `workflow_dispatch`, deux actions visibles sur le dépôt partagé et consommant des minutes CI. Décision de le faire ou non laissée à validation explicite avant exécution.
+**Lancement effectif du workflow** (validé explicitement) : branche poussée sur `origin`, workflow déclenché en `workflow_dispatch` — [run #29863345380](https://github.com/skaba89/makitiplus/actions/runs/29863345380).
+
+**Premier run — échec** : le job `npm audit + secret scan` a échoué sur `npm audit --audit-level=high`, exactement la vulnérabilité `brace-expansion` (tooling uniquement) déjà identifiée dans l'audit initial. Comme les 4 jobs E2E bloquants dépendent de `security-audit` (`needs: [...]`), ils ont été entièrement sautés (jamais exécutés, pas juste skippés en interne) — **ce run ne prouve donc rien sur la couverture E2E réelle**, seulement que le gate npm audit fonctionne comme prévu (il a correctement bloqué).
+
+**Correctif** : `npm audit fix` (bump non-breaking de `brace-expansion` 1.1.15→1.1.16 et 2.1.1→2.1.2 dans les sous-dépendances d'`@typescript-eslint`, `glob`, `workbox-build` — aucune dépendance runtime touchée, `package-lock.json` seul modifié). `npm audit --audit-level=high` → 0 vulnérabilité. Build et tests reconfirmés verts après le bump.
 
 ## Décision avant correction (P0-P6)
 
