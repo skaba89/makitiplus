@@ -208,6 +208,16 @@ jobs:
           E2E_BASE_URL: ${{ secrets.E2E_BASE_URL }}
           E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
           E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+          # Sans ce passthrough, tous les scénarios B-G (admin/super_admin) de
+          # staging-real-flow.spec.ts skippent silencieusement même si ces
+          # secrets sont configurés dans le repo — voir P0.5 de l'audit national.
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          E2E_SUPER_ADMIN_EMAIL: ${{ secrets.E2E_SUPER_ADMIN_EMAIL }}
+          E2E_SUPER_ADMIN_PASSWORD: ${{ secrets.E2E_SUPER_ADMIN_PASSWORD }}
+          E2E_TEST_ORG_NAME: ${{ secrets.E2E_TEST_ORG_NAME }}
+          # Volontairement NON défini ici : E2E_ALLOW_DESTRUCTIVE doit rester
+          # false par défaut (RULE 1 — jamais de suppression automatique en CI).
 
   # ─── Job 7 : E2E Sales Store Scope (BLOQUANT) ────────────────
   e2e-sales-store-scope:

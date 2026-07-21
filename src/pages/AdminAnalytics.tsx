@@ -61,7 +61,6 @@ import {
   UserCog,
   DollarSign,
   Percent,
-  TrendingDown,
   X,
   Filter,
 } from "lucide-react";
@@ -319,19 +318,30 @@ const AdminAnalytics = () => {
 
   // ====== DATA QUERIES ======
 
+  /**
+   * Toutes les RPC AdminAnalytics doivent lever l'erreur (plutôt que la masquer
+   * derrière `return []`/`return null`) pour que React Query bascule les requêtes
+   * en état `isError` et que l'UI puisse distinguer "réellement aucune donnée" de
+   * "l'appel RPC a échoué" — voir P0.2 de l'audit national de production.
+   */
+  function reportAndThrow(rpcName: string, error: { message: string }): never {
+    reportError(new Error(`AdminAnalytics RPC "${rpcName}" failed: ${error.message}`));
+    throw error;
+  }
+
   // 1. Stores summary
-  const { data: storesSummary, isLoading: loadingSummary } = useQuery({
+  const { data: storesSummary, isLoading: loadingSummary, isError: errorSummary } = useQuery({
     queryKey: ["admin-stores-summary", period],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_admin_stores_summary");
-      if (error) { reportError(new Error(`AdminAnalytics RPC failed: ${error.message}`)); return []; }
+      if (error) reportAndThrow("get_admin_stores_summary", error);
       return (data || []) as StoreSummary[];
     },
     enabled: userRole === "super_admin",
   });
 
   // 2. Article ranking (top + bad)
-  const { data: articleRanking, isLoading: loadingArticles } = useQuery({
+  const { data: articleRanking, isLoading: loadingArticles, isError: errorArticles } = useQuery({
     queryKey: ["admin-article-ranking", selectedStoreId, period],
     queryFn: async () => {
       const params: Record<string, unknown> = {
@@ -342,14 +352,14 @@ const AdminAnalytics = () => {
         params.p_organization_id = selectedStoreId;
       }
       const { data, error } = await supabase.rpc("get_admin_article_ranking", params);
-      if (error) { reportError(new Error(`AdminAnalytics RPC failed: ${error.message}`)); return []; }
+      if (error) reportAndThrow("get_admin_article_ranking", error);
       return (data || []) as ArticleRanking[];
     },
     enabled: userRole === "super_admin",
   });
 
   // 3. Stock movements
-  const { data: stockMovements, isLoading: loadingMovements } = useQuery({
+  const { data: stockMovements, isLoading: loadingMovements, isError: errorMovements } = useQuery({
     queryKey: ["admin-stock-movements", selectedStoreId, period],
     queryFn: async () => {
       const params: Record<string, unknown> = {
@@ -360,14 +370,14 @@ const AdminAnalytics = () => {
         params.p_organization_id = selectedStoreId;
       }
       const { data, error } = await supabase.rpc("get_admin_stock_movements", params);
-      if (error) { reportError(new Error(`AdminAnalytics RPC failed: ${error.message}`)); return []; }
+      if (error) reportAndThrow("get_admin_stock_movements", error);
       return (data || []) as StockMovement[];
     },
     enabled: userRole === "super_admin",
   });
 
   // 4. Sales trend
-  const { data: salesTrend, isLoading: loadingTrend } = useQuery({
+  const { data: salesTrend, isLoading: loadingTrend, isError: errorTrend } = useQuery({
     queryKey: ["admin-sales-trend", selectedStoreId, period],
     queryFn: async () => {
       const params: Record<string, unknown> = {
@@ -377,14 +387,14 @@ const AdminAnalytics = () => {
         params.p_organization_id = selectedStoreId;
       }
       const { data, error } = await supabase.rpc("get_admin_sales_trend", params);
-      if (error) { reportError(new Error(`AdminAnalytics RPC failed: ${error.message}`)); return []; }
+      if (error) reportAndThrow("get_admin_sales_trend", error);
       return (data || []) as SalesTrend[];
     },
     enabled: userRole === "super_admin",
   });
 
   // 5. Payment distribution
-  const { data: paymentDistribution, isLoading: loadingPayment } = useQuery({
+  const { data: paymentDistribution, isLoading: loadingPayment, isError: errorPayment } = useQuery({
     queryKey: ["admin-payment-distribution", selectedStoreId, period],
     queryFn: async () => {
       const params: Record<string, unknown> = {
@@ -394,25 +404,25 @@ const AdminAnalytics = () => {
         params.p_organization_id = selectedStoreId;
       }
       const { data, error } = await supabase.rpc("get_admin_payment_distribution", params);
-      if (error) { reportError(new Error(`AdminAnalytics RPC failed: ${error.message}`)); return []; }
+      if (error) reportAndThrow("get_admin_payment_distribution", error);
       return (data || []) as PaymentDistribution[];
     },
     enabled: userRole === "super_admin",
   });
 
   // 6. Users per organization
-  const { data: usersPerOrg, isLoading: loadingUsersPerOrg } = useQuery({
+  const { data: usersPerOrg, isLoading: loadingUsersPerOrg, isError: errorUsersPerOrg } = useQuery({
     queryKey: ["admin-users-per-org"],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_admin_users_per_org");
-      if (error) return [];
+      if (error) reportAndThrow("get_admin_users_per_org", error);
       return (data || []) as UsersPerOrg[];
     },
     enabled: userRole === "super_admin",
   });
 
   // 7. Seller performance
-  const { data: sellerPerformance, isLoading: loadingSellerPerf } = useQuery({
+  const { data: sellerPerformance, isLoading: loadingSellerPerf, isError: errorSellerPerf } = useQuery({
     queryKey: ["admin-seller-performance", period, selectedStoreId],
     queryFn: async () => {
       const params: Record<string, unknown> = { p_period: period };
@@ -420,36 +430,36 @@ const AdminAnalytics = () => {
         params.p_organization_id = selectedStoreId;
       }
       const { data, error } = await supabase.rpc("get_admin_seller_performance", params);
-      if (error) return [];
+      if (error) reportAndThrow("get_admin_seller_performance", error);
       return (data || []) as SellerPerformance[];
     },
     enabled: userRole === "super_admin",
   });
 
   // 8. Org KPIs
-  const { data: orgKpis, isLoading: loadingOrgKpis } = useQuery({
+  const { data: orgKpis, isLoading: loadingOrgKpis, isError: errorOrgKpis } = useQuery({
     queryKey: ["admin-org-kpis", period],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_admin_org_kpis", { p_period: period });
-      if (error) return [];
+      if (error) reportAndThrow("get_admin_org_kpis", error);
       return (data || []) as OrgKpis[];
     },
     enabled: userRole === "super_admin",
   });
 
   // 9. Global KPIs (enrichis)
-  const { data: globalKpis, isLoading: loadingGlobalKpis } = useQuery({
+  const { data: globalKpis, isLoading: loadingGlobalKpis, isError: errorGlobalKpis } = useQuery({
     queryKey: ["admin-global-kpis", period],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_admin_global_kpis", { p_period: period });
-      if (error) return null;
+      if (error) reportAndThrow("get_admin_global_kpis", error);
       return data as unknown as GlobalKpis | null;
     },
     enabled: userRole === "super_admin",
   });
 
   // 10. Product ranking detailed (top + bad)
-  const { data: productRankingDetailed, isLoading: loadingProductRanking } = useQuery({
+  const { data: productRankingDetailed, isLoading: loadingProductRanking, isError: errorProductRanking } = useQuery({
     queryKey: ["admin-product-ranking-detailed", period, selectedStoreId],
     queryFn: async () => {
       const params: Record<string, unknown> = {
@@ -460,11 +470,15 @@ const AdminAnalytics = () => {
         params.p_organization_id = selectedStoreId;
       }
       const { data, error } = await supabase.rpc("get_admin_product_ranking_detailed", params);
-      if (error) return [];
+      if (error) reportAndThrow("get_admin_product_ranking_detailed", error);
       return (data || []) as ProductRankingDetailed[];
     },
     enabled: userRole === "super_admin",
   });
+
+  const hasAnyRpcError =
+    errorSummary || errorArticles || errorMovements || errorTrend || errorPayment ||
+    errorUsersPerOrg || errorSellerPerf || errorOrgKpis || errorGlobalKpis || errorProductRanking;
 
   // ====== DERIVED DATA ======
 
@@ -618,6 +632,24 @@ const AdminAnalytics = () => {
             )}
           </div>
         </div>
+
+        {/* Bannière d'erreur RPC — distingue "échec de chargement" de "réellement aucune donnée" (P0.2) */}
+        {hasAnyRpcError && (
+          <div className="flex items-start gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-lg">
+            <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+            <div className="text-sm">
+              <p className="font-medium text-destructive">
+                Certaines données n'ont pas pu être chargées
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Une ou plusieurs requêtes ont échoué (erreur reportée à l'équipe technique). Les sections
+                concernées peuvent afficher "aucune donnée" alors qu'il s'agit en réalité d'un échec de
+                chargement — ne pas interpréter ces sections comme confirmant une absence réelle d'activité.
+                Réessayez de rafraîchir la page ; si le problème persiste, contactez le support.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Active filter banner */}
         {selectedStoreId !== "all" && (

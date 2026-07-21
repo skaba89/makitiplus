@@ -41,7 +41,6 @@ import { Database } from "@/integrations/supabase/types";
 import { exportProductsToCSV } from "@/utils/exportUtils";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
-import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { CurrencyDisplaySelector } from "@/components/ui/currency-display-selector";
 import { OrgSelector } from "@/components/ui/org-selector";
 import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";

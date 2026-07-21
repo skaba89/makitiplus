@@ -59,7 +59,6 @@ import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { useExpenseStats } from "@/hooks/useExpenseStats";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
-import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { OrgSelector } from "@/components/ui/org-selector";
 import { CurrencyDisplaySelector } from "@/components/ui/currency-display-selector";
 import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";

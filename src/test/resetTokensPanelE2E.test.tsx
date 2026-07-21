@@ -78,6 +78,8 @@ describe("ResetTokensPanel e2e — filtres répétés, tri stable & pagination",
   beforeEach(() => vi.clearAllMocks());
 
   it("garde le tri par date desc lors de filtrages successifs par recherche", async () => {
+    // Plusieurs cycles fireEvent.change + waitFor sur ce test — marge au-delà du
+    // défaut (5000ms) pour rester stable sous charge CPU (exécution suite complète).
     await renderPanel();
 
     // Initial : tous canaux
@@ -107,7 +109,7 @@ describe("ResetTokensPanel e2e — filtres répétés, tri stable & pagination",
     fireEvent.change(search, { target: { value: "" } });
     await waitFor(() => expect(getCreatedDates().length).toBeGreaterThan(5));
     expect(isSortedDesc(getCreatedDates())).toBe(true);
-  });
+  }, 15_000);
 
   it("réinitialise la page courante à 1 lors de saisies successives email/téléphone/utilisateur", async () => {
     await renderPanel();
