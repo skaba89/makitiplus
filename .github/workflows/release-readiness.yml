@@ -152,6 +152,13 @@ jobs:
           E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
           E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
           E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+      - name: Upload Playwright report (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-pilot
+          path: playwright-report/
+          retention-days: 7
 
   # ─── Job 5 : E2E Seller Activity (BLOQUANT) ──────────────────
   e2e-seller-activity:
@@ -182,6 +189,13 @@ jobs:
           E2E_MANAGER_PASSWORD: ${{ secrets.E2E_MANAGER_PASSWORD }}
           E2E_VENDOR_EMAIL: ${{ secrets.E2E_VENDOR_EMAIL }}
           E2E_VENDOR_PASSWORD: ${{ secrets.E2E_VENDOR_PASSWORD }}
+      - name: Upload Playwright report (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-seller-activity
+          path: playwright-report/
+          retention-days: 7
 
   # ─── Job 6 : E2E Staging (BLOQUANT) ──────────────────────────
   e2e-staging:
@@ -218,6 +232,13 @@ jobs:
           E2E_TEST_ORG_NAME: ${{ secrets.E2E_TEST_ORG_NAME }}
           # Volontairement NON défini ici : E2E_ALLOW_DESTRUCTIVE doit rester
           # false par défaut (RULE 1 — jamais de suppression automatique en CI).
+      - name: Upload Playwright report (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-staging
+          path: playwright-report/
+          retention-days: 7
 
   # ─── Job 7 : E2E Sales Store Scope (BLOQUANT) ────────────────
   e2e-sales-store-scope:
@@ -244,6 +265,13 @@ jobs:
           E2E_BASE_URL: ${{ secrets.E2E_BASE_URL }}
           E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL || secrets.E2E_TEST_EMAIL }}
           E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD || secrets.E2E_TEST_PASSWORD }}
+      - name: Upload Playwright report (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-sales-store-scope
+          path: playwright-report/
+          retention-days: 7
 
   # ─── Job 8 : Résumé final ────────────────────────────────────
   release-readiness-summary:

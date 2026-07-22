@@ -22,7 +22,7 @@ export default defineConfig({
   // local. Marges relevées pour absorber ce cold-compile initial sans masquer
   // de vrais bugs (voir audit P0.5 : 1er run post-fix Vite encore en échec
   // sur des timeouts de 10s dépassés dès le tout premier test).
-  timeout: process.env.CI ? 60_000 : 30_000,
+  timeout: process.env.CI ? 35_000 : 30_000,
   expect: { timeout: process.env.CI ? 20_000 : 10_000 },
 
   use: {
@@ -44,9 +44,20 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: "npm run dev",
+    // En CI : build de production + `vite preview`, qui sert des fichiers déjà
+    // bundlés et répond quasi instantanément. `npm run dev` (utilisé en local
+    // pour le confort HMR) doit compiler chaque module à la demande au premier
+    // accès — sur le CPU partagé d'un runner GitHub Actions, ce cold-compile a
+    // dépassé les timeouts d'assertion codés en dur dans plusieurs specs
+    // (`{ timeout: 10_000 }` etc., qui écrasent le `expect.timeout` global de
+    // toute façon) sur 3 runs consécutifs du workflow Release Readiness.
+    command: process.env.CI
+      ? "npm run build && npx vite preview --port 8080 --strictPort"
+      : "npm run dev",
     url: "http://localhost:8080",
     reuseExistingServer: !process.env.CI,
-    timeout: process.env.CI ? 90_000 : 30_000,
+    // Le build de prod (~50-60s en local) doit avoir le temps de se terminer
+    // avant que `vite preview` ne puisse écouter le port.
+    timeout: process.env.CI ? 180_000 : 30_000,
   },
 });

@@ -263,7 +263,16 @@ const App = () => {
   return (
   <QueryClientProvider client={queryClient}>
     <QueryErrorResetBoundary>
-    <SentryErrorBoundary fallback={<ErrorFallback />}>
+    <SentryErrorBoundary
+      fallback={<ErrorFallback />}
+      onError={(error, componentStack) => {
+        // Sentry est désactivé sans VITE_SENTRY_DSN (cas de tous les
+        // environnements E2E/CI actuels) — sans ce log, un crash ici est
+        // invisible : aucune trace, ni dans Sentry ni dans les logs Playwright,
+        // seul le fallback générique "Une erreur est survenue" est visible.
+        console.error("[SentryErrorBoundary] Crash de l'application :", error, componentStack);
+      }}
+    >
     <AuthProvider>
     <OrgSelectorProvider>
     <OfflineProvider>
