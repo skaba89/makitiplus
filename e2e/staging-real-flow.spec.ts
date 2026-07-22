@@ -68,7 +68,7 @@ test.describe("Scénario A — Diagnostic", () => {
     expect(pageText).not.toMatch(/eyJ[A-Za-z0-9+/=]{10,}/);
 
     // Le détail technique doit être masqué pour les non-connectés
-    await expect(page.getByText(/détails techniques réservés|se connecter/i)).toBeVisible();
+    await expect(page.getByText(/détails techniques réservés|se connecter/i).first()).toBeVisible();
   });
 });
 

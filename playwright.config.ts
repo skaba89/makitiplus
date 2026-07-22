@@ -22,7 +22,7 @@ export default defineConfig({
   // local. Marges relevées pour absorber ce cold-compile initial sans masquer
   // de vrais bugs (voir audit P0.5 : 1er run post-fix Vite encore en échec
   // sur des timeouts de 10s dépassés dès le tout premier test).
-  timeout: process.env.CI ? 60_000 : 30_000,
+  timeout: process.env.CI ? 35_000 : 30_000,
   expect: { timeout: process.env.CI ? 20_000 : 10_000 },
 
   use: {
