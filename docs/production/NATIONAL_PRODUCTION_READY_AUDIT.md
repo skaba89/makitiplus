@@ -146,6 +146,14 @@ Le dépôt contient à la racine un dossier `skills/` volumineux et **totalement
 
 **Décision** : le nouveau fichier de types est conservé (vérité du schéma > confort d'un compteur d'erreurs plus bas basé sur des types faux). Le triage des ~417 erreurs de type (dont beaucoup pré-datent cette session) reste un chantier ouvert, à prioriser en P1.2/P1.3 ou dans une itération dédiée.
 
+## P1.3 — Renforcement du validateur SQL + bug production trouvé
+
+5 nouvelles règles ajoutées à `scripts/validate_sql_migrations.py` (SECURITY DEFINER sans search_path, fonction de fenêtrage dans WHERE, DROP FUNCTION non documenté, GRANT EXECUTE dangereux, backfill non protégé). Détail complet dans le commit `8c0bfae`.
+
+**Découverte critique** : en lançant la nouvelle règle "fonction de fenêtrage dans WHERE" contre l'historique complet, `get_admin_product_ranking_detailed` (RPC #10 d'AdminAnalytics.tsx, onglet "Top / Bad Articles") s'est révélée utiliser `WHERE ROW_NUMBER() OVER (...) <= p_limit` — syntaxe invalide en PostgreSQL. Confirmé via `pg_get_functiondef` (lecture seule) : **c'est la version actuellement déployée en production**. Cette RPC échoue donc systématiquement pour tout super_admin ouvrant cet onglet — un bug déjà actif avant cette session, seulement rendu visible maintenant grâce à la bannière d'erreur ajoutée en P0.2 (avant, l'échec était masqué par `return []`).
+
+**Correctif écrit** (`20260722110000_fix_admin_product_ranking_rownumber.sql`, même technique déjà validée pour `get_product_kpis_by_period` — CTE intermédiaire pour le rang, filtré ensuite dans le WHERE externe, logique métier strictement inchangée) et **committé**, mais **pas encore appliqué à la base live** — décision laissée à validation explicite (question posée, réponse en attente au moment de la rédaction de cette section). Tant que non appliqué, l'onglet "Top / Bad Articles" reste cassé en production.
+
 ## Décision avant correction (P0-P6)
 
 **Aucune déclaration de "production ready" n'est faite à ce stade.** L'audit initial a lui-même révélé deux bugs bloquants qui auraient invalidé toute mesure ultérieure s'ils n'avaient pas été corrigés en premier. Les risques listés ci-dessus (typecheck non fonctionnel en CI, 4 tests unitaires rouges, couverture E2E credentialée non vérifiée) doivent être traités avant toute décision Démo / Pilote / Déploiement. Passage aux tâches P0.1 → P0.5 ensuite.
