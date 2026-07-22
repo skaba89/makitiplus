@@ -42,6 +42,66 @@ DESTRUCTIVE_PATTERNS = {
     "drop schema": r"\bDROP\s+SCHEMA\b",
 }
 
+
+# P1.3 — 20260716100000 contains the historical (buggy) version of
+# get_admin_product_ranking_detailed — ROW_NUMBER() directly in WHERE,
+# invalid PostgreSQL syntax, confirmed as the version still live in
+# production. Fixed by 20260722110000_fix_admin_product_ranking_rownumber.sql
+# (CREATE OR REPLACE, same migration-history pattern as P0.3's
+# document_live_*). The historical file is intentionally left as-is —
+# migrations are an immutable record of what actually ran, not a mutable
+# "current state" — so it stays excluded here rather than edited.
+WINDOW_FN_IN_WHERE_LEGACY_EXCLUSIONS = (
+    "20260716100000_admin_analytics_advanced_rpcs.sql",
+)
+
+# Matches only when the window function is (one of) the leading term(s) of the
+# WHERE condition — e.g. "WHERE ROW_NUMBER() OVER (...) <= 5" or
+# "WHERE (a AND ROW_NUMBER() OVER (...) <= 5)". A bare "\b...\bOVER\(" scan
+# across the whole clause would false-positive on any WHERE that merely
+# precedes an unrelated window function later in the same CTE chain.
+WINDOW_FN_IN_WHERE_PATTERN = (
+    r"WHERE\s*\(*\s*(?:\w+\s+(?:AND|OR)\s+\(*\s*)?(?:ROW_NUMBER|RANK|DENSE_RANK)\s*\(\s*\)\s*OVER\s*\("
+)
+
+DANGEROUS_GRANT_PATTERNS = {
+    "GRANT EXECUTE to PUBLIC": r"GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+[^;]+\s+TO\s+PUBLIC\b",
+    "GRANT EXECUTE to anon on a mutating function": (
+        r"GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+" + PUBLIC
+        + r"(?:delete|remove|drop|truncate|reset|purge)\w*\s*\([^)]*\)\s+TO\s+[^;]*\banon\b"
+    ),
+}
+
+# P1.3 — dette de sécurité pré-existante identifiée en lançant les nouvelles
+# règles ci-dessous contre l'historique complet (130 fichiers) : 10 fichiers
+# antérieurs à cette session définissent des fonctions SECURITY DEFINER sans
+# SET search_path pinné (vulnérabilité classique de schema-hijacking — voir
+# docs/production/SUPABASE_SCHEMA_DRIFT_AUDIT.md). Corriger ~100 fonctions
+# d'un coup dans cette session serait un chantier à part entière, risqué sans
+# tests dédiés par fonction — exclusion TEMPORAIRE et documentée, comme
+# demandé (P1.3 : "exclusions minimales/documentées"), pas une suppression
+# de la règle. Aucun NOUVEAU fichier de migration n'est exempté : la règle
+# s'applique intégralement à tout ce qui est écrit après le 2026-07-22.
+SECURITY_DEFINER_SEARCH_PATH_LEGACY_EXCLUSIONS = (
+    "20260702070000_admin_multi_store_analytics.sql",
+    "20260702080000_security_hardening_rpc.sql",
+    "20260702150000_onboarding_premium.sql",
+    "20260702160000_stock_transfers.sql",
+    "20260702170000_smart_restock_suggestions.sql",
+    "20260702180000_loyalty_program.sql",
+    "20260702190000_backup_restore.sql",
+    "20260702200000_support_tickets.sql",
+    "20260716100000_admin_analytics_advanced_rpcs.sql",
+    "_deploy_combined.sql",
+)
+
+# Fichiers de migration reconnus comme des backfills volontairement optionnels
+# et protégés (nom explicite, jamais exécutés automatiquement en CI/déploiement
+# — voir RULE 1 de l'audit national : ne jamais lancer sans validation explicite
+# du magasin pilote concerné).
+BACKFILL_NAME_MARKERS = ("OPTIONAL_backfill", "_backfill_")
+
+
 UNSAFE_BILLING_PATTERNS = {
     "unsafe subscription rpc creation": (
         r"CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+" + PUBLIC + r"update_organization_subscription\s*\(\s*TEXT\s*,\s*TEXT\s*,\s*TEXT\s*\)"
@@ -111,6 +171,91 @@ def check_file(filepath: Path) -> list:
                 "Tenant self-upgrade RPC must not exist or be granted to authenticated users.",
                 match.group(0),
             )
+
+    # P1.3 — SECURITY DEFINER function without a pinned search_path is a classic
+    # PostgreSQL privilege-escalation vector (an attacker-controlled search_path
+    # could shadow a schema-qualified call with a malicious same-named object).
+    if filepath.name not in SECURITY_DEFINER_SEARCH_PATH_LEGACY_EXCLUSIONS:
+        for match in re.finditer(
+            r"CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+" + PUBLIC + r"\w+\s*\([^;]*?SECURITY\s+DEFINER[^;]*?AS\s+\$",
+            cleaned,
+            re.IGNORECASE,
+        ):
+            header = match.group(0)
+            if not re.search(r"SET\s+search_path", header, re.IGNORECASE):
+                add_error(
+                    findings,
+                    find_line(cleaned, match.start()),
+                    "SECURITY DEFINER without search_path",
+                    "A SECURITY DEFINER function must pin SET search_path to prevent schema-hijacking.",
+                    header[:160].replace("\n", " "),
+                )
+
+    # P1.3 — window functions (ROW_NUMBER/RANK/DENSE_RANK) cannot be referenced
+    # directly inside WHERE in PostgreSQL — this is a real runtime error, not
+    # just a style issue (already hit once in production, see git history:
+    # "KPIs produits — ROW_NUMBER() dans WHERE interdit par PostgreSQL").
+    window_fn_matches = (
+        re.finditer(WINDOW_FN_IN_WHERE_PATTERN, cleaned, re.IGNORECASE)
+        if filepath.name not in WINDOW_FN_IN_WHERE_LEGACY_EXCLUSIONS
+        else iter(())
+    )
+    for match in window_fn_matches:
+        add_error(
+            findings,
+            find_line(cleaned, match.start()),
+            "window function in WHERE",
+            "ROW_NUMBER()/RANK()/DENSE_RANK() cannot be used directly in WHERE — wrap in a CTE/subquery and filter the outer query instead.",
+            match.group(0),
+        )
+
+    # P1.3 — DROP FUNCTION must carry an explanatory comment on one of the
+    # preceding lines (why it's being dropped, not just that it is). A wider
+    # window (15 lines) plus tolerance for an earlier sibling DROP FUNCTION
+    # avoids flagging the 2nd+ statement in a documented multi-drop block
+    # (one shared comment above several consecutive DROP FUNCTION calls).
+    for match in re.finditer(r"^\s*DROP\s+FUNCTION\b.*$", content, re.IGNORECASE | re.MULTILINE):
+        line_num = find_line(content, match.start())
+        preceding = content.split("\n")[max(0, line_num - 16):line_num - 1]
+        has_comment = any(line.lstrip().startswith("--") for line in preceding)
+        has_sibling_drop = any(re.match(r"^\s*DROP\s+FUNCTION\b", line, re.IGNORECASE) for line in preceding)
+        if not (has_comment or has_sibling_drop):
+            add_error(
+                findings,
+                line_num,
+                "undocumented DROP FUNCTION",
+                "DROP FUNCTION must be preceded by a comment explaining why.",
+                match.group(0).strip(),
+            )
+
+    # P1.3 — dangerous GRANT EXECUTE (to PUBLIC, or to anon on a mutating function).
+    for check_name, pattern in DANGEROUS_GRANT_PATTERNS.items():
+        for match in re.finditer(pattern, cleaned, re.IGNORECASE):
+            add_error(
+                findings,
+                find_line(cleaned, match.start()),
+                check_name,
+                "Dangerous GRANT EXECUTE — review whether this role truly needs this function.",
+                match.group(0)[:160].replace("\n", " "),
+            )
+
+    # P1.3 — unprotected backfill: a mass UPDATE (no WHERE) outside a migration
+    # file explicitly named as an optional/protected backfill (see RULE 1 —
+    # never run a backfill on the real pilot store without explicit validation).
+    if not any(marker in filepath.name for marker in BACKFILL_NAME_MARKERS):
+        scoped_update_pattern = UPDATE + r"((?:public|auth)\.\w+)\b[\s\S]*?;"
+        for match in re.finditer(scoped_update_pattern, cleaned, re.IGNORECASE):
+            statement = match.group(0)
+            if not re.search(r"\bWHERE\b", statement, re.IGNORECASE):
+                add_error(
+                    findings,
+                    find_line(cleaned, match.start()),
+                    "unprotected backfill",
+                    "Unscoped UPDATE outside a file named as an optional backfill — "
+                    "either add a WHERE clause or rename the file to mark it as an "
+                    "explicit, protected backfill (e.g. OPTIONAL_backfill_*).",
+                    statement[:160].replace("\n", " "),
+                )
 
     for match in re.finditer(
         r"CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+" + PUBLIC + r"delete_organization\s*\(\s*p_organization_id\s+UUID\s*\)[\s\S]*?\$\$;",
