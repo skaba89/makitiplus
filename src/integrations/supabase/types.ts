@@ -10,7 +10,32 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "14.5"
+  }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -24,8 +49,8 @@ export type Database = {
           is_default: boolean | null
           name: string
           organization_id: string | null
-          store_id: string | null
           sort_order: number | null
+          store_id: string | null
           user_id: string
         }
         Insert: {
@@ -37,8 +62,8 @@ export type Database = {
           is_default?: boolean | null
           name: string
           organization_id?: string | null
-          store_id?: string | null
           sort_order?: number | null
+          store_id?: string | null
           user_id: string
         }
         Update: {
@@ -50,11 +75,26 @@ export type Database = {
           is_default?: boolean | null
           name?: string
           organization_id?: string | null
-          store_id?: string | null
           sort_order?: number | null
+          store_id?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "categories_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "categories_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       customer_credits: {
         Row: {
@@ -99,6 +139,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "customer_credits_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "customer_credits_sale_id_fkey"
             columns: ["sale_id"]
             isOneToOne: false
@@ -116,8 +163,8 @@ export type Database = {
           name: string
           notes: string | null
           organization_id: string | null
-          store_id: string | null
           phone: string | null
+          store_id: string | null
           total_credit: number
           total_purchases: number
           updated_at: string
@@ -131,8 +178,8 @@ export type Database = {
           name: string
           notes?: string | null
           organization_id?: string | null
-          store_id?: string | null
           phone?: string | null
+          store_id?: string | null
           total_credit?: number
           total_purchases?: number
           updated_at?: string
@@ -146,14 +193,29 @@ export type Database = {
           name?: string
           notes?: string | null
           organization_id?: string | null
-          store_id?: string | null
           phone?: string | null
+          store_id?: string | null
           total_credit?: number
           total_purchases?: number
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "customers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customers_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       expenses: {
         Row: {
@@ -164,8 +226,8 @@ export type Database = {
           expense_date: string
           id: string
           organization_id: string | null
-          store_id: string | null
           payment_method: Database["public"]["Enums"]["payment_method"] | null
+          store_id: string | null
           user_id: string
         }
         Insert: {
@@ -176,8 +238,8 @@ export type Database = {
           expense_date?: string
           id?: string
           organization_id?: string | null
-          store_id?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"] | null
+          store_id?: string | null
           user_id: string
         }
         Update: {
@@ -188,198 +250,53 @@ export type Database = {
           expense_date?: string
           id?: string
           organization_id?: string | null
-          store_id?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"] | null
+          store_id?: string | null
           user_id?: string
         }
-        Relationships: []
-      }
-      stores: {
-        Row: {
-          id: string
-          organization_id: string
-          name: string
-          slug: string
-          address: string | null
-          city: string | null
-          country: string | null
-          currency: string | null
-          phone: string | null
-          is_active: boolean
-          is_headquarters: boolean
-          category: Database["public"]["Enums"]["store_category"] | null
-          metadata: Json | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          organization_id: string
-          name: string
-          slug: string
-          address?: string | null
-          city?: string | null
-          country?: string | null
-          currency?: string | null
-          phone?: string | null
-          is_active?: boolean
-          is_headquarters?: boolean
-          category?: Database["public"]["Enums"]["store_category"] | null
-          metadata?: Json | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          organization_id?: string
-          name?: string
-          slug?: string
-          address?: string | null
-          city?: string | null
-          country?: string | null
-          currency?: string | null
-          phone?: string | null
-          is_active?: boolean
-          is_headquarters?: boolean
-          category?: Database["public"]["Enums"]["store_category"] | null
-          metadata?: Json | null
-          created_at?: string
-          updated_at?: string
-        }
         Relationships: [
           {
-            foreignKeyName: "stores_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      purchase_order_items: {
-        Row: {
-          id: string
-          purchase_order_id: string
-          product_id: string | null
-          product_name: string
-          quantity_ordered: number
-          quantity_received: number
-          unit_cost: number
-          tax_rate: number
-          line_total: number
-          notes: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          purchase_order_id: string
-          product_id?: string | null
-          product_name: string
-          quantity_ordered?: number
-          quantity_received?: number
-          unit_cost?: number
-          tax_rate?: number
-          line_total?: number
-          notes?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          purchase_order_id?: string
-          product_id?: string | null
-          product_name?: string
-          quantity_ordered?: number
-          quantity_received?: number
-          unit_cost?: number
-          tax_rate?: number
-          line_total?: number
-          notes?: string | null
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "poi_purchase_order_id_fkey"
-            columns: ["purchase_order_id"]
-            isOneToOne: false
-            referencedRelation: "purchase_orders"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      purchase_orders: {
-        Row: {
-          id: string
-          organization_id: string
-          store_id: string | null
-          supplier_id: string
-          order_number: string
-          status: string
-          order_date: string
-          expected_delivery: string | null
-          received_date: string | null
-          notes: string | null
-          subtotal: number
-          tax_amount: number
-          total_amount: number
-          currency: string
-          created_by: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          organization_id: string
-          store_id?: string | null
-          supplier_id: string
-          order_number: string
-          status?: string
-          order_date?: string
-          expected_delivery?: string | null
-          received_date?: string | null
-          notes?: string | null
-          subtotal?: number
-          tax_amount?: number
-          total_amount?: number
-          currency?: string
-          created_by?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          organization_id?: string
-          store_id?: string | null
-          supplier_id?: string
-          order_number?: string
-          status?: string
-          order_date?: string
-          expected_delivery?: string | null
-          received_date?: string | null
-          notes?: string | null
-          subtotal?: number
-          tax_amount?: number
-          total_amount?: number
-          currency?: string
-          created_by?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "po_organization_id_fkey"
+            foreignKeyName: "expenses_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "po_supplier_id_fkey"
-            columns: ["supplier_id"]
+            foreignKeyName: "expenses_store_id_fkey"
+            columns: ["store_id"]
             isOneToOne: false
-            referencedRelation: "suppliers"
+            referencedRelation: "stores"
             referencedColumns: ["id"]
-          }
+          },
         ]
+      }
+      feature_flags: {
+        Row: {
+          allowed_plans: string[]
+          created_at: string
+          description: string | null
+          feature_key: string
+          id: string
+          is_active: boolean
+        }
+        Insert: {
+          allowed_plans?: string[]
+          created_at?: string
+          description?: string | null
+          feature_key: string
+          id?: string
+          is_active?: boolean
+        }
+        Update: {
+          allowed_plans?: string[]
+          created_at?: string
+          description?: string | null
+          feature_key?: string
+          id?: string
+          is_active?: boolean
+        }
+        Relationships: []
       }
       organizations: {
         Row: {
@@ -395,13 +312,17 @@ export type Database = {
           id: string
           language: string | null
           logo_url: string | null
+          metadata: Json | null
           name: string
           owner_user_id: string
           receipt_template: string | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
           subscription_expires_at: string | null
           subscription_plan:
             | Database["public"]["Enums"]["subscription_plan"]
             | null
+          subscription_status: string | null
           theme_mode: string | null
           updated_at: string
         }
@@ -418,13 +339,17 @@ export type Database = {
           id?: string
           language?: string | null
           logo_url?: string | null
+          metadata?: Json | null
           name: string
           owner_user_id: string
           receipt_template?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           subscription_expires_at?: string | null
           subscription_plan?:
             | Database["public"]["Enums"]["subscription_plan"]
             | null
+          subscription_status?: string | null
           theme_mode?: string | null
           updated_at?: string
         }
@@ -441,13 +366,17 @@ export type Database = {
           id?: string
           language?: string | null
           logo_url?: string | null
+          metadata?: Json | null
           name?: string
           owner_user_id?: string
           receipt_template?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           subscription_expires_at?: string | null
           subscription_plan?:
             | Database["public"]["Enums"]["subscription_plan"]
             | null
+          subscription_status?: string | null
           theme_mode?: string | null
           updated_at?: string
         }
@@ -490,6 +419,101 @@ export type Database = {
           used_at?: string | null
           user_id?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "password_reset_tokens_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plans: {
+        Row: {
+          created_at: string
+          currency: string
+          description: string | null
+          has_admin_analytics: boolean
+          has_advanced_reports: boolean
+          has_ai_assistant: boolean
+          has_api_access: boolean
+          has_backup_restore: boolean
+          has_custom_branding: boolean
+          has_exports: boolean
+          has_loyalty_program: boolean
+          has_multi_currency: boolean
+          has_offline_advanced: boolean
+          has_priority_support: boolean
+          has_supplier_management: boolean
+          id: string
+          is_active: boolean
+          max_products: number | null
+          max_sales_per_month: number | null
+          max_stores: number | null
+          max_users: number | null
+          name: string
+          price_monthly: number
+          price_yearly: number | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          description?: string | null
+          has_admin_analytics?: boolean
+          has_advanced_reports?: boolean
+          has_ai_assistant?: boolean
+          has_api_access?: boolean
+          has_backup_restore?: boolean
+          has_custom_branding?: boolean
+          has_exports?: boolean
+          has_loyalty_program?: boolean
+          has_multi_currency?: boolean
+          has_offline_advanced?: boolean
+          has_priority_support?: boolean
+          has_supplier_management?: boolean
+          id: string
+          is_active?: boolean
+          max_products?: number | null
+          max_sales_per_month?: number | null
+          max_stores?: number | null
+          max_users?: number | null
+          name: string
+          price_monthly?: number
+          price_yearly?: number | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          description?: string | null
+          has_admin_analytics?: boolean
+          has_advanced_reports?: boolean
+          has_ai_assistant?: boolean
+          has_api_access?: boolean
+          has_backup_restore?: boolean
+          has_custom_branding?: boolean
+          has_exports?: boolean
+          has_loyalty_program?: boolean
+          has_multi_currency?: boolean
+          has_offline_advanced?: boolean
+          has_priority_support?: boolean
+          has_supplier_management?: boolean
+          id?: string
+          is_active?: boolean
+          max_products?: number | null
+          max_sales_per_month?: number | null
+          max_stores?: number | null
+          max_users?: number | null
+          name?: string
+          price_monthly?: number
+          price_yearly?: number | null
+          sort_order?: number
+          updated_at?: string
+        }
         Relationships: []
       }
       products: {
@@ -506,9 +530,9 @@ export type Database = {
           min_stock_alert: number | null
           name: string
           organization_id: string | null
-          store_id: string | null
           price: number
           stock_quantity: number
+          store_id: string | null
           supplier_id: string | null
           sync_status: Database["public"]["Enums"]["sync_status"] | null
           tax_rate: number | null
@@ -529,9 +553,9 @@ export type Database = {
           min_stock_alert?: number | null
           name: string
           organization_id?: string | null
-          store_id?: string | null
-          price?: number
+          price: number
           stock_quantity?: number
+          store_id?: string | null
           supplier_id?: string | null
           sync_status?: Database["public"]["Enums"]["sync_status"] | null
           tax_rate?: number | null
@@ -552,9 +576,9 @@ export type Database = {
           min_stock_alert?: number | null
           name?: string
           organization_id?: string | null
-          store_id?: string | null
           price?: number
           stock_quantity?: number
+          store_id?: string | null
           supplier_id?: string | null
           sync_status?: Database["public"]["Enums"]["sync_status"] | null
           tax_rate?: number | null
@@ -568,6 +592,20 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
             referencedColumns: ["id"]
           },
           {
@@ -587,6 +625,7 @@ export type Database = {
           country: string | null
           created_at: string
           currency: string | null
+          current_store_id: string | null
           deactivated_at: string | null
           deactivation_reason: string | null
           id: string
@@ -598,7 +637,6 @@ export type Database = {
           last_seen_at: string | null
           nfc_enabled: boolean | null
           organization_id: string | null
-          current_store_id: string | null
           owner_name: string
           phone: string | null
           subscription_expires_at: string | null
@@ -617,6 +655,7 @@ export type Database = {
           country?: string | null
           created_at?: string
           currency?: string | null
+          current_store_id?: string | null
           deactivated_at?: string | null
           deactivation_reason?: string | null
           id?: string
@@ -628,7 +667,6 @@ export type Database = {
           last_seen_at?: string | null
           nfc_enabled?: boolean | null
           organization_id?: string | null
-          current_store_id?: string | null
           owner_name: string
           phone?: string | null
           subscription_expires_at?: string | null
@@ -647,6 +685,7 @@ export type Database = {
           country?: string | null
           created_at?: string
           currency?: string | null
+          current_store_id?: string | null
           deactivated_at?: string | null
           deactivation_reason?: string | null
           id?: string
@@ -658,7 +697,6 @@ export type Database = {
           last_seen_at?: string | null
           nfc_enabled?: boolean | null
           organization_id?: string | null
-          current_store_id?: string | null
           owner_name?: string
           phone?: string | null
           subscription_expires_at?: string | null
@@ -670,91 +708,217 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_current_store_id_fkey"
+            columns: ["current_store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
-      user_activity_logs: {
+      purchase_order_items: {
         Row: {
-          id: string
-          user_id: string
-          organization_id: string | null
-          action: string
-          description: string | null
-          metadata: Json | null
           created_at: string
+          id: string
+          line_total: number
+          notes: string | null
+          product_id: string | null
+          product_name: string
+          purchase_order_id: string
+          quantity_ordered: number
+          quantity_received: number
+          tax_rate: number
+          unit_cost: number
         }
         Insert: {
-          id?: string
-          user_id: string
-          organization_id?: string | null
-          action: string
-          description?: string | null
-          metadata?: Json | null
           created_at?: string
+          id?: string
+          line_total?: number
+          notes?: string | null
+          product_id?: string | null
+          product_name: string
+          purchase_order_id: string
+          quantity_ordered?: number
+          quantity_received?: number
+          tax_rate?: number
+          unit_cost?: number
         }
         Update: {
-          id?: string
-          user_id?: string
-          organization_id?: string | null
-          action?: string
-          description?: string | null
-          metadata?: Json | null
           created_at?: string
+          id?: string
+          line_total?: number
+          notes?: string | null
+          product_id?: string | null
+          product_name?: string
+          purchase_order_id?: string
+          quantity_ordered?: number
+          quantity_received?: number
+          tax_rate?: number
+          unit_cost?: number
         }
         Relationships: [
           {
-            foreignKeyName: "user_activity_logs_organization_id_fkey"
+            foreignKeyName: "purchase_order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_orders: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          currency: string
+          expected_delivery: string | null
+          id: string
+          notes: string | null
+          order_date: string
+          order_number: string
+          organization_id: string
+          received_date: string | null
+          status: Database["public"]["Enums"]["po_status"]
+          store_id: string | null
+          subtotal: number
+          supplier_id: string
+          tax_amount: number
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          expected_delivery?: string | null
+          id?: string
+          notes?: string | null
+          order_date?: string
+          order_number: string
+          organization_id: string
+          received_date?: string | null
+          status?: Database["public"]["Enums"]["po_status"]
+          store_id?: string | null
+          subtotal?: number
+          supplier_id: string
+          tax_amount?: number
+          total_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          expected_delivery?: string | null
+          id?: string
+          notes?: string | null
+          order_date?: string
+          order_number?: string
+          organization_id?: string
+          received_date?: string | null
+          status?: Database["public"]["Enums"]["po_status"]
+          store_id?: string | null
+          subtotal?: number
+          supplier_id?: string
+          tax_amount?: number
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_orders_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "user_activity_logs_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: "purchase_orders_store_id_fkey"
+            columns: ["store_id"]
             isOneToOne: false
-            referencedRelation: "users"
+            referencedRelation: "stores"
             referencedColumns: ["id"]
-          }
+          },
+          {
+            foreignKeyName: "purchase_orders_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
         ]
       }
       sale_items: {
         Row: {
+          cost_price: number | null
           created_at: string
           id: string
           organization_id: string | null
-          store_id: string | null
           product_id: string | null
           product_name: string
           quantity: number
           sale_id: string
+          store_id: string | null
           total_price: number
           unit_price: number
         }
         Insert: {
+          cost_price?: number | null
           created_at?: string
           id?: string
           organization_id?: string | null
-          store_id?: string | null
           product_id?: string | null
           product_name: string
-          quantity?: number
+          quantity: number
           sale_id: string
+          store_id?: string | null
           total_price: number
           unit_price: number
         }
         Update: {
+          cost_price?: number | null
           created_at?: string
           id?: string
           organization_id?: string | null
-          store_id?: string | null
           product_id?: string | null
           product_name?: string
           quantity?: number
           sale_id?: string
+          store_id?: string | null
           total_price?: number
           unit_price?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "sale_items_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sale_items_product_id_fkey"
             columns: ["product_id"]
@@ -767,6 +931,13 @@ export type Database = {
             columns: ["sale_id"]
             isOneToOne: false
             referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_items_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
             referencedColumns: ["id"]
           },
         ]
@@ -783,10 +954,10 @@ export type Database = {
           id: string
           notes: string | null
           organization_id: string | null
-          store_id: string | null
           payment_method: Database["public"]["Enums"]["payment_method"]
           sale_number: string
           seller_name: string | null
+          store_id: string | null
           subtotal: number
           sync_status: Database["public"]["Enums"]["sync_status"] | null
           tax_amount: number | null
@@ -794,7 +965,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          amount_paid?: number
+          amount_paid: number
           change_amount?: number | null
           created_at?: string
           customer_id?: string | null
@@ -804,14 +975,14 @@ export type Database = {
           id?: string
           notes?: string | null
           organization_id?: string | null
-          store_id?: string | null
-          payment_method?: Database["public"]["Enums"]["payment_method"]
+          payment_method: Database["public"]["Enums"]["payment_method"]
           sale_number: string
           seller_name?: string | null
-          subtotal?: number
+          store_id?: string | null
+          subtotal: number
           sync_status?: Database["public"]["Enums"]["sync_status"] | null
           tax_amount?: number | null
-          total_amount?: number
+          total_amount: number
           user_id: string
         }
         Update: {
@@ -825,10 +996,10 @@ export type Database = {
           id?: string
           notes?: string | null
           organization_id?: string | null
-          store_id?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
           sale_number?: string
           seller_name?: string | null
+          store_id?: string | null
           subtotal?: number
           sync_status?: Database["public"]["Enums"]["sync_status"] | null
           tax_amount?: number | null
@@ -843,70 +1014,18 @@ export type Database = {
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
-        ]
-      }
-      suppliers: {
-        Row: {
-          address: string | null
-          city: string | null
-          country: string | null
-          created_at: string
-          email: string | null
-          id: string
-          is_active: boolean
-          name: string
-          notes: string | null
-          organization_id: string | null
-          store_id: string | null
-          phone: string | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          address?: string | null
-          city?: string | null
-          country?: string | null
-          created_at?: string
-          email?: string | null
-          id?: string
-          is_active?: boolean
-          name: string
-          notes?: string | null
-          organization_id?: string | null
-          store_id?: string | null
-          phone?: string | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          address?: string | null
-          city?: string | null
-          country?: string | null
-          created_at?: string
-          email?: string | null
-          id?: string
-          is_active?: boolean
-          name?: string
-          notes?: string | null
-          organization_id?: string | null
-          store_id?: string | null
-          phone?: string | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
           {
-            foreignKeyName: "suppliers_organization_id_fkey"
+            foreignKeyName: "sales_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "suppliers_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: "sales_store_id_fkey"
+            columns: ["store_id"]
             isOneToOne: false
-            referencedRelation: "users"
+            referencedRelation: "stores"
             referencedColumns: ["id"]
           },
         ]
@@ -917,12 +1036,12 @@ export type Database = {
           id: string
           new_quantity: number
           organization_id: string | null
-          store_id: string | null
           previous_quantity: number
           product_id: string
           quantity: number
           reason: string | null
           reference_id: string | null
+          store_id: string | null
           type: string
           user_id: string
         }
@@ -931,12 +1050,12 @@ export type Database = {
           id?: string
           new_quantity: number
           organization_id?: string | null
-          store_id?: string | null
           previous_quantity: number
           product_id: string
           quantity: number
           reason?: string | null
           reference_id?: string | null
+          store_id?: string | null
           type: string
           user_id: string
         }
@@ -945,16 +1064,23 @@ export type Database = {
           id?: string
           new_quantity?: number
           organization_id?: string | null
-          store_id?: string | null
           previous_quantity?: number
           product_id?: string
           quantity?: number
           reason?: string | null
           reference_id?: string | null
+          store_id?: string | null
           type?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "stock_movements_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "stock_movements_product_id_fkey"
             columns: ["product_id"]
@@ -962,117 +1088,295 @@ export type Database = {
             referencedRelation: "products"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "stock_movements_reference_id_fkey"
+            columns: ["reference_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_movements_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
         ]
       }
-      sync_conflicts: {
+      store_settings: {
         Row: {
-          acknowledged: boolean
-          acknowledged_at: string | null
+          accent_color: string | null
+          card_style: string | null
           created_at: string
-          device_id: string | null
-          entity_id: string | null
-          entity_label: string | null
-          entity_type: string
-          error_message: string | null
+          extra_settings: Json | null
+          favicon_url: string | null
           id: string
-          local_data: Json | null
-          remote_data: Json | null
-          resolution_strategy: string
-          resolved_data: Json | null
-          status: string
-          user_id: string
-        }
-        Insert: {
-          acknowledged?: boolean
-          acknowledged_at?: string | null
-          created_at?: string
-          device_id?: string | null
-          entity_id?: string | null
-          entity_label?: string | null
-          entity_type: string
-          error_message?: string | null
-          id?: string
-          local_data?: Json | null
-          remote_data?: Json | null
-          resolution_strategy: string
-          resolved_data?: Json | null
-          status?: string
-          user_id: string
-        }
-        Update: {
-          acknowledged?: boolean
-          acknowledged_at?: string | null
-          created_at?: string
-          device_id?: string | null
-          entity_id?: string | null
-          entity_label?: string | null
-          entity_type?: string
-          error_message?: string | null
-          id?: string
-          local_data?: Json | null
-          remote_data?: Json | null
-          resolution_strategy?: string
-          resolved_data?: Json | null
-          status?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      suppliers: {
-        Row: {
-          address: string | null
-          created_at: string
-          email: string | null
-          id: string
-          is_active: boolean
-          name: string
-          notes: string | null
+          logo_url: string | null
           organization_id: string
-          phone: string | null
+          primary_color: string | null
+          receipt_footer: string | null
+          receipt_show_logo: boolean | null
+          receipt_show_tax: boolean | null
+          secondary_color: string | null
+          sidebar_style: string | null
+          store_name: string | null
+          success_color: string | null
+          template: string | null
           updated_at: string
-          user_id: string
         }
         Insert: {
-          address?: string | null
+          accent_color?: string | null
+          card_style?: string | null
           created_at?: string
-          email?: string | null
+          extra_settings?: Json | null
+          favicon_url?: string | null
           id?: string
-          is_active?: boolean
-          name: string
-          notes?: string | null
+          logo_url?: string | null
           organization_id: string
-          phone?: string | null
+          primary_color?: string | null
+          receipt_footer?: string | null
+          receipt_show_logo?: boolean | null
+          receipt_show_tax?: boolean | null
+          secondary_color?: string | null
+          sidebar_style?: string | null
+          store_name?: string | null
+          success_color?: string | null
+          template?: string | null
           updated_at?: string
-          user_id: string
         }
         Update: {
-          address?: string | null
+          accent_color?: string | null
+          card_style?: string | null
           created_at?: string
-          email?: string | null
+          extra_settings?: Json | null
+          favicon_url?: string | null
           id?: string
-          is_active?: boolean
-          name?: string
-          notes?: string | null
+          logo_url?: string | null
           organization_id?: string
-          phone?: string | null
+          primary_color?: string | null
+          receipt_footer?: string | null
+          receipt_show_logo?: boolean | null
+          receipt_show_tax?: boolean | null
+          secondary_color?: string | null
+          sidebar_style?: string | null
+          store_name?: string | null
+          success_color?: string | null
+          template?: string | null
           updated_at?: string
-          user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "suppliers_organization_id_fkey"
+            foreignKeyName: "store_settings_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      stores: {
+        Row: {
+          address: string | null
+          category: Database["public"]["Enums"]["store_category"] | null
+          city: string | null
+          country: string | null
+          created_at: string
+          currency: string | null
+          id: string
+          is_active: boolean
+          is_headquarters: boolean
+          metadata: Json | null
+          name: string
+          organization_id: string
+          phone: string | null
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          category?: Database["public"]["Enums"]["store_category"] | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          currency?: string | null
+          id?: string
+          is_active?: boolean
+          is_headquarters?: boolean
+          metadata?: Json | null
+          name: string
+          organization_id: string
+          phone?: string | null
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          category?: Database["public"]["Enums"]["store_category"] | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          currency?: string | null
+          id?: string
+          is_active?: boolean
+          is_headquarters?: boolean
+          metadata?: Json | null
+          name?: string
+          organization_id?: string
+          phone?: string | null
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: [
           {
-            foreignKeyName: "suppliers_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: "stores_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: "users"
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
-          }
+          },
+        ]
+      }
+      stripe_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          organization_id: string | null
+          payload: Json | null
+          processed: boolean | null
+          stripe_event_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          organization_id?: string | null
+          payload?: Json | null
+          processed?: boolean | null
+          stripe_event_id: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          organization_id?: string | null
+          payload?: Json | null
+          processed?: boolean | null
+          stripe_event_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stripe_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscription_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          from_plan: string | null
+          id: string
+          metadata: Json | null
+          organization_id: string
+          performed_by: string | null
+          to_plan: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          from_plan?: string | null
+          id?: string
+          metadata?: Json | null
+          organization_id: string
+          performed_by?: string | null
+          to_plan?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          from_plan?: string | null
+          id?: string
+          metadata?: Json | null
+          organization_id?: string
+          performed_by?: string | null
+          to_plan?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscriptions: {
+        Row: {
+          billing_period: string | null
+          cancelled_at: string | null
+          created_at: string
+          current_period_end: string
+          current_period_start: string
+          grace_period_ends_at: string | null
+          id: string
+          organization_id: string
+          plan_id: string
+          status: string
+          stripe_subscription_id: string | null
+          trial_ends_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          billing_period?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          current_period_end?: string
+          current_period_start?: string
+          grace_period_ends_at?: string | null
+          id?: string
+          organization_id: string
+          plan_id: string
+          status?: string
+          stripe_subscription_id?: string | null
+          trial_ends_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          billing_period?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          current_period_end?: string
+          current_period_start?: string
+          grace_period_ends_at?: string | null
+          id?: string
+          organization_id?: string
+          plan_id?: string
+          status?: string
+          stripe_subscription_id?: string | null
+          trial_ends_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
         ]
       }
       supplier_products: {
@@ -1137,13 +1441,213 @@ export type Database = {
             referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      suppliers: {
+        Row: {
+          address: string | null
+          city: string | null
+          country: string | null
+          created_at: string
+          email: string | null
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          organization_id: string
+          phone: string | null
+          store_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          organization_id: string
+          phone?: string | null
+          store_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          organization_id?: string
+          phone?: string | null
+          store_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
           {
-            foreignKeyName: "supplier_products_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: "suppliers_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: "users"
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
-          }
+          },
+          {
+            foreignKeyName: "suppliers_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sync_conflicts: {
+        Row: {
+          acknowledged: boolean
+          acknowledged_at: string | null
+          created_at: string
+          device_id: string | null
+          entity_id: string | null
+          entity_label: string | null
+          entity_type: string
+          error_message: string | null
+          id: string
+          local_data: Json | null
+          organization_id: string | null
+          remote_data: Json | null
+          resolution_strategy: string
+          resolved_data: Json | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          acknowledged?: boolean
+          acknowledged_at?: string | null
+          created_at?: string
+          device_id?: string | null
+          entity_id?: string | null
+          entity_label?: string | null
+          entity_type: string
+          error_message?: string | null
+          id?: string
+          local_data?: Json | null
+          organization_id?: string | null
+          remote_data?: Json | null
+          resolution_strategy: string
+          resolved_data?: Json | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          acknowledged?: boolean
+          acknowledged_at?: string | null
+          created_at?: string
+          device_id?: string | null
+          entity_id?: string | null
+          entity_label?: string | null
+          entity_type?: string
+          error_message?: string | null
+          id?: string
+          local_data?: Json | null
+          organization_id?: string | null
+          remote_data?: Json | null
+          resolution_strategy?: string
+          resolved_data?: Json | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sync_conflicts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      usage_counters: {
+        Row: {
+          counter_type: string
+          current_count: number
+          id: string
+          limit_value: number | null
+          organization_id: string
+          period_start: string | null
+          updated_at: string
+        }
+        Insert: {
+          counter_type: string
+          current_count?: number
+          id?: string
+          limit_value?: number | null
+          organization_id: string
+          period_start?: string | null
+          updated_at?: string
+        }
+        Update: {
+          counter_type?: string
+          current_count?: number
+          id?: string
+          limit_value?: number | null
+          organization_id?: string
+          period_start?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usage_counters_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_activity_logs: {
+        Row: {
+          action: Database["public"]["Enums"]["app_activity_action"]
+          created_at: string
+          description: string | null
+          id: string
+          metadata: Json | null
+          organization_id: string | null
+          user_id: string
+        }
+        Insert: {
+          action: Database["public"]["Enums"]["app_activity_action"]
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          organization_id?: string | null
+          user_id: string
+        }
+        Update: {
+          action?: Database["public"]["Enums"]["app_activity_action"]
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          organization_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_activity_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
         ]
       }
       user_audit_log: {
@@ -1182,77 +1686,6 @@ export type Database = {
         }
         Relationships: []
       }
-      store_settings: {
-        Row: {
-          id: string
-          organization_id: string
-          store_name: string | null
-          logo_url: string | null
-          favicon_url: string | null
-          primary_color: string | null
-          secondary_color: string | null
-          accent_color: string | null
-          success_color: string | null
-          template: string | null
-          sidebar_style: string | null
-          card_style: string | null
-          receipt_footer: string | null
-          receipt_show_logo: boolean | null
-          receipt_show_tax: boolean | null
-          extra_settings: Json | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          organization_id: string
-          store_name?: string | null
-          logo_url?: string | null
-          favicon_url?: string | null
-          primary_color?: string | null
-          secondary_color?: string | null
-          accent_color?: string | null
-          success_color?: string | null
-          template?: string | null
-          sidebar_style?: string | null
-          card_style?: string | null
-          receipt_footer?: string | null
-          receipt_show_logo?: boolean | null
-          receipt_show_tax?: boolean | null
-          extra_settings?: Json | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          organization_id?: string
-          store_name?: string | null
-          logo_url?: string | null
-          favicon_url?: string | null
-          primary_color?: string | null
-          secondary_color?: string | null
-          accent_color?: string | null
-          success_color?: string | null
-          template?: string | null
-          sidebar_style?: string | null
-          card_style?: string | null
-          receipt_footer?: string | null
-          receipt_show_logo?: boolean | null
-          receipt_show_tax?: boolean | null
-          extra_settings?: Json | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "store_settings_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: true
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       user_roles: {
         Row: {
           created_at: string
@@ -1274,342 +1707,608 @@ export type Database = {
         }
         Relationships: []
       }
-      plans: {
-        Row: {
-          id: string
-          name: string
-          description: string | null
-          price_monthly: number
-          price_yearly: number | null
-          currency: string
-          max_stores: number | null
-          max_users: number | null
-          max_products: number | null
-          max_sales_per_month: number | null
-          has_advanced_reports: boolean
-          has_exports: boolean
-          has_supplier_management: boolean
-          has_offline_advanced: boolean
-          has_api_access: boolean
-          has_priority_support: boolean
-          has_custom_branding: boolean
-          has_multi_currency: boolean
-          has_ai_assistant: boolean
-          has_loyalty_program: boolean
-          sort_order: number
-          is_active: boolean
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id: string
-          name: string
-          description?: string | null
-          price_monthly?: number
-          price_yearly?: number | null
-          currency?: string
-          max_stores?: number | null
-          max_users?: number | null
-          max_products?: number | null
-          max_sales_per_month?: number | null
-          has_advanced_reports?: boolean
-          has_exports?: boolean
-          has_supplier_management?: boolean
-          has_offline_advanced?: boolean
-          has_api_access?: boolean
-          has_priority_support?: boolean
-          has_custom_branding?: boolean
-          has_multi_currency?: boolean
-          has_ai_assistant?: boolean
-          has_loyalty_program?: boolean
-          sort_order?: number
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          name?: string
-          description?: string | null
-          price_monthly?: number
-          price_yearly?: number | null
-          currency?: string
-          max_stores?: number | null
-          max_users?: number | null
-          max_products?: number | null
-          max_sales_per_month?: number | null
-          has_advanced_reports?: boolean
-          has_exports?: boolean
-          has_supplier_management?: boolean
-          has_offline_advanced?: boolean
-          has_api_access?: boolean
-          has_priority_support?: boolean
-          has_custom_branding?: boolean
-          has_multi_currency?: boolean
-          has_ai_assistant?: boolean
-          has_loyalty_program?: boolean
-          sort_order?: number
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      subscriptions: {
-        Row: {
-          id: string
-          organization_id: string
-          plan_id: string
-          status: string
-          current_period_start: string
-          current_period_end: string
-          trial_ends_at: string | null
-          grace_period_ends_at: string | null
-          cancelled_at: string | null
-          billing_period: string | null
-          stripe_subscription_id: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          organization_id: string
-          plan_id: string
-          status?: string
-          current_period_start?: string
-          current_period_end?: string
-          trial_ends_at?: string | null
-          grace_period_ends_at?: string | null
-          cancelled_at?: string | null
-          billing_period?: string | null
-          stripe_subscription_id?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          organization_id?: string
-          plan_id?: string
-          status?: string
-          current_period_start?: string
-          current_period_end?: string
-          trial_ends_at?: string | null
-          grace_period_ends_at?: string | null
-          cancelled_at?: string | null
-          billing_period?: string | null
-          stripe_subscription_id?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          { foreignKeyName: "subscriptions_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] },
-          { foreignKeyName: "subscriptions_plan_id_fkey"; columns: ["plan_id"]; isOneToOne: false; referencedRelation: "plans"; referencedColumns: ["id"] }
-        ]
-      }
-      subscription_events: {
-        Row: {
-          id: string
-          organization_id: string
-          event_type: string
-          from_plan: string | null
-          to_plan: string | null
-          performed_by: string | null
-          metadata: Json | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          organization_id: string
-          event_type: string
-          from_plan?: string | null
-          to_plan?: string | null
-          performed_by?: string | null
-          metadata?: Json | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          organization_id?: string
-          event_type?: string
-          from_plan?: string | null
-          to_plan?: string | null
-          performed_by?: string | null
-          metadata?: Json | null
-          created_at?: string
-        }
-        Relationships: [
-          { foreignKeyName: "subscription_events_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] },
-          { foreignKeyName: "subscription_events_performed_by_fkey"; columns: ["performed_by"]; isOneToOne: false; referencedRelation: "users"; referencedColumns: ["id"] }
-        ]
-      }
-      stripe_events: {
-        Row: {
-          event_id: string
-          event_type: string
-          processed_at: string
-          payload: Json | null
-          organization_id: string | null
-        }
-        Insert: {
-          event_id: string
-          event_type: string
-          processed_at?: string
-          payload?: Json | null
-          organization_id?: string | null
-        }
-        Update: {
-          event_id?: string
-          event_type?: string
-          processed_at?: string
-          payload?: Json | null
-          organization_id?: string | null
-        }
-        Relationships: [
-          { foreignKeyName: "stripe_events_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] }
-        ]
-      }
-      usage_counters: {
-        Row: {
-          id: string
-          organization_id: string
-          stores: number
-          users: number
-          products: number
-          sales_this_month: number
-          exports_this_month: number
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          organization_id: string
-          stores?: number
-          users?: number
-          products?: number
-          sales_this_month?: number
-          exports_this_month?: number
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          organization_id?: string
-          stores?: number
-          users?: number
-          products?: number
-          sales_this_month?: number
-          exports_this_month?: number
-          updated_at?: string
-        }
-        Relationships: [
-          { foreignKeyName: "usage_counters_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] }
-        ]
-      }
-      feature_flags: {
-        Row: {
-          id: string
-          feature_key: string
-          description: string | null
-          allowed_plans: string[]
-          is_active: boolean
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          feature_key: string
-          description?: string | null
-          allowed_plans?: string[]
-          is_active?: boolean
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          feature_key?: string
-          description?: string | null
-          allowed_plans?: string[]
-          is_active?: boolean
-          created_at?: string
-        }
-        Relationships: []
-      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      admin_exists: { Args: never; Returns: boolean }
-      admin_get_all_subscriptions: {
-        Args: never
+      adjust_product_stock: {
+        Args: {
+          p_product_id: string
+          p_quantity: number
+          p_reason?: string
+          p_type: string
+        }
         Returns: {
-          organization_id: string
-          organization_name: string
-          owner_email: string | null
-          country: string | null
-          subscription_id: string | null
-          plan_id: string | null
-          plan_name: string | null
-          status: string | null
-          current_period_start: string | null
-          current_period_end: string | null
-          trial_ends_at: string | null
-          billing_period: string | null
-          stripe_customer_id: string | null
-          created_at: string | null
+          new_quantity: number
+          previous_quantity: number
         }[]
       }
+      admin_exists: { Args: never; Returns: boolean }
+      admin_get_all_subscriptions: { Args: never; Returns: Json }
       admin_update_organization_subscription: {
         Args: {
-          p_organization_id: string
-          p_plan_id: string
           p_duration?: string
-          p_payment_reference?: string | null
-          p_reason?: string | null
+          p_organization_id: string
+          p_payment_reference?: string
+          p_plan_id: string
+          p_reason?: string
+          p_status?: string
         }
         Returns: Json
+      }
+      batch_update_stock: {
+        Args: { p_items: Json; p_sale_id: string }
+        Returns: undefined
       }
       check_account_status: {
         Args: never
         Returns: {
+          deactivation_reason: string
           is_active: boolean
-          role: string | null
-          organization_id: string | null
-          deactivation_reason: string | null
+          is_test_account: boolean
+          test_expires_at: string
         }[]
       }
-      check_account_status_with_id: {
-        Args: { check_user_id: string }
-        Returns: {
-          is_active: boolean
-          role: string | null
-          organization_id: string | null
-        }[]
-      }
+      check_feature_access: { Args: { p_feature_key: string }; Returns: Json }
+      check_plan_limit: { Args: { p_limit_type: string }; Returns: Json }
       create_first_organization: {
         Args: {
+          p_country: string
+          p_currency: string
           p_org_name: string
+          p_store_category: string
           p_store_name: string
           p_store_slug: string
-          p_store_category?: string
-          p_country?: string
-          p_currency?: string
+        }
+        Returns: string
+      }
+      create_full_sale: {
+        Args: {
+          p_amount_paid?: number
+          p_change_amount?: number
+          p_customer_name?: string
+          p_customer_phone?: string
+          p_discount_amount?: number
+          p_items: Json
+          p_organization_id: string
+          p_payment_method?: string
+          p_sale_number: string
+          p_seller_name?: string
+          p_store_id?: string
+          p_subtotal: number
+          p_tax_amount?: number
+          p_total_amount: number
+          p_user_id: string
+        }
+        Returns: string
+      }
+      create_product: {
+        Args: {
+          p_barcode?: string
+          p_category_id?: string
+          p_cost_price?: number
+          p_description?: string
+          p_image_url?: string
+          p_is_active?: boolean
+          p_min_stock_alert?: number
+          p_name: string
+          p_price: number
+          p_stock_quantity?: number
+          p_store_id?: string
+          p_supplier_id?: string
+          p_unit?: string
+        }
+        Returns: string
+      }
+      create_sale_with_limit: {
+        Args: {
+          p_amount_paid?: number
+          p_change_amount?: number
+          p_customer_name?: string
+          p_customer_phone?: string
+          p_discount_amount?: number
+          p_items: Json
+          p_payment_method?: string
+          p_sale_number: string
+          p_seller_name?: string
+          p_store_id?: string
+          p_subtotal: number
+          p_tax_amount?: number
+          p_total_amount: number
+        }
+        Returns: string
+      }
+      create_store:
+        | {
+            Args: {
+              p_address?: string
+              p_category?: Database["public"]["Enums"]["store_category"]
+              p_city?: string
+              p_country?: string
+              p_currency?: string
+              p_metadata?: Json
+              p_name: string
+              p_phone?: string
+              p_slug: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_category?: Database["public"]["Enums"]["store_category"]
+              p_city?: string
+              p_country?: string
+              p_currency?: string
+              p_name: string
+              p_organization_id: string
+              p_slug: string
+            }
+            Returns: string
+          }
+      decrement_credits: {
+        Args: { p_amount: number; p_customer_id: string }
+        Returns: Json
+      }
+      decrement_stock: {
+        Args: { p_product_id: string; p_quantity: number }
+        Returns: undefined
+      }
+      delete_organization: {
+        Args: { p_organization_id: string }
+        Returns: Json
+      }
+      delete_store: { Args: { p_store_id: string }; Returns: Json }
+      ensure_user_has_organization: {
+        Args: { p_org_name?: string }
+        Returns: string
+      }
+      generate_order_number: { Args: { p_prefix?: string }; Returns: string }
+      generate_sale_number: { Args: never; Returns: string }
+      get_admin_article_ranking: {
+        Args: {
+          p_end_date?: string
+          p_limit?: number
+          p_organization_id?: string
+          p_period?: string
+          p_start_date?: string
         }
         Returns: {
-          success: boolean
-          organization_id: string | null
-          store_id: string | null
-          mode: string
+          category_name: string
+          cost_price: number
+          current_stock: number
+          margin: number
+          organization_id: string
+          product_id: string
+          product_name: string
+          quantity_sold: number
+          ranking_category: string
+          store_name: string
+          total_revenue: number
+          unit_price: number
+        }[]
+      }
+      get_admin_global_kpis: {
+        Args: { p_period?: string }
+        Returns: {
+          avg_basket: number
+          gross_margin: number
+          gross_margin_pct: number
+          low_stock_count: number
+          net_revenue: number
+          previous_period_sales: number
+          sales_growth_pct: number
+          total_active_products: number
+          total_active_users: number
+          total_cost: number
+          total_customers: number
+          total_expenses: number
+          total_orgs: number
+          total_products: number
+          total_sales: number
+          total_stores: number
+          total_transactions: number
+          total_users: number
+        }[]
+      }
+      get_admin_org_kpis: {
+        Args: { p_period?: string }
+        Returns: {
+          active_products: number
+          avg_basket: number
+          customer_count: number
+          gross_margin: number
+          low_stock_count: number
+          net_revenue: number
+          org_name: string
+          organization_id: string
+          store_count: number
+          store_names: string[]
+          total_cost: number
+          total_expenses: number
+          total_sales: number
+          transaction_count: number
+        }[]
+      }
+      get_admin_payment_distribution: {
+        Args: {
+          p_end_date?: string
+          p_organization_id?: string
+          p_period?: string
+          p_start_date?: string
+        }
+        Returns: {
+          payment_method: string
+          percentage: number
+          total_amount: number
+          transaction_count: number
+        }[]
+      }
+      get_admin_product_ranking_detailed: {
+        Args: {
+          p_limit?: number
+          p_organization_id?: string
+          p_period?: string
+        }
+        Returns: {
+          category_name: string
+          cost: number
+          margin: number
+          margin_pct: number
+          org_name: string
+          product_id: string
+          product_name: string
+          quantity_sold: number
+          rank_type: string
+          revenue: number
+          revenue_pct_of_total: number
+          stock_quantity: number
+        }[]
+      }
+      get_admin_sales_trend: {
+        Args: {
+          p_end_date?: string
+          p_organization_id?: string
+          p_period?: string
+          p_start_date?: string
+        }
+        Returns: {
+          avg_basket: number
+          date: string
+          organization_id: string
+          store_name: string
+          total_sales: number
+          transaction_count: number
+        }[]
+      }
+      get_admin_seller_performance: {
+        Args: { p_organization_id?: string; p_period?: string }
+        Returns: {
+          avg_sale_amount: number
+          last_login_at: string
+          last_sale_at: string
+          org_name: string
+          organization_id: string
+          seller_id: string
+          seller_name: string
+          seller_role: string
+          store_name: string
+          total_revenue: number
+          total_sales: number
+        }[]
+      }
+      get_admin_stock_movements: {
+        Args: {
+          p_end_date?: string
+          p_limit?: number
+          p_organization_id?: string
+          p_period?: string
+          p_start_date?: string
+        }
+        Returns: {
+          created_at: string
+          movement_id: string
+          movement_type: string
+          new_quantity: number
+          organization_id: string
+          previous_quantity: number
+          product_id: string
+          product_name: string
+          quantity: number
+          reason: string
+          store_name: string
+        }[]
+      }
+      get_admin_stores_summary: { Args: never; Returns: Json }
+      get_admin_users_per_org: {
+        Args: never
+        Returns: {
+          active_users: number
+          admin_count: number
+          comptable_count: number
+          manager_count: number
+          org_name: string
+          organization_id: string
+          total_users: number
+          vendeur_count: number
+        }[]
+      }
+      get_categories: {
+        Args: never
+        Returns: {
+          description: string
+          id: string
+          name: string
+          product_count: number
+          sort_order: number
+        }[]
+      }
+      get_category_kpis: {
+        Args: { p_organization_id?: string; p_period?: string }
+        Returns: {
+          category_color: string
+          category_icon: string
+          category_id: string
+          category_name: string
+          cost: number
+          margin: number
+          margin_pct: number
+          products_in_category: number
+          quantity_sold: number
+          revenue: number
+          revenue_pct: number
+          sales_count: number
+          top_product_name: string
+        }[]
+      }
+      get_customer_stats: { Args: never; Returns: Json }
+      get_dashboard_stats: {
+        Args: {
+          p_day_end?: string
+          p_day_start?: string
+          p_month_end?: string
+          p_month_start?: string
+        }
+        Returns: Json
+      }
+      get_enhanced_dashboard_stats: {
+        Args: { p_organization_id?: string; p_period?: string }
+        Returns: {
+          avg_basket: number
+          avg_products_per_sale: number
+          cash_amount: number
+          cash_count: number
+          credit_amount: number
+          credit_count: number
+          customers_served: number
+          gross_margin: number
+          low_stock_count: number
+          mobile_money_amount: number
+          mobile_money_count: number
+          out_of_stock_count: number
+          total_cost: number
+          total_discounts: number
+          total_products_sold: number
+          total_sales_amount: number
+          total_tax: number
+          total_transactions: number
+        }[]
+      }
+      get_expense_stats: { Args: never; Returns: Json }
+      get_low_stock_products: {
+        Args: { p_limit?: number }
+        Returns: {
+          category_icon: string
+          category_name: string
+          id: string
+          min_stock_alert: number
+          name: string
+          stock_quantity: number
+        }[]
+      }
+      get_next_category_sort_order: { Args: never; Returns: number }
+      get_onboarding_checklist: { Args: never; Returns: Json }
+      get_organization_stores: {
+        Args: never
+        Returns: {
+          category: string
+          country: string
+          created_at: string
+          currency: string
+          id: string
+          name: string
+          slug: string
+        }[]
+      }
+      get_organization_subscription: { Args: never; Returns: Json }
+      get_payment_history: { Args: { p_limit?: number }; Returns: Json }
+      get_plans: {
+        Args: never
+        Returns: {
+          created_at: string
+          currency: string
+          description: string | null
+          has_admin_analytics: boolean
+          has_advanced_reports: boolean
+          has_ai_assistant: boolean
+          has_api_access: boolean
+          has_backup_restore: boolean
+          has_custom_branding: boolean
+          has_exports: boolean
+          has_loyalty_program: boolean
+          has_multi_currency: boolean
+          has_offline_advanced: boolean
+          has_priority_support: boolean
+          has_supplier_management: boolean
+          id: string
+          is_active: boolean
+          max_products: number | null
+          max_sales_per_month: number | null
+          max_stores: number | null
+          max_users: number | null
+          name: string
+          price_monthly: number
+          price_yearly: number | null
+          sort_order: number
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "plans"
+          isOneToOne: false
+          isSetofReturn: true
         }
       }
-      generate_sale_number: { Args: never; Returns: string }
+      get_product_kpis_by_period: {
+        Args: { p_organization_id?: string; p_period?: string }
+        Returns: {
+          category_name: string
+          cost: number
+          margin: number
+          margin_pct: number
+          org_name: string
+          product_id: string
+          product_name: string
+          quantity_sold: number
+          rank_type: string
+          revenue: number
+          revenue_pct_of_total: number
+          stock_quantity: number
+        }[]
+      }
+      get_product_stats: { Args: never; Returns: Json }
+      get_reports_stats:
+        | {
+            Args: { p_end: string; p_organization_id: string; p_start: string }
+            Returns: Json
+          }
+        | { Args: { p_end: string; p_start: string }; Returns: Json }
+      get_seller_activities: {
+        Args: { p_limit?: number; p_user_id?: string }
+        Returns: {
+          action: string
+          created_at: string
+          description: string
+          id: string
+          metadata: Json
+          seller_name: string
+          user_id: string
+        }[]
+      }
+      get_seller_kpis_detailed: {
+        Args: { p_organization_id?: string; p_period?: string }
+        Returns: {
+          avg_basket: number
+          avg_products_per_sale: number
+          is_active: boolean
+          last_sale_at: string
+          org_name: string
+          seller_id: string
+          seller_name: string
+          seller_role: string
+          top_category_name: string
+          top_product_name: string
+          total_amount: number
+          total_products_sold: number
+          total_sales: number
+        }[]
+      }
+      get_seller_performance: {
+        Args: { p_period_end?: string; p_period_start?: string }
+        Returns: {
+          avg_sale_amount: number
+          is_active: boolean
+          last_login_at: string
+          last_logout_at: string
+          last_seen_at: string
+          role: string
+          seller_name: string
+          total_revenue: number
+          total_sales: number
+          user_id: string
+        }[]
+      }
+      get_store_stats: {
+        Args: { p_store_id: string }
+        Returns: {
+          active_product_count: number
+          customer_count: number
+          expenses_this_month: number
+          low_stock_count: number
+          product_count: number
+          sales_this_month: number
+          sales_today: number
+        }[]
+      }
+      get_stripe_customer: { Args: never; Returns: Json }
+      get_supplier_stats: { Args: never; Returns: Json }
+      get_supplier_with_products: {
+        Args: { p_supplier_id: string }
+        Returns: Json
+      }
+      get_top_products: { Args: { p_limit?: number }; Returns: Json }
       get_user_organization_id: { Args: never; Returns: string }
-      has_role: {
+      get_whatsapp_config: { Args: never; Returns: Json }
+      get_whatsapp_stats: { Args: never; Returns: Json }
+      has_role:
+        | {
+            Args: {
+              _role: Database["public"]["Enums"]["app_role"]
+              _user_id: string
+            }
+            Returns: boolean
+          }
+        | { Args: { _role: string; _user_id: string }; Returns: boolean }
+      increment_customer_credit: {
+        Args: { p_amount: number; p_customer_id: string }
+        Returns: undefined
+      }
+      insert_default_categories: {
+        Args: { p_org_id: string; p_user_id: string }
+        Returns: undefined
+      }
+      invite_user: {
         Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
+          p_email: string
+          p_role?: Database["public"]["Enums"]["app_role"]
         }
-        Returns: boolean
+        Returns: string
       }
       is_member_of_organization: { Args: { _org_id: string }; Returns: boolean }
+      is_org_admin: { Args: never; Returns: boolean }
+      is_super_admin: { Args: never; Returns: boolean }
       is_user_active: { Args: { _user_id: string }; Returns: boolean }
-      insert_default_categories: { Args: { p_org_id: string; p_user_id: string }; Returns: undefined }
+      log_user_activity: {
+        Args: { p_action: string; p_description?: string; p_metadata?: Json }
+        Returns: string
+      }
+      process_credit_payment: {
+        Args: {
+          p_amount: number
+          p_customer_id: string
+          p_description?: string
+        }
+        Returns: undefined
+      }
+      process_pos_sale: {
+        Args: { p_account_id: string; p_product_id: string; p_quantity: number }
+        Returns: Json
+      }
+      receive_purchase_order: {
+        Args: { p_notes?: string; p_order_id: string; p_received_items: Json }
+        Returns: undefined
+      }
+      record_user_logout: { Args: never; Returns: undefined }
+      register_user: {
+        Args: {
+          p_business_name: string
+          p_organization_id?: string
+          p_owner_name: string
+          p_phone?: string
+          p_role?: string
+        }
+        Returns: undefined
+      }
       resolve_stock_conflict: {
         Args: {
           local_new_qty: number
@@ -1618,312 +2317,97 @@ export type Database = {
         }
         Returns: number
       }
+      save_whatsapp_config: {
+        Args: {
+          p_access_token?: string
+          p_auto_send_message?: string
+          p_auto_send_receipt?: boolean
+          p_business_account_id?: string
+          p_phone_number_id?: string
+          p_template_language?: string
+          p_template_name?: string
+          p_whatsapp_phone?: string
+        }
+        Returns: boolean
+      }
+      select_plan: { Args: { p_plan_id: string }; Returns: string }
+      set_current_store: { Args: { p_store_id: string }; Returns: undefined }
+      setup_onboarding_store: {
+        Args: {
+          p_address?: string
+          p_category?: Database["public"]["Enums"]["store_category"]
+          p_city?: string
+          p_phone?: string
+          p_store_name: string
+        }
+        Returns: string
+      }
+      super_admin_create_organization: {
+        Args: {
+          p_address?: string
+          p_city?: string
+          p_country: string
+          p_currency: string
+          p_org_name: string
+          p_store_category: string
+          p_store_name: string
+          p_store_slug: string
+        }
+        Returns: {
+          error: string
+          org_id: string
+          store_id: string
+          success: boolean
+        }[]
+      }
       touch_last_login: { Args: never; Returns: undefined }
-      create_full_sale: {
-        Args: {
-          p_sale_number: string
-          p_subtotal: number
-          p_total_amount: number
-          p_items: {
-            product_id: string
-            product_name: string
-            quantity: number
-            unit_price: number
-            total_price: number
-          }[]
-          p_tax_amount?: number
-          p_payment_method?: string
-          p_amount_paid?: number
-          p_change_amount?: number
-          p_customer_name?: string | null
-          p_customer_phone?: string | null
-          p_seller_name?: string | null
-        }
-        Returns: string
-      }
-      adjust_product_stock: {
-        Args: {
-          p_product_id: string
-          p_type: string
-          p_quantity: number
-          p_reason?: string | null
-        }
-        Returns: {
-          new_quantity: number
-          previous_quantity: number
-        }[]
-      }
-      increment_customer_credit: {
-        Args: {
-          p_customer_id: string
-          p_amount: number
-        }
-        Returns: undefined
-      }
-      process_credit_payment: {
-        Args: {
-          p_customer_id: string
-          p_amount: number
-          p_description?: string
-        }
-        Returns: undefined
-      }
-      register_user: {
-        Args: {
-          p_business_name: string
-          p_owner_name: string
-          p_phone?: string | null
-          p_role?: string
-          p_organization_id?: string | null
-        }
-        Returns: undefined
-      }
-      batch_update_stock: {
-        Args: {
-          p_sale_id: string
-          p_items: {
-            product_id: string
-            quantity: number
-            previous_quantity: number
-          }[]
-        }
-        Returns: undefined
-      }
-      decrement_stock: {
-        Args: {
-          p_product_id: string
-          p_quantity: number
-        }
-        Returns: undefined
-      }
-      get_dashboard_stats: {
-        Args: {
-          p_day_start?: string | null
-          p_day_end?: string | null
-          p_month_start?: string | null
-          p_month_end?: string | null
-        }
-        Returns: {
-          todaySales: number
-          todayTransactions: number
-          monthSales: number
-          monthCreditCount: number
-          monthExpenses: number
-          totalProducts: number
-          lowStockProducts: number
-          totalCredits: number
-          creditsCount: number
-        }[]
-      }
-      get_top_products: {
-        Args: {
-          p_since?: string | null
-          p_limit?: number
-        }
-        Returns: {
-          product_name: string
-          total_quantity: number
-          total_revenue: number
-        }[]
-      }
-      get_organization_subscription: {
-        Args: never
-        Returns: {
-          subscription_id: string
-          plan_id: string
-          plan_name: string
-          status: string
-          current_period_end: string
-          trial_ends_at: string | null
-          grace_period_ends_at: string | null
-          max_stores: number | null
-          max_users: number | null
-          max_products: number | null
-          max_sales_per_month: number | null
-          has_advanced_reports: boolean
-          has_exports: boolean
-          has_supplier_management: boolean
-          has_offline_advanced: boolean
-          has_api_access: boolean
-          has_priority_support: boolean
-          has_custom_branding: boolean
-          has_multi_currency: boolean
-          has_ai_assistant: boolean
-          has_loyalty_program: boolean
-        }[]
-      }
-      check_plan_limit: {
-        Args: { p_limit_type: string }
-        Returns: {
-          allowed: boolean
-          current_count: number
-          limit_value: number | null
-          plan_id: string
-        }[]
-      }
-      check_feature_access: {
-        Args: { p_feature_key: string }
-        Returns: {
-          allowed: boolean
-          plan_id: string
-        }[]
-      }
-      get_plans: {
-        Args: never
-        Returns: {
-          id: string
-          name: string
-          description: string | null
-          price_monthly: number
-          price_yearly: number | null
-          currency: string
-          max_stores: number | null
-          max_users: number | null
-          max_products: number | null
-          max_sales_per_month: number | null
-          has_advanced_reports: boolean
-          has_exports: boolean
-          has_supplier_management: boolean
-          has_offline_advanced: boolean
-          has_api_access: boolean
-          has_priority_support: boolean
-          has_custom_branding: boolean
-          has_multi_currency: boolean
-          has_ai_assistant: boolean
-          has_loyalty_program: boolean
-          sort_order: number
-          is_active: boolean
-        }[]
-      }
-      create_sale_with_limit: {
-        Args: {
-          p_store_id: string
-          p_customer_name: string | null
-          p_customer_phone: string | null
-          p_payment_method: string
-          p_items: Json
-          p_subtotal: number
-          p_tax_amount: number
-          p_total_amount: number
-          p_amount_paid: number
-          p_change_amount: number
-          p_seller_name: string | null
-        }
-        Returns: string
-      }
-      get_organization_stores: {
-        Args: never
-        Returns: {
-          id: string
-          name: string
-          slug: string | null
-          address: string | null
-          city: string | null
-          country: string | null
-          currency: string | null
-          phone: string | null
-          is_active: boolean
-          is_headquarters: boolean
-          category: Database["public"]["Enums"]["store_category"] | null
-          metadata: Json | null
-          created_at: string
-          updated_at: string
-          product_count: number
-          sales_this_month: number
-        }[]
-      }
-      select_plan: {
-        Args: { p_plan_id: string }
-        Returns: string
+      update_business_type: {
+        Args: { p_category: string; p_country?: string; p_currency?: string }
+        Returns: Json
       }
       update_onboarding_progress: {
         Args: {
-          p_current_step?: string | null
-          p_completed_steps?: string[] | null
-          p_onboarding_complete?: boolean | null
+          p_completed_steps?: string[]
+          p_current_step?: string
+          p_onboarding_complete?: boolean
         }
         Returns: Json
       }
-      update_business_type: {
-        Args: {
-          p_category: string
-          p_currency?: string | null
-          p_country?: string | null
-        }
+      update_organization_subscription: {
+        Args: { p_duration?: string; p_plan_id: string; p_status?: string }
         Returns: Json
-      }
-      setup_onboarding_store: {
-        Args: {
-          p_store_name: string
-          p_address?: string | null
-          p_city?: string | null
-          p_phone?: string | null
-          p_category?: Database["public"]["Enums"]["store_category"] | null
-        }
-        Returns: string
-      }
-      delete_store: {
-        Args: { p_store_id: string }
-        Returns: {
-          success: boolean
-          store_id: string
-          store_name: string
-        }
-      }
-      delete_organization: {
-        Args: { p_organization_id: string }
-        Returns: {
-          success: boolean
-          organization_id: string
-          organization_name: string
-          deleted_stores: number
-          deleted_users: number
-        }
-      }
-      get_seller_performance: {
-        Args: {
-          p_period_start?: string | null
-          p_period_end?: string | null
-        }
-        Returns: {
-          user_id: string
-          seller_name: string
-          role: string
-          total_sales: number
-          total_revenue: number
-          avg_sale_amount: number
-          last_login_at: string | null
-          last_logout_at: string | null
-          last_seen_at: string | null
-          is_active: boolean
-        }[]
-      }
-      get_seller_activities: {
-        Args: {
-          p_user_id?: string | null
-          p_limit?: number
-        }
-        Returns: {
-          id: string
-          user_id: string
-          seller_name: string
-          action: string
-          description: string | null
-          metadata: Json | null
-          created_at: string
-        }[]
-      }
-      log_user_activity: {
-        Args: {
-          p_action: string
-          p_description?: string | null
-          p_metadata?: Json | null
-        }
-        Returns: string
       }
     }
     Enums: {
-      app_role: "super_admin" | "admin" | "manager" | "vendeur" | "comptable"
+      app_activity_action:
+        | "login"
+        | "logout"
+        | "session_timeout"
+        | "sale_created"
+        | "sale_refunded"
+        | "sale_cancelled"
+        | "product_created"
+        | "product_updated"
+        | "product_deleted"
+        | "stock_adjusted"
+        | "stock_transfer"
+        | "customer_created"
+        | "customer_updated"
+        | "credit_payment"
+        | "supplier_created"
+        | "supplier_updated"
+        | "purchase_order_created"
+        | "purchase_order_received"
+        | "user_created"
+        | "user_deactivated"
+        | "user_reactivated"
+        | "password_reset"
+        | "settings_updated"
+        | "backup_created"
+        | "backup_restored"
+        | "store_created"
+        | "store_updated"
+      app_role: "admin" | "super_admin" | "manager" | "vendeur" | "comptable"
       payment_method:
         | "cash"
         | "wave"
@@ -1933,7 +2417,13 @@ export type Database = {
         | "mpesa"
         | "card"
         | "credit"
-      subscription_plan: "starter" | "croissance" | "enterprise"
+      po_status:
+        | "draft"
+        | "sent"
+        | "confirmed"
+        | "partial"
+        | "received"
+        | "cancelled"
       store_category:
         | "epicerie"
         | "boutique_vetements"
@@ -1951,7 +2441,9 @@ export type Database = {
         | "point_vente_telecom"
         | "salon_coiffure"
         | "autre"
+      subscription_plan: "starter" | "croissance" | "enterprise"
       sync_status: "synced" | "pending" | "conflict"
+      user_role: "super_admin" | "admin" | "manager" | "vendeur" | "comptable"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2077,9 +2569,41 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
-      app_role: ["super_admin", "admin", "manager", "vendeur", "comptable"],
+      app_activity_action: [
+        "login",
+        "logout",
+        "session_timeout",
+        "sale_created",
+        "sale_refunded",
+        "sale_cancelled",
+        "product_created",
+        "product_updated",
+        "product_deleted",
+        "stock_adjusted",
+        "stock_transfer",
+        "customer_created",
+        "customer_updated",
+        "credit_payment",
+        "supplier_created",
+        "supplier_updated",
+        "purchase_order_created",
+        "purchase_order_received",
+        "user_created",
+        "user_deactivated",
+        "user_reactivated",
+        "password_reset",
+        "settings_updated",
+        "backup_created",
+        "backup_restored",
+        "store_created",
+        "store_updated",
+      ],
+      app_role: ["admin", "super_admin", "manager", "vendeur", "comptable"],
       payment_method: [
         "cash",
         "wave",
@@ -2090,7 +2614,14 @@ export const Constants = {
         "card",
         "credit",
       ],
-      subscription_plan: ["starter", "croissance", "enterprise"],
+      po_status: [
+        "draft",
+        "sent",
+        "confirmed",
+        "partial",
+        "received",
+        "cancelled",
+      ],
       store_category: [
         "epicerie",
         "boutique_vetements",
@@ -2109,7 +2640,9 @@ export const Constants = {
         "salon_coiffure",
         "autre",
       ],
+      subscription_plan: ["starter", "croissance", "enterprise"],
       sync_status: ["synced", "pending", "conflict"],
+      user_role: ["super_admin", "admin", "manager", "vendeur", "comptable"],
     },
   },
 } as const

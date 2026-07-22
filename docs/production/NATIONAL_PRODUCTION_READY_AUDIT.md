@@ -131,6 +131,21 @@ Le dépôt contient à la racine un dossier `skills/` volumineux et **totalement
 
 **Correctif** (minimal, sans toucher au contenu de `skills/` — décision de le nettoyer/déplacer laissée à validation explicite, hors périmètre de ce fix CI) : `vite.config.ts` restreint désormais explicitement le scanner de dépendances à l'app réelle (`optimizeDeps.entries: ["index.html"]`) et refuse l'accès fichier à `skills/**` (`server.fs.deny`). **Vérifié en local** avec un cold-start réel (`node_modules/.vite` supprimé avant `npm run dev`) : plus aucune erreur de résolution, `/auth` rend correctement (`rootLen` identique à avant), build de production toujours vert (64 entrées précachées, identique).
 
+## P1.1 — Régénération des types Supabase
+
+**Constat initial** : `src/integrations/supabase/types.ts` (2115 lignes, committé) date d'avant plusieurs migrations appliquées en direct sur le schéma live (cf. P0.3) — notamment toutes les RPC `get_admin_*` ajoutées par `20260716100000_admin_analytics_advanced_rpcs.sql`, jamais reflétées dans les types.
+
+**Action** : `npx supabase gen types typescript --linked` (lecture seule, introspection du schéma) → fichier frais de 2648 lignes, remplace l'ancien.
+
+**Vérification avant remplacement** : un premier diff automatique laissait croire que 6 fonctions encore appelées côté client (`admin_get_all_subscriptions`, `check_feature_access`, `check_plan_limit`, `delete_store`, `get_organization_subscription`, `get_top_products`) avaient disparu du schéma — **faux positif** dû à une regex de comparaison trop simple (l'ancien fichier est multi-lignes formaté, le nouveau est compact sur une ligne). Confirmé par requête directe (`has_function_privilege`) : les 6 existent bien en base avec les permissions `anon`/`authenticated` correctes. Aucune fonctionnalité cassée.
+
+**Résultat du remplacement** :
+- `AdminAnalytics.tsx` : 30 → 11 erreurs de type (19 résolues, cohérent avec P0.2 — c'était bien le fichier de types obsolète qui causait ces erreurs sur les RPC `get_admin_*`)
+- **Total projet** : 387 → 417 erreurs de type. La hausse n'est pas une régression du remplacement lui-même : les nouveaux types, plus fidèles au schéma réel, révèlent des incohérences code/DB pré-existantes qui étaient jusqu'ici masquées par des types obsolètes (donc incorrects) ailleurs dans le projet (`Reports.tsx`, `Products.tsx`, `POS.tsx`, `PurchaseOrders.tsx`, `Dashboard.tsx`, `Suppliers.tsx`, `Billing.tsx`, `Stores.tsx`, plusieurs fichiers de test). Non traitées dans cette session — ce chantier de triage est plus large que le périmètre de P1.1 (régénérer + vérifier non-régression), documenté ici pour suite.
+- **Non-régression confirmée** : build de production vert (identique, 64 entrées précachées), lint scopé vert (0 erreur/9 warnings, inchangé), suite unitaire complète 81/81 fichiers · 1055/1055 tests toujours verts après remplacement.
+
+**Décision** : le nouveau fichier de types est conservé (vérité du schéma > confort d'un compteur d'erreurs plus bas basé sur des types faux). Le triage des ~417 erreurs de type (dont beaucoup pré-datent cette session) reste un chantier ouvert, à prioriser en P1.2/P1.3 ou dans une itération dédiée.
+
 ## Décision avant correction (P0-P6)
 
 **Aucune déclaration de "production ready" n'est faite à ce stade.** L'audit initial a lui-même révélé deux bugs bloquants qui auraient invalidé toute mesure ultérieure s'ils n'avaient pas été corrigés en premier. Les risques listés ci-dessus (typecheck non fonctionnel en CI, 4 tests unitaires rouges, couverture E2E credentialée non vérifiée) doivent être traités avant toute décision Démo / Pilote / Déploiement. Passage aux tâches P0.1 → P0.5 ensuite.
