@@ -170,7 +170,6 @@ export const OfflinePOSSimulationPanel = () => {
 
   const pendingCount = sales.filter((s) => s.status === "pending").length;
   const syncedCount = sales.filter((s) => s.status === "synced").length;
-  const dupCount = sales.filter((s) => s.status === "duplicate").length;
 
   return (
     <Card>

@@ -16,7 +16,6 @@ import {
   ReceiptData,
   ReceiptPaperSize,
   downloadReceipt,
-  shareViaWhatsApp,
   generateReceiptText,
   formatPriceWithCurrency,
 } from "@/utils/receiptGenerator";

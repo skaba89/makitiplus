@@ -1,11 +1,11 @@
 import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useOnlineStatus } from "@/contexts/OfflineContext";
-import { enqueueMutation, cacheData, getCachedData, OFFLINE_STORES, type OfflineStoreName } from "@/lib/offlineQueue";
+import { enqueueMutation, cacheData, getCachedData, type OfflineStoreName } from "@/lib/offlineQueue";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
-import type { DynamicSupabaseQuery } from "@/lib/supabaseDynamicQuery";
+import type { DynamicSupabaseQuery, SupabaseResult } from "@/lib/supabaseDynamicQuery";
 import { logger } from "@/lib/logger";
 
 /**
@@ -28,7 +28,7 @@ export function useOfflineQuery<T extends { id: string }>(
 ) {
   const { isOnline } = useOnlineStatus();
   const { user } = useAuth();
-  const { effectiveOrgId } = useOrgSelector();
+  useOrgSelector();
 
   const query = useQuery({
     queryKey,
@@ -40,7 +40,7 @@ export function useOfflineQuery<T extends { id: string }>(
       }
 
       // Online: fetch from Supabase (dynamic table — cast through any)
-      let query: DynamicSupabaseQuery = supabase.from(table as never).select(options?.select || "*");
+      let query = (supabase.from(table as never).select(options?.select || "*") as unknown) as DynamicSupabaseQuery;
 
       if (options?.filter) {
         for (const [key, value] of Object.entries(options.filter)) {
@@ -106,22 +106,22 @@ export function useOfflineMutation<TData = unknown>(
           data: mutationData.data || {},
           filter: mutationData.filter,
           userId: user?.id,
-          organizationId: effectiveOrgId || profile?.organization_id,
+          organizationId: effectiveOrgId || profile?.organization_id || undefined,
         });
 
         return { offline: true, queued: true } as unknown as TData;
       }
 
       // Online: execute immediately (dynamic table — cast through any)
-      let result: DynamicSupabaseQuery;
+      let result: SupabaseResult;
 
       switch (operation) {
         case "INSERT":
-          result = await supabase
+          result = (await (supabase
             .from(table as never)
             .insert({ ...mutationData.data, user_id: user?.id ?? "" } as never)
             .select()
-            .single();
+            .single() as unknown as DynamicSupabaseQuery)) as unknown as SupabaseResult;
           break;
         case "UPDATE": {
           // Safety: require at least one filter condition to prevent updating all rows
@@ -129,10 +129,10 @@ export function useOfflineMutation<TData = unknown>(
           if (Object.keys(updateFilter).length === 0) {
             throw new Error("UPDATE requires at least one filter condition (e.g., { id: ... })");
           }
-          result = await supabase
+          result = (await (supabase
             .from(table as never)
             .update(mutationData.data as never)
-            .match(updateFilter as never);
+            .match(updateFilter as never) as unknown as DynamicSupabaseQuery)) as unknown as SupabaseResult;
           break;
         }
         case "DELETE": {
@@ -141,10 +141,10 @@ export function useOfflineMutation<TData = unknown>(
           if (Object.keys(deleteFilter).length === 0) {
             throw new Error("DELETE requires at least one filter condition (e.g., { id: ... })");
           }
-          result = await supabase
+          result = (await (supabase
             .from(table as never)
             .delete()
-            .match(deleteFilter as never);
+            .match(deleteFilter as never) as unknown as DynamicSupabaseQuery)) as unknown as SupabaseResult;
           break;
         }
       }

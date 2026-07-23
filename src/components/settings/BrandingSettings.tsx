@@ -1,7 +1,5 @@
 import { useState, useRef } from "react";
 import { useBranding, hslToHex, hexToHsl, type BrandingConfig } from "@/contexts/BrandingContext";
-import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { BRAND_DEFAULTS } from "@/constants/brandDefaults";
 import { reportError } from "@/lib/sentry";
@@ -9,7 +7,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -56,7 +53,6 @@ const LANGUAGE_OPTIONS = [
 
 export const BrandingSettings = () => {
   const { branding, updateBranding, uploadLogo, removeLogo, isLoading } = useBranding();
-  const { profile } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 

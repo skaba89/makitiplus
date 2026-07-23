@@ -12,7 +12,6 @@ import { useProductSearch, useOfflineProductSearch, lookupBarcode, lookupBarcode
 import { useOnlineStatus } from "@/contexts/OfflineContext";
 import { reportError } from "@/lib/sentry";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useStore } from "@/contexts/StoreContext";
 
@@ -47,7 +46,6 @@ export const ProductAutocomplete = ({
   const { formatPrice } = useCurrency();
   const orgTaxRate = useOrgTaxRate();
   const { isOnline } = useOnlineStatus();
-  const { user, profile } = useAuth();
   const { toast } = useToast();
   const { currentStore } = useStore();
   const [query, setQuery] = useState("");
@@ -191,14 +189,14 @@ export const ProductAutocomplete = ({
                         p_price: 0,
                         p_stock_quantity: 0,
                         p_min_stock_alert: 0,
-                        p_cost_price: null,
-                        p_category_id: null,
-                        p_barcode: null,
+                        p_cost_price: undefined,
+                        p_category_id: undefined,
+                        p_barcode: undefined,
                         p_unit: "unité",
-                        p_supplier_id: null,
-                        p_store_id: currentStore?.id ?? null,
-                        p_description: null,
-                        p_image_url: null,
+                        p_supplier_id: undefined,
+                        p_store_id: currentStore?.id ?? undefined,
+                        p_description: undefined,
+                        p_image_url: undefined,
                         p_is_active: true,
                       });
 

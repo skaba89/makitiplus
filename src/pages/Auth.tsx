@@ -6,19 +6,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Store, User, Phone, Mail, Lock, Shield, KeyRound, CheckCircle2 } from "lucide-react";
 import { z } from "zod";
-import { Database } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import { PasswordStrengthMeter } from "@/components/users/PasswordStrengthMeter";
 import { checkPassword } from "@/lib/passwordPolicy";
 import { reportError } from "@/lib/sentry";
 import { extractErrorMessage } from "@/lib/extractErrorMessage";
 import { EdgeFunctionResponse, ADMIN_ROLES } from "@/types";
-
-type AppRole = Database["public"]["Enums"]["app_role"];
 
 const loginSchema = z.object({
   email: z.string().email("Email invalide"),
@@ -271,14 +267,6 @@ const Auth = () => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const roleLabels: Record<AppRole, { label: string; description: string }> = {
-    super_admin: { label: "Super Admin", description: "Gestion de tous les magasins" },
-    admin: { label: "Administrateur", description: "Accès complet au système" },
-    manager: { label: "Manager", description: "Gestion de l'équipe et rapports" },
-    vendeur: { label: "Vendeur", description: "Point de vente et stocks" },
-    comptable: { label: "Comptable", description: "Finances et rapports" },
   };
 
   // Render redemption screen when arriving via SMS magic link

@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { reportError } from "@/lib/sentry";
 import { extractErrorMessage } from "@/lib/extractErrorMessage";
-import { Plus, FolderOpen, Pencil, Trash2, Loader2, Search, ArrowUpDown, Tag, Package } from "lucide-react";
+import { Plus, FolderOpen, Pencil, Trash2, Loader2, Search, ArrowUpDown, Tag } from "lucide-react";
 import { CategoryIcon } from "@/components/ui/category-icon";
 import { MANAGEMENT_ROLES } from "@/types";
 
@@ -47,7 +47,7 @@ type CategoryInsert = Database["public"]["Tables"]["categories"]["Insert"];
 const PRESET_ICONS = ["Package", "Wheat", "CupSoda", "Sparkles", "Brush", "Wrench", "Smartphone", "Shirt", "Croissant", "Leaf", "Drumstick", "Snowflake"];
 
 const Categories = () => {
-  const { user, profile, userRole } = useAuth();
+  const { user, userRole } = useAuth();
   const { effectiveOrgId } = useOrgSelector();
   const { toast } = useToast();
   const { blockMutation } = useDemo();

@@ -1,9 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBranding } from "@/contexts/BrandingContext";
-import { useThemeSettings, TEMPLATE_PRESETS, type TemplateName, type StoreSettings } from "@/contexts/ThemeContext";
+import { useThemeSettings, TEMPLATE_PRESETS, type TemplateName } from "@/contexts/ThemeContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -109,12 +108,11 @@ const LANGUAGE_OPTIONS = [
 /* ------------------------------------------------------------------ */
 
 const StoreCustomization = () => {
-  const { profile, user } = useAuth();
+  const { profile } = useAuth();
   const { settings, isLoading, updateSettings, resetTheme } = useThemeSettings();
   const { branding, updateBranding } = useBranding();
   const { toast } = useToast();
   const { blockMutation } = useDemo();
-  const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
 

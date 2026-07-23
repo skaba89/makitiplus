@@ -29,7 +29,7 @@ interface OrgInfo {
   currency: string | null;
 }
 
-interface OrgSelectorContextValue {
+export interface OrgSelectorContextValue {
   isSuperAdmin: boolean;
   selectedOrgId: string;
   setSelectedOrgId: (id: string) => void;

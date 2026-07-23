@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCurrency } from "@/hooks/useCurrency";
-import { UNIQUE_CURRENCIES, DEFAULT_CURRENCY, getCurrencyByCode } from "@/utils/currencies";
+import { UNIQUE_CURRENCIES, getCurrencyByCode } from "@/utils/currencies";
 import { useToast } from "@/hooks/use-toast";
 import { Coins } from "lucide-react";
 import { reportError } from "@/lib/sentry";
@@ -25,7 +25,7 @@ export const CurrencySelector = ({
   variant = "compact",
   className = "",
 }: CurrencySelectorProps) => {
-  const { user, profile, refreshProfile } = useAuth();
+  const { user, refreshProfile } = useAuth();
   const { currency } = useCurrency();
   const { toast } = useToast();
   const queryClient = useQueryClient();

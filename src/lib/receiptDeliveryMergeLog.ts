@@ -22,10 +22,8 @@ import {
   STORES,
   isIndexedDBAvailable,
   getAll as idbGetAll,
-  putMany as idbPutMany,
   clearStore as idbClearStore,
   replaceAll as idbReplaceAll,
-  count as idbCount,
 } from "./indexedDBStorage";
 
 const LS_KEY = "malikiplus:receipt_delivery_merge_log";

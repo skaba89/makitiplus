@@ -288,7 +288,8 @@ async function flushMutationQueue(
       }
 
       if (result?.error) {
-        await updateMutationStatus(mutation.id, "failed", result.error.message, false);
+        const errMessage = result.error instanceof Error ? result.error.message : String(result.error);
+        await updateMutationStatus(mutation.id, "failed", errMessage, false);
         failed++;
       } else {
         await removeMutation(mutation.id, false);
@@ -358,7 +359,7 @@ async function flushRPCQueue(
     await updateMutationStatus(mutation.id, "syncing", undefined, true);
 
     try {
-      const { error: rpcError } = await supabase.rpc(mutation.rpcName, mutation.data);
+      const { error: rpcError } = await supabase.rpc(mutation.rpcName as never, mutation.data as never);
 
       if (rpcError) {
         await updateMutationStatus(mutation.id, "failed", rpcError.message, true);

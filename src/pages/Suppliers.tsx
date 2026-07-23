@@ -154,7 +154,7 @@ const Suppliers = () => {
       if (effectiveOrgId) {
         insertData.organization_id = effectiveOrgId;
       }
-      const { error } = await supabase.from("suppliers").insert(insertData);
+      const { error } = await supabase.from("suppliers").insert(insertData as never);
       if (error) return [];
     },
     onSuccess: () => {

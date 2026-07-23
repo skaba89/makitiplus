@@ -42,7 +42,7 @@ export function CategoryKpisCard() {
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_category_kpis", {
         p_period: period,
-        p_organization_id: effectiveOrgId || null,
+        p_organization_id: effectiveOrgId || undefined,
       });
       if (error) {
         console.warn("[CategoryKpis] RPC failed:", error.message);

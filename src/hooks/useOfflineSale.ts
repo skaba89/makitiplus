@@ -160,12 +160,12 @@ export function useOfflineSale(options?: {
           p_payment_method: paymentMethod,
           p_amount_paid: amountPaid,
           p_change_amount: changeAmount > 0 ? changeAmount : 0,
-          p_customer_name: customerName || null,
-          p_customer_phone: customerPhone || null,
-          p_seller_name: profile?.owner_name || null,
+          p_customer_name: customerName || undefined,
+          p_customer_phone: customerPhone || undefined,
+          p_seller_name: profile?.owner_name || undefined,
           p_items: saleItems,
           p_discount_amount: discountAmount,
-          p_store_id: currentStore?.id ?? null,
+          p_store_id: currentStore?.id ?? undefined,
         });
 
         if (rpcError || !rpcSaleId) {
@@ -211,7 +211,7 @@ export function useOfflineSale(options?: {
               .from("customers")
               .select("id")
               .eq("name", customerName)
-              .eq("organization_id", orgId)
+              .eq("organization_id", orgId ?? "")
               .maybeSingle();
             if (existingCustomer) {
               customerId = existingCustomer.id;

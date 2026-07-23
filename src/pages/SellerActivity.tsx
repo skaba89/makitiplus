@@ -14,7 +14,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
-import { CurrencyDisplaySelector } from "@/components/ui/currency-display-selector";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -105,17 +104,12 @@ const ROLE_STYLES: Record<string, { label: string; variant: "default" | "seconda
 export default function SellerActivity() {
   const { userRole } = useAuth();
   const { effectiveOrgId } = useOrgSelector();
-  const { formatPrice } = useCurrency();
+  useCurrency();
   const {
     formatDisplayPrice,
-    displayCurrencyCode,
-    orgCurrencyCode,
-    setDisplayCurrency,
-    ratesLoading,
-    refreshRates,
     isConverted,
   } = useDisplayCurrency();
-  const { toast } = useToast();
+  useToast();
 
   const [periodFilter, setPeriodFilter] = useState<string>("month");
   const [search, setSearch] = useState("");
@@ -161,7 +155,7 @@ export default function SellerActivity() {
     queryKey: ["seller-activities", selectedSellerId, effectiveOrgId],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_seller_activities", {
-        p_user_id: selectedSellerId,
+        p_user_id: selectedSellerId ?? undefined,
         p_limit: 200,
       });
       if (error) return [];

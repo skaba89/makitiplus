@@ -18,7 +18,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
@@ -29,9 +28,6 @@ import { extractErrorMessage } from "@/lib/extractErrorMessage";
 import { Wallet, Printer, CheckCircle, AlertTriangle, TrendingUp, Banknote } from "lucide-react";
 import { startOfDay, endOfDay, format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { FINANCIAL_ROLES, MANAGEMENT_ROLES } from "@/types";
-
-type PaymentMethod = "cash" | "wave" | "orange_money" | "mtn_money" | "credit";
 
 const PAYMENT_LABELS: Record<string, string> = {
   cash: "Espèces",
@@ -52,7 +48,7 @@ const PAYMENT_ICONS: Record<string, string> = {
 export default function CashClosing() {
   const { user, profile } = useAuth();
   const { formatPrice } = useCurrency();
-  const { effectiveOrgId, isSuperAdmin } = useOrgSelector();
+  const { effectiveOrgId } = useOrgSelector();
   const {
     formatDisplayPrice,
     displayCurrencyCode,
@@ -139,11 +135,21 @@ export default function CashClosing() {
 
   const handleClose = useMutation({
     mutationFn: async () => {
-      // Enregistrer la clôture dans app_activity (table existante)
-      const { error } = await supabase.from("app_activity").insert({
+      // Enregistrer la clôture dans user_activity_logs. La table s'appelait
+      // "app_activity" dans un commentaire précédent mais n'a jamais existé
+      // sous ce nom — l'insertion échouait donc silencieusement à chaque
+      // clôture de caisse (erreur avalée par `if (error) return [];`
+      // ci-dessous auparavant, sans jamais remonter à l'utilisateur).
+      // "settings_updated" est réutilisé faute d'une valeur "cash_closing"
+      // dans l'ENUM app_activity_action (aucune valeur dédiée n'existe côté
+      // schéma) — imprécis mais fonctionnel ; `description` porte le vrai
+      // libellé. Ajouter la valeur d'ENUM dédiée est un changement de schéma
+      // additif à part, non fait ici.
+      const { error } = await supabase.from("user_activity_logs").insert({
         user_id: user?.id ?? "",
-        action: "cash_closing",
-        details: {
+        action: "settings_updated",
+        description: `Clôture de caisse ${format(today, "yyyy-MM-dd")}`,
+        metadata: {
           date: format(today, "yyyy-MM-dd"),
           total_sales: totalSales,
           cash_sales: cashSales,
@@ -155,7 +161,7 @@ export default function CashClosing() {
           notes: notes || null,
         } as never,
       });
-      if (error) return [];
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cash-closing"] });

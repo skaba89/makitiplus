@@ -18,7 +18,7 @@ import { useDemo } from "@/contexts/DemoContext";
 import { useStoreId } from "@/contexts/StoreContext";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { FeatureGate } from "@/components/saas/PlanLimitGuard";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -64,7 +64,6 @@ import {
   Package,
   Sparkles,
   Eye,
-  Edit,
   Trash2,
   CheckCircle,
   Clock,
@@ -87,7 +86,6 @@ import { Supplier, Product } from "@/types";
 import { ReceiveOrderForm } from "@/components/purchase-orders/ReceiveOrderForm";
 import { reportError } from "@/lib/sentry";
 import { Lock } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -182,7 +180,7 @@ const PurchaseOrders = () => {
         .order("created_at", { ascending: false });
 
       if (statusFilter !== "all") {
-        query = query.eq("status", statusFilter);
+        query = query.eq("status", statusFilter as PurchaseOrder["status"]);
       }
       if (effectiveOrgId) {
         query = query.eq("organization_id", effectiveOrgId);
@@ -252,14 +250,14 @@ const PurchaseOrders = () => {
         p_price: 0,
         p_stock_quantity: 0,
         p_min_stock_alert: 0,
-        p_cost_price: null,
-        p_category_id: null,
-        p_barcode: null,
+        p_cost_price: undefined,
+        p_category_id: undefined,
+        p_barcode: undefined,
         p_unit: "unité",
-        p_supplier_id: null,
-        p_store_id: storeId,
-        p_description: null,
-        p_image_url: null,
+        p_supplier_id: undefined,
+        p_store_id: storeId ?? undefined,
+        p_description: undefined,
+        p_image_url: undefined,
         p_is_active: true,
       });
       if (error) return [];
@@ -371,7 +369,7 @@ const PurchaseOrders = () => {
 
   // ─── Update status ───────────────────────────────────────────
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+    mutationFn: async ({ id, status }: { id: string; status: PurchaseOrder["status"] }) => {
       const { error } = await supabase
         .from("purchase_orders")
         .update({ status, updated_at: new Date().toISOString() })
@@ -429,7 +427,7 @@ const PurchaseOrders = () => {
 
   const updateItem = (index: number, field: string, value: string | number) => {
     const updated = [...formItems];
-    (updated[index] as Record<string, string | number | null>)[field] = value;
+    (updated[index] as unknown as Record<string, string | number | null>)[field] = value;
     // Recalculate line total
     if (["quantity_ordered", "unit_cost"].includes(field)) {
       updated[index].line_total =

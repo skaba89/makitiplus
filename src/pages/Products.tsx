@@ -134,7 +134,7 @@ const Products = () => {
     orderBy: { column: "created_at", ascending: false },
     page: currentPage,
     pageSize: PAGE_SIZE,
-    queryKey: ["products", user?.id ?? "", storeFilter, effectiveOrgId],
+    queryKey: ["products", user?.id ?? "", storeFilter, effectiveOrgId ?? ""],
     enabled: !!user,
   });
 
@@ -153,16 +153,16 @@ const Products = () => {
       const { data, error } = await supabase.rpc("create_product", {
         p_name: product.name,
         p_price: product.price,
-        p_category_id: product.category_id || null,
-        p_barcode: product.barcode || null,
+        p_category_id: product.category_id || undefined,
+        p_barcode: product.barcode || undefined,
         p_unit: product.unit || 'unité',
         p_stock_quantity: product.stock_quantity ?? 0,
         p_min_stock_alert: product.min_stock_alert ?? 5,
-        p_cost_price: product.cost_price || null,
-        p_supplier_id: product.supplier_id || null,
-        p_store_id: product.store_id || null,
-        p_description: product.description || null,
-        p_image_url: product.image_url || null,
+        p_cost_price: product.cost_price || undefined,
+        p_supplier_id: product.supplier_id || undefined,
+        p_store_id: product.store_id || undefined,
+        p_description: product.description || undefined,
+        p_image_url: product.image_url || undefined,
         p_is_active: product.is_active ?? true,
       });
 
@@ -279,7 +279,7 @@ const Products = () => {
           p_product_id: data.productId,
           p_type: data.type,
           p_quantity: data.quantity,
-          p_reason: data.reason || null,
+          p_reason: data.reason || undefined,
         }
       );
 
@@ -369,7 +369,7 @@ const Products = () => {
         const price = parseFloat(row["prix"] || row["price"] || "0") || 0;
         const stock = parseInt(row["stock"] || row["stock_quantity"] || "0") || 0;
         const costPrice = parseFloat(row["cout"] || row["cost_price"] || "0") || 0;
-        const barcode = row["code-barres"] || row["barcode"] || null;
+        const barcode = row["code-barres"] || row["barcode"] || undefined;
         const unit = row["unite"] || row["unit"] || "unité";
 
         try {
@@ -378,14 +378,14 @@ const Products = () => {
             p_price: price,
             p_stock_quantity: stock,
             p_min_stock_alert: 5,
-            p_cost_price: costPrice || null,
-            p_category_id: null,
+            p_cost_price: costPrice || undefined,
+            p_category_id: undefined,
             p_barcode: barcode,
             p_unit: unit,
-            p_supplier_id: null,
-            p_store_id: null,
-            p_description: null,
-            p_image_url: null,
+            p_supplier_id: undefined,
+            p_store_id: undefined,
+            p_description: undefined,
+            p_image_url: undefined,
             p_is_active: true,
           });
           if (error) { errors++; } else { created++; }

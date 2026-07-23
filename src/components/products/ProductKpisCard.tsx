@@ -52,7 +52,7 @@ export function ProductKpisCard() {
       // Essayer le RPC d'abord (SECURITY DEFINER → bypass RLS)
       const { data, error } = await supabase.rpc("get_product_kpis_by_period", {
         p_period: period,
-        p_organization_id: effectiveOrgId || null,
+        p_organization_id: effectiveOrgId || undefined,
       });
       if (error) {
         console.warn("[ProductKpis] RPC failed:", error.message);

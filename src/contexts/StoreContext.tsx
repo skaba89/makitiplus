@@ -72,7 +72,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           .eq("organization_id", effectiveOrgId || "")
           .eq("is_active", true);
         if (fallbackError) return [];
-        return (fallbackData as Store[]) || [];
+        return (fallbackData as unknown as Store[]) || [];
       }
       return (data as Store[]) || [];
     },

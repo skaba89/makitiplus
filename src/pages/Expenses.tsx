@@ -93,10 +93,10 @@ import { reportError } from "@/lib/sentry";
  ];
  
 const Expenses = () => {
-  const { user, profile, userRole } = useAuth();
+  const { user, userRole } = useAuth();
   const { toast } = useToast();
   const { blockMutation } = useDemo();
-  const { formatPrice } = useCurrency();
+  useCurrency();
   const { effectiveOrgId } = useOrgSelector();
   const {
     formatDisplayPrice,

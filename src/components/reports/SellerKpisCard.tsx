@@ -42,7 +42,7 @@ export function SellerKpisCard() {
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_seller_kpis_detailed", {
         p_period: period,
-        p_organization_id: effectiveOrgId || null,
+        p_organization_id: effectiveOrgId || undefined,
       });
       if (error) {
         console.warn("[SellerKpis] RPC failed:", error.message);

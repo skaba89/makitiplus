@@ -1,6 +1,6 @@
 import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { reportError } from "@/lib/sentry";
@@ -96,7 +96,7 @@ export const useThemeSettings = () => {
 };
 
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
-  const { profile, user } = useAuth();
+  const { profile } = useAuth();
   const { effectiveOrgId } = useOrgSelector();
   const queryClient = useQueryClient();
   const [isUpdating, setIsUpdating] = useState(false);
@@ -130,7 +130,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
           .from("store_settings")
           .insert({
             organization_id: effectiveOrgId,
-            store_name: profile.business_name,
+            store_name: profile?.business_name,
           })
           .select()
           .single();

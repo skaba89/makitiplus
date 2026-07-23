@@ -26,7 +26,7 @@ interface Props {
 }
 
 export const CreditPaymentDialog = ({ customer, isOpen, onClose, onViewHistory }: Props) => {
-  const { user, profile } = useAuth();
+  useAuth();
   const { toast } = useToast();
   const { formatPrice } = useCurrency();
   const queryClient = useQueryClient();

@@ -296,9 +296,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { error: rpcError } = await supabase.rpc("register_user", {
         p_business_name: profileData.businessName,
         p_owner_name: profileData.ownerName,
-        p_phone: profileData.phone || null,
+        p_phone: profileData.phone || undefined,
         p_role: profileData.role,
-        p_organization_id: organizationId,
+        p_organization_id: organizationId ?? undefined,
       });
 
       if (!rpcError) {

@@ -162,7 +162,7 @@ class PageErrorBoundary extends Component<{ children: ReactNode }, { hasError: b
     reportError(error);
   }
   render() {
-    if (this.state.hasError) return <PageErrorFallback error={this.state.error} />;
+    if (this.state.hasError) return <PageErrorFallback error={this.state.error ?? undefined} />;
     return this.props.children;
   }
 }

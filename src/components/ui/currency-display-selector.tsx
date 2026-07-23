@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -18,7 +18,6 @@ import {
 } from "@/components/ui/select";
 import { Coins, RefreshCw, Info } from "lucide-react";
 import {
-  COUNTRIES,
   UNIQUE_CURRENCIES,
   getCurrencyByCode,
   CurrencyConfig,
