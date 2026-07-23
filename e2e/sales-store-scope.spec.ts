@@ -36,6 +36,18 @@ async function login(page: Page, email: string, password: string) {
   await page.waitForURL("**/dashboard", { timeout: 15_000 });
 }
 
+/**
+ * Navigue vers une page via un clic sur son lien de menu (navigation SPA) —
+ * PAS page.goto(), qui provoque un rechargement complet du navigateur. Le
+ * client Supabase est volontairement configuré avec persistSession: false
+ * (sécurité pilote — voir src/integrations/supabase/client.ts), donc un
+ * page.goto() post-login perdrait la session en mémoire.
+ */
+async function navigateViaMenu(page: Page, linkName: string): Promise<void> {
+  await page.getByRole("link", { name: linkName }).first().click();
+  await page.waitForLoadState("networkidle");
+}
+
 // ---------------------------------------------------------------------------
 // 1. Admin — login + multi-magasin
 // ---------------------------------------------------------------------------
@@ -49,8 +61,7 @@ test.describe("Sales Store Scope — Admin multi-magasin", () => {
     await login(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
 
     // Aller au POS
-    await page.goto(`${BASE_URL}/dashboard/pos`);
-    await page.waitForLoadState("networkidle");
+    await navigateViaMenu(page, "Point de vente");
 
     // Vérifier que la page POS est chargée
     await expect(page.getByText(/Point de vente|POS|Panier/i).first()).toBeVisible({
@@ -58,8 +69,7 @@ test.describe("Sales Store Scope — Admin multi-magasin", () => {
     });
 
     // Aller aux rapports
-    await page.goto(`${BASE_URL}/dashboard/reports`);
-    await page.waitForLoadState("networkidle");
+    await navigateViaMenu(page, "Rapports");
 
     // Vérifier que la page rapports est chargée
     await expect(page.getByText(/Rapports|Chiffre d'affaires/i).first()).toBeVisible({
@@ -72,8 +82,7 @@ test.describe("Sales Store Scope — Admin multi-magasin", () => {
   }) => {
     await login(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
 
-    await page.goto(`${BASE_URL}/dashboard/products`);
-    await page.waitForLoadState("networkidle");
+    await navigateViaMenu(page, "Produits");
 
     // La page Products doit se charger sans erreur
     await expect(page.getByText(/Produits/i).first()).toBeVisible({ timeout: 10_000 });
@@ -124,9 +133,8 @@ test.describe("Sales Store Scope — Offline", () => {
 
   test("indicateur offline visible quand réseau coupé", async ({ page, context }) => {
     await login(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
-
-    await page.goto(`${BASE_URL}/dashboard`);
-    await page.waitForLoadState("networkidle");
+    // Déjà sur /dashboard après login() (attend page.waitForURL("**/dashboard"))
+    // — pas de navigation supplémentaire nécessaire.
 
     // Couper le réseau
     await context.setOffline(true);
@@ -154,8 +162,7 @@ test.describe("Sales Store Scope — Sécurité", () => {
   test("vider panier nécessite confirmation", async ({ page }) => {
     await login(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
 
-    await page.goto(`${BASE_URL}/dashboard/pos`);
-    await page.waitForLoadState("networkidle");
+    await navigateViaMenu(page, "Point de vente");
 
     // Si le panier a des items, le bouton "Vider" doit demander confirmation
     // On ne remplit pas le panier pour ne pas casser les données réelles
@@ -168,8 +175,7 @@ test.describe("Sales Store Scope — Sécurité", () => {
   test("pas de suppression automatique de ventes", async ({ page }) => {
     await login(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
 
-    await page.goto(`${BASE_URL}/dashboard/reports`);
-    await page.waitForLoadState("networkidle");
+    await navigateViaMenu(page, "Rapports");
 
     // La page rapports ne doit pas avoir de bouton "Supprimer" les ventes
     // (seules les actions de filtre et d'export sont autorisées)

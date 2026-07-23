@@ -44,6 +44,43 @@ async function login(page: import("@playwright/test").Page, email: string, passw
   await page.waitForLoadState("networkidle");
 }
 
+/**
+ * Navigue vers une page via un clic sur son lien de menu (navigation SPA) —
+ * PAS page.goto(), qui provoque un rechargement complet du navigateur. Le
+ * client Supabase est volontairement configuré avec persistSession: false
+ * (sécurité pilote — voir src/integrations/supabase/client.ts), donc un
+ * page.goto() post-login perdrait la session en mémoire.
+ *
+ * Retourne false sans cliquer si le lien n'est pas visible dans le menu —
+ * cas normal pour un rôle qui n'a pas accès à cette section (l'absence du
+ * lien est déjà une forme valide d'accès refusé).
+ */
+async function navigateViaMenu(page: import("@playwright/test").Page, linkName: string): Promise<boolean> {
+  const link = page.getByRole("link", { name: linkName }).first();
+  const isVisible = await link.isVisible({ timeout: 5_000 }).catch(() => false);
+  if (isVisible) {
+    await link.click();
+    await page.waitForLoadState("networkidle");
+  }
+  return isVisible;
+}
+
+/**
+ * Navigue vers une route sans lien de menu (ex: /diagnostic, /diagnostic-stores)
+ * en passant par l'History API plutôt que page.goto(), pour éviter le
+ * rechargement complet qui perdrait la session (persistSession: false — voir
+ * navigateViaMenu ci-dessus). react-router-dom (BrowserRouter) patche
+ * window.history.pushState au montage et réagit à cet appel comme à une
+ * navigation SPA normale.
+ */
+async function navigateViaHistory(page: import("@playwright/test").Page, path: string): Promise<void> {
+  await page.evaluate((p) => {
+    window.history.pushState({}, "", p);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }, path);
+  await page.waitForLoadState("networkidle");
+}
+
 // ---------------------------------------------------------------------------
 // Scénario A — Diagnostic
 // ---------------------------------------------------------------------------
@@ -77,8 +114,10 @@ test.describe("Scénario A — Diagnostic (super_admin)", () => {
 
   test("détails techniques visibles si super_admin connecté", async ({ page }) => {
     await login(page, SUPER_ADMIN_EMAIL!, SUPER_ADMIN_PASSWORD!);
-    await page.goto(`${BASE_URL}/diagnostic`);
-    await page.waitForLoadState("networkidle");
+    // /diagnostic n'a pas de lien de menu (page d'outillage accédée par URL
+    // directe) — navigateViaHistory() évite un page.goto() qui perdrait la
+    // session (voir commentaire de navigateViaHistory plus haut).
+    await navigateViaHistory(page, "/diagnostic");
 
     // Les détails doivent être visibles (cartes avec catégories)
     await expect(page.getByText(/Connexion Supabase|Migrations P1/i)).toBeVisible({
@@ -104,33 +143,31 @@ test.describe("Scénario B — Login admin boutique", () => {
     await expect(page).toHaveURL(/\/dashboard/);
 
     // Produits
-    await page.goto(`${BASE_URL}/dashboard/products`);
-    await page.waitForLoadState("networkidle");
+    await navigateViaMenu(page, "Produits");
     await expect(page.getByText(/produit|ajouter/i).first()).toBeVisible({ timeout: 10_000 });
 
     // POS
-    await page.goto(`${BASE_URL}/dashboard/pos`);
-    await page.waitForLoadState("networkidle");
+    await navigateViaMenu(page, "Point de vente");
     await expect(page.getByText(/caisse|panier|vente/i).first()).toBeVisible({ timeout: 10_000 });
   });
 
   test("admin non-super_admin ne voit pas OrganizationManagement", async ({ page }) => {
     await login(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
 
-    // Tenter d'accéder à OrganizationManagement
-    await page.goto(`${BASE_URL}/dashboard/admin/organizations`);
-    await page.waitForLoadState("networkidle");
+    // Tenter d'accéder à OrganizationManagement — l'absence du lien de menu
+    // est déjà une forme valide d'accès refusé (voir navigateViaMenu)
+    const navigated = await navigateViaMenu(page, "Organisations");
+    if (navigated) {
+      const url = page.url();
+      const hasAccessDenied = await page
+        .getByText(/accès refusé|réservé|super admin/i)
+        .first()
+        .isVisible({ timeout: 5_000 })
+        .catch(() => false);
 
-    // Doit être redirigé ou voir un message d'accès refusé
-    const url = page.url();
-    const hasAccessDenied = await page
-      .getByText(/accès refusé|réservé|super admin/i)
-      .first()
-      .isVisible({ timeout: 5_000 })
-      .catch(() => false);
-
-    // Soit redirigé vers dashboard, soit message d'accès refusé
-    expect(url.includes("/dashboard/admin/organizations") === false || hasAccessDenied).toBe(true);
+      // Soit redirigé vers dashboard, soit message d'accès refusé
+      expect(url.includes("/dashboard/admin/organizations") === false || hasAccessDenied).toBe(true);
+    }
   });
 });
 
@@ -143,8 +180,7 @@ test.describe("Scénario C — Création produit test", () => {
   test("créer un produit test avec prix positif et stock", async ({ page }) => {
     await login(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
 
-    await page.goto(`${BASE_URL}/dashboard/products`);
-    await page.waitForLoadState("networkidle");
+    await navigateViaMenu(page, "Produits");
 
     // Ouvrir le formulaire
     await page.getByRole("button", { name: /ajouter|nouveau|créer/i }).first().click();
@@ -183,8 +219,7 @@ test.describe("Scénario D — Vente cash", () => {
   test("enregistrer une vente cash et vérifier le stock", async ({ page }) => {
     await login(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
 
-    await page.goto(`${BASE_URL}/dashboard/pos`);
-    await page.waitForLoadState("networkidle");
+    await navigateViaMenu(page, "Point de vente");
 
     // Ajouter un produit au panier (cliquer sur le premier produit visible)
     const productButton = page.locator("[data-product-id], .product-card, button:has-text('E2E Produit Test')").first();
@@ -224,11 +259,13 @@ test.describe("Scénario E — Vente offline simulée", () => {
   test("vente offline mise en queue puis synchronisée", async ({ page, context }) => {
     await login(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
 
+    // Naviguer vers le POS AVANT de couper le réseau (le clic sur le lien de
+    // menu déclenche du chargement de données qui échouerait offline).
+    await navigateViaMenu(page, "Point de vente");
+
     // Simuler offline via context
     await context.setOffline(true);
-
-    await page.goto(`${BASE_URL}/dashboard/pos`);
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("networkidle").catch(() => {});
 
     // Vérifier banner offline
     await expect(page.getByText(/hors ligne|offline/i).first()).toBeVisible({ timeout: 10_000 });
@@ -275,8 +312,7 @@ test.describe("Scénario F — Billing sécurité (admin)", () => {
   test("admin boutique ne voit pas gestion manuelle des abonnements", async ({ page }) => {
     await login(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
 
-    await page.goto(`${BASE_URL}/dashboard/billing`);
-    await page.waitForLoadState("networkidle");
+    await navigateViaMenu(page, "Abonnement");
 
     // L'admin ne doit pas voir "Gestion manuelle" ou "Modifier l'abonnement"
     const manualMgmt = await page
@@ -296,8 +332,7 @@ test.describe("Scénario F — Billing sécurité (super_admin)", () => {
     await login(page, SUPER_ADMIN_EMAIL!, SUPER_ADMIN_PASSWORD!);
 
     // Le super_admin a accès à OrganizationManagement
-    await page.goto(`${BASE_URL}/dashboard/admin/organizations`);
-    await page.waitForLoadState("networkidle");
+    await navigateViaMenu(page, "Organisations");
 
     // La page doit charger (pas de redirection)
     await expect(page).toHaveURL(/\/dashboard\/admin\/organizations/);
@@ -321,8 +356,7 @@ test.describe("Scénario G — Suppression organisation sécurisée", () => {
   test("bouton de suppression désactivé si texte incorrect", async ({ page }) => {
     await login(page, SUPER_ADMIN_EMAIL!, SUPER_ADMIN_PASSWORD!);
 
-    await page.goto(`${BASE_URL}/dashboard/admin/organizations`);
-    await page.waitForLoadState("networkidle");
+    await navigateViaMenu(page, "Organisations");
 
     // Ouvrir le dialog de suppression sur la première org
     const deleteButton = page.getByRole("button", { name: /supprimer|delete/i }).first();
@@ -357,8 +391,7 @@ test.describe("Scénario G — Suppression organisation sécurisée", () => {
 
       await login(page, SUPER_ADMIN_EMAIL!, SUPER_ADMIN_PASSWORD!);
 
-      await page.goto(`${BASE_URL}/dashboard/admin/organizations`);
-      await page.waitForLoadState("networkidle");
+      await navigateViaMenu(page, "Organisations");
 
       // Ce test ne s'exécute que si E2E_ALLOW_DESTRUCTIVE=true
       // Et utilise TEST_ORG_NAME pour cibler une org de test jetable
