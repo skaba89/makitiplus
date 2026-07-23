@@ -44,6 +44,7 @@ async function login(page: Page, email: string, password: string) {
  * lien est déjà une forme valide d'accès refusé).
  */
 async function navigateViaMenu(page: Page, linkName: string): Promise<boolean> {
+  await openMobileMenuIfNeeded(page);
   const link = page.getByRole("link", { name: linkName }).first();
   const isVisible = await link.isVisible({ timeout: 5_000 }).catch(() => false);
   if (isVisible) {
@@ -51,6 +52,22 @@ async function navigateViaMenu(page: Page, linkName: string): Promise<boolean> {
     await page.waitForLoadState("networkidle");
   }
   return isVisible;
+}
+
+/**
+ * Ouvre le menu mobile (hamburger) si nécessaire — sous le breakpoint lg
+ * (< 1024px, ex: le projet Playwright "mobile-chrome"), la sidebar de
+ * DashboardLayout est translatée hors écran par défaut (-translate-x-full)
+ * et un clic sur un lien de menu échoue avec "element is outside of the
+ * viewport" tant qu'elle n'est pas ouverte. No-op sur desktop, où ce bouton
+ * hamburger n'est pas rendu (classe lg:hidden).
+ */
+async function openMobileMenuIfNeeded(page: Page): Promise<void> {
+  const menuButton = page.getByRole("button", { name: /ouvrir le menu/i });
+  const isMobileMenuButtonVisible = await menuButton.isVisible({ timeout: 2_000 }).catch(() => false);
+  if (isMobileMenuButtonVisible) {
+    await menuButton.click();
+  }
 }
 
 // ---------------------------------------------------------------------------
