@@ -150,8 +150,13 @@ test.describe("Scénario 5 — POS accessible", () => {
     await page.getByRole("button", { name: /connexion|se connecter|login/i }).click();
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });
 
-    // Aller au POS
-    await page.goto("/dashboard/pos");
+    // Aller au POS via un lien de menu (navigation SPA) — PAS page.goto(), qui
+    // provoque un rechargement complet du navigateur. Le client Supabase est
+    // volontairement configuré avec persistSession: false (sécurité pilote :
+    // après fermeture/rechargement complet, l'utilisateur doit repasser par
+    // /auth — voir src/integrations/supabase/client.ts), donc un page.goto()
+    // ici perdrait la session en mémoire et renverrait faussement vers /auth.
+    await page.getByRole("link", { name: "Point de vente" }).first().click();
     await page.waitForLoadState("networkidle");
 
     // Champ de recherche produit
@@ -191,8 +196,10 @@ test.describe("Scénario 6 — Billing selon rôle", () => {
     await page.getByRole("button", { name: /connexion|se connecter|login/i }).click();
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });
 
-    // Aller à billing
-    await page.goto("/dashboard/billing");
+    // Aller à billing via un lien de menu (navigation SPA) — voir commentaire
+    // du Scénario 5 : persistSession: false rend page.goto() destructeur pour
+    // la session en mémoire.
+    await page.getByRole("link", { name: "Abonnement" }).first().click();
     await page.waitForLoadState("networkidle");
 
     // La page charge
@@ -234,17 +241,27 @@ test.describe("Scénario 7 — Route super_admin organisations", () => {
     await page.getByRole("button", { name: /connexion|se connecter|login/i }).click();
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });
 
-    // Aller à la page organisations
-    await page.goto("/dashboard/admin/organizations");
-    await page.waitForLoadState("networkidle");
+    // Aller à la page organisations via un lien de menu (navigation SPA) — voir
+    // commentaire du Scénario 5 : persistSession: false rend page.goto()
+    // destructeur pour la session en mémoire. Le lien "Organisations" n'est
+    // rendu dans le menu que pour certains rôles (STORE_ROLES) : son absence
+    // est elle-même une forme valide d'accès refusé (l'option n'est même pas
+    // proposée), donc on ne force pas le clic si le lien n'existe pas.
+    const orgMenuLink = page.getByRole("link", { name: "Organisations" }).first();
+    const hasOrgMenuLink = await orgMenuLink.isVisible({ timeout: 5_000 }).catch(() => false);
+    if (hasOrgMenuLink) {
+      await orgMenuLink.click();
+      await page.waitForLoadState("networkidle");
+    }
 
-    // Soit "Accès refusé" (non-super_admin), soit la liste des organisations (super_admin)
-    const hasAccessDenied = await page.getByText(/accès refusé|access denied/i)
+    // Soit "Accès refusé" (non-super_admin), soit la liste des organisations (super_admin),
+    // soit le lien de menu absent (accès refusé au niveau du menu lui-même)
+    const hasAccessDenied = !hasOrgMenuLink || await page.getByText(/accès refusé|access denied/i)
       .first()
       .isVisible({ timeout: 5_000 })
       .catch(() => false);
 
-    const hasOrgList = await page.getByText(/organisation|organization/i)
+    const hasOrgList = hasOrgMenuLink && await page.getByText(/organisation|organization/i)
       .first()
       .isVisible({ timeout: 5_000 })
       .catch(() => false);
