@@ -13,7 +13,7 @@ import { logger } from "@/lib/logger";
  * Replaces a fetchAllRows + client-side reduce.
  */
 export function useExpenseStats() {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const { effectiveOrgId } = useOrgSelector();
 
   return useQuery<ExpenseStatsRpc>({

@@ -61,7 +61,6 @@ import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
 import { OrgSelector } from "@/components/ui/org-selector";
 import { CurrencyDisplaySelector } from "@/components/ui/currency-display-selector";
 import { fetchAllRows } from "@/lib/batchedFetch";
-import { reportError } from "@/lib/sentry";
 import { ReportsPageSkeleton } from "@/components/skeletons/PageSkeletons";
 import { CHART_COLORS } from "@/constants/colors";
 import { FeatureGate } from "@/components/saas/PlanLimitGuard";
@@ -87,9 +86,9 @@ interface SupplierReport {
 }
 
 const Reports = () => {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
-  const { formatPrice, currency } = useCurrency();
+  const { currency } = useCurrency();
   const { effectiveOrgId } = useOrgSelector();
   const {
     formatDisplayPrice,
@@ -116,12 +115,29 @@ const Reports = () => {
 
   const { start, end } = getDateRange();
 
+  // Forme attendue de get_reports_stats — la RPC est typée `Json` côté
+  // Supabase (retour composite), donc TypeScript ne connaît pas sa forme
+  // réelle sans cette annotation explicite.
+  interface ReportsStats {
+    totalSales: number;
+    totalTransactions: number;
+    totalExpenses: number;
+    totalDiscount: number;
+    totalCost: number;
+    grossMargin: number;
+    grossMarginPct: number;
+    paymentBreakdown: { method: string; value: number }[];
+    dailySales: { date: string; sales: number; transactions: number }[];
+    expenseCount: number;
+    topProducts: { name: string; quantity: number; revenue: number }[];
+  }
+
   // ⚡ Stats via RPC — une seule requête au lieu de 3 fetchAllRows + 3 client-side reduce()
   // L'agrégation (SUM, COUNT, GROUP BY) se fait côté serveur, réduisant drastiquement le transfert.
   // Fallback gracieux : si la RPC échoue, on retourne null pour ne pas déclencher l'ErrorBoundary.
   const { data: reportsStats, isLoading: isReportsLoading } = useQuery({
     queryKey: ["reports-stats", user?.id, effectiveOrgId, period],
-    queryFn: async () => {
+    queryFn: async (): Promise<ReportsStats | null> => {
       if (!effectiveOrgId) return null;
       try {
         const { data, error } = await supabase.rpc("get_reports_stats", {
@@ -133,9 +149,9 @@ const Reports = () => {
         // La RPC peut retourner un tableau [{...}] ou un objet {...}
         // selon la version Supabase. On normalise vers un objet.
         if (Array.isArray(data)) {
-          return data[0] ?? null;
+          return (data[0] as unknown as ReportsStats) ?? null;
         }
-        return data;
+        return data as unknown as ReportsStats;
       } catch {
         return null;
       }
@@ -145,57 +161,19 @@ const Reports = () => {
     staleTime: 30_000, // 30 secondes — évite les re-fetchs trop fréquents
   });
 
-  // Fetch top products — declared before any early returns to respect Rules of Hooks
-  // Fallback : retourner [] si erreur
-  const { data: topProducts } = useQuery({
-    queryKey: ["reports-top-products", user?.id, period],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase
-          .from("sale_items")
-          .select(`
-            product_name,
-            quantity,
-            total_price,
-            sales!inner(organization_id, created_at)
-          `)
-          .eq("sales.organization_id", effectiveOrgId ?? "")
-          .gte("sales.created_at", start.toISOString())
-          .lte("sales.created_at", end.toISOString());
-
-        if (error) return [];
-
-        const aggregated = (data || []).reduce((acc, item) => {
-          const existing = acc.find((p) => p.name === item.product_name);
-          if (existing) {
-            existing.quantity += item.quantity;
-            existing.revenue += item.total_price;
-          } else {
-            acc.push({
-              name: item.product_name,
-              quantity: item.quantity,
-              revenue: item.total_price,
-            });
-          }
-          return acc;
-        }, [] as { name: string; quantity: number; revenue: number }[]);
-
-        return aggregated.sort((a, b) => b.quantity - a.quantity).slice(0, 5);
-      } catch {
-        return [];
-      }
-    },
-    enabled: !!user,
-    retry: 1,
-  });
-
   // Fetch supplier analytics (products with supplier info)
   // Fallback : si is_active n'existe pas en DB, réessayer sans filtre
   const { data: supplierReport } = useQuery({
     queryKey: ["reports-suppliers", user?.id, effectiveOrgId],
     queryFn: async () => {
       try {
-        let products = null as Awaited<ReturnType<typeof supabase.from>["data"]> | null;
+        interface SupplierReportProductRow {
+          supplier_id: string | null;
+          stock_quantity: number;
+          cost_price: number | null;
+          price: number;
+        }
+        let products: SupplierReportProductRow[] | null = null;
         let productsQuery = supabase
           .from("products")
           .select("id, name, cost_price, price, stock_quantity, supplier_id, suppliers(id, name)")

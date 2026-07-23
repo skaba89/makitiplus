@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDemo } from "@/contexts/DemoContext";
 import { reportError } from "@/lib/sentry";
-import { validateCustomerForm, formatErrors } from "@/lib/schemas";
+import { validateCustomerForm, formatErrors, type CustomerFormData } from "@/lib/schemas";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,6 @@ import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
-import { CurrencyDisplaySelector } from "@/components/ui/currency-display-selector";
 import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import {
   Dialog,
@@ -65,18 +64,13 @@ import { FeatureGate } from "@/components/saas/PlanLimitGuard";
 const PAGE_SIZE = 20;
 
 const Customers = () => {
-  const { user, profile, userRole } = useAuth();
+  const { user, userRole } = useAuth();
   const { toast } = useToast();
   const { blockMutation } = useDemo();
-  const { formatPrice, currency } = useCurrency();
+  const { currency } = useCurrency();
   const { effectiveOrgId } = useOrgSelector();
   const {
     formatDisplayPrice,
-    displayCurrencyCode,
-    orgCurrencyCode,
-    setDisplayCurrency,
-    ratesLoading,
-    refreshRates,
     isConverted,
   } = useDisplayCurrency();
   const queryClient = useQueryClient();
@@ -123,7 +117,7 @@ const Customers = () => {
   const canModify = userRole !== null && MANAGEMENT_ROLES.includes(userRole);
 
   const createMutation = useMutation({
-    mutationFn: async (data: typeof formData) => {
+    mutationFn: async (data: typeof formData | CustomerFormData) => {
       const insertData: Record<string, unknown> = {
         ...data,
         user_id: user?.id ?? "",

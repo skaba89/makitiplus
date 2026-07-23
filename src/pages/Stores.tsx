@@ -1,5 +1,5 @@
-import { useState, useEffect, ReactNode } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDemo } from "@/contexts/DemoContext";
@@ -86,7 +86,6 @@ import { PlanLimitGuard } from "@/components/saas/PlanLimitGuard";
 
 type Organization = Database["public"]["Tables"]["organizations"]["Row"];
 type StoreCategory = Database["public"]["Enums"]["store_category"];
-type StoreRow = Database["public"]["Tables"]["stores"]["Row"];
 
 interface RealStore {
   id: string;
@@ -159,18 +158,6 @@ const CategoryIcon = ({ value, className }: { value: StoreCategory | null; class
   const config = getCategoryConfig(value);
   const Icon = config.icon;
   return <Icon className={className || `h-4 w-4 ${config.color}`} />;
-};
-
-// Badge catégorie avec icône intégrée
-const CategoryBadge = ({ value }: { value: StoreCategory | null }) => {
-  const config = getCategoryConfig(value);
-  const Icon = config.icon;
-  return (
-    <Badge variant="secondary" className="gap-1.5">
-      <Icon className={`h-3.5 w-3.5 ${config.color}`} />
-      {config.label}
-    </Badge>
-  );
 };
 
 const Stores = () => {
@@ -339,8 +326,8 @@ const Stores = () => {
             p_store_category: storeCategory,
             p_country: storeCountry,
             p_currency: storeCurrency,
-            p_city: storeCity || null,
-            p_address: null,
+            p_city: storeCity || undefined,
+            p_address: undefined,
           }
         );
 
@@ -424,14 +411,14 @@ const Stores = () => {
           return;
         }
 
-        const { data, error } = await supabase.rpc("create_store", {
+        const { error } = await supabase.rpc("create_store", {
           p_organization_id: orgId,
           p_name: storeName,
           p_slug: slug || `store-${Date.now()}`,
           p_category: storeCategory,
           p_country: storeCountry,
           p_currency: storeCurrency,
-          p_city: storeCity || null,
+          p_city: storeCity || undefined,
         });
 
         if (error) {
@@ -528,11 +515,6 @@ const Stores = () => {
     } finally {
       setCreatingAdmin(false);
     }
-  };
-
-  const handleDeleteStore = async (store: StoreWithAdmin) => {
-    setStoreToDelete(store);
-    setDeleteDialogOpen(true);
   };
 
   const confirmDeleteStore = async () => {

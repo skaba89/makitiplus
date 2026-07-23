@@ -122,7 +122,7 @@ export default function OrganizationManagement() {
       }
       // Supabase RPC RETURNS TABLE returns arrays
       const raw = Array.isArray(data) ? data : [data];
-      return (raw as OrgSubscription[]) || [];
+      return (raw as unknown as OrgSubscription[]) || [];
     },
     enabled: userRole === "super_admin",
     staleTime: 2 * 60 * 1000,
@@ -141,7 +141,7 @@ export default function OrganizationManagement() {
         p_organization_id: selectedOrg.organization_id,
         p_plan_id: selectedPlan,
         p_duration: duration,
-        p_payment_reference: paymentReference.trim() || null,
+        p_payment_reference: paymentReference.trim() || undefined,
         p_reason: reason,
       });
       if (error) return [];

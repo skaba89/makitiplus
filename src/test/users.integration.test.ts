@@ -205,8 +205,14 @@ describe("Users module — user lifecycle source code analysis", () => {
   });
 
   it("tracks deactivation in audit log", () => {
+    // L'affichage du journal d'audit (et le libellé "user_deactivated") vit
+    // dans AuditLogPanel.tsx, rendu par Users.tsx (voir <AuditLogPanel /> ligne
+    // ~856) — pas dans Users.tsx lui-même. Une copie dupliquée et non utilisée
+    // de ce mapping existait autrefois directement dans Users.tsx ; elle a été
+    // retirée (dette de duplication) car aucun rendu ne la lisait, la vraie
+    // implémentation active étant celle d'AuditLogPanel.tsx testée ici.
     const source = fs.readFileSync(
-      path.join(process.cwd(), "src/pages/Users.tsx"),
+      path.join(process.cwd(), "src/components/users/AuditLogPanel.tsx"),
       "utf-8"
     );
     expect(source).toContain("user_deactivated");

@@ -48,7 +48,7 @@ export function EnhancedDashboardStats() {
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_enhanced_dashboard_stats", {
         p_period: period,
-        p_organization_id: effectiveOrgId || null,
+        p_organization_id: effectiveOrgId || undefined,
       });
       if (error) {
         console.warn("[EnhancedStats] RPC failed:", error.message);

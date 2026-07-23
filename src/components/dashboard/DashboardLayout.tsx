@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { MobileBottomNav } from "./MobileBottomNav";
-import { ALL_ROLES, ADMIN_ROLES, MANAGEMENT_ROLES, INVENTORY_ROLES, FINANCIAL_ROLES, POS_ROLES, STORE_ROLES, PRODUCT_MANAGEMENT_ROLES } from "@/types";
+import { ALL_ROLES, ADMIN_ROLES, MANAGEMENT_ROLES, FINANCIAL_ROLES, POS_ROLES, STORE_ROLES, PRODUCT_MANAGEMENT_ROLES } from "@/types";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import { OfflineIndicator, OfflineBanner } from "@/components/ui/offline-indicator";
 import { PWAInstallPrompt } from "@/components/ui/pwa-install-prompt";
@@ -52,7 +52,7 @@ interface DashboardLayoutProps {
 }
 
 export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
-  const { user, userRole, profile, signOut } = useAuth();
+  const { userRole, profile, signOut } = useAuth();
   const { currentStore } = useStore();
 
   // Auto sign-out after 5 minutes of inactivity

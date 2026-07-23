@@ -37,10 +37,10 @@ export async function fetchAllRows<T = unknown>(
     const from = page * batchSize;
     const to = from + batchSize - 1;
 
-    let query: DynamicSupabaseQuery = supabase
+    let query = (supabase
       .from(table as never)
       .select(select, { count: "exact" })
-      .range(from, to);
+      .range(from, to) as unknown) as DynamicSupabaseQuery;
 
     // Apply filters
     if (options?.filters) {

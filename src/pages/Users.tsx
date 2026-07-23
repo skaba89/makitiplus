@@ -139,13 +139,6 @@ const roleColors: Record<AppRole, string> = {
   comptable: "bg-muted text-muted-foreground",
 };
 
-const actionLabels: Record<string, { label: string; tone: string }> = {
-  user_created: { label: "Création", tone: "bg-primary/10 text-primary" },
-  user_deactivated: { label: "Désactivation", tone: "bg-destructive/10 text-destructive" },
-  user_reactivated: { label: "Réactivation", tone: "bg-accent/10 text-accent-foreground" },
-  user_deleted_permanently: { label: "Suppression définitive", tone: "bg-destructive/15 text-destructive" },
-};
-
 const formatDate = (iso: string | null) => {
   if (!iso) return "—";
   try {
@@ -158,12 +151,12 @@ const formatDate = (iso: string | null) => {
 const Users = () => {
   const { toast } = useToast();
   const { effectiveOrgId } = useOrgSelector();
-  const { user, userRole, profile } = useAuth();
+  const { user, userRole } = useAuth();
   const { blockMutation } = useDemo();
   const [users, setUsers] = useState<UserRow[]>([]);
-  const [audit, setAudit] = useState<AuditRow[]>([]);
+  const [, setAudit] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [auditLoading, setAuditLoading] = useState(false);
+  const [, setAuditLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<UserRow | null>(null);

@@ -20,7 +20,7 @@ type Category = Database["public"]["Tables"]["categories"]["Row"] & {
  * Fallback: if the RPC isn't deployed yet, falls back to a basic query.
  */
 export function useCategories() {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const { effectiveOrgId } = useOrgSelector();
 
   return useQuery<Category[]>({

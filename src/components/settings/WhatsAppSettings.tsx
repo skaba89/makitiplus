@@ -25,10 +25,8 @@ import {
   Send,
   Loader2,
   CheckCircle,
-  XCircle,
   AlertCircle,
   Settings,
-  BarChart3,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -38,7 +36,7 @@ import { reportError } from "@/lib/sentry";
 
 export function WhatsAppSettingsCard() {
   const { toast } = useToast();
-  const { formatPrice } = useCurrency();
+  useCurrency();
   const { data: config, isLoading: configLoading } = useWhatsAppConfig();
   const { data: stats } = useWhatsAppStats();
   const saveConfig = useSaveWhatsAppConfig();

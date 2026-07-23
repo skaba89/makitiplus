@@ -24,11 +24,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
-import {
   BarChart,
   Bar,
   XAxis,
@@ -46,8 +41,6 @@ import {
   Store,
   TrendingUp,
   TrendingDown,
-  ArrowUpRight,
-  ArrowDownRight,
   Package,
   ShoppingCart,
   Wallet,
@@ -56,7 +49,6 @@ import {
   ThumbsDown,
   Activity,
   ArrowUpDown,
-  Eye,
   Users,
   UserCog,
   DollarSign,
@@ -335,7 +327,7 @@ const AdminAnalytics = () => {
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_admin_stores_summary");
       if (error) reportAndThrow("get_admin_stores_summary", error);
-      return (data || []) as StoreSummary[];
+      return (data || []) as unknown as StoreSummary[];
     },
     enabled: userRole === "super_admin",
   });
@@ -377,7 +369,7 @@ const AdminAnalytics = () => {
   });
 
   // 4. Sales trend
-  const { data: salesTrend, isLoading: loadingTrend, isError: errorTrend } = useQuery({
+  const { data: salesTrend, isError: errorTrend } = useQuery({
     queryKey: ["admin-sales-trend", selectedStoreId, period],
     queryFn: async () => {
       const params: Record<string, unknown> = {
@@ -394,7 +386,7 @@ const AdminAnalytics = () => {
   });
 
   // 5. Payment distribution
-  const { data: paymentDistribution, isLoading: loadingPayment, isError: errorPayment } = useQuery({
+  const { data: paymentDistribution, isError: errorPayment } = useQuery({
     queryKey: ["admin-payment-distribution", selectedStoreId, period],
     queryFn: async () => {
       const params: Record<string, unknown> = {
@@ -437,7 +429,7 @@ const AdminAnalytics = () => {
   });
 
   // 8. Org KPIs
-  const { data: orgKpis, isLoading: loadingOrgKpis, isError: errorOrgKpis } = useQuery({
+  const { data: orgKpis, isError: errorOrgKpis } = useQuery({
     queryKey: ["admin-org-kpis", period],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_admin_org_kpis", { p_period: period });
@@ -448,7 +440,7 @@ const AdminAnalytics = () => {
   });
 
   // 9. Global KPIs (enrichis)
-  const { data: globalKpis, isLoading: loadingGlobalKpis, isError: errorGlobalKpis } = useQuery({
+  const { data: globalKpis, isError: errorGlobalKpis } = useQuery({
     queryKey: ["admin-global-kpis", period],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_admin_global_kpis", { p_period: period });
@@ -459,7 +451,7 @@ const AdminAnalytics = () => {
   });
 
   // 10. Product ranking detailed (top + bad)
-  const { data: productRankingDetailed, isLoading: loadingProductRanking, isError: errorProductRanking } = useQuery({
+  const { isError: errorProductRanking } = useQuery({
     queryKey: ["admin-product-ranking-detailed", period, selectedStoreId],
     queryFn: async () => {
       const params: Record<string, unknown> = {

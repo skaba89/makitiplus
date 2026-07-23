@@ -19,11 +19,9 @@ import {
   STORES,
   isIndexedDBAvailable,
   getAll as idbGetAll,
-  putMany as idbPutMany,
   put as idbPut,
   deleteByKeys as idbDeleteByKeys,
   clearStore as idbClearStore,
-  count as idbCount,
   replaceAll as idbReplaceAll,
 } from "./indexedDBStorage";
 
@@ -107,8 +105,6 @@ const idbPutOne = (entry: QueuedDelivery): Promise<void> =>
  * Chargement unifié : retourne depuis IndexedDB si disponible, sinon localStorage.
  * Pour la rétrocompatibilité avec les appelants synchrones, lsLoad reste disponible.
  */
-const load = lsLoad; // conservé pour usage synchrone interne (retryOne, flushQueue sync)
-const save = lsSave; // conservé pour usage synchrone interne
 
 // ---------------------------------------------------------------------------
 // API publique — Versions asynchrones (recommandées pour le nouveau code)

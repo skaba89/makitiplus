@@ -7,7 +7,7 @@
  * Accessible via /diagnostic-stores (auth requis)
  */
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,7 +21,7 @@ export default function DiagnosticStores() {
   const { user, profile, userRole } = useAuth();
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["diagnostic-stores", user?.id, refreshKey],
     queryFn: async () => {
       if (!user) return null;

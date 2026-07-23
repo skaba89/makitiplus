@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
  * Cached for 10 minutes — rarely changes.
  */
 export const useOrgTaxRate = () => {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const { effectiveOrgId } = useOrgSelector();
   const orgId = effectiveOrgId ?? null;
 

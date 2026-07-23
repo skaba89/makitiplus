@@ -32,6 +32,44 @@ async function login(page: Page, email: string, password: string) {
   await page.waitForURL("**/dashboard", { timeout: 15_000 });
 }
 
+/**
+ * Navigue vers une page via un clic sur son lien de menu (navigation SPA) —
+ * PAS page.goto(), qui provoque un rechargement complet du navigateur. Le
+ * client Supabase est volontairement configuré avec persistSession: false
+ * (sécurité pilote — voir src/integrations/supabase/client.ts), donc un
+ * page.goto() post-login perdrait la session en mémoire.
+ *
+ * Retourne false sans cliquer si le lien n'est pas visible dans le menu —
+ * cas normal pour un rôle qui n'a pas accès à cette section (l'absence du
+ * lien est déjà une forme valide d'accès refusé).
+ */
+async function navigateViaMenu(page: Page, linkName: string): Promise<boolean> {
+  await openMobileMenuIfNeeded(page);
+  const link = page.getByRole("link", { name: linkName }).first();
+  const isVisible = await link.isVisible({ timeout: 5_000 }).catch(() => false);
+  if (isVisible) {
+    await link.click();
+    await page.waitForLoadState("networkidle");
+  }
+  return isVisible;
+}
+
+/**
+ * Ouvre le menu mobile (hamburger) si nécessaire — sous le breakpoint lg
+ * (< 1024px, ex: le projet Playwright "mobile-chrome"), la sidebar de
+ * DashboardLayout est translatée hors écran par défaut (-translate-x-full)
+ * et un clic sur un lien de menu échoue avec "element is outside of the
+ * viewport" tant qu'elle n'est pas ouverte. No-op sur desktop, où ce bouton
+ * hamburger n'est pas rendu (classe lg:hidden).
+ */
+async function openMobileMenuIfNeeded(page: Page): Promise<void> {
+  const menuButton = page.getByRole("button", { name: /ouvrir le menu/i });
+  const isMobileMenuButtonVisible = await menuButton.isVisible({ timeout: 2_000 }).catch(() => false);
+  if (isMobileMenuButtonVisible) {
+    await menuButton.click();
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Admin access
 // ---------------------------------------------------------------------------
@@ -40,8 +78,7 @@ test.describe("Seller Activity — Admin", () => {
 
   test("admin can open seller activity page", async ({ page }) => {
     await login(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
-    await page.goto(`${BASE_URL}/dashboard/seller-activity`);
-    await page.waitForLoadState("networkidle");
+    await navigateViaMenu(page, "Activité Vendeurs");
 
     await expect(page.getByText(/Activité Vendeurs/i)).toBeVisible({ timeout: 10_000 });
     await expect(
@@ -55,8 +92,7 @@ test.describe("Seller Activity — Admin", () => {
 
   test("seller activity detail can be opened if rows exist", async ({ page }) => {
     await login(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
-    await page.goto(`${BASE_URL}/dashboard/seller-activity`);
-    await page.waitForLoadState("networkidle");
+    await navigateViaMenu(page, "Activité Vendeurs");
 
     const rowCount = await page.locator("tbody tr").count();
 
@@ -77,8 +113,7 @@ test.describe("Seller Activity — Manager", () => {
 
   test("manager can access seller activity page", async ({ page }) => {
     await login(page, MANAGER_EMAIL!, MANAGER_PASSWORD!);
-    await page.goto(`${BASE_URL}/dashboard/seller-activity`);
-    await page.waitForLoadState("networkidle");
+    await navigateViaMenu(page, "Activité Vendeurs");
 
     await expect(page.getByText(/Activité Vendeurs/i)).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText(/Accès refusé/i)).not.toBeVisible();
@@ -93,12 +128,14 @@ test.describe("Seller Activity — Vendor denied", () => {
 
   test("vendor cannot access seller activity page", async ({ page }) => {
     await login(page, VENDOR_EMAIL!, VENDOR_PASSWORD!);
-    await page.goto(`${BASE_URL}/dashboard/seller-activity`);
-    await page.waitForLoadState("networkidle");
+    const navigated = await navigateViaMenu(page, "Activité Vendeurs");
 
-    // Should be redirected to dashboard or see access denied
-    await expect(
-      page.getByText(/Accès refusé|non autorisé|dashboard/i).first()
-    ).toBeVisible({ timeout: 10_000 });
+    // Absence du lien de menu = accès refusé au niveau du menu lui-même,
+    // sinon on doit voir un message de refus explicite ou rester sur le dashboard
+    if (navigated) {
+      await expect(
+        page.getByText(/Accès refusé|non autorisé|dashboard/i).first()
+      ).toBeVisible({ timeout: 10_000 });
+    }
   });
 });

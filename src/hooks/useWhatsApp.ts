@@ -82,7 +82,7 @@ export function useWhatsAppConfig() {
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_whatsapp_config");
       if (error) throw error;
-      return (data as WhatsAppConfig) ?? null;
+      return (data as unknown as WhatsAppConfig) ?? null;
     },
     enabled: !!user,
   });
@@ -98,7 +98,7 @@ export function useWhatsAppStats() {
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_whatsapp_stats");
       if (error) throw error;
-      return (data as WhatsAppStats) ?? {
+      return (data as unknown as WhatsAppStats) ?? {
         total_sent: 0, total_delivered: 0, total_failed: 0,
         today_sent: 0, receipts: 0, custom: 0, is_configured: false,
       };
@@ -116,7 +116,7 @@ export function useWhatsAppTemplates() {
     queryKey: ["whatsapp-templates", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("whatsapp_templates")
+        .from("whatsapp_templates" as never)
         .select("*")
         .eq("is_active", true)
         .order("name");
@@ -137,7 +137,7 @@ export function useWhatsAppMessageLogs(limit = 50) {
     queryKey: ["whatsapp-logs", user?.id, storeId ?? "no-store", limit],
     queryFn: async () => {
       let query = supabase
-        .from("whatsapp_message_logs")
+        .from("whatsapp_message_logs" as never)
         .select("*")
         .order("created_at", { ascending: false })
         .limit(limit);
@@ -169,9 +169,9 @@ export function useSaveWhatsAppConfig() {
         p_phone_number_id: params.phone_number_id,
         p_business_account_id: params.business_account_id,
         p_access_token: params.access_token,
-        p_whatsapp_phone: params.whatsapp_phone ?? null,
+        p_whatsapp_phone: params.whatsapp_phone ?? undefined,
         p_auto_send_receipt: params.auto_send_receipt ?? false,
-        p_auto_send_message: params.auto_send_message ?? null,
+        p_auto_send_message: params.auto_send_message ?? undefined,
         p_daily_limit: params.daily_limit ?? 1000,
       });
       if (error) throw error;

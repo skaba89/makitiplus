@@ -66,7 +66,7 @@ export default function Billing() {
   const { data: plans } = usePlans();
   const { userRole, user } = useAuth();
   const { blockMutation } = useDemo();
-  const { currency } = useCurrency();
+  useCurrency();
   const [searchParams, setSearchParams] = useSearchParams();
   const { checkout, isLoading: isCheckingOut, error: checkoutError, isStripeConfigured } = useStripeCheckout();
   const { openPortal, isLoading: isPortalLoading } = useStripePortal();
@@ -179,7 +179,7 @@ export default function Billing() {
         : (await supabase
             .from("profiles")
             .select("organization_id")
-            .eq("user_id", user?.id)
+            .eq("user_id", user?.id ?? "")
             .single()
           ).data?.organization_id;
 
@@ -192,8 +192,8 @@ export default function Billing() {
         p_organization_id: orgIdToUse,
         p_plan_id: selectedPlan,
         p_duration: selectedDuration,
-        p_payment_reference: paymentRef || null,
-        p_reason: changeReason || null,
+        p_payment_reference: paymentRef || undefined,
+        p_reason: changeReason || undefined,
       });
 
       if (error) {
@@ -201,7 +201,7 @@ export default function Billing() {
         return;
       }
 
-      const result = Array.isArray(data) ? data[0] : data;
+      const result = (Array.isArray(data) ? data[0] : data) as unknown as { event_type?: string } | undefined;
       const planLabel = selectedPlan === "croissance" ? "Croissance" : selectedPlan === "enterprise" ? "Enterprise" : selectedPlan === "pilot_national" ? "Pilote National" : "Starter";
       const targetOrgName = allOrgs.find((o) => o.id === orgIdToUse)?.name || "Organisation";
       toast({
@@ -259,7 +259,7 @@ export default function Billing() {
       const { data: orgData } = await supabase
         .from("profiles")
         .select("organization_id")
-        .eq("user_id", user?.id)
+        .eq("user_id", user?.id ?? "")
         .single();
       orgIdToUse = orgData?.organization_id;
     }
@@ -271,11 +271,11 @@ export default function Billing() {
 
     setIsChangingPlan(true);
     try {
-      const { data, error } = await supabase.rpc("admin_update_organization_subscription", {
+      const { error } = await supabase.rpc("admin_update_organization_subscription", {
         p_organization_id: orgIdToUse,
         p_plan_id: planId,
         p_duration: duration,
-        p_payment_reference: paymentRef || null,
+        p_payment_reference: paymentRef || undefined,
         p_reason: changeReason || "Prolongation manuelle",
       });
 
@@ -284,7 +284,6 @@ export default function Billing() {
         return;
       }
 
-      const result = Array.isArray(data) ? data[0] : data;
       const targetOrgName = isPlatformSuperAdmin
         ? allOrgs.find((o) => o.id === orgIdToUse)?.name || "Organisation"
         : "";
@@ -329,8 +328,6 @@ export default function Billing() {
     : { label: "Aucun plan actif", variant: "destructive" as const };
 
   const planId = subscription?.plan_id || "";
-  const currentPlan = plans?.find((p) => p.id === planId);
-  const currencySymbol = currency.displaySymbol || currency.symbol;
 
   return (
     <DashboardLayout>
@@ -524,7 +521,7 @@ export default function Billing() {
                 <Building2 className="h-4 w-4 text-purple-600" />
                 <label className="text-sm font-medium">Organisation cible</label>
               </div>
-              <Select value={effectiveTargetOrgId} onValueChange={setTargetOrgId}>
+              <Select value={effectiveTargetOrgId ?? undefined} onValueChange={setTargetOrgId}>
                 <SelectTrigger>
                   <SelectValue placeholder={orgsLoading ? "Chargement..." : "Sélectionner une organisation"} />
                 </SelectTrigger>

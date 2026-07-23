@@ -57,7 +57,7 @@ export function usePaginatedQuery<T = unknown>(
     queryKey,
     enabled = true,
   } = options;
-  const { profile } = useAuth();
+  useAuth();
   const { effectiveOrgId } = useOrgSelector();
 
   // Stable serialisation of filters for the query key
@@ -75,10 +75,10 @@ export function usePaginatedQuery<T = unknown>(
       const to = from + pageSize - 1;
 
       // Use dynamic table name — cast through any to satisfy Supabase's typed .from()
-      let query: DynamicSupabaseQuery = supabase
+      let query = (supabase
         .from(table as never)
         .select(select, { count: "exact" })
-        .range(from, to);
+        .range(from, to) as unknown) as DynamicSupabaseQuery;
 
       // Defense-in-depth: always filter by organization_id
       if (effectiveOrgId) {

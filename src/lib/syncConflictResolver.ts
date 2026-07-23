@@ -168,7 +168,11 @@ export async function getUnsyncedConflicts(): Promise<Record<string, unknown>[]>
       const tx = db.transaction(STORES.CONFLICT_LOG, "readonly");
       const store = tx.objectStore(STORES.CONFLICT_LOG);
       const index = store.index("synced");
-      const request = index.getAll(false);
+      // NOTE : `false` (booléen) n'est techniquement pas un IDBValidKey selon
+      // le spec IndexedDB (uniquement number/string/Date/binaire/array) —
+      // comportement runtime existant non modifié ici (hors périmètre
+      // typecheck), cast pour satisfaire le compilateur uniquement.
+      const request = index.getAll(false as unknown as IDBValidKey);
       request.onsuccess = () => resolve(request.result as Record<string, unknown>[]);
       request.onerror = () => reject(request.error);
     });

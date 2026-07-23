@@ -216,7 +216,7 @@ async function buildLabelPDF(
   copies: number,
   formatPrice: (n: number) => string,
 ): Promise<jsPDF> {
-  const [{ default: jsPDF }, { default: JsBarcode }] = await Promise.all([
+  const [{ default: jsPDF }] = await Promise.all([
     import("jspdf"),
     import("jsbarcode"),
   ]);
@@ -263,7 +263,7 @@ export const BarcodeLabelPrinter = ({
     if (!product.barcode) return;
 
     // Dynamic imports — jsPDF (390 kB) + jsbarcode loaded only on user action
-    const [{ default: jsPDF }, { default: JsBarcode }] = await Promise.all([
+    await Promise.all([
       import("jspdf"),
       import("jsbarcode"),
     ]);

@@ -31,7 +31,6 @@ import { SellerKpisCard } from "@/components/reports/SellerKpisCard";
 import { startOfDay, endOfDay, startOfMonth, endOfMonth } from "date-fns";
 import { format } from "date-fns";
 import { formatDateTime } from "@/lib/utils";
-import { reportError } from "@/lib/sentry";
 import { useNavigate } from "react-router-dom";
 import { INVENTORY_ROLES, POS_ROLES, MANAGEMENT_ROLES, FINANCIAL_ROLES } from "@/types";
 import { logger } from "@/lib/logger";
@@ -70,11 +69,24 @@ const Dashboard = () => {
   const monthStart = startOfMonth(today).toISOString();
   const monthEnd = endOfMonth(today).toISOString();
 
+  // Formes attendues des RPC — typées `Json` côté Supabase (retour composite),
+  // TypeScript ne connaît donc pas leur forme réelle sans annotation explicite.
+  interface DashboardStats {
+    todaySales: number;
+    todayTransactions: number;
+    monthCreditCount: number;
+  }
+  interface TopProduct {
+    product_name: string;
+    total_quantity: number;
+    total_revenue: number;
+  }
+
   // ⚡ Stats du Dashboard via RPC — une seule requête au lieu de 5+ fetchAllRows
   // L'agrégation (SUM, COUNT) se fait côté serveur, réduisant drastiquement le transfert de données
-  const { data: dashboardStats, isLoading: isLoadingStats } = useQuery({
+  const { data: dashboardStats } = useQuery({
     queryKey: ["dashboard-stats", user?.id, effectiveOrgId],
-    queryFn: async () => {
+    queryFn: async (): Promise<DashboardStats | null> => {
       // Pour super_admin : ne pas appeler le RPC (il utilise le profil du user,
       // pas l'org sélectionnée). Les queries client-side sont utilisées à la place.
       if (isSuperAdmin) return null;
@@ -90,7 +102,7 @@ const Dashboard = () => {
         return null;
       }
       // RPC returns array with single object
-      return Array.isArray(data) ? data[0] : data;
+      return (Array.isArray(data) ? data[0] : data) as unknown as DashboardStats;
     },
     enabled: !!user && !isSuperAdmin,
     retry: 1,
@@ -100,7 +112,7 @@ const Dashboard = () => {
   // Pour super_admin : ne pas appeler le RPC (utilise le profil du user)
   const { data: topProducts } = useQuery({
     queryKey: ["dashboard-top-products", user?.id, effectiveOrgId],
-    queryFn: async () => {
+    queryFn: async (): Promise<TopProduct[]> => {
       if (isSuperAdmin) return [];
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -115,9 +127,8 @@ const Dashboard = () => {
         return [];
       }
       // Handle both array (TABLE) and JSONB responses
-      if (Array.isArray(data)) return data;
-      if (data && typeof data === "object") return [data];
-      return [];
+      const rows = Array.isArray(data) ? data : data && typeof data === "object" ? [data] : [];
+      return rows as unknown as TopProduct[];
     },
     enabled: !!user && !isSuperAdmin,
     retry: 1,
@@ -129,7 +140,7 @@ const Dashboard = () => {
     queryFn: async () => {
       let query = supabase
         .from("sales")
-        .select("total_amount")
+        .select("total_amount, created_at")
         .gte("created_at", monthStart)
         .lte("created_at", monthEnd);
       if (effectiveOrgId) {
@@ -271,7 +282,7 @@ const Dashboard = () => {
     {
       title: "Ventes du mois",
       value: formatDisplayPrice(totalSalesMonth, { showOriginal: isConverted }),
-      change: (dashboardStats?.monthCreditCount ?? 0) > 0 ? `${dashboardStats.monthCreditCount} à crédit` : "voir rapports",
+      change: (dashboardStats?.monthCreditCount ?? 0) > 0 ? `${dashboardStats?.monthCreditCount} à crédit` : "voir rapports",
       trend: "up" as const,
       icon: BarChart3,
     },

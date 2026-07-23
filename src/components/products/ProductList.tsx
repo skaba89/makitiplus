@@ -49,7 +49,7 @@ const daysUntilExpiry = (expiryDate: string | null): number | null => {
 };
 
 export const ProductList = memo(({ products, onEdit, onDelete, onStockAdjust, onStockHistory }: ProductListProps) => {
-  const { formatPrice } = useCurrency();
+  useCurrency();
   const { formatDisplayPrice, isConverted } = useDisplayCurrency();
   const [labelProduct, setLabelProduct] = useState<Product | null>(null);
 

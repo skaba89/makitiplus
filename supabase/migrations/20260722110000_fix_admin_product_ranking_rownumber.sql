@@ -23,6 +23,35 @@
 -- Logique métier strictement inchangée (mêmes colonnes, mêmes filtres,
 -- même seuil p_limit pour top/bad) — uniquement la position du calcul
 -- de rang est déplacée pour respecter la syntaxe PostgreSQL.
+--
+-- Second bug trouvé en relisant la version live pendant la validation de
+-- ce fix (P0.2/P0.3, gap-closing) : le filtre de période
+-- (`s.created_at >= v_start_date`) est posé dans la condition ON du
+-- LEFT JOIN sales, pas dans un WHERE. Un LEFT JOIN ne supprime pas la
+-- ligne côté gauche (sale_items) quand la condition échoue — il ne fait
+-- que mettre les colonnes de `sales` à NULL. Comme les agrégats
+-- (SUM(si.quantity), SUM(si.quantity*si.unit_price), ...) ne portent que
+-- sur des colonnes de `sale_items`, les ventes HORS période restaient
+-- comptées dans les totaux : la fonction aurait silencieusement renvoyé
+-- des cumuls "depuis toujours" au lieu des cumuls de la période demandée.
+-- Ce bug est déjà présent dans la version live actuelle (vérifié via
+-- pg_get_functiondef) mais n'a jamais pu se manifester car l'erreur de
+-- syntaxe ROW_NUMBER()-dans-WHERE empêche toute exécution — corriger l'un
+-- sans l'autre aurait fait passer d'une erreur visible à des chiffres
+-- silencieusement faux, ce qui est pire. Fix : les sale_items sont
+-- pré-filtrés par période dans une sous-requête jointe (INNER JOIN sales
+-- + WHERE période à l'intérieur), puis cette sous-requête est LEFT JOIN
+-- sur products — préserve le comportement voulu (afficher aussi les
+-- produits sans aucune vente sur la période, à 0) tout en excluant
+-- réellement les ventes hors période des totaux.
+--
+-- Troisième bug trouvé en testant ce fix dans une transaction ROLLBACK
+-- avant application (protocole P0.2/P0.3) : RETURNS TABLE déclare
+-- `stock_quantity NUMERIC` mais la colonne réelle `products.stock_quantity`
+-- est INTEGER — "structure of query does not match function result type"
+-- au premier appel réel. Comme les deux bugs précédents, jamais visible
+-- avant car l'erreur de syntaxe ROW_NUMBER empêchait toute exécution.
+-- Fix : cast explicite `pr.stock_quantity::NUMERIC` dans product_stats.
 -- ════════════════════════════════════════════════════════════════
 
 CREATE OR REPLACE FUNCTION public.get_admin_product_ranking_detailed(
@@ -78,11 +107,15 @@ AS $$
         COALESCE(SUM(si.quantity * si.unit_price), 0) AS revenue,
         COALESCE(SUM(si.quantity * si.cost_price), 0) AS cost,
         COALESCE(SUM(si.quantity * si.unit_price), 0) - COALESCE(SUM(si.quantity * si.cost_price), 0) AS margin,
-        pr.stock_quantity,
+        pr.stock_quantity::NUMERIC AS stock_quantity,
         o.id AS org_id
       FROM public.products pr
-      LEFT JOIN public.sale_items si ON si.product_id = pr.id
-      LEFT JOIN public.sales s ON s.id = si.sale_id AND s.created_at >= v_start_date
+      LEFT JOIN (
+        SELECT si2.product_id, si2.quantity, si2.unit_price, si2.cost_price
+        FROM public.sale_items si2
+        JOIN public.sales s2 ON s2.id = si2.sale_id
+        WHERE s2.created_at >= v_start_date
+      ) si ON si.product_id = pr.id
       LEFT JOIN public.organizations o ON o.id = pr.organization_id
       LEFT JOIN public.categories cat ON cat.id = pr.category_id
       WHERE public.is_super_admin()

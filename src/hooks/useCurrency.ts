@@ -1,7 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import {
   COUNTRIES,
-  DEFAULT_CURRENCY,
   getCountryByCode,
   getCurrencyByCode,
   formatPrice as formatPriceUtil,

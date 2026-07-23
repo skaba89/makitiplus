@@ -63,7 +63,7 @@ const INITIAL_CHECKS: CheckResult[] = [
 ];
 
 export default function Diagnostic() {
-  const { user, userRole } = useAuth();
+  const { userRole } = useAuth();
   const isSuperAdmin = userRole === "super_admin";
   const [checks, setChecks] = useState<CheckResult[]>(INITIAL_CHECKS);
   const [isRunning, setIsRunning] = useState(false);
@@ -217,7 +217,7 @@ export default function Diagnostic() {
 
     // 10. National readiness — vérifier les colonnes products (migration 20260712170000)
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from("products")
         .select("description, expiry_date, is_active")
         .limit(1);
@@ -235,12 +235,33 @@ export default function Diagnostic() {
       updateCheck("migration_20260712170000", "warn", `Impossible de vérifier: ${String(err)}`);
     }
 
-    // 11. National readiness — vérifier le cast payment_method (migration 20260712190000)
-    // On ne peut pas tester directement le cast sans faire une vente, donc on vérifie
-    // que la fonction create_sale_with_limit existe (elle a été recréée par la migration)
+    // 11+12. National readiness — vérifier le cast payment_method (migration
+    // 20260712190000) et harden_sales_store_scope / p_store_id (migration
+    // 20260712195000).
+    //
+    // GAP-CLOSING FIX (trouvé pendant le nettoyage typecheck) : l'ancienne
+    // version de ces deux checks appelait le VRAI create_sale_with_limit —
+    // le check #11 avec p_store_id: null, qui laisse la fonction résoudre un
+    // vrai magasin via le profil de l'appelant (fallback current_store_id →
+    // siège → premier magasin actif) et donc CRÉER UNE VRAIE VENTE FANTÔME
+    // ("DIAG_TEST", 0 article, 0 montant) dans la table sales de l'organisation
+    // réelle de tout utilisateur authentifié visitant /diagnostic — en comptant
+    // même contre son quota de ventes mensuel (check_plan_limit). Le check #12
+    // était accidentellement sûr (UUID de magasin bidon → 'Magasin invalide'
+    // levé avant l'INSERT), mais #11 ne l'était pas.
+    //
+    // Fix : un seul appel, avec le même UUID de magasin bidon que l'ancien
+    // #12 — échoue systématiquement AVANT tout INSERT (soit "Organisation
+    // introuvable" pour un compte sans org, soit "Magasin invalide" pour un
+    // compte avec org réelle), donc jamais de vente créée. Les deux fixes de
+    // signature (190000 et 195000) sont aujourd'hui fusionnés dans la même
+    // fonction consolidée (20260713200000_FINAL_CONSOLIDATED_ALL_FIXES.sql,
+    // p_store_id fait partie du même appel) — un seul test suffit pour les
+    // deux : si la fonction existe et accepte p_store_id, les deux migrations
+    // sont appliquées.
     try {
-      const { error } = await supabase.rpc("create_sale_with_limit" as never, {
-        p_sale_number: "DIAG_TEST",
+      const { error } = await supabase.rpc("create_sale_with_limit", {
+        p_sale_number: "DIAG_TEST_STORE",
         p_subtotal: 0,
         p_total_amount: 0,
         p_items: [],
@@ -248,40 +269,17 @@ export default function Diagnostic() {
         p_payment_method: "cash",
         p_amount_paid: 0,
         p_change_amount: 0,
-        p_customer_name: null,
-        p_customer_phone: null,
-        p_seller_name: null,
+        p_customer_name: undefined,
+        p_customer_phone: undefined,
+        p_seller_name: undefined,
         p_discount_amount: 0,
-        p_store_id: null,
+        p_store_id: "00000000-0000-0000-0000-000000000000", // UUID fictif — jamais un magasin réel
       });
-      // Si l'erreur n'est pas "function does not exist", la fonction est là
       if (error && error.message.includes("does not exist")) {
         updateCheck("migration_20260712190000", "fail", "Fonction create_sale_with_limit manquante");
       } else {
         updateCheck("migration_20260712190000", "pass", "Fonction create_sale_with_limit présente (cast OK)");
       }
-    } catch (err) {
-      const msg = String(err);
-      if (msg.includes("does not exist")) {
-        updateCheck("migration_20260712190000", "fail", "Fonction manquante — appliquer 20260712190000");
-      } else {
-        updateCheck("migration_20260712190000", "pass", "Fonction présente (erreur attendue)");
-      }
-    }
-
-    // 12. National readiness — vérifier harden_sales_store_scope (p_store_id accepté)
-    // Le check précédent (11) a déjà appelé avec p_store_id. Si ça n'a pas échoué avec
-    // "Could not find the function ... p_store_id", alors la migration 20260712195000 est appliquée.
-    try {
-      const { error } = await supabase.rpc("create_sale_with_limit" as never, {
-        p_sale_number: "DIAG_TEST_STORE",
-        p_subtotal: 0,
-        p_total_amount: 0,
-        p_items: [],
-        p_payment_method: "cash",
-        p_amount_paid: 0,
-        p_store_id: "00000000-0000-0000-0000-000000000000", // UUID fictif
-      });
       if (error && error.message.includes("Could not find the function")) {
         updateCheck("migration_20260712195000", "fail", "p_store_id non accepté — appliquer 20260712195000");
         updateCheck("create_sale_with_limit_p_store_id", "fail", "p_store_id non supporté");
@@ -291,6 +289,11 @@ export default function Diagnostic() {
       }
     } catch (err) {
       const msg = String(err);
+      if (msg.includes("does not exist")) {
+        updateCheck("migration_20260712190000", "fail", "Fonction manquante — appliquer 20260712190000");
+      } else {
+        updateCheck("migration_20260712190000", "pass", "Fonction présente (erreur attendue)");
+      }
       if (msg.includes("Could not find the function")) {
         updateCheck("migration_20260712195000", "fail", "p_store_id non accepté");
         updateCheck("create_sale_with_limit_p_store_id", "fail", "p_store_id non supporté");
@@ -321,7 +324,7 @@ export default function Diagnostic() {
     }
 
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from("sale_items")
         .select("id, organization_id, store_id")
         .limit(1);

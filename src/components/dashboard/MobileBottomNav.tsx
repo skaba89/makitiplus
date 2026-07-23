@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
-import { ALL_ROLES, INVENTORY_ROLES, FINANCIAL_ROLES, POS_ROLES, MANAGEMENT_ROLES, ADMIN_ROLES, STORE_ROLES, PRODUCT_MANAGEMENT_ROLES } from "@/types";
+import { ALL_ROLES, FINANCIAL_ROLES, POS_ROLES, MANAGEMENT_ROLES, ADMIN_ROLES, STORE_ROLES, PRODUCT_MANAGEMENT_ROLES } from "@/types";
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -17,7 +17,6 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
 import {
   BarChart3,
   Users,

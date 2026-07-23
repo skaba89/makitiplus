@@ -70,12 +70,12 @@ export function OnboardingChecklist() {
   }, []);
 
   // Fetch checklist progress
-  const { data: checklist, isLoading } = useQuery({
+  const { data: checklist } = useQuery({
     queryKey: ["onboarding-checklist"],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_onboarding_checklist");
       if (error) throw error;
-      return data as ChecklistData;
+      return data as unknown as ChecklistData;
     },
     enabled: !!user,
     staleTime: 2 * 60 * 1000,
@@ -147,7 +147,10 @@ export function OnboardingChecklist() {
 
   const handleComplete = async () => {
     try {
-      await supabase.rpc("complete_onboarding");
+      // complete_onboarding n'est pas déployée en live (P1.2 — domaine
+      // "onboarding" non déployé, voir SUPABASE_SCHEMA_DRIFT_AUDIT.md) ;
+      // échoue silencieusement ici, déjà marqué "Non-critical" ci-dessous.
+      await supabase.rpc("complete_onboarding" as never);
       queryClient.invalidateQueries({ queryKey: ["onboarding-checklist"] });
     } catch {
       // Non-critical

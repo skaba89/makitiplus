@@ -56,7 +56,7 @@ export default function Onboarding() {
   const { data: subscription } = useSubscription();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { checkout: stripeCheckout, isLoading: isStripeLoading, isStripeConfigured } = useStripeCheckout();
+  const { checkout: stripeCheckout, isLoading: isStripeLoading } = useStripeCheckout();
 
   const [step, setStep] = useState<Step>("welcome");
   const [selectedPlan, setSelectedPlan] = useState<string>("croissance");
@@ -96,10 +96,6 @@ export default function Onboarding() {
       });
       setIsSubmitting(false);
     }
-  };
-
-  const handleFinish = () => {
-    navigate("/dashboard", { replace: true });
   };
 
   if (!user) return null;

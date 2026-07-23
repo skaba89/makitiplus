@@ -52,12 +52,6 @@ const roleLabels: Record<AppRole, string> = {
   comptable: "Comptable",
 };
 
-const categoryMap: Record<string, string[]> = {
-  reset: ["user_password_reset", "user_password_reset_link_sent", "user_password_reset_completed"],
-  export: ["users_exported_csv", "audit_exported_csv"],
-  lifecycle: ["user_created", "user_deactivated", "user_reactivated", "user_deleted_permanently"],
-};
-
 const formatDate = (iso: string | null) => {
   if (!iso) return "—";
   try {
