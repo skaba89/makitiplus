@@ -39,6 +39,30 @@
 - Les 3 bugs P3 touchent directement l'argent et le stock (chemin le plus critique, RULE 0) — priorité la plus haute avant toute déclaration de readiness.
 - Tant que P0.4 n'est pas résolu (E2E_TEST_ORG dédié), toute extension de couverture E2E destructive reste bloquée par design (protection RULE 1 déjà correcte, mais couverture incomplète).
 
+## Avancement — P0.1 et P0.2/P0.3 fermés
+
+### P0.1 — Typecheck réel (commits `937f1e2`, `c10bf1b`)
+
+`npm run typecheck` pointe désormais vers `tsconfig.typecheck.json` (nouveau — étend `tsconfig.app.json`, exclut `src/test`) : **0 erreur, gate réellement bloquant**. `npm run typecheck:app` (config complète, inclut les tests) et `npm run typecheck:node` ajoutés pour visibilité totale.
+
+Triage des 417 erreurs initiales : 284 en code applicatif (100 % corrigées), 132 dans `src/test/**` restantes et **documentées comme dette non bloquante** (conforme à la règle du prompt) — la config `typecheck` les exclut délibérément pour ne pas bloquer la CI sur du triage de tests non encore fait, `typecheck:app` reste disponible pour un futur chantier dédié.
+
+143 des 284 erreurs applicatives étaient des déclarations inutilisées (imports/variables), nettoyage mécanique sans risque comportemental. Les 141 restantes ont révélé, en plus de vrais problèmes de typage bénins (`null` vs `undefined` sur les paramètres RPC optionnels, casts Json non typés), **deux bugs fonctionnels réels** :
+
+1. **`src/pages/CashClosing.tsx`** — la clôture de caisse insérait dans une table `app_activity` qui n'a jamais existé (la vraie table est `user_activity_logs`). Chaque clôture de caisse échouait silencieusement (`if (error) return [];`), avec un toast de succès affiché quand même. Corrigé (bonne table + erreur remontée via `onError`).
+2. **`src/pages/Dashboard.tsx`** — le fallback client-side du CA du jour (utilisé si le RPC `get_dashboard_stats` échoue) filtre sur `created_at`, colonne jamais sélectionnée par la requête `monthSales` — le fallback retournait toujours 0 silencieusement. Colonne ajoutée au `select`.
+
+**Découverte critique, hors périmètre typecheck** : en corrigeant l'erreur de type sur `src/pages/Diagnostic.tsx`, découverte que la page `/diagnostic` (accessible sans auth, checks lancés automatiquement au montage) créait une **vraie vente fantôme** ("DIAG_TEST", 0 montant) dans la table `sales` de l'organisation réelle de tout utilisateur authentifié la visitant — menace directe RULE 1 pour Diallo & Frères. Détail complet et fix dans le commit `c10bf1b` séparé (fusion de deux checks RPC en un seul, side-effect-free via un UUID de magasin invalide qui échoue systématiquement avant tout INSERT).
+
+### P0.2/P0.3 — Fix `get_admin_product_ranking_detailed` appliqué en live (commit `ef20bb5`)
+
+En validant le fix ROW_NUMBER-dans-WHERE avant application (protocole demandé : test dans une transaction `BEGIN`/`ROLLBACK`), **deux bugs supplémentaires trouvés** dans la même fonction, tous deux déjà présents dans la version live cassée mais jamais visibles (l'erreur de syntaxe empêchait toute exécution) :
+
+1. Filtre de période posé dans la condition `ON` du `LEFT JOIN sales` plutôt que dans un `WHERE` — les agrégats comptaient les ventes hors période (LEFT JOIN ne supprime pas la ligne côté `sale_items` quand la jointure échoue). Corrigé via une sous-requête pré-filtrée par période, jointe ensuite en `LEFT JOIN` sur `products` (préserve l'affichage des produits sans vente sur la période).
+2. `RETURNS TABLE` déclare `stock_quantity NUMERIC` mais `products.stock_quantity` est `INTEGER` en live → "structure of query does not match function result type" au premier appel réel. Cast explicite ajouté.
+
+Testé dans une transaction annulée (aucune donnée modifiée), puis **appliqué en live et vérifié** via `pg_get_functiondef` — la fonction live correspond exactement au fix complet (3 bugs corrigés au total pour cette RPC).
+
 ## Décision avant correction
 
-Aucune déclaration de "production ready national" à ce stade — conforme à la règle du prompt ("ne pas annoncer national ready par optimisme"). Passage à P0.1 → P0.5 puis P1-P6 dans l'ordre, avec validation utilisateur avant toute modification du schéma/RPC live touchant le chemin financier (P0.2/P0.3, P3), conformément à RULE 0/RULE 1.
+Aucune déclaration de "production ready national" à ce stade — conforme à la règle du prompt ("ne pas annoncer national ready par optimisme"). P0.1 et P0.2/P0.3 fermés. Suite : P0.4 (E2E_TEST_ORG dédié — bloqué par une décision d'infrastructure, pas encore tranchée), P1.2 (sort des 42 fonctions non déployées), P3 fix (3 bugs POS/offline/PO), P4-P6, avec validation utilisateur avant toute nouvelle modification du schéma/RPC live touchant le chemin financier, conformément à RULE 0/RULE 1.
