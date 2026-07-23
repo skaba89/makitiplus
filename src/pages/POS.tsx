@@ -1,6 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useDeferredValue, lazy, Suspense } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDemo } from "@/contexts/DemoContext";
 import { usePOSCartStore, useCartTotal, useCartSubtotal, useCartDiscount } from "@/contexts/POSCartContext";
@@ -32,8 +31,6 @@ import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useOrgTaxRate } from "@/hooks/useOrgTaxRate";
-import { computeTax } from "@/lib/taxUtils";
-import { reportError } from "@/lib/sentry";
 import { ShoppingCart, Camera, LayoutGrid, List, Keyboard } from "lucide-react";
 import { CurrencySelector } from "@/components/ui/currency-selector";
 import { CategoryIcon } from "@/components/ui/category-icon";
@@ -42,11 +39,11 @@ import { ReceiptData } from "@/utils/receiptGenerator";
 import { useBranding } from "@/contexts/BrandingContext";
 import { useThemeSettings } from "@/contexts/ThemeContext";
 import { usePOSKeyboardShortcuts } from "@/hooks/usePOSKeyboardShortcuts";
-import { usePOSProducts, ProductWithCategory as POSProduct } from "@/hooks/usePOSProducts";
+import { usePOSProducts } from "@/hooks/usePOSProducts";
 import { useOfflineSale } from "@/hooks/useOfflineSale";
 import { useOnlineStatus } from "@/contexts/OfflineContext";
-import { OfflineIndicator, OfflineBanner } from "@/components/ui/offline-indicator";
-import { useProductSearch, lookupBarcode, lookupBarcodeOffline } from "@/hooks/useProductSearch";
+import { OfflineBanner } from "@/components/ui/offline-indicator";
+import { lookupBarcode, lookupBarcodeOffline } from "@/hooks/useProductSearch";
 import { useCategories } from "@/hooks/useCategories";
 import { POSProductGridSkeleton, POSProductListSkeleton, POSCartSkeleton } from "@/components/pos/POSSkeletons";
 
@@ -54,19 +51,17 @@ type Product = Database["public"]["Tables"]["products"]["Row"] & {
   categories?: { name: string; color: string | null; icon: string | null } | null;
 };
 
-type PaymentMethod = Database["public"]["Enums"]["payment_method"];
-
 const POS = () => {
-  const { user, profile } = useAuth();
+  useAuth();
   const { effectiveOrgId } = useOrgSelector();
   const { toast } = useToast();
   const { blockMutation } = useDemo();
-  const { currency, formatPrice } = useCurrency();
-  const orgTaxRate = useOrgTaxRate();
+  const { formatPrice } = useCurrency();
+  useOrgTaxRate();
   const { isOnline } = useOnlineStatus();
-  const { branding } = useBranding();
-  const { settings } = useThemeSettings();
-  const queryClient = useQueryClient();
+  useBranding();
+  useThemeSettings();
+  useQueryClient();
   const cart = usePOSCartStore((s) => s.items);
   const { addToCart: addToCartStore, updateQuantity, removeItem, clearCart, hydrateFromDB, isHydrated, setDiscount, clearDiscount, discountType, discountValue } = usePOSCartStore();
   const cartTotal = useCartTotal();
@@ -87,7 +82,6 @@ const POS = () => {
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
-  const lastSubmitRef = useRef(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const confirmPaymentRef = useRef<(() => void) | null>(null);
 

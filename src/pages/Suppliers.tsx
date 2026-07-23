@@ -14,8 +14,6 @@ import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
-import { OrgSelector } from "@/components/ui/org-selector";
-import { CurrencyDisplaySelector } from "@/components/ui/currency-display-selector";
 import {
   Dialog,
   DialogContent,
@@ -56,8 +54,6 @@ import {
   ToggleLeft,
   ToggleRight,
 } from "lucide-react";
-import { format } from "date-fns";
-import { fr } from "date-fns/locale";
 import { SupplierDetailDialog } from "@/components/suppliers/SupplierDetailDialog";
 import { Supplier, SupplierUpdateParams } from "@/types";
 import { reportError } from "@/lib/sentry";
@@ -66,19 +62,14 @@ import { FeatureGate } from "@/components/saas/PlanLimitGuard";
 import { Lock } from "lucide-react";
 
 const Suppliers = () => {
-  const { user, profile, userRole } = useAuth();
+  const { user, userRole } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { blockMutation } = useDemo();
-  const { formatPrice } = useCurrency();
+  useCurrency();
   const { effectiveOrgId } = useOrgSelector();
   const {
     formatDisplayPrice,
-    displayCurrencyCode,
-    orgCurrencyCode,
-    setDisplayCurrency,
-    ratesLoading,
-    refreshRates,
     isConverted,
   } = useDisplayCurrency();
   const queryClient = useQueryClient();

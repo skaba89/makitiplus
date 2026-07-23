@@ -34,7 +34,7 @@ const Settings = () => {
   const { toast } = useToast();
   const { blockMutation } = useDemo();
   const queryClient = useQueryClient();
-  const { currency, country } = useCurrency();
+  const { currency } = useCurrency();
 
   const [formData, setFormData] = useState({
     business_name: "",

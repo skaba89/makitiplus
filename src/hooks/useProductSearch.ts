@@ -22,7 +22,7 @@ type ProductSearchResult = Database["public"]["Tables"]["products"]["Row"] & {
  * Only fetches when query is non-empty and debounced by the caller.
  */
 export function useProductSearch(query: string, limit = 8) {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const { effectiveOrgId } = useOrgSelector();
   const trimmed = query.trim();
 

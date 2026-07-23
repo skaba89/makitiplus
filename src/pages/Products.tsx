@@ -59,7 +59,7 @@ type ProductInsert = Database["public"]["Tables"]["products"]["Insert"];
 type ProductWithCat = ProductWithCategory;
 
 const Products = () => {
-  const { user, profile, userRole } = useAuth();
+  const { user, userRole } = useAuth();
   const { effectiveOrgId } = useOrgSelector();
   const { currency } = useCurrency();
   const {

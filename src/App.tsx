@@ -7,7 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { SentryErrorBoundary, reportError } from "@/lib/sentry";
 import { repairPwaCache, isPwaCacheError } from "@/lib/pwaRepair";
 import { extractErrorMessage } from "@/lib/extractErrorMessage";
-import { ADMIN_ROLES, INVENTORY_ROLES, FINANCIAL_ROLES, POS_ROLES, STORE_ROLES, MANAGEMENT_ROLES, PRODUCT_MANAGEMENT_ROLES } from "@/types";
+import { ADMIN_ROLES, FINANCIAL_ROLES, POS_ROLES, STORE_ROLES, MANAGEMENT_ROLES, PRODUCT_MANAGEMENT_ROLES } from "@/types";
 import { toast as sonnerToast } from "sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { OrgSelectorProvider } from "@/contexts/OrgSelectorContext";

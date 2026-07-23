@@ -1,6 +1,7 @@
 import QRCode from "qrcode";
+import type { jsPDF } from "jspdf";
 import { DEFAULT_CURRENCY } from "@/utils/currencies";
-import { ensurePdfFont, setPdfFont, isFontAvailable, sanitizeForPdfFallback } from "@/utils/pdfFont";
+import { ensurePdfFont, setPdfFont } from "@/utils/pdfFont";
 
 interface ReceiptItem {
   product_name: string;
@@ -616,7 +617,6 @@ function generateDetailedReceipt(data: ReceiptData, doc: jsPDF, config: typeof P
 
   // ── Info block ──
   doc.setFontSize(config.baseFontSize);
-  const infoY = y;
   setPdfFont(doc, "bold");
   leftText(`N° Facture : ${data.saleNumber}`, y);
   y += isA4 ? 5 : 3.5;

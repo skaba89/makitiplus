@@ -29,7 +29,7 @@ export function usePOSProducts({
   searchQuery,
   pageSize = 24,
 }: UsePOSProductsOptions) {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const { effectiveOrgId } = useOrgSelector();
 
   return useInfiniteQuery({
