@@ -12,17 +12,6 @@ export default defineConfig(({ mode }) => ({
     hmr: {
       overlay: false,
     },
-    // Le dépôt contient un dossier `skills/` (bibliothèque d'outils IA sans
-    // rapport avec l'app, non exclue ici volontairement — voir audit P0.5)
-    // avec des fichiers .html référençant des dépendances non installées
-    // (ex: "three"). Le scanner de dépendances de Vite parcourt tous les
-    // .html du projet au cold-start ; sans cette restriction, il tente de
-    // résoudre ces imports étrangers et le serveur de dev échoue à démarrer
-    // en CI (cache .vite absent). En restreignant explicitement l'entrée du
-    // scanner à l'app réelle, il ignore `skills/**`.
-    fs: {
-      deny: ["skills/**"],
-    },
   },
   optimizeDeps: {
     entries: ["index.html"],
