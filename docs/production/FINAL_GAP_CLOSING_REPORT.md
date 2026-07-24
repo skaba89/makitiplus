@@ -49,12 +49,15 @@ La PR #31 a fusionné dans `main` malgré 3 checks CI en échec — **la protect
 
 **Recommandation** : configurer la protection de branche `main` sur GitHub pour exiger que les checks CI (`build-and-test`, `Lint+Typecheck+Build+Unit tests`, `SQL migrations + undefined functions`) passent avant tout merge. Ceci ne peut pas être fait par migration ou code — c'est un réglage dans Settings → Branches du dépôt GitHub, à faire par quelqu'un ayant les droits d'administration du dépôt.
 
+## Actions de suivi effectuées après ce rapport (2026-07-24, même journée)
+
+- **Protection de branche `main`** : configurée via l'API GitHub — les checks `build-and-test` et `Release Readiness Summary` (couvrant transitivement lint/typecheck/build/tests/SQL/sécurité/les 4 suites E2E bloquantes) sont désormais obligatoires avant tout merge ; force-push et suppression de branche bloqués. Ferme directement l'incident décrit plus haut.
+- **Dossier `skills/`** : supprimé (PR #36). Origine identifiée : commit automatisé du scaffolding Lovable.dev (auteur "Z User", message = UUID, 30/06/2026 — confirmé par l'import `lovable-tagger` dans `vite.config.ts`), jamais référencé par le code applicatif. Le contournement Vite associé (`server.fs.deny`) devenu inutile a été retiré avec. Vérifié : build + démarrage serveur de dev sans régression. Un des deux jobs E2E bloquants (E2E Pilot) a échoué une première fois sur cette PR pour des raisons sans rapport avec le changement (timeout de clic, page encore en chargement au moment du check) — confirmé flaky par un second run entièrement vert avant fusion.
+
 ## Ce qui reste ouvert (nécessite une décision humaine, pas seulement technique)
 
-1. **P0.4 — Organisation de test E2E dédiée** : les tests E2E authentifient actuellement sur le compte super_admin réel de Diallo & Frères (organisation pilote réelle), pas sur une organisation de test isolée. Aucun test destructif n'a été exécuté dessus (garde-fous déjà en place), mais structurellement, tant qu'un `E2E_TEST_ORG` dédié n'existe pas, cette exigence n'est pas respectée. Créer cette organisation implique de toucher des secrets d'infrastructure partagée (GitHub Actions secrets, variables Render) — **nécessite votre feu vert avant toute action**.
-2. **Sort produit des 42 fonctions RPC non déployées** (sauvegardes, support client, fidélité, transferts de stock inter-magasins, métriques SaaS plateforme, réapprovisionnement fournisseur) : décision de roadmap produit (lancer / reporter / abandonner par domaine), pas un blocage technique.
-3. **Dossier `skills/`** (1028 fichiers, bibliothèque d'outils IA sans rapport avec l'application, déjà exclue du build/dev server) : laissé tel quel faute de réponse à la question posée en session — à traiter si souhaité (garder / supprimer / investiguer son origine).
-4. **Protection de branche `main`** (voir incident ci-dessus) : réglage GitHub, hors de ce qui peut être fait par code.
+1. **P0.4 — Organisation de test E2E dédiée** : les tests E2E authentifient actuellement sur le compte super_admin réel de Diallo & Frères (organisation pilote réelle), pas sur une organisation de test isolée. Aucun test destructif n'a été exécuté dessus (garde-fous déjà en place), mais structurellement, tant qu'un `E2E_TEST_ORG` dédié n'existe pas, cette exigence n'est pas respectée. Créer cette organisation implique de créer un compte et de toucher des secrets d'infrastructure partagée (GitHub Actions secrets, variables Render) — **hors de ce qui peut être fait ici** (création de comptes/gestion d'identifiants exclue par principe), à faire par vous.
+2. **Sort produit des 42 fonctions RPC non déployées** (sauvegardes, support client, fidélité, transferts de stock inter-magasins, métriques SaaS plateforme, réapprovisionnement fournisseur) : décision de roadmap produit (lancer / reporter / abandonner par domaine), pas un blocage technique — verdict technique déjà tranché (aucune ne bloque le lancement).
 
 ## Décision de déploiement
 
