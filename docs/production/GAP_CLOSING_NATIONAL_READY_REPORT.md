@@ -63,6 +63,31 @@ En validant le fix ROW_NUMBER-dans-WHERE avant application (protocole demandé :
 
 Testé dans une transaction annulée (aucune donnée modifiée), puis **appliqué en live et vérifié** via `pg_get_functiondef` — la fonction live correspond exactement au fix complet (3 bugs corrigés au total pour cette RPC).
 
+### P3 fix — les 3 bugs POS/offline/PO corrigés et appliqués en live
+
+Trois nouvelles migrations, chacune testée dans une transaction `BEGIN`/`ROLLBACK` (avec simulation de `auth.uid()` via `set_config('request.jwt.claims', ...)` pour exercer les fonctions `SECURITY DEFINER` réalistement) avant application, puis appliquées en live et vérifiées.
+
+**1. `20260723120000_fix_customer_credit_upsert_by_phone.sql`** — le bug documenté en P3 (RPC hors-ligne `increment_customer_credit` appelée avec des paramètres qui ne correspondent à aucune fonction déployée) s'est révélé plus large en creusant : **le chemin EN LIGNE était lui aussi cassé**. Vérifié en base live (`pg_constraint`) : aucune contrainte UNIQUE n'existe sur `customers(organization_id, phone)`, alors que le code en ligne fait `.upsert(data, { onConflict: "phone,organization_id" })` — Postgres exige une contrainte UNIQUE réelle correspondante, sinon erreur 42P10, avalée silencieusement par le code (`if (!custErr && ...)`). Résultat : un client réglant à crédit pour la première fois via son téléphone ne voyait jamais son crédit enregistré, en ligne comme hors-ligne. Vérifié : 0 doublon `(organization_id, phone)` existant, ajout de la contrainte sûr. Nouvelle RPC atomique `increment_customer_credit_by_phone` (find-or-create client + incrément crédit + trace `customer_credits`) remplace l'ancien enchaînement fragile en 3 appels ; `useOfflineSale.ts` mis à jour pour les deux chemins (en ligne et hors-ligne).
+
+**2. `20260723130000_fix_sale_idempotency.sql`** — contrainte UNIQUE ajoutée sur `sales(organization_id, sale_number)` (0 doublon existant, vérifié) + `create_full_sale` vérifie désormais l'existence d'une vente avec ce `sale_number` AVANT d'insérer (et retombe sur l'id existant en cas de conflit concurrent) : un replay de mutation offline après perte de la réponse serveur devient un no-op réussi plutôt qu'une vente en double avec double décrément de stock. Testé explicitement : deux appels avec le même `sale_number` → une seule vente créée.
+
+**3. `20260723140000_fix_receive_purchase_order_partial.sql`** — `purchase_order_items.quantity_received` est désormais persisté par ligne (cumulatif, plusieurs réceptions possibles) et `purchase_orders.status` ne passe à `'received'` que si toutes les lignes sont entièrement reçues, sinon `'partial'`. Testé explicitement : réception de 4 puis 6 sur une commande de 10 → `quantity_received=10`, `status='received'` après la seconde réception, `status='partial'` après la première.
+
+Validation post-application complète : `npm run typecheck` (0 erreur), `npm run lint` (0 erreur), `npm run build` (succès), `npm test -- --run` (81/81 fichiers, 1065/1065 tests — 6 nouveaux tests apparus car `checkPlanLimitJsonbPattern.test.ts` scanne dynamiquement la dernière migration touchant `create_full_sale` ; allowlist mise à jour avec la nouvelle migration), `validate_sql_migrations.py` et `check_undefined_functions.py` (0 erreur).
+
+### Bug signalé par l'utilisateur — "Analyse Multi-Magasins ne fonctionne pas" (2026-07-24)
+
+Signalement direct sur https://makitiplus.onrender.com/dashboard/admin-analytics. Connexion impossible sans identifiants réels (RULE 1) — investigation menée en simulant `auth.uid()` d'un super_admin réel via `set_config('request.jwt.claims', ...)` dans des transactions `ROLLBACK` (lecture seule), en appelant directement chacune des 10 RPC utilisées par `AdminAnalytics.tsx`.
+
+**Deux bugs SQL bloquants trouvés, présents depuis le déploiement initial du 16/07 (non liés à cette session) :**
+
+1. **`get_admin_seller_performance`** (section "Performance vendeurs") — `ur.role IN ('vendeur', 'manager', 'admin')::public.app_role` : le cast `::app_role` s'applique de façon invalide à la liste `IN`, erreur systématique `cannot cast type boolean to app_role`. Corrigé avec `ur.role = ANY (ARRAY['vendeur','manager','admin']::public.app_role[])` (`20260724090000_fix_seller_performance_role_cast.sql`).
+2. **`get_admin_org_kpis`** (section "KPIs par organisation") — `RETURNS TABLE` déclare une colonne `organization_id`, qui devient une variable PL/pgSQL implicite ; 5 CTE internes référencent `organization_id` sans le qualifier par un alias de table, collision avec cette variable → `column reference "organization_id" is ambiguous`. Corrigé en qualifiant chaque référence par l'alias de table correspondant (`20260724091000_fix_org_kpis_ambiguous_column.sql`).
+
+Les deux fixes testés dans des transactions `ROLLBACK` (aucune donnée modifiée), puis appliqués en live et re-vérifiés par appel direct : les 10 RPC de la page s'exécutent désormais toutes sans erreur.
+
+**Constat additionnel, non corrigé** : `get_admin_product_ranking_detailed` (celui corrigé plus tôt aujourd'hui, P0.2/P0.3) a ses données calculées mais jamais capturées dans `AdminAnalytics.tsx` — l'onglet "Top / Bad Articles" affiché utilise en réalité `get_admin_article_ranking`, une RPC plus ancienne et plus simple. Le câblage de la RPC détaillée vers l'UI semble être une fonctionnalité inachevée pré-existante (aucun rendu ne la consomme, TypeScript la signalait donc comme code mort). Non bloquant pour le rapport de bug de l'utilisateur — laissé en l'état, à traiter dans un futur chantier UI si la donnée plus riche (marge, % du CA, stock) doit remplacer l'affichage actuel.
+
 ## Décision avant correction
 
 Aucune déclaration de "production ready national" à ce stade — conforme à la règle du prompt ("ne pas annoncer national ready par optimisme"). P0.1 et P0.2/P0.3 fermés. Suite : P0.4 (E2E_TEST_ORG dédié — bloqué par une décision d'infrastructure, pas encore tranchée), P1.2 (sort des 42 fonctions non déployées), P3 fix (3 bugs POS/offline/PO), P4-P6, avec validation utilisateur avant toute nouvelle modification du schéma/RPC live touchant le chemin financier, conformément à RULE 0/RULE 1.
