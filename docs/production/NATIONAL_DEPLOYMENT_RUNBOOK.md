@@ -795,6 +795,7 @@ bash scripts/health-check-post-deployment.sh
 | Version | Date       | Auteur           | Changements                              |
 | ------- | ---------- | ---------------- | ---------------------------------------- |
 | 1.0     | 2026-07-12 | Équipe MakitiPlus| Création initiale du runbook national    |
+| 1.1     | 2026-07-24 | Audit gap-closing | Audit RLS complet (P4) : 5 policies corrigées, dont `stripe_events` (RLS était désactivée en live — voir `GAP_CLOSING_NATIONAL_READY_REPORT.md`). Nouvelles migrations `20260724100000` à `20260724140000` à inclure dans toute reconstruction de schéma depuis zéro (§2.2). Sort des 42 fonctions RPC non déployées tranché techniquement (aucun blocage) dans `SUPABASE_SCHEMA_DRIFT_AUDIT.md`. |
 
 ---
 

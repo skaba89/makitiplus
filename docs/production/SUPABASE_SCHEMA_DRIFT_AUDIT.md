@@ -59,3 +59,11 @@ Exit code 1 si une dérive directe non documentée est détectée (fonction live
 ## Conclusion P1.2
 
 Dérive directe réelle très limitée (3 fonctions, aucun risque fonctionnel actif, corrigée). La perception initiale d'une dérive massive (87 fonctions) était un artefact d'outillage (`comm`), pas un vrai problème — leçon retenue et documentée pour éviter de la reproduire. Le vrai chantier restant est le tri des 42 fonctions non déployées (P2/P3 pourraient en dépendre selon les fonctionnalités testées), hors périmètre strict de P1.2.
+
+## Décision de clôture (2026-07-24)
+
+Re-vérification avant clôture : recherche `grep` de chaque fonction dans `src/` pour confirmer qu'aucune n'est appelée par le frontend en production. Une seule exception trouvée : `complete_onboarding` (domaine Onboarding), référencée dans `src/components/dashboard/OnboardingChecklist.tsx:153` — déjà gérée correctement (appel encapsulé dans un `try/catch`, commentaire explicite renvoyant à cet audit, effet de bord limité à l'absence d'auto-dismiss de la carte onboarding). Pas un bug actif, pas d'action requise.
+
+**Verdict technique** : aucune des 42 fonctions ne bloque le déploiement national. Toutes sont dormantes et sans risque (non exposées via RPC appelée par le frontend, sauf l'exception ci-dessus déjà neutralisée). Aucune n'introduit de dette de sécurité (elles sont simplement absentes du live, donc inatteignables).
+
+**Décision** : ne rien déployer ni supprimer maintenant — chaque domaine (sauvegardes, support, fidélité, transferts de stock, métriques SaaS, réappro fournisseur, onboarding, cycle de vie abonnement) correspond à une fonctionnalité produit non lancée. Décider laquelle prioriser pour un lancement relève d'un choix de roadmap produit, pas d'un audit technique — hors périmètre de ce qui peut être tranché ici. P1.2 est clos côté technique ; le tri produit (lancer / reporter / abandonner par domaine) reste ouvert et à la main de l'équipe produit.
