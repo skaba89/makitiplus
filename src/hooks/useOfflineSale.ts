@@ -27,7 +27,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDemo } from "@/contexts/DemoContext";
 import { useOnlineStatus } from "@/contexts/OfflineContext";
-import { enqueueRPCMutation, enqueueMutation, cacheData, decrementLocalStock, OFFLINE_STORES } from "@/lib/offlineQueue";
+import { enqueueRPCMutation, cacheData, decrementLocalStock, OFFLINE_STORES } from "@/lib/offlineQueue";
 import { useOrgTaxRate } from "@/hooks/useOrgTaxRate";
 import { computeTax } from "@/lib/taxUtils";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -186,25 +186,28 @@ export function useOfflineSale(options?: {
         }
 
         // Handle credit sales
+        // Client identifié par téléphone : passe par increment_customer_credit_by_phone,
+        // une RPC atomique (find-or-create client + incrément crédit + trace
+        // customer_credits) qui remplace l'ancien enchaînement en 3 appels
+        // (upsert client + insert customer_credits + increment_customer_credit).
+        // L'ancien upsert client utilisait onConflict: "phone,organization_id" sans
+        // qu'aucune contrainte UNIQUE matching n'existe en base (42P10 systématique,
+        // avalé silencieusement par `if (!custErr && ...)`) : un client à crédit payant
+        // pour la première fois par téléphone ne voyait jamais son crédit enregistré,
+        // même en ligne. Voir 20260723120000_fix_customer_credit_upsert_by_phone.sql.
         let creditUpdateFailed = false;
         if (paymentMethod === "credit" && totalAmount > 0) {
-          let customerId: string | null = null;
-          if (customerPhone) {
-            const upsertData: Record<string, unknown> = {
-              name: customerName || customerPhone,
-              phone: customerPhone,
-            };
-            if (orgId) upsertData.organization_id = orgId;
-            const { data: upsertedCustomer, error: custErr } = await supabase
-              .from("customers")
-              .upsert(upsertData as never, {
-                onConflict: "phone,organization_id",
-                ignoreDuplicates: false,
-              })
-              .select("id")
-              .maybeSingle();
-            if (!custErr && upsertedCustomer) {
-              customerId = upsertedCustomer.id;
+          if (customerPhone && orgId) {
+            const { error: creditError } = await supabase.rpc("increment_customer_credit_by_phone", {
+              p_customer_phone: customerPhone,
+              p_customer_name: customerName || customerPhone,
+              p_amount: totalAmount,
+              p_organization_id: orgId,
+              p_sale_number: finalSaleNumber,
+            });
+            if (creditError) {
+              reportError(new Error(`increment_customer_credit_by_phone RPC failed: ${creditError.message}`));
+              creditUpdateFailed = true;
             }
           } else if (customerName) {
             const { data: existingCustomer } = await supabase
@@ -214,28 +217,24 @@ export function useOfflineSale(options?: {
               .eq("organization_id", orgId ?? "")
               .maybeSingle();
             if (existingCustomer) {
-              customerId = existingCustomer.id;
-            }
-          }
-
-          if (customerId) {
-            const creditInsert: Record<string, unknown> = {
-              user_id: user?.id ?? "",
-              customer_id: customerId,
-              sale_id: sale.id,
-              amount: totalAmount,
-              type: "credit",
-              description: `Vente crédit ${finalSaleNumber}`,
-            };
-            if (orgId) creditInsert.organization_id = orgId;
-            await supabase.from("customer_credits").insert(creditInsert as never);
-            const { error: creditUpdateError } = await supabase.rpc("increment_customer_credit", {
-              p_customer_id: customerId,
-              p_amount: totalAmount,
-            });
-            if (creditUpdateError) {
-              reportError(new Error(`increment_customer_credit RPC failed: ${creditUpdateError.message}`));
-              creditUpdateFailed = true;
+              const creditInsert: Record<string, unknown> = {
+                user_id: user?.id ?? "",
+                customer_id: existingCustomer.id,
+                sale_id: sale.id,
+                amount: totalAmount,
+                type: "credit",
+                description: `Vente crédit ${finalSaleNumber}`,
+              };
+              if (orgId) creditInsert.organization_id = orgId;
+              await supabase.from("customer_credits").insert(creditInsert as never);
+              const { error: creditUpdateError } = await supabase.rpc("increment_customer_credit", {
+                p_customer_id: existingCustomer.id,
+                p_amount: totalAmount,
+              });
+              if (creditUpdateError) {
+                reportError(new Error(`increment_customer_credit RPC failed: ${creditUpdateError.message}`));
+                creditUpdateFailed = true;
+              }
             }
           }
         }
@@ -269,27 +268,16 @@ export function useOfflineSale(options?: {
         organizationId: orgId ?? undefined,
       });
 
-      // If credit sale, also enqueue customer upsert + increment_customer_credit
-      // H2 fix: Enqueue a customer upsert FIRST so the customer exists in the DB
-      // when increment_customer_credit is replayed at sync time.
+      // Vente à crédit hors-ligne : une seule RPC atomique (find-or-create
+      // client + incrément crédit), rejouée à la synchronisation. Remplace
+      // l'ancien enchaînement upsert client + increment_customer_credit, dont
+      // les paramètres (p_customer_phone, p_customer_name, ...) ne
+      // correspondaient à aucune fonction déployée (increment_customer_credit
+      // attend p_customer_id + p_amount) — échec garanti à chaque
+      // synchronisation. Voir 20260723120000_fix_customer_credit_upsert_by_phone.sql.
       if (paymentMethod === "credit" && totalAmount > 0 && customerPhone) {
-        // 1. Enqueue customer upsert (ensure customer exists before credit)
-        await enqueueMutation({
-          table: "customers",
-          operation: "INSERT",
-          data: {
-            name: customerName || customerPhone,
-            phone: customerPhone,
-            organization_id: orgId,
-          },
-          filter: undefined,
-          userId: user?.id,
-          organizationId: orgId ?? undefined,
-        });
-
-        // 2. Enqueue increment_customer_credit (will run AFTER customer upsert)
         await enqueueRPCMutation({
-          rpcName: "increment_customer_credit",
+          rpcName: "increment_customer_credit_by_phone",
           data: {
             p_customer_phone: customerPhone,
             p_customer_name: customerName || customerPhone,

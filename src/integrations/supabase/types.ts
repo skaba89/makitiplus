@@ -2263,6 +2263,16 @@ export type Database = {
         Args: { p_amount: number; p_customer_id: string }
         Returns: undefined
       }
+      increment_customer_credit_by_phone: {
+        Args: {
+          p_amount: number
+          p_customer_name: string
+          p_customer_phone: string
+          p_organization_id: string
+          p_sale_number?: string
+        }
+        Returns: string
+      }
       insert_default_categories: {
         Args: { p_org_id: string; p_user_id: string }
         Returns: undefined

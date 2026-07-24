@@ -697,7 +697,7 @@ const AdminAnalytics = () => {
             { label: "Ventes (€)", value: ratesLoading ? "..." : formatPivotPrice(kpis?.total_sales ?? globalStats.totalSales), icon: ShoppingCart, color: "text-green-600" },
             {
               label: "Croissance",
-              value: kpis && kpis.sales_growth_pct ? `${kpis.sales_growth_pct >= 0 ? "+" : ""}${kpis.sales_growth_pct.toFixed(1)}%` : "—",
+              value: kpis && kpis.sales_growth_pct ? `${Number(kpis.sales_growth_pct) >= 0 ? "+" : ""}${Number(kpis.sales_growth_pct).toFixed(1)}%` : "—",
               icon: kpis && kpis.sales_growth_pct >= 0 ? TrendingUp : TrendingDown,
               color: kpis && kpis.sales_growth_pct >= 0 ? "text-green-600" : "text-destructive",
             },
@@ -705,7 +705,7 @@ const AdminAnalytics = () => {
             { label: "Bénéfice net (€)", value: ratesLoading ? "..." : formatPivotPrice(kpis?.net_revenue ?? (globalStats.totalSales - globalStats.totalExpenses)), icon: DollarSign, color: kpis && kpis.net_revenue >= 0 ? "text-green-600" : "text-destructive" },
             { label: "Panier moyen (€)", value: ratesLoading ? "..." : formatPivotPrice(kpis?.avg_basket ?? 0), icon: ShoppingCart, color: "text-purple-600" },
             { label: "Marge brute (€)", value: ratesLoading ? "..." : formatPivotPrice(kpis?.gross_margin ?? 0), icon: DollarSign, color: "text-emerald-600" },
-            { label: "Marge %", value: kpis ? `${kpis.gross_margin_pct.toFixed(1)}%` : "—", icon: Percent, color: "text-emerald-600" },
+            { label: "Marge %", value: kpis ? `${Number(kpis.gross_margin_pct).toFixed(1)}%` : "—", icon: Percent, color: "text-emerald-600" },
             { label: "Clients", value: kpis?.total_customers ?? globalStats.totalCustomers, icon: Users, color: "text-indigo-600" },
             { label: "Alertes stock", value: kpis?.low_stock_count ?? globalStats.totalLowStock, icon: AlertTriangle, color: "text-destructive" },
             ].map((kpi) => (
