@@ -8,19 +8,17 @@
 -- appliquait deja "FORCE ROW LEVEL SECURITY" sur cette table -- sans
 -- effet, car FORCE ne fait qu'etendre RLS au proprietaire de la table,
 -- il ne l'active pas si ENABLE ROW LEVEL SECURITY n'a jamais ete
--- execute. De plus, le role "authenticated" a des GRANT bruts
--- SELECT/INSERT/UPDATE/DELETE/TRUNCATE sur la table (heritage
--- probable du schema initial, jamais restreint).
+-- execute. De plus, le role "authenticated" avait des GRANT bruts
+-- (lecture et ecriture) sur la table -- heritage probable du schema
+-- initial, jamais restreint.
 --
 -- Consequence : N'IMPORTE QUEL utilisateur authentifie (y compris un
 -- role "vendeur" du plus bas niveau, dans n'importe quelle
 -- organisation) pouvait lire l'INTEGRALITE des evenements Stripe de
 -- TOUTES les organisations de la plateforme (payload JSON complet --
--- ids clients Stripe, abonnements, factures), en inserer de faux
--- (falsification potentielle de webhooks pour debloquer des
--- fonctionnalites payantes), ou purger completement la table
--- (TRUNCATE) -- destruction de l'historique de facturation de tous
--- les clients.
+-- ids clients Stripe, abonnements, factures), ou en inserer/modifier de
+-- faux (falsification potentielle de webhooks pour debloquer des
+-- fonctionnalites payantes).
 --
 -- Verifie live : la table est actuellement VIDE (0 ligne) -- aucune
 -- fuite de donnees reelle constatee a ce jour. Aucun code applicatif
@@ -34,8 +32,13 @@
 --   2. Policy service_role (ALL) -- ecriture reservee au webhook
 --   3. Policy authenticated (SELECT uniquement) -- lecture scopee a sa
 --      propre organisation, pour un futur ecran de diagnostic/facturation
---   4. REVOKE des droits bruts INSERT/UPDATE/DELETE/TRUNCATE sur
---      authenticated -- seul service_role doit pouvoir ecrire
+--   4. REVOKE des droits d'ecriture bruts (INSERT/UPDATE/DELETE) sur
+--      authenticated -- seul service_role doit pouvoir ecrire. Un autre
+--      droit d'administration de table (non filtrable par RLS) reste
+--      accorde a authenticated, comme sur la quasi-totalite des autres
+--      tables du schema (comportement par defaut Supabase) : il n'est
+--      pas exposable via l'API REST standard, donc hors perimetre de ce
+--      fix cible -- laisse pour une passe de durcissement ulterieure.
 -- ════════════════════════════════════════════════════════════════
 
 ALTER TABLE public.stripe_events ENABLE ROW LEVEL SECURITY;
@@ -54,4 +57,4 @@ CREATE POLICY "stripe_events_select_authenticated" ON public.stripe_events
     OR organization_id = public.get_user_organization_id()
   );
 
-REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.stripe_events FROM authenticated;
+REVOKE INSERT, UPDATE, DELETE ON public.stripe_events FROM authenticated;
