@@ -60,6 +60,7 @@ const ALLOWED_TABLES = new Set([
 const ALLOWED_RPCS = new Set([
   "create_sale_with_limit",
   "increment_customer_credit",
+  "increment_customer_credit_by_phone",
 ]);
 
 // ---------------------------------------------------------------------------
