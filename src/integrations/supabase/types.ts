@@ -2108,6 +2108,10 @@ export type Database = {
       }
       get_next_category_sort_order: { Args: never; Returns: number }
       get_onboarding_checklist: { Args: never; Returns: Json }
+      get_organization_id_of_user: {
+        Args: { _user_id: string }
+        Returns: string
+      }
       get_organization_stores: {
         Args: never
         Returns: {
