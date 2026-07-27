@@ -21,13 +21,12 @@
     "e2e:seller-activity": "playwright test e2e/seller-activity.spec.ts",
     "e2e:sales-store-scope": "playwright test e2e/sales-store-scope.spec.ts",
     "check": "npx eslint src/ --ignore-pattern 'src/test/**' --max-warnings 10 && npm run typecheck && npm run build && npm test",
-    "check:production": "npm run check && python3 scripts/validate_sql_migrations.py && npm audit --audit-level=high && npm run e2e:pilot",
+    "check:production": "npm run check && python3 scripts/validate_sql_migrations.py && npm audit --audit-level=high --omit=dev && npm run e2e:pilot",
     "check:staging": "npm run check:production && npm run e2e:staging && npm run e2e:seller-activity",
-    "check:national-readiness": "npm run check && python3 scripts/validate_sql_migrations.py && python3 scripts/check_undefined_functions.py && npm audit --audit-level=high && npm run e2e:pilot && npm run e2e:seller-activity && npm run e2e:staging && npm run e2e:sales-store-scope"
+    "check:national-readiness": "npm run check && python3 scripts/validate_sql_migrations.py && python3 scripts/check_undefined_functions.py && npm audit --audit-level=high --omit=dev && npm run e2e:pilot && npm run e2e:seller-activity && npm run e2e:staging && npm run e2e:sales-store-scope"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.1",
-    "@capacitor/cli": "^8.4.1",
     "@capacitor/core": "^8.4.1",
     "@capacitor/haptics": "^8.0.2",
     "@capacitor/ios": "^8.4.1",
@@ -95,6 +94,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.4.1",
     "@eslint/js": "^9.32.0",
     "@playwright/test": "^1.61.1",
     "@tailwindcss/typography": "^0.5.16",

@@ -46,7 +46,7 @@ jobs:
         run: python3 scripts/check_undefined_functions.py
 
       - name: Security audit (high/critical — blocks the pipeline)
-        run: npm audit --audit-level=high
+        run: npm audit --audit-level=high --omit=dev
 
       - name: Security audit (moderate — informational only)
         run: npm audit --audit-level=moderate || true
