@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
-import { ALL_ROLES, FINANCIAL_ROLES, POS_ROLES, MANAGEMENT_ROLES, ADMIN_ROLES, STORE_ROLES, PRODUCT_MANAGEMENT_ROLES } from "@/types";
+import { ALL_ROLES, FINANCIAL_ROLES, POS_ROLES, MANAGEMENT_ROLES, ADMIN_ROLES, STORE_ROLES, PRODUCT_MANAGEMENT_ROLES, CASH_CLOSING_ACCESS_ROLES } from "@/types";
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -119,7 +119,7 @@ const moreNavItems: BottomNavItem[] = [
     name: "Clôture",
     href: "/dashboard/cash-closing",
     icon: Wallet,
-    roles: MANAGEMENT_ROLES,
+    roles: CASH_CLOSING_ACCESS_ROLES,
   },
   {
     name: "Abonnement",

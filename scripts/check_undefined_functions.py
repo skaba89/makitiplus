@@ -68,6 +68,7 @@ KNOWN_TABLES = {
     "loyalty_transactions", "loyalty_rewards", "loyalty_point_ledger",
     "store_settings", "subscription_events", "subscriptions",
     "stock_transfer_items", "audit_logs", "usage_counters",
+    "cash_register_sessions",
 }
 
 # Fonctions dont le nom suit un pattern de type table (à ignorer si elles

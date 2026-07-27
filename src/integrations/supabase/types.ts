@@ -39,6 +39,126 @@ export type Database = {
   }
   public: {
     Tables: {
+      cash_register_sessions: {
+        Row: {
+          actual_cash: number | null
+          approved_at: string | null
+          approved_by: string | null
+          card_sales: number
+          cash_difference: number | null
+          cash_expenses: number
+          cash_sales: number
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          credit_sales: number
+          expected_cash: number
+          id: string
+          manager_notes: string | null
+          moov_money_sales: number
+          mpesa_sales: number
+          mtn_money_sales: number
+          notes: string | null
+          opened_at: string
+          opened_by: string
+          opening_cash: number
+          orange_money_sales: number
+          organization_id: string
+          products_sold: number
+          rejection_reason: string | null
+          status: string
+          store_id: string | null
+          total_expenses: number
+          total_sales: number
+          transaction_count: number
+          updated_at: string
+          wave_sales: number
+        }
+        Insert: {
+          actual_cash?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          card_sales?: number
+          cash_difference?: number | null
+          cash_expenses?: number
+          cash_sales?: number
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          credit_sales?: number
+          expected_cash?: number
+          id?: string
+          manager_notes?: string | null
+          moov_money_sales?: number
+          mpesa_sales?: number
+          mtn_money_sales?: number
+          notes?: string | null
+          opened_at?: string
+          opened_by: string
+          opening_cash?: number
+          orange_money_sales?: number
+          organization_id: string
+          products_sold?: number
+          rejection_reason?: string | null
+          status?: string
+          store_id?: string | null
+          total_expenses?: number
+          total_sales?: number
+          transaction_count?: number
+          updated_at?: string
+          wave_sales?: number
+        }
+        Update: {
+          actual_cash?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          card_sales?: number
+          cash_difference?: number | null
+          cash_expenses?: number
+          cash_sales?: number
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          credit_sales?: number
+          expected_cash?: number
+          id?: string
+          manager_notes?: string | null
+          moov_money_sales?: number
+          mpesa_sales?: number
+          mtn_money_sales?: number
+          notes?: string | null
+          opened_at?: string
+          opened_by?: string
+          opening_cash?: number
+          orange_money_sales?: number
+          organization_id?: string
+          products_sold?: number
+          rejection_reason?: string | null
+          status?: string
+          store_id?: string | null
+          total_expenses?: number
+          total_sales?: number
+          transaction_count?: number
+          updated_at?: string
+          wave_sales?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cash_register_sessions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cash_register_sessions_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           color: string | null
@@ -1737,6 +1857,10 @@ export type Database = {
         }
         Returns: Json
       }
+      approve_cash_register_session: {
+        Args: { p_manager_notes?: string; p_session_id: string }
+        Returns: undefined
+      }
       batch_update_stock: {
         Args: { p_items: Json; p_sale_id: string }
         Returns: undefined
@@ -1752,6 +1876,10 @@ export type Database = {
       }
       check_feature_access: { Args: { p_feature_key: string }; Returns: Json }
       check_plan_limit: { Args: { p_limit_type: string }; Returns: Json }
+      close_cash_register_session: {
+        Args: { p_actual_cash: number; p_notes?: string; p_session_id: string }
+        Returns: Json
+      }
       create_first_organization: {
         Args: {
           p_country: string
@@ -2033,6 +2161,59 @@ export type Database = {
           vendeur_count: number
         }[]
       }
+      get_cash_closing_summary: {
+        Args: { p_session_id: string }
+        Returns: Json
+      }
+      get_cash_register_sessions: {
+        Args: {
+          p_from_date?: string
+          p_status?: string
+          p_store_id?: string
+          p_to_date?: string
+          p_user_id?: string
+        }
+        Returns: {
+          actual_cash: number | null
+          approved_at: string | null
+          approved_by: string | null
+          card_sales: number
+          cash_difference: number | null
+          cash_expenses: number
+          cash_sales: number
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          credit_sales: number
+          expected_cash: number
+          id: string
+          manager_notes: string | null
+          moov_money_sales: number
+          mpesa_sales: number
+          mtn_money_sales: number
+          notes: string | null
+          opened_at: string
+          opened_by: string
+          opening_cash: number
+          orange_money_sales: number
+          organization_id: string
+          products_sold: number
+          rejection_reason: string | null
+          status: string
+          store_id: string | null
+          total_expenses: number
+          total_sales: number
+          transaction_count: number
+          updated_at: string
+          wave_sales: number
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "cash_register_sessions"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       get_categories: {
         Args: never
         Returns: {
@@ -2294,6 +2475,10 @@ export type Database = {
       is_user_active: { Args: { _user_id: string }; Returns: boolean }
       log_user_activity: {
         Args: { p_action: string; p_description?: string; p_metadata?: Json }
+        Returns: string
+      }
+      open_cash_register_session: {
+        Args: { p_notes?: string; p_opening_cash?: number; p_store_id?: string }
         Returns: string
       }
       process_credit_payment: {
