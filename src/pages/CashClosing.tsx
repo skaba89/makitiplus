@@ -96,7 +96,6 @@ export default function CashClosing() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const isVendeurOnly = userRole === "vendeur";
   const isReviewer = userRole ? CASH_CLOSING_REVIEW_ROLES.includes(userRole) : false;
   const canApprove = userRole === "admin" || userRole === "manager";
   const canOperate = userRole === "admin" || userRole === "manager" || userRole === "vendeur";
