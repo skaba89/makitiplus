@@ -34,11 +34,12 @@ import { reportError } from "@/lib/sentry";
 import { extractErrorMessage } from "@/lib/extractErrorMessage";
 import {
   Wallet, Printer, CheckCircle, AlertTriangle, TrendingUp, Banknote,
-  History, Users, ThumbsUp, Lock,
+  History, Users, ThumbsUp, Lock, Download, MessageCircle,
 } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { CASH_CLOSING_REVIEW_ROLES } from "@/types";
+import { toCSV } from "@/utils/csvParser";
 
 const PAYMENT_LABELS: Record<string, string> = {
   cash: "Espèces", wave: "Wave", orange_money: "Orange Money",
@@ -272,6 +273,47 @@ export default function CashClosing() {
     if (w) { w.document.write(html); w.document.close(); w.print(); }
   };
 
+  const handleExportHistoryCSV = () => {
+    if (!history || history.length === 0) return;
+    const rows = [
+      ["date_ouverture", "date_cloture", "statut", "total_ventes", "montant_reel", "ecart", "notes"],
+      ...history.map((s) => [
+        format(new Date(s.opened_at), "yyyy-MM-dd HH:mm"),
+        s.closed_at ? format(new Date(s.closed_at), "yyyy-MM-dd HH:mm") : "",
+        s.status,
+        String(s.total_sales ?? 0),
+        s.actual_cash !== null ? String(s.actual_cash) : "",
+        s.cash_difference !== null ? String(s.cash_difference) : "",
+        s.notes ?? "",
+      ]),
+    ];
+    const blob = new Blob(["﻿" + toCSV(rows)], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `clotures-caisse-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleShareWhatsApp = () => {
+    if (!mySummary) return;
+    const phone = prompt("Numéro WhatsApp du destinataire (ex: 224622000000):");
+    if (!phone) return;
+    const cleanPhone = phone.replace(/[\s+\-()]/g, "");
+    const msg = `📊 *Clôture de caisse — ${profile?.business_name || ""}*
+
+Ouverture : ${format(new Date(mySummary.opened_at), "dd/MM/yyyy HH:mm")}
+Total ventes : ${formatPrice(mySummary.total_sales)}
+Dépenses : ${formatPrice(mySummary.total_expenses)}
+Caisse attendue : ${formatPrice(mySummary.expected_cash)}
+${mySummary.actual_cash !== null ? `Caisse réelle : ${formatPrice(mySummary.actual_cash)}\nÉcart : ${formatPrice(mySummary.cash_difference ?? 0)}` : ""}
+${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
+
+— MakitiPlus`;
+    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, "_blank");
+  };
+
   const roleLabel = userRole === "vendeur" ? "Vendeur" : userRole === "manager" ? "Manager"
     : userRole === "admin" ? "Administrateur" : userRole === "comptable" ? "Comptable" : "Super admin";
 
@@ -431,9 +473,14 @@ export default function CashClosing() {
                     Écart : {formatDisplayPrice(mySummary.cash_difference ?? 0, { showOriginal: isConverted })}
                   </p>
                 </div>
-                <Button variant="outline" size="sm" onClick={handlePrint} className="ml-auto gap-2">
-                  <Printer className="h-4 w-4" /> Imprimer
-                </Button>
+                <div className="ml-auto flex gap-2">
+                  <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
+                    <Printer className="h-4 w-4" /> Imprimer
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleShareWhatsApp} className="gap-2">
+                    <MessageCircle className="h-4 w-4" /> WhatsApp
+                  </Button>
+                </div>
               </div>
             )}
           </>
@@ -501,10 +548,15 @@ export default function CashClosing() {
 
         {/* ─── Historique ──────────────────────────────────────── */}
         <Card>
-          <CardHeader>
+          <CardHeader className="flex-row items-center justify-between space-y-0">
             <CardTitle className="text-lg flex items-center gap-2">
               <History className="h-5 w-5" /> Historique des sessions
             </CardTitle>
+            {(history?.length ?? 0) > 0 && (
+              <Button variant="outline" size="sm" onClick={handleExportHistoryCSV} className="gap-2">
+                <Download className="h-4 w-4" /> Exporter CSV
+              </Button>
+            )}
           </CardHeader>
           <CardContent>
             {(history?.length ?? 0) === 0 ? (
