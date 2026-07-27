@@ -75,6 +75,8 @@ const Dashboard = () => {
     todaySales: number;
     todayTransactions: number;
     monthCreditCount: number;
+    totalCredits: number;
+    creditsCount: number;
   }
   interface TopProduct {
     product_name: string;
@@ -208,6 +210,35 @@ const Dashboard = () => {
     enabled: !!user,
   });
 
+  // Ventes du jour par moyen de paiement — pour la vue patron (P1.2)
+  const { data: todayPaymentBreakdown } = useQuery({
+    queryKey: ["dashboard-today-payment-breakdown", user?.id, effectiveOrgId, dayStart, dayEnd],
+    queryFn: async (): Promise<{ payment_method: string; total: number; count: number }[]> => {
+      if (isSuperAdmin) return [];
+      let query = supabase
+        .from("sales")
+        .select("payment_method, total_amount")
+        .gte("created_at", dayStart)
+        .lte("created_at", dayEnd);
+      if (effectiveOrgId) {
+        query = query.eq("organization_id", effectiveOrgId);
+      }
+      const { data, error } = await query;
+      if (error || !data) return [];
+      const byMethod = new Map<string, { total: number; count: number }>();
+      for (const sale of data) {
+        const entry = byMethod.get(sale.payment_method) ?? { total: 0, count: 0 };
+        entry.total += sale.total_amount;
+        entry.count += 1;
+        byMethod.set(sale.payment_method, entry);
+      }
+      return Array.from(byMethod.entries())
+        .map(([payment_method, v]) => ({ payment_method, ...v }))
+        .sort((a, b) => b.total - a.total);
+    },
+    enabled: !!user && !isSuperAdmin,
+  });
+
   // Recent sales
   const { data: recentSales } = useQuery({
     queryKey: ["dashboard-recent-sales", user?.id, effectiveOrgId],
@@ -338,8 +369,10 @@ const Dashboard = () => {
 
 💰 Ventes du jour : ${formatPrice(totalSalesToday)}
 🛒 Transactions : ${transactionsToday}
+${(todayPaymentBreakdown ?? []).map((e) => `   • ${paymentLabels[e.payment_method] || e.payment_method} : ${formatPrice(e.total)}`).join("\n")}
 📦 Produits en stock : ${totalProducts}
 ⚠️ Stock bas : ${lowStockProducts.length}
+💰 Crédits clients en cours : ${formatPrice(dashboardStats?.totalCredits ?? 0)} (${dashboardStats?.creditsCount ?? 0} client(s))
 💸 Dépenses du mois : ${formatPrice(totalExpensesMonth)}
 📊 Bénéfice net : ${netProfit >= 0 ? "+" : ""}${formatPrice(netProfit)}
 
@@ -427,6 +460,57 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
                   Voir les fournisseurs
                 </span>
               </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Crédits clients + Ventes du jour par moyen de paiement — vue patron (P1.2) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Card
+            className="card-elevated hover:shadow-medium transition-shadow cursor-pointer group"
+            role="button"
+            tabIndex={0}
+            onClick={() => navigate("/dashboard/customers")}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/dashboard/customers"); } }}
+          >
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Crédits clients en cours</CardTitle>
+              <div className="p-2 rounded-lg bg-amber-500/10">
+                <Wallet className="h-4 w-4 text-amber-600" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {formatDisplayPrice(dashboardStats?.totalCredits ?? 0, { showOriginal: isConverted })}
+              </div>
+              <div className="flex items-center gap-1 mt-1">
+                <span className="text-sm text-muted-foreground group-hover:underline">
+                  {dashboardStats?.creditsCount ?? 0} client(s) avec un solde
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="card-elevated">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Ventes du jour par paiement</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {todayPaymentBreakdown && todayPaymentBreakdown.length > 0 ? (
+                <div className="space-y-2">
+                  {todayPaymentBreakdown.map((entry) => (
+                    <div key={entry.payment_method} className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        {paymentLabels[entry.payment_method] || entry.payment_method} ({entry.count})
+                      </span>
+                      <span className="font-medium">
+                        {formatDisplayPrice(entry.total, { showOriginal: isConverted })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Aucune vente aujourd'hui</p>
+              )}
             </CardContent>
           </Card>
         </div>
