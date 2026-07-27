@@ -25,9 +25,28 @@ import { CurrencyDisplaySelector } from "@/components/ui/currency-display-select
 import { useToast } from "@/hooks/use-toast";
 import { reportError } from "@/lib/sentry";
 import { extractErrorMessage } from "@/lib/extractErrorMessage";
-import { Wallet, Printer, CheckCircle, AlertTriangle, TrendingUp, Banknote } from "lucide-react";
+import { Wallet, Printer, CheckCircle, AlertTriangle, TrendingUp, Banknote, History, Info } from "lucide-react";
 import { startOfDay, endOfDay, format } from "date-fns";
 import { fr } from "date-fns/locale";
+
+const CASH_CLOSING_DESCRIPTION_PREFIX = "Clôture de caisse ";
+
+interface CashClosingMetadata {
+  date: string;
+  total_sales: number;
+  cash_sales: number;
+  expenses: number;
+  expected_cash: number;
+  actual_cash: number;
+  difference: number;
+  notes: string | null;
+}
+
+interface CashClosingLogEntry {
+  id: string;
+  created_at: string;
+  metadata: CashClosingMetadata;
+}
 
 const PAYMENT_LABELS: Record<string, string> = {
   cash: "Espèces",
@@ -128,6 +147,39 @@ export default function CashClosing() {
   const totalExpenses = expensesToday ?? 0;
   const expectedCash = cashSales - totalExpenses;
 
+  // Historique des clôtures — lecture seule, ne touche pas à la logique de clôture existante
+  const { data: closingHistory } = useQuery({
+    queryKey: ["cash-closing-history", user?.id, effectiveOrgId],
+    queryFn: async (): Promise<CashClosingLogEntry[]> => {
+      if (!effectiveOrgId) return [];
+      try {
+        const { data, error } = await supabase
+          .from("user_activity_logs")
+          .select("id, created_at, metadata")
+          .eq("organization_id", effectiveOrgId)
+          .eq("action", "settings_updated")
+          .like("description", `${CASH_CLOSING_DESCRIPTION_PREFIX}%`)
+          .order("created_at", { ascending: false })
+          .limit(30);
+        if (error) return [];
+        return (data || [])
+          .filter((entry) => entry.metadata && typeof entry.metadata === "object")
+          .map((entry) => ({
+            id: entry.id,
+            created_at: entry.created_at,
+            metadata: entry.metadata as unknown as CashClosingMetadata,
+          }));
+      } catch {
+        return [];
+      }
+    },
+    enabled: !!user && !!effectiveOrgId,
+    retry: 1,
+  });
+
+  const todayDateStr = format(today, "yyyy-MM-dd");
+  const alreadyClosedToday = (closingHistory || []).some((c) => c.metadata?.date === todayDateStr);
+
   const [actualCash, setActualCash] = useState<string>("");
   const [notes, setNotes] = useState("");
 
@@ -165,6 +217,7 @@ export default function CashClosing() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cash-closing"] });
+      queryClient.invalidateQueries({ queryKey: ["cash-closing-history"] });
       toast({
         title: "Caisse clôturée",
         description: difference === 0
@@ -254,6 +307,16 @@ export default function CashClosing() {
             onRefreshRates={refreshRates}
           />
         </div>
+
+        {alreadyClosedToday && (
+          <div className="flex items-center gap-3 p-3 rounded-lg bg-warning/10 border border-warning/30">
+            <Info className="h-5 w-5 text-warning shrink-0" />
+            <p className="text-sm">
+              La caisse a déjà été clôturée aujourd'hui. Une nouvelle clôture ajoutera une entrée
+              supplémentaire à l'historique — assurez-vous que c'est intentionnel (ex : correction).
+            </p>
+          </div>
+        )}
 
         {/* Résumé des ventes par mode de paiement */}
         <Card>
@@ -416,6 +479,52 @@ export default function CashClosing() {
                 Imprimer le rapport
               </Button>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Historique des clôtures — lecture seule */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <History className="h-5 w-5" />
+              Historique des clôtures
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {(closingHistory || []).length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">
+                Aucune clôture enregistrée pour le moment
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {(closingHistory || []).map((entry) => {
+                  const diff = entry.metadata.difference ?? 0;
+                  return (
+                    <div
+                      key={entry.id}
+                      className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                    >
+                      <div>
+                        <p className="font-medium text-sm">
+                          {format(new Date(entry.created_at), "EEEE dd MMMM yyyy", { locale: fr })}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Ventes : {formatDisplayPrice(entry.metadata.total_sales ?? 0, { showOriginal: isConverted })}
+                          {entry.metadata.notes ? ` · ${entry.metadata.notes}` : ""}
+                        </p>
+                      </div>
+                      <span
+                        className={`text-sm font-bold ${
+                          diff === 0 ? "text-success" : diff > 0 ? "text-warning" : "text-destructive"
+                        }`}
+                      >
+                        {diff === 0 ? "Parfait" : diff > 0 ? `+${formatDisplayPrice(diff, { showOriginal: isConverted })}` : formatDisplayPrice(diff, { showOriginal: isConverted })}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
