@@ -102,6 +102,48 @@ SECURITY_DEFINER_SEARCH_PATH_LEGACY_EXCLUSIONS = (
 BACKFILL_NAME_MARKERS = ("OPTIONAL_backfill", "_backfill_")
 
 
+# P2 (cash-closing-final-hardening) — règles ciblées sur le module clôture de
+# caisse : la table ne doit jamais recevoir d'écriture directe (RPC
+# SECURITY DEFINER uniquement), RLS doit rester activée ET forcée, et la
+# contrainte anti-double-ouverture ne doit jamais disparaître d'un futur
+# CREATE OR REPLACE de la table. Ces propriétés sont déjà couvertes une par
+# une par src/test/cashClosingRegression.test.ts côté frontend/CI JS -- ce
+# bloc les fait aussi vivre côté validateur SQL Python (les deux couches
+# sont volontairement redondantes : l'une protège les PR TypeScript, l'autre
+# protège n'importe quel futur fichier .sql même sans review JS).
+CASH_CLOSING_TABLE_FILE = "20260727150000_create_cash_register_sessions.sql"
+CASH_CLOSING_FILE_MARKERS = ("cash_register_sessions", "cash_closing")
+
+
+def check_cash_closing_rules(filepath: Path, cleaned: str, findings: list) -> None:
+    is_cash_closing_file = any(marker in filepath.name for marker in CASH_CLOSING_FILE_MARKERS)
+    if not is_cash_closing_file:
+        return
+
+    # Aucune écriture directe autorisée sur cash_register_sessions -- seules
+    # les RPC SECURITY DEFINER peuvent écrire (voir REVOKE explicite attendu).
+    for match in re.finditer(
+        r"GRANT\s+(?:INSERT|UPDATE|DELETE)[^;]*\bON\s+public\.cash_register_sessions\b[^;]*\bTO\s+authenticated\b",
+        cleaned,
+        re.IGNORECASE,
+    ):
+        add_error(
+            findings,
+            find_line(cleaned, match.start()),
+            "cash_register_sessions direct write grant",
+            "cash_register_sessions must never receive a direct INSERT/UPDATE/DELETE grant — writes go through SECURITY DEFINER RPCs only.",
+            match.group(0)[:160].replace("\n", " "),
+        )
+
+    if filepath.name == CASH_CLOSING_TABLE_FILE:
+        if not re.search(r"ALTER\s+TABLE\s+public\.cash_register_sessions\s+ENABLE\s+ROW\s+LEVEL\s+SECURITY", cleaned, re.IGNORECASE):
+            add_error(findings, 1, "cash_register_sessions RLS not enabled", "cash_register_sessions must have RLS ENABLED.", "")
+        if not re.search(r"ALTER\s+TABLE\s+public\.cash_register_sessions\s+FORCE\s+ROW\s+LEVEL\s+SECURITY", cleaned, re.IGNORECASE):
+            add_error(findings, 1, "cash_register_sessions RLS not forced", "cash_register_sessions must have RLS FORCED (owners/superuser bypass otherwise).", "")
+        if not re.search(r"CREATE\s+UNIQUE\s+INDEX[\s\S]*?uniq_open_cash_session_per_user_store", cleaned, re.IGNORECASE):
+            add_error(findings, 1, "cash_register_sessions missing unique open-session index", "The unique index preventing multiple open sessions per user/store must not be removed.", "")
+
+
 UNSAFE_BILLING_PATTERNS = {
     "unsafe subscription rpc creation": (
         r"CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+" + PUBLIC + r"update_organization_subscription\s*\(\s*TEXT\s*,\s*TEXT\s*,\s*TEXT\s*\)"
@@ -278,6 +320,8 @@ def check_file(filepath: Path) -> list:
                     "delete_organization must be super-admin-only and scoped to p_organization_id.",
                     "delete_organization(p_organization_id UUID)",
                 )
+
+    check_cash_closing_rules(filepath, cleaned, findings)
 
     if "_deploy_combined" not in filepath.name:
         for check_name, pattern in LEGACY_PATTERNS.items():

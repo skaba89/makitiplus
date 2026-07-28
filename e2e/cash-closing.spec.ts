@@ -100,4 +100,31 @@ test.describe("Clôture de caisse — accès par rôle", () => {
     await page.waitForLoadState("networkidle");
     await expect(page.getByRole("heading", { name: /historique des sessions/i })).toBeVisible({ timeout: 10_000 });
   });
+
+  // P1 (cash-closing-final-hardening) : le rejet d'une clôture exige une
+  // raison -- pas d'action destructive testée ici, uniquement l'état
+  // désactivé du bouton tant qu'aucune note n'est saisie. Ignoré silencieux
+  // si aucune clôture n'est en attente (état non garanti en environnement de
+  // test partagé).
+  test("manager ne peut pas rejeter une clôture sans note", async ({ page }) => {
+    test.skip(!hasManagerCredentials, "E2E_MANAGER_EMAIL/PASSWORD non configurés");
+    await login(page, MANAGER_EMAIL!, MANAGER_PASSWORD!);
+    await page.goto(`${BASE_URL}/dashboard/cash-closing`);
+    await page.waitForLoadState("networkidle");
+
+    const rejectButton = page.getByRole("button", { name: /rejeter/i }).first();
+    if (await rejectButton.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      await expect(rejectButton).toBeDisabled();
+    }
+  });
+
+  // P1 : filtres d'historique (date/statut/vendeur/magasin) visibles pour
+  // tout rôle ayant accès à l'historique -- lecture seule, aucune donnée modifiée.
+  test("les filtres de l'historique sont visibles (statut au minimum)", async ({ page }) => {
+    test.skip(!hasAdminCredentials, "E2E_ADMIN_EMAIL/PASSWORD non configurés");
+    await login(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
+    await page.goto(`${BASE_URL}/dashboard/cash-closing`);
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByText(/^statut$/i).first()).toBeVisible({ timeout: 10_000 });
+  });
 });
