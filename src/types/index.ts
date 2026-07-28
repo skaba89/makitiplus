@@ -189,7 +189,7 @@ export interface SupplierWithStats extends Supplier {
 
 // ─── Role helpers ──────────────────────────────────────────────────────────────
 
-type AppRole = Database["public"]["Enums"]["app_role"];
+export type AppRole = Database["public"]["Enums"]["app_role"];
 
 /** Check if the given role has admin-level privileges (super_admin or admin). */
 export function isAdminRole(role: AppRole | null | undefined): boolean {
@@ -209,6 +209,19 @@ export const FINANCIAL_ROLES: AppRole[] = ["super_admin", "admin", "manager", "c
 // Le super_admin est un administrateur SaaS qui gère les organisations mais ne vend pas.
 export const POS_ROLES: AppRole[] = ["admin", "manager", "vendeur"];
 export const STORE_ROLES: AppRole[] = ["super_admin"];
+
+// Clôture caisse : tout rôle qui peut vendre peut ouvrir/clôturer SA PROPRE caisse
+// (vendeur inclus — il ne peut pas approuver sa propre clôture, voir P0/P5 du plan
+// cash-closing-complete). REVIEW_ROLES = qui peut consulter/approuver au-delà de sa
+// propre session (comptable = lecture/export seule, jamais d'approbation).
+export const CASH_CLOSING_CREATE_ROLES: AppRole[] = POS_ROLES;
+export const CASH_CLOSING_REVIEW_ROLES: AppRole[] = ["super_admin", "admin", "manager", "comptable"];
+// Union des deux — pour le gating au niveau route/menu ; le contenu affiché à
+// l'intérieur de la page varie ensuite selon le rôle exact (vendeur vs manager/admin
+// vs comptable vs super_admin).
+export const CASH_CLOSING_ACCESS_ROLES: AppRole[] = Array.from(
+  new Set([...CASH_CLOSING_CREATE_ROLES, ...CASH_CLOSING_REVIEW_ROLES])
+);
 
 // ─── Transfer roles & types ────────────────────────────────────────────────────
 

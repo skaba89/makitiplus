@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { MobileBottomNav } from "./MobileBottomNav";
-import { ALL_ROLES, ADMIN_ROLES, MANAGEMENT_ROLES, FINANCIAL_ROLES, POS_ROLES, STORE_ROLES, PRODUCT_MANAGEMENT_ROLES } from "@/types";
+import { ALL_ROLES, ADMIN_ROLES, MANAGEMENT_ROLES, FINANCIAL_ROLES, POS_ROLES, STORE_ROLES, PRODUCT_MANAGEMENT_ROLES, CASH_CLOSING_ACCESS_ROLES } from "@/types";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import { OfflineIndicator, OfflineBanner } from "@/components/ui/offline-indicator";
 import { PWAInstallPrompt } from "@/components/ui/pwa-install-prompt";
@@ -146,7 +146,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       name: "Clôture caisse",
       href: "/dashboard/cash-closing",
       icon: Wallet,
-      roles: MANAGEMENT_ROLES,
+      roles: CASH_CLOSING_ACCESS_ROLES,
     },
     {
       name: "Utilisateurs",

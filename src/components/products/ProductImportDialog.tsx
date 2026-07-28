@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { useQueryClient } from "@tanstack/react-query";
 import { reportError } from "@/lib/sentry";
+import type { TablesInsert } from "@/integrations/supabase/types";
 import {
   parseAndValidateProductImport,
   buildImportTemplateCSV,
@@ -128,8 +129,11 @@ export const ProductImportDialog = ({
           .filter((n): n is string => !!n && !categoryIdByNameLower.has(n.toLowerCase()))
       );
       for (const name of missingNames) {
-        const insertData: Record<string, unknown> = { name, user_id: (await supabase.auth.getUser()).data.user?.id ?? "" };
-        if (effectiveOrgId) insertData.organization_id = effectiveOrgId;
+        const insertData: TablesInsert<"categories"> = {
+          name,
+          user_id: (await supabase.auth.getUser()).data.user?.id ?? "",
+          ...(effectiveOrgId ? { organization_id: effectiveOrgId } : {}),
+        };
         const { data, error } = await supabase.from("categories").insert(insertData).select().single();
         if (!error && data) {
           categoryIdByNameLower.set(name.toLowerCase(), (data as { id: string }).id);
@@ -186,7 +190,7 @@ export const ProductImportDialog = ({
     queryClient.invalidateQueries({ queryKey: ["products-stats"] });
     if (error) {
       toast({ variant: "destructive", title: "Erreur", description: "Annulation partielle — vérifiez la liste des produits." });
-      reportError(error instanceof Error ? error : new Error(error.message));
+      reportError(new Error(error.message));
     } else {
       toast({ title: "Import annulé", description: `${outcome.createdIds.length} produit(s) supprimé(s).` });
       setOutcome({ createdIds: [], failed: outcome.failed });
