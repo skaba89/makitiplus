@@ -89,6 +89,36 @@ describe("Sécurité E2E — protection du magasin pilote Diallo & Frères", () 
     );
   });
 
+  describe("staging-real-flow.spec.ts — Scénarios C/D (création produit + vente réelle)", () => {
+    // Ces deux scénarios écrivent des données (produit, vente) sur le compte
+    // ADMIN_EMAIL/ADMIN_PASSWORD sans jamais connaître à l'avance quelle
+    // organisation ces identifiants représentent si les secrets E2E sont mal
+    // configurés — contrairement à Scénario G (suppression), ils ne ciblent
+    // pas TEST_ORG_NAME et le DESTRUCTIVE_ACTION_PATTERN (supprimer/delete/
+    // reset) ne les détecte pas car "créer/enregistrer/encaisser" n'en fait
+    // pas partie. Verrou dédié plutôt qu'extension du pattern générique,
+    // pour ne pas risquer de faux positifs sur les autres specs.
+    const stagingFlow = specs.find((s) => s.file === "staging-real-flow.spec.ts");
+
+    it("existe toujours", () => {
+      expect(stagingFlow).toBeDefined();
+    });
+
+    it("Scénario C (création produit) appelle refuseIfPilotOrg juste après login", () => {
+      const match = stagingFlow!.content.match(
+        /créer un produit test[\s\S]{0,300}?refuseIfPilotOrg\(page\)/
+      );
+      expect(match).not.toBeNull();
+    });
+
+    it("Scénario D (vente cash) appelle refuseIfPilotOrg juste après login", () => {
+      const match = stagingFlow!.content.match(
+        /enregistrer une vente cash[\s\S]{0,300}?refuseIfPilotOrg\(page\)/
+      );
+      expect(match).not.toBeNull();
+    });
+  });
+
   describe("Garde-fou unitaire (rappel — couverture complète dans pilotDataProtection.test.ts)", () => {
     it("bloque Diallo & Frères même avec E2E_ALLOW_DESTRUCTIVE=true", () => {
       const original = process.env.E2E_ALLOW_DESTRUCTIVE;
