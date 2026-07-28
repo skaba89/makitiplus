@@ -2508,6 +2508,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      reject_cash_register_session: {
+        Args: { p_rejection_reason: string; p_session_id: string }
+        Returns: undefined
+      }
       resolve_stock_conflict: {
         Args: {
           local_new_qty: number

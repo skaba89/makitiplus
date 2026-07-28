@@ -80,3 +80,45 @@ describe("Régression sécurité — cash_register_sessions (P6 du plan)", () =>
     expect(code).toMatch(/LIMIT\s+\d+/);
   });
 });
+
+describe("Régression sécurité — reject_cash_register_session (P1 du plan final-hardening)", () => {
+  const rejectPath = path.join(
+    process.cwd(),
+    "supabase/migrations/20260728193000_add_reject_cash_register_session.sql"
+  );
+  const rejectCode = stripComments(fs.readFileSync(rejectPath, "utf-8"));
+
+  it("est SECURITY DEFINER avec search_path fixé", () => {
+    expect(rejectCode).toMatch(/SECURITY DEFINER/i);
+    expect(rejectCode).toMatch(/SET search_path TO 'public'/i);
+  });
+
+  it("exige une raison non vide (rejet sans justification interdit)", () => {
+    expect(rejectCode).toMatch(/p_rejection_reason IS NULL OR btrim\(p_rejection_reason\) = ''/);
+  });
+
+  it("réservé admin/manager (jamais vendeur/comptable)", () => {
+    expect(rejectCode).toMatch(
+      /NOT \(public\.has_role\(auth\.uid\(\), 'admin'::app_role\) OR public\.has_role\(auth\.uid\(\), 'manager'::app_role\)\) THEN\s*\n\s*RAISE EXCEPTION 'Seul un manager ou un admin peut rejeter/
+    );
+  });
+
+  it("ne modifie jamais sales ou expenses", () => {
+    expect(rejectCode).not.toMatch(/UPDATE\s+public\.sales\b/i);
+    expect(rejectCode).not.toMatch(/UPDATE\s+public\.expenses\b/i);
+    expect(rejectCode).not.toMatch(/DELETE\s+FROM\s+public\.(sales|expenses)\b/i);
+  });
+
+  it("n'accepte que les sessions au statut closed (pas de rejet d'une session déjà tranchée)", () => {
+    expect(rejectCode).toMatch(/status <> 'closed'/);
+  });
+
+  it("journalise l'action dans user_activity_logs", () => {
+    expect(rejectCode).toMatch(/INSERT INTO public\.user_activity_logs/);
+  });
+
+  it("aucun GRANT direct à PUBLIC, exécution réservée à authenticated", () => {
+    expect(rejectCode).toMatch(/REVOKE ALL ON FUNCTION public\.reject_cash_register_session/);
+    expect(rejectCode).toMatch(/GRANT EXECUTE ON FUNCTION public\.reject_cash_register_session\([^)]*\) TO authenticated/);
+  });
+});

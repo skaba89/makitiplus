@@ -25,7 +25,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useOrgSelector } from "@/hooks/useOrgSelector";
+import { useStore } from "@/contexts/StoreContext";
+import { useOnlineStatus } from "@/contexts/OfflineContext";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
 import { CurrencyDisplaySelector } from "@/components/ui/currency-display-selector";
@@ -34,7 +38,7 @@ import { reportError } from "@/lib/sentry";
 import { extractErrorMessage } from "@/lib/extractErrorMessage";
 import {
   Wallet, Printer, CheckCircle, AlertTriangle, TrendingUp, Banknote,
-  History, Users, ThumbsUp, Lock, Download, MessageCircle,
+  History, Users, ThumbsUp, ThumbsDown, Lock, Download, MessageCircle, Store as StoreIcon, WifiOff,
 } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -89,6 +93,8 @@ export default function CashClosing() {
   const { user, profile, userRole } = useAuth();
   const { formatPrice } = useCurrency();
   const { effectiveOrgId } = useOrgSelector();
+  const { currentStore, stores, isLoading: storeLoading } = useStore();
+  const { pendingCount: offlinePendingCount } = useOnlineStatus();
   const {
     formatDisplayPrice, displayCurrencyCode, orgCurrencyCode,
     setDisplayCurrency, ratesLoading, refreshRates, isConverted,
@@ -104,16 +110,49 @@ export default function CashClosing() {
   const [openingCash, setOpeningCash] = useState("");
   const [actualCash, setActualCash] = useState("");
   const [notes, setNotes] = useState("");
+  const [confirmCloseWithPending, setConfirmCloseWithPending] = useState(false);
+  const [managerNotesBySession, setManagerNotesBySession] = useState<Record<string, string>>({});
+
+  // ─── Filtres historique (P1) ─────────────────────────────────
+  const [filterFromDate, setFilterFromDate] = useState("");
+  const [filterToDate, setFilterToDate] = useState("");
+  const [filterStatus, setFilterStatus] = useState<string>("");
+  const [filterUserId, setFilterUserId] = useState<string>("");
+  const [filterStoreId, setFilterStoreId] = useState<string>("");
+
+  // ─── Noms des vendeurs de l'organisation (manager/admin/comptable/super_admin
+  // uniquement — un vendeur n'a besoin de voir que le sien, déjà connu). ────
+  const { data: orgProfiles } = useQuery({
+    queryKey: ["cash-org-profiles", effectiveOrgId],
+    queryFn: async (): Promise<{ user_id: string; owner_name: string }[]> => {
+      const { data, error } = await supabase.from("profiles").select("user_id, owner_name");
+      if (error) return [];
+      return data ?? [];
+    },
+    enabled: !!user && (isReviewer || isReadOnlyAudit),
+  });
+  const userNameById = new Map((orgProfiles ?? []).map((p) => [p.user_id, p.owner_name]));
+  const storeNameById = new Map(stores.map((s) => [s.id, s.name]));
+  const getSellerName = (userId: string) => userNameById.get(userId) || userId.slice(0, 8);
+  const getStoreName = (storeId: string | null) => (storeId ? storeNameById.get(storeId) || "Magasin inconnu" : "—");
 
   // ─── Ma session ouverte (si je peux opérer une caisse) ─────────
-  const { data: mySessions } = useQuery({
-    queryKey: ["cash-my-session", user?.id, effectiveOrgId],
+  // Erreurs RPC (P0.3) : jamais masquées en tableau vide/null — une RPC cassée,
+  // non déployée ou bloquée par RLS doit se voir dans l'UI (error state React
+  // Query), pas ressembler à "aucune session".
+  const { data: mySessions, error: mySessionsError } = useQuery({
+    queryKey: ["cash-my-session", user?.id, effectiveOrgId, currentStore?.id],
     queryFn: async (): Promise<SessionRow[]> => {
       if (!canOperate || !user) return [];
       const { data, error } = await supabase.rpc("get_cash_register_sessions", {
         p_user_id: user.id, p_status: "open",
+        ...(currentStore?.id ? { p_store_id: currentStore.id } : {}),
       });
-      if (error) return [];
+      if (error) {
+        const err = new Error(`RPC get_cash_register_sessions failed: ${error.message}`);
+        reportError(err);
+        throw err;
+      }
       return (data ?? []) as unknown as SessionRow[];
     },
     enabled: !!user && canOperate,
@@ -121,14 +160,18 @@ export default function CashClosing() {
   });
   const mySession = mySessions?.[0] ?? null;
 
-  const { data: mySummary, isLoading: summaryLoading } = useQuery({
+  const { data: mySummary, isLoading: summaryLoading, error: mySummaryError } = useQuery({
     queryKey: ["cash-summary", mySession?.id],
     queryFn: async (): Promise<CashSummary | null> => {
       if (!mySession) return null;
       const { data, error } = await supabase.rpc("get_cash_closing_summary", {
         p_session_id: mySession.id,
       });
-      if (error) return null;
+      if (error) {
+        const err = new Error(`RPC get_cash_closing_summary failed: ${error.message}`);
+        reportError(err);
+        throw err;
+      }
       return data as unknown as CashSummary;
     },
     enabled: !!mySession,
@@ -136,32 +179,53 @@ export default function CashClosing() {
   });
 
   // ─── Vue équipe (manager/admin) : sessions ouvertes + en attente d'approbation
-  const { data: teamOpenSessions } = useQuery({
+  const { data: teamOpenSessions, error: teamOpenError } = useQuery({
     queryKey: ["cash-team-open", effectiveOrgId, user?.id],
     queryFn: async (): Promise<SessionRow[]> => {
       const { data, error } = await supabase.rpc("get_cash_register_sessions", { p_status: "open" });
-      if (error) return [];
+      if (error) {
+        const err = new Error(`RPC get_cash_register_sessions failed: ${error.message}`);
+        reportError(err);
+        throw err;
+      }
       return ((data ?? []) as unknown as SessionRow[]).filter((s) => s.opened_by !== user?.id);
     },
     enabled: !!user && canApprove,
   });
 
-  const { data: pendingApprovals } = useQuery({
+  const { data: pendingApprovals, error: pendingApprovalsError } = useQuery({
     queryKey: ["cash-pending-approvals", effectiveOrgId],
     queryFn: async (): Promise<SessionRow[]> => {
       const { data, error } = await supabase.rpc("get_cash_register_sessions", { p_status: "closed" });
-      if (error) return [];
+      if (error) {
+        const err = new Error(`RPC get_cash_register_sessions failed: ${error.message}`);
+        reportError(err);
+        throw err;
+      }
       return (data ?? []) as unknown as SessionRow[];
     },
     enabled: !!user && canApprove,
   });
 
   // ─── Historique (tous rôles avec accès) ─────────────────────────
-  const { data: history } = useQuery({
-    queryKey: ["cash-history", effectiveOrgId, user?.id, isReviewer],
+  // Filtres (P1) : la RPC supporte déjà p_store_id/p_user_id/p_status/
+  // p_from_date/p_to_date -- aucune migration nécessaire, uniquement le
+  // câblage des filtres UI vers des paramètres déjà exposés côté serveur.
+  const { data: history, error: historyError } = useQuery({
+    queryKey: ["cash-history", effectiveOrgId, user?.id, isReviewer, filterFromDate, filterToDate, filterStatus, filterUserId, filterStoreId],
     queryFn: async (): Promise<SessionRow[]> => {
-      const { data, error } = await supabase.rpc("get_cash_register_sessions", {});
-      if (error) return [];
+      const { data, error } = await supabase.rpc("get_cash_register_sessions", {
+        ...(filterFromDate ? { p_from_date: filterFromDate } : {}),
+        ...(filterToDate ? { p_to_date: filterToDate } : {}),
+        ...(filterStatus ? { p_status: filterStatus } : {}),
+        ...(filterUserId ? { p_user_id: filterUserId } : {}),
+        ...(filterStoreId ? { p_store_id: filterStoreId } : {}),
+      });
+      if (error) {
+        const err = new Error(`RPC get_cash_register_sessions failed: ${error.message}`);
+        reportError(err);
+        throw err;
+      }
       return (data ?? []) as unknown as SessionRow[];
     },
     enabled: !!user,
@@ -177,8 +241,19 @@ export default function CashClosing() {
 
   const openMutation = useMutation({
     mutationFn: async () => {
+      // P0.1 : une session doit toujours être liée à un magasin explicite
+      // quand l'organisation EST multi-magasin — sans ça, plusieurs magasins
+      // pourraient mélanger leurs ventes dans une même session (store_id NULL).
+      // Ne jamais bloquer les organisations mono-magasin (ex. Diallo & Frères,
+      // qui n'a aucune ligne dans `stores` — StoreContext.stores reste vide et
+      // currentStore restera toujours null pour elles, ce n'est pas un état
+      // d'erreur) : on ne bloque que si l'organisation A des magasins définis
+      // mais qu'aucun n'est actuellement sélectionné.
+      if (!storeLoading && stores.length > 0 && !currentStore?.id) {
+        throw new Error("Sélectionnez un magasin avant d'ouvrir la caisse.");
+      }
       const { error } = await supabase.rpc("open_cash_register_session", {
-        p_store_id: undefined,
+        p_store_id: currentStore?.id,
         p_opening_cash: parseFloat(openingCash) || 0,
         p_notes: notes || undefined,
       });
@@ -212,6 +287,7 @@ export default function CashClosing() {
       toast({ title: "Caisse clôturée", description: "En attente d'approbation si applicable." });
       setActualCash("");
       setNotes("");
+      setConfirmCloseWithPending(false);
     },
     onError: (error: unknown) => {
       const msg = extractErrorMessage(error);
@@ -223,13 +299,43 @@ export default function CashClosing() {
   const approveMutation = useMutation({
     mutationFn: async (sessionId: string) => {
       const { error } = await supabase.rpc("approve_cash_register_session", {
-        p_session_id: sessionId, p_manager_notes: undefined,
+        p_session_id: sessionId, p_manager_notes: managerNotesBySession[sessionId] || undefined,
       });
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, sessionId) => {
+      setManagerNotesBySession((prev) => {
+        const next = { ...prev };
+        delete next[sessionId];
+        return next;
+      });
       invalidateAll();
       toast({ title: "Clôture approuvée" });
+    },
+    onError: (error: unknown) => {
+      const msg = extractErrorMessage(error);
+      toast({ variant: "destructive", title: "Erreur", description: msg });
+      reportError(error instanceof Error ? error : new Error(msg));
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: async (sessionId: string) => {
+      const reason = managerNotesBySession[sessionId] || "";
+      if (!reason.trim()) throw new Error("Une raison de rejet est obligatoire");
+      const { error } = await supabase.rpc("reject_cash_register_session", {
+        p_session_id: sessionId, p_rejection_reason: reason,
+      });
+      if (error) throw error;
+    },
+    onSuccess: (_data, sessionId) => {
+      setManagerNotesBySession((prev) => {
+        const next = { ...prev };
+        delete next[sessionId];
+        return next;
+      });
+      invalidateAll();
+      toast({ title: "Clôture rejetée" });
     },
     onError: (error: unknown) => {
       const msg = extractErrorMessage(error);
@@ -275,8 +381,10 @@ export default function CashClosing() {
   const handleExportHistoryCSV = () => {
     if (!history || history.length === 0) return;
     const rows = [
-      ["date_ouverture", "date_cloture", "statut", "total_ventes", "montant_reel", "ecart", "notes"],
+      ["vendeur", "magasin", "date_ouverture", "date_cloture", "statut", "total_ventes", "montant_reel", "ecart", "notes"],
       ...history.map((s) => [
+        getSellerName(s.opened_by),
+        getStoreName(s.store_id),
         format(new Date(s.opened_at), "yyyy-MM-dd HH:mm"),
         s.closed_at ? format(new Date(s.closed_at), "yyyy-MM-dd HH:mm") : "",
         s.status,
@@ -342,6 +450,21 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
           </div>
         )}
 
+        {/* P0.3 : une RPC en échec ne doit jamais ressembler à "aucune donnée" —
+            on l'affiche explicitement plutôt que de laisser une liste vide
+            se faire passer pour "pas de session". */}
+        {(mySessionsError || mySummaryError || teamOpenError || pendingApprovalsError || historyError) && (
+          <div className="flex items-center gap-3 p-4 rounded-lg bg-destructive/10 border border-destructive/30">
+            <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
+            <div>
+              <p className="font-medium text-sm text-destructive">Impossible de charger les sessions de caisse.</p>
+              <p className="text-xs text-muted-foreground">
+                Les données ne sont pas vides : le service de clôture caisse a échoué. Réessayez ou contactez le support.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* ─── Ma session ─────────────────────────────────────── */}
         {canOperate && !mySession && (
           <Card>
@@ -351,6 +474,16 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {stores.length > 0 && (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border text-sm">
+                  <StoreIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                  {currentStore ? (
+                    <span>Magasin : <strong>{currentStore.name}</strong></span>
+                  ) : (
+                    <span className="text-warning">Aucun magasin sélectionné — sélectionnez un magasin avant d'ouvrir la caisse.</span>
+                  )}
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="opening-cash">Fond de caisse initial</Label>
                 <Input
@@ -362,7 +495,11 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
                 <Label htmlFor="open-notes">Notes (optionnel)</Label>
                 <Input id="open-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
               </div>
-              <Button onClick={() => openMutation.mutate()} disabled={openMutation.isPending} className="gap-2">
+              <Button
+                onClick={() => openMutation.mutate()}
+                disabled={openMutation.isPending || (stores.length > 0 && !currentStore?.id)}
+                className="gap-2"
+              >
                 <CheckCircle className="h-4 w-4" />
                 {openMutation.isPending ? "Ouverture…" : "Ouvrir la caisse"}
               </Button>
@@ -379,6 +516,12 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
                 </CardTitle>
               </CardHeader>
               <CardContent>
+                {stores.length > 0 && (
+                  <p className="text-sm font-medium flex items-center gap-1.5 mb-1">
+                    <StoreIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                    {stores.find((s) => s.id === mySession?.store_id)?.name || currentStore?.name || "Magasin inconnu"}
+                  </p>
+                )}
                 <p className="text-sm text-muted-foreground mb-3">
                   Ouverte le {format(new Date(mySummary.opened_at), "EEEE dd MMMM yyyy 'à' HH:mm", { locale: fr })}
                   {" · "}Fond initial : {formatDisplayPrice(mySummary.opening_cash, { showOriginal: isConverted })}
@@ -453,9 +596,37 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
                     <Label htmlFor="close-notes">Notes (optionnel)</Label>
                     <Input id="close-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
                   </div>
+
+                  {/* P0.4 : sécurité offline — une clôture calculée pendant que des
+                      ventes ne sont pas encore synchronisées serait fausse (elles
+                      manqueraient au total). On avertit fortement et on exige une
+                      confirmation explicite plutôt que de bloquer sans recours
+                      (un vendeur peut être définitivement hors-ligne). IndexedDB
+                      n'est jamais touché ici — seule la lecture du compteur. */}
+                  {offlinePendingCount > 0 && (
+                    <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/30 space-y-3">
+                      <div className="flex items-start gap-2">
+                        <WifiOff className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                        <p className="text-sm text-destructive">
+                          Attention : {offlinePendingCount} vente{offlinePendingCount > 1 ? "s" : ""} hors-ligne
+                          {offlinePendingCount > 1 ? " ne sont" : " n'est"} pas encore synchronisée{offlinePendingCount > 1 ? "s" : ""}.
+                          La clôture peut être incorrecte. Synchronisez les ventes avant de clôturer.
+                          Vos ventes hors-ligne ne seront pas supprimées.
+                        </p>
+                      </div>
+                      <label className="flex items-center gap-2 text-sm cursor-pointer">
+                        <Checkbox
+                          checked={confirmCloseWithPending}
+                          onCheckedChange={(v) => setConfirmCloseWithPending(v === true)}
+                        />
+                        Je confirme vouloir clôturer malgré les ventes non synchronisées
+                      </label>
+                    </div>
+                  )}
+
                   <Button
                     onClick={() => closeMutation.mutate()}
-                    disabled={!actualCash || closeMutation.isPending}
+                    disabled={!actualCash || closeMutation.isPending || (offlinePendingCount > 0 && !confirmCloseWithPending)}
                     className="gap-2"
                   >
                     <CheckCircle className="h-4 w-4" />
@@ -501,7 +672,12 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
                 <CardContent className="space-y-2">
                   {teamOpenSessions?.map((s) => (
                     <div key={s.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg text-sm">
-                      <span>Ouverte le {format(new Date(s.opened_at), "dd/MM HH:mm", { locale: fr })}</span>
+                      <div>
+                        <p className="font-medium">{getSellerName(s.opened_by)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {getStoreName(s.store_id)} · Ouverte le {format(new Date(s.opened_at), "dd/MM HH:mm", { locale: fr })}
+                        </p>
+                      </div>
                       <Badge variant="outline">Ouverte</Badge>
                     </div>
                   ))}
@@ -516,29 +692,56 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
                     <ThumbsUp className="h-5 w-5" /> Clôtures en attente d'approbation ({pendingApprovals?.length})
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-2">
-                  {pendingApprovals?.map((s) => (
-                    <div key={s.id} className="flex items-center justify-between p-3 bg-warning/5 rounded-lg">
-                      <div>
-                        <p className="text-sm font-medium">
-                          Clôturée le {s.closed_at ? format(new Date(s.closed_at), "dd/MM HH:mm", { locale: fr }) : "—"}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Ventes : {formatDisplayPrice(s.total_sales, { showOriginal: isConverted })}
-                          {s.cash_difference !== null && s.cash_difference !== 0
-                            ? ` · Écart : ${formatDisplayPrice(s.cash_difference, { showOriginal: isConverted })}`
-                            : ""}
-                        </p>
+                <CardContent className="space-y-3">
+                  {pendingApprovals?.map((s) => {
+                    const hasGap = s.cash_difference !== null && s.cash_difference !== 0;
+                    const managerNote = managerNotesBySession[s.id] || "";
+                    return (
+                      <div key={s.id} className="p-3 bg-warning/5 rounded-lg space-y-2">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-medium">{getSellerName(s.opened_by)}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {getStoreName(s.store_id)} · Clôturée le {s.closed_at ? format(new Date(s.closed_at), "dd/MM HH:mm", { locale: fr }) : "—"}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Ventes : {formatDisplayPrice(s.total_sales, { showOriginal: isConverted })}
+                              {hasGap ? ` · Écart : ${formatDisplayPrice(s.cash_difference as number, { showOriginal: isConverted })}` : ""}
+                            </p>
+                          </div>
+                          <div className="flex gap-2 shrink-0">
+                            <Button
+                              size="sm"
+                              onClick={() => approveMutation.mutate(s.id)}
+                              disabled={approveMutation.isPending || rejectMutation.isPending || (hasGap && !managerNote.trim())}
+                            >
+                              Approuver
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="gap-1.5 text-destructive hover:text-destructive"
+                              onClick={() => rejectMutation.mutate(s.id)}
+                              disabled={approveMutation.isPending || rejectMutation.isPending || !managerNote.trim()}
+                            >
+                              <ThumbsDown className="h-3.5 w-3.5" /> Rejeter
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor={`manager-note-${s.id}`} className="text-xs">
+                            Note manager {hasGap ? "(obligatoire pour approuver — écart non nul)" : "(obligatoire pour rejeter)"}
+                          </Label>
+                          <Input
+                            id={`manager-note-${s.id}`}
+                            value={managerNote}
+                            onChange={(e) => setManagerNotesBySession((prev) => ({ ...prev, [s.id]: e.target.value }))}
+                            placeholder="Ex : rendu de monnaie incorrect signalé par le vendeur"
+                          />
+                        </div>
                       </div>
-                      <Button
-                        size="sm"
-                        onClick={() => approveMutation.mutate(s.id)}
-                        disabled={approveMutation.isPending}
-                      >
-                        Approuver
-                      </Button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </CardContent>
               </Card>
             )}
@@ -557,7 +760,61 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
               </Button>
             )}
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            {/* Filtres (P1) — la RPC get_cash_register_sessions supporte déjà
+                store/user/status/date, aucune migration nécessaire ici. */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+              <div className="space-y-1">
+                <Label htmlFor="filter-from" className="text-xs">Du</Label>
+                <Input id="filter-from" type="date" value={filterFromDate} onChange={(e) => setFilterFromDate(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="filter-to" className="text-xs">Au</Label>
+                <Input id="filter-to" type="date" value={filterToDate} onChange={(e) => setFilterToDate(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Statut</Label>
+                <Select value={filterStatus || "all"} onValueChange={(v) => setFilterStatus(v === "all" ? "" : v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous statuts</SelectItem>
+                    <SelectItem value="open">Ouverte</SelectItem>
+                    <SelectItem value="closed">En attente</SelectItem>
+                    <SelectItem value="approved">Approuvée</SelectItem>
+                    <SelectItem value="rejected">Rejetée</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {isReviewer && (orgProfiles?.length ?? 0) > 0 && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Vendeur</Label>
+                  <Select value={filterUserId || "all"} onValueChange={(v) => setFilterUserId(v === "all" ? "" : v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tous vendeurs</SelectItem>
+                      {orgProfiles?.map((p) => (
+                        <SelectItem key={p.user_id} value={p.user_id}>{p.owner_name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {stores.length > 0 && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Magasin</Label>
+                  <Select value={filterStoreId || "all"} onValueChange={(v) => setFilterStoreId(v === "all" ? "" : v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tous magasins</SelectItem>
+                      {stores.map((st) => (
+                        <SelectItem key={st.id} value={st.id}>{st.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+
             {(history?.length ?? 0) === 0 ? (
               <p className="text-muted-foreground text-center py-4">Aucune session enregistrée</p>
             ) : (
@@ -566,17 +823,21 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
                   <div key={s.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                     <div>
                       <p className="text-sm font-medium">
+                        {isReviewer ? `${getSellerName(s.opened_by)} · ` : ""}
                         {format(new Date(s.opened_at), "EEEE dd MMMM yyyy", { locale: fr })}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        Ventes : {formatDisplayPrice(s.total_sales, { showOriginal: isConverted })}
+                        {stores.length > 0 ? `${getStoreName(s.store_id)} · ` : ""}
+                        Ouverte {format(new Date(s.opened_at), "HH:mm", { locale: fr })}
+                        {s.closed_at ? ` · Clôturée ${format(new Date(s.closed_at), "HH:mm", { locale: fr })}` : ""}
+                        {" · "}Ventes : {formatDisplayPrice(s.total_sales, { showOriginal: isConverted })}
                         {s.notes ? ` · ${s.notes}` : ""}
                       </p>
                     </div>
                     <Badge variant={
                       s.status === "approved" ? "default" : s.status === "closed" ? "outline" : "secondary"
                     }>
-                      {s.status === "open" ? "Ouverte" : s.status === "closed" ? "En attente" : s.status === "approved" ? "Approuvée" : s.status}
+                      {s.status === "open" ? "Ouverte" : s.status === "closed" ? "En attente" : s.status === "approved" ? "Approuvée" : s.status === "rejected" ? "Rejetée" : s.status}
                     </Badge>
                   </div>
                 ))}

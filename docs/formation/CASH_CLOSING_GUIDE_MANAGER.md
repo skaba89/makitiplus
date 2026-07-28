@@ -9,19 +9,20 @@ En tant que manager ou admin, vous avez trois responsabilités sur ce module :
 
 ## Suivre les caisses ouvertes
 
-Sur **Clôture caisse**, la carte "Caisses ouvertes de l'équipe" liste en direct toutes les sessions actuellement ouvertes dans votre boutique (ou votre organisation si vous êtes admin) : qui a ouvert, à quelle heure, avec quel fond de caisse.
+Sur **Clôture caisse**, la carte "Caisses ouvertes de l'équipe" liste en direct toutes les sessions actuellement ouvertes dans votre boutique (ou votre organisation si vous êtes admin) : le **nom du vendeur**, le **magasin** concerné (organisations multi-magasin), à quelle heure, avec quel fond de caisse.
 
-## Approuver une clôture
+## Approuver ou rejeter une clôture
 
-1. Quand un vendeur clôture sa caisse, elle apparaît dans la carte **"Clôtures en attente d'approbation"**.
+1. Quand un vendeur clôture sa caisse, elle apparaît dans la carte **"Clôtures en attente d'approbation"**, avec le nom du vendeur et le magasin.
 2. Vérifiez :
    - Le total par moyen de paiement correspond-il à un volume d'activité cohérent pour ce vendeur/cette période ?
    - L'**écart** (différence entre caisse comptée et caisse attendue) est-il raisonnable ?
    - Le vendeur a-t-il laissé une **note explicative** si l'écart n'est pas nul ?
-3. Si tout est cohérent, cliquez **Approuver**. La session passe au statut définitif "Approuvée".
-4. Il n'y a pas encore de bouton "Rejeter" dans l'interface — en cas de désaccord ou d'écart suspect, contactez directement le vendeur en dehors de l'application avant d'approuver (ou laissez la session en attente le temps de clarifier).
+3. **Si l'écart n'est pas nul**, vous devez obligatoirement remplir le champ **Note manager** avant que le bouton "Approuver" ne se débloque.
+4. Si tout est cohérent, cliquez **Approuver**. La session passe au statut définitif "Approuvée".
+5. En cas de désaccord ou d'écart suspect, cliquez **Rejeter** — une raison est toujours obligatoire (remplissez le même champ note). La session passe au statut "Rejetée" ; traitez la correction directement avec le vendeur (pas de flux de recorrection automatisé actuellement).
 
-⚠️ Une fois approuvée, une session ne peut plus être modifiée. Ne cliquez "Approuver" qu'après vérification.
+⚠️ Une fois approuvée ou rejetée, une session ne peut plus être modifiée. Ne cliquez qu'après vérification.
 
 ## Consulter l'historique
 
@@ -30,10 +31,11 @@ La carte **Historique** (visible par tous les rôles ayant accès à cette page)
 - Admin : toutes les sessions de l'organisation (toutes boutiques).
 - Comptable : consultation seule (mêmes droits de lecture que l'admin, mais ne peut ni clôturer pour un vendeur, ni approuver).
 
-## Exporter
+## Filtrer et exporter
 
-- **Export CSV** : bouton en haut de la carte Historique — exporte la liste actuellement visible (déjà filtrée selon votre rôle) pour analyse dans un tableur.
-- **Impression** : disponible sur chaque session individuelle.
+- **Filtres** : date de début/fin, statut, vendeur et magasin (multi-magasin) — combinables, en haut de la carte Historique.
+- **Export CSV** : bouton en haut de la carte Historique — exporte la liste actuellement **filtrée** (nom du vendeur et du magasin inclus dans les colonnes) pour analyse dans un tableur.
+- **Impression** : disponible sur chaque session individuelle (utiliser "Enregistrer en PDF" dans la fenêtre d'impression du navigateur pour un export PDF).
 - **WhatsApp** : pour partager rapidement un résumé de clôture avec un autre responsable.
 
 ## Cas particuliers

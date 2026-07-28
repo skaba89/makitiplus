@@ -27,7 +27,7 @@ jobs:
         run: npx eslint src/ --ignore-pattern 'src/test/**' --max-warnings 10
 
       - name: Type check
-        run: npx tsc --noEmit
+        run: npm run typecheck
 
       - name: Build
         run: npx vite build
