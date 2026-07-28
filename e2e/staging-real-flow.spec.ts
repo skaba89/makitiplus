@@ -18,7 +18,7 @@
  * Actions destructives protégées par E2E_ALLOW_DESTRUCTIVE=true
  */
 import { test, expect } from "@playwright/test";
-import { assertSafeForDestructiveAction } from "../src/lib/pilotProtection";
+import { assertSafeForDestructiveAction, isPilotOrgName } from "../src/lib/pilotProtection";
 
 const BASE_URL = process.env.E2E_BASE_URL || "http://localhost:8080";
 const SUPER_ADMIN_EMAIL = process.env.E2E_SUPER_ADMIN_EMAIL;
@@ -96,6 +96,28 @@ async function navigateViaHistory(page: import("@playwright/test").Page, path: s
     window.dispatchEvent(new PopStateEvent("popstate"));
   }, path);
   await page.waitForLoadState("networkidle");
+}
+
+/**
+ * Garde-fou (RULE 1) pour les scénarios qui CRÉENT ou MODIFIENT des données
+ * (Scénarios C et D) : contrairement à Scénario G qui cible explicitement
+ * TEST_ORG_NAME, ces scénarios n'ont aucun moyen de connaître à l'avance
+ * l'organisation derrière ADMIN_EMAIL/ADMIN_PASSWORD si ces secrets sont mal
+ * configurés en CI. Plutôt que de faire confiance à une variable d'env
+ * séparée (elle-même sujette à erreur), on lit le nom réellement affiché
+ * sur le dashboard authentifié et on refuse d'aller plus loin s'il
+ * correspond au magasin pilote réel — protection active même en cas de
+ * mauvaise configuration des secrets E2E (cohérent avec pilotProtection.ts).
+ */
+async function refuseIfPilotOrg(page: import("@playwright/test").Page): Promise<void> {
+  const bodyText = await page.textContent("body").catch(() => null);
+  if (bodyText && isPilotOrgName(bodyText)) {
+    throw new Error(
+      "[PILOT PROTECTION] Ce scénario crée/modifie des données et refuse de s'exécuter : " +
+        "le compte connecté semble appartenir au magasin pilote réel. Vérifiez la configuration " +
+        "de E2E_ADMIN_EMAIL/E2E_ADMIN_PASSWORD — ils doivent pointer vers une organisation de test dédiée."
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -200,6 +222,7 @@ test.describe("Scénario C — Création produit test", () => {
 
   test("créer un produit test avec prix positif et stock", async ({ page }) => {
     await login(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
+    await refuseIfPilotOrg(page);
 
     await navigateViaMenu(page, "Produits");
 
@@ -239,6 +262,7 @@ test.describe("Scénario D — Vente cash", () => {
 
   test("enregistrer une vente cash et vérifier le stock", async ({ page }) => {
     await login(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
+    await refuseIfPilotOrg(page);
 
     // Tout ce scénario dépend du POS — l'absence du lien est légitime si le
     // compte est super_admin (POS_ROLES exclut ce rôle par design, voir
