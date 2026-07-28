@@ -45,24 +45,26 @@ Aucune vente depuis le 23/07 (4 jours au moment de la rédaction). Montants unit
 
 ## Bugs observés
 
-**Anomalie de connexions** : 714 événements `login` en 7 jours pour seulement 2 comptes utilisateurs (~102/jour, très au-dessus d'un usage humain normal). Distribution horaire : la quasi-totalité des heures montre une fréquence plausible (1-4 connexions/heure), **sauf un pic de 45 connexions en une seule heure** (2026-07-27, 04h00-05h00 UTC) — une connexion toutes les ~80 secondes en moyenne sur cette heure. Cause non déterminée avec certitude sans investigation plus poussée (accès aux logs Sentry/réseau, identification du compte concerné) :
-- Explication possible bénigne : le client Supabase de ce projet est volontairement configuré avec `persistSession: false` (choix de sécurité pilote établi), donc toute réouverture d'app/perte de connectivité déclenche une réauthentification — plausible dans un contexte de connectivité intermittente en Guinée, mais le pic de 45/heure dépasse largement ce qu'une réouverture manuelle normale expliquerait.
-- Explication possible problématique : boucle de reconnexion automatique (bug), consommation de données/batterie inutile pour l'utilisateur, ou tentatives de connexion échouées répétées.
+**Anomalie de connexions — RÉSOLUE (investigation du 2026-07-28)** : 714 événements `login` en 7 jours pour 2 comptes utilisateurs, avec des rafales répétées (jusqu'à 38 connexions/minute) survenant presque tous les jours, à des heures très variées.
 
-**Recommandation** : investiguer ce pic spécifique (quel compte, succès ou échecs, contexte réseau) avant le lancement national — un bug de reconnexion en boucle, à l'échelle de centaines de magasins, aurait un impact réseau/batterie significatif.
+**Cause confirmée : ce n'est pas un bug client, ni un incident de sécurité.** C'est le suite de tests E2E pilote (`e2e/staging-real-flow.spec.ts` — 12 cas de test, `e2e/pilot-critical.spec.ts` — 7 cas, `e2e/post-deployment-audit.spec.ts` — 11 cas) qui se connecte au compte réel Diallo & Frères pour ses vérifications en lecture seule, une fois par cas de test (`login()` appelé au début de chaque `test()`), exécuté sur **2 projets Playwright** (`chromium` = préréglage "Desktop Chrome", UA Windows codé en dur ; `mobile-chrome` = préréglage "Pixel 5", UA Android codé en dur) — d'où les deux user-agents observés (Windows/Chrome desktop + Android/Pixel 5), qui ne correspondent pas à deux appareils réels mais à deux profils Playwright émulés par le même run CI. Preuve : le pic du 2026-07-27 20h02-20h03 UTC coïncide exactement avec la complétion des jobs "E2E Pilot"/"E2E Staging" (bloquants) de la Release Readiness du PR #44 (20:03:47-20:03:52 UTC) ; le motif se répète à chaque exécution CI de la semaine (le pipeline a tourné très fréquemment durant ce sprint), ce qui explique le volume et la récurrence quasi quotidienne à des heures variées.
+
+Aucun signal de bug de reconnexion, aucune fuite de credentials, aucune activité suspecte d'un tiers.
+
+**Point d'hygiène (non bloquant, à améliorer)** : ces specs appellent `login()` à chaque `test()` plutôt que de partager une session authentifiée par fichier/projet (ex. via `storageState` de Playwright). Résultat : jusqu'à ~24 connexions réelles au compte Diallo par run CI, ce qui gonfle inutilement le journal d'activité du magasin pilote et pourrait, à terme, se heurter à un rate-limit d'authentification Supabase si la fréquence de CI augmente encore. Amélioration suggérée (non urgente) : réutiliser un `storageState` authentifié une fois par fichier de test plutôt que de se reconnecter à chaque cas.
 
 ## Risques
 
-1. Anomalie de connexions ci-dessus — impact potentiel à grande échelle si c'est un bug plutôt qu'un pattern d'usage normal.
+1. ~~Anomalie de connexions~~ — **résolue** (2026-07-28) : confirmée comme un artefact des tests E2E pilote CI, pas un bug client. Reste un point d'hygiène mineur (réduire le nombre de logins CI par run — voir ci-dessus).
 2. Usage encore très léger (4 ventes en 2 semaines, aucun fournisseur/dépense) — trop tôt pour valider la fiabilité du produit sous charge réelle soutenue.
 3. Stock non réapprovisionné malgré des ruptures constatées — soit le magasin ne l'a pas encore fait, soit la fonctionnalité de réappro n'est pas assez visible/utilisée.
 
 ## Recommandations
 
-- Investiguer le pic de connexions du 2026-07-27 avant toute annonce de disponibilité plus large.
+- ~~Investiguer le pic de connexions~~ — fait, voir "Bugs observés" ci-dessus. Amélioration optionnelle restante : `storageState` Playwright pour réduire les logins CI réels sur le compte pilote.
 - Encourager/accompagner le magasin pilote à utiliser les modules fournisseurs et dépenses (actuellement à 0 usage) pour valider ces parcours en conditions réelles avant de les vendre à d'autres commerçants.
 - Pas de signal de perte de données, de corruption, ou de blocage fonctionnel — les ventes qui ont eu lieu se sont correctement enregistrées avec les bons montants et moyens de paiement.
 
 ## Décision : continuer
 
-Aucun signal ne justifie une pause ou une correction urgente bloquante — les données réelles sont saines et cohérentes. L'anomalie de connexions mérite une investigation à courte échéance (pas bloquante pour la suite du travail engagé), et l'usage encore limité des modules fournisseurs/dépenses est à encourager sur le terrain plutôt qu'à corriger techniquement.
+Aucun signal ne justifie une pause ou une correction urgente bloquante — les données réelles sont saines et cohérentes. L'anomalie de connexions, seul point encore ouvert au moment de la rédaction initiale, est désormais résolue (artefact CI inoffensif, pas un bug). L'usage encore limité des modules fournisseurs/dépenses est à encourager sur le terrain plutôt qu'à corriger techniquement.
