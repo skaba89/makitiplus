@@ -12,6 +12,9 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { FeatureGate } from "@/components/saas/PlanLimitGuard";
+import { supabase } from "@/integrations/supabase/client";
+import { reportError } from "@/lib/sentry";
+import { extractErrorMessage } from "@/lib/extractErrorMessage";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,74 +53,23 @@ const SUGGESTED_PROMPTS = [
   { icon: BarChart3, text: "Analyse mes tendances de vente ce mois", category: "analyse" },
 ];
 
-// ─── AI Response Generator ────────────────────────────────────
-// In production, this would call an LLM API (OpenAI, etc.)
-// For now, we generate contextual responses based on the query keywords
+// ─── Initial greeting (static — no need to burn an LLM call just to say hello) ──
 
-function generateAIResponse(query: string): { content: string; suggestions: string[] } {
-  const q = query.toLowerCase();
-
-  if (q.includes("rentab") || q.includes("plus rentable") || q.includes("produit")) {
-    return {
-      content: `D'après votre historique de ventes, voici mes recommandations pour maximiser votre rentabilité :\n\n**1. Identifiez vos produits stars** — Les 20% de vos produits qui génèrent 80% de votre chiffre d'affaires (principe de Pareto). Concentrez vos efforts sur ces articles.\n\n**2. Optimisez vos prix** — Vérifiez que vos marges sont suffisantes. Une marge brute de 30-50% est généralement recommandée pour le retail en Afrique de l'Ouest.\n\n**3. Réduisez les ruptures** — Chaque jour sans stock d'un produit star, c'est du chiffre d'affaires perdu. Maintenez un stock de sécurité.\n\n**4. Éliminez les produits dormants** — Les produits qui ne se vendent pas depuis 90+ jours bloquent votre capital. Lancez une promotion ou liquidation.\n\nPour une analyse détaillée, consultez votre page Rapports > Top produits.`,
-      suggestions: [
-        "Comment calculer ma marge brute ?",
-        "Quel stock de sécurité recommandez-vous ?",
-        "Comment lancer une promotion efficace ?",
-      ],
-    };
-  }
-
-  if (q.includes("réapprovisionner") || q.includes("stock") || q.includes("rupture")) {
-    return {
-      content: `Voici mes recommandations pour la gestion de votre stock :\n\n**1. Produits à réapprovisionner en priorité** — Vérifiez les articles dont le stock est inférieur au seuil d'alerte dans votre tableau Produits.\n\n**2. Méthode du stock de sécurité** — Calculez : Stock de sécurité = (Vente max journalière × Délai livraison max) - (Vente moy × Délai livraison moy)\n\n**3. Passez des commandes groupées** — Regroupez vos commandes auprès d'un même fournisseur pour négocier de meilleurs prix et réduire les frais de transport.\n\n**4. Anticipez les saisons** — Augmentez votre stock 2-3 semaines avant les pics saisonniers (Ramadan, Noël, rentrée scolaire).\n\n**5. Utilisez les commandes fournisseurs** — Créez des bons de commande dans la section Commandes pour suivre vos approvisionnements.\n\nConsultez vos alertes de stock bas dans le tableau de bord !`,
-      suggestions: [
-        "Comment négocier avec mes fournisseurs ?",
-        "Quelle est la méthode FIFO ?",
-        "Comment réduire le surstock ?",
-      ],
-    };
-  }
-
-  if (q.includes("dépense") || q.includes("optimis") || q.includes("financ")) {
-    return {
-      content: `Voici mes conseils pour optimiser vos finances :\n\n**1. Suivez vos dépenses par catégorie** — Utilisez la page Dépenses pour catégoriser chaque sortie d'argent (loyer, salaires, transport, marchandises).\n\n**2. Ratio dépenses/revenus** — Visez un ratio inférieur à 70%. Si vos dépenses dépassent 70% de votre CA, identifiez les postes les plus lourds.\n\n**3. Négociez vos charges fixes** — Loyer, électricité, internet : renégociez chaque année. Un commerçant à Conakry économise en moyenne 15% en renégociant.\n\n**4. Limitez les crédits clients** — Un crédit client, c'est de l'argent qui ne travaille pas pour vous. Visez moins de 10% de votre CA en crédits en cours.\n\n**5. Prévoyez la trésorerie** — Gardez toujours 1-2 mois de charges en réserve pour les imprévus.\n\nConsultez vos dépenses dans la section Dépenses et votre tableau de bord pour le suivi.`,
-      suggestions: [
-        "Comment améliorer ma trésorerie ?",
-        "Quel ratio dépenses/revenus est normal ?",
-        "Comment réduire les crédits clients ?",
-      ],
-    };
-  }
-
-  if (q.includes("tendance") || q.includes("vente") || q.includes("analyse") || q.includes("mois")) {
-    return {
-      content: `Voici mon analyse de vos tendances de vente :\n\n**1. Périodes fortes** — Identifiez vos meilleurs jours de la semaine et heures de pointe. Adaptez votre personnel et votre stock en conséquence.\n\n**2. Panier moyen** — Si votre panier moyen stagne, essayez le cross-selling : proposez des produits complémentaires au moment de la vente (ex: sauce + riz, coque + téléphone).\n\n**3. Tendances saisonnières** — En Afrique de l'Ouest, les pics typiques sont : rentrée scolaire (septembre), fin d'année (novembre-décembre), et périodes de fêtes religieuses.\n\n**4. Produits en déclin** — Si un produit vendait bien avant mais plus maintenant, vérifiez : concurrence locale, changement de prix, qualité du stock.\n\n**5. Comparez mois par mois** — Utilisez la page Rapports avec le filtre mensuel pour voir votre progression.\n\nPour des données précises, consultez la page Rapports avec les graphiques de ventes quotidiennes.`,
-      suggestions: [
-        "Comment augmenter mon panier moyen ?",
-        "Quels indicateurs dois-je suivre ?",
-        "Comment analyser la rentabilité par produit ?",
-      ],
-    };
-  }
-
-  // Default response
-  return {
-    content: `Bonjour ! Je suis votre assistant IA MakitiPlus. Je peux vous aider avec :\n\n- **Analyse des ventes** — Tendances, produits stars, panier moyen\n- **Gestion du stock** — Réapprovisionnement, seuils d'alerte, saisonnalité\n- **Optimisation financière** — Dépenses, trésorerie, marges\n- **Stratégie commerciale** — Prix, promotions, fidélisation\n\nPosez-moi une question sur votre activité, ou choisissez une suggestion ci-dessous !`,
-    suggestions: [
-      "Quels sont mes produits les plus rentables ?",
-      "Quels produits dois-je réapprovisionner ?",
-      "Comment optimiser mes dépenses ?",
-    ],
-  };
-}
+const INITIAL_GREETING = {
+  content: `Bonjour ! Je suis votre assistant IA MakitiPlus. Je peux vous aider avec :\n\n- **Analyse des ventes** — Tendances, produits stars, panier moyen\n- **Gestion du stock** — Réapprovisionnement, seuils d'alerte, saisonnalité\n- **Optimisation financière** — Dépenses, trésorerie, marges\n- **Stratégie commerciale** — Prix, promotions, fidélisation\n\nPosez-moi une question sur votre activité, ou choisissez une suggestion ci-dessous !`,
+  suggestions: [
+    "Quels sont mes produits les plus rentables ?",
+    "Quels produits dois-je réapprovisionner ?",
+    "Comment optimiser mes dépenses ?",
+  ],
+};
 
 // ─── Component ────────────────────────────────────────────────
 
 const AIAssistant = () => {
   useAuth();
   const navigate = useNavigate();
-  useToast();
+  const { toast } = useToast();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -131,24 +83,23 @@ const AIAssistant = () => {
     }
   }, [messages]);
 
-  // Initial greeting
+  // Initial greeting (static, not an LLM call)
   useEffect(() => {
     if (messages.length === 0) {
-      const greeting = generateAIResponse("bonjour");
       setMessages([
         {
           id: "greeting",
           role: "assistant",
-          content: greeting.content,
+          content: INITIAL_GREETING.content,
           timestamp: new Date(),
-          suggestions: greeting.suggestions,
+          suggestions: INITIAL_GREETING.suggestions,
         },
       ]);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const sendMessage = (text?: string) => {
+  const sendMessage = async (text?: string) => {
     const content = text || input.trim();
     if (!content) return;
 
@@ -159,23 +110,39 @@ const AIAssistant = () => {
       timestamp: new Date(),
     };
 
+    // Historique court (hors message de bienvenue statique) pour donner du
+    // contexte conversationnel au LLM, sans persistance serveur pour ce v1.
+    const history = messages
+      .filter((m) => m.id !== "greeting")
+      .slice(-6)
+      .map((m) => ({ role: m.role, content: m.content }));
+
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setIsTyping(true);
 
-    // Simulate AI response with delay
-    setTimeout(() => {
-      const response = generateAIResponse(content);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-assistant-chat", {
+        body: { message: content, history },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
       const aiMsg: ChatMessage = {
         id: `ai-${Date.now()}`,
         role: "assistant",
-        content: response.content,
+        content: data.content,
         timestamp: new Date(),
-        suggestions: response.suggestions,
+        suggestions: Array.isArray(data.suggestions) ? data.suggestions : [],
       };
       setMessages((prev) => [...prev, aiMsg]);
+    } catch (error: unknown) {
+      const msg = extractErrorMessage(error);
+      toast({ variant: "destructive", title: "Assistant IA indisponible", description: msg });
+      reportError(error instanceof Error ? error : new Error(msg));
+    } finally {
       setIsTyping(false);
-    }, 800 + Math.random() * 1200);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

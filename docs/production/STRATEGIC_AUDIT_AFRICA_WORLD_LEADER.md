@@ -27,13 +27,15 @@ Ce socle change la nature de la recommandation : il ne s'agit pas de "construire
 
 ## 2. Constats précis — ce qui bloque aujourd'hui un vrai leadership
 
-### 2.1. L'"Assistant IA" est une façade, pas de l'IA (constat critique)
+### 2.1. L'"Assistant IA" est une façade, pas de l'IA (constat critique) — RÉSOLU (2026-07-31)
 
-`src/pages/AIAssistant.tsx` contient une fonction `generateAIResponse()` documentée dans son propre commentaire :
+`src/pages/AIAssistant.tsx` contenait une fonction `generateAIResponse()` documentée dans son propre commentaire :
 
 > *"In production, this would call an LLM API (OpenAI, etc.). For now, we generate contextual responses based on the query keywords."*
 
-C'est un moteur de correspondance de mots-clés qui renvoie des réponses canned, pas un appel à un LLM. Or `has_ai_assistant` est déjà un feature flag payant dans le système de plans (`Pricing.tsx`). **Un client qui paie pour "l'Assistant IA métier" reçoit aujourd'hui une simulation.** C'est le premier écart entre la promesse produit et la réalité technique — et probablement la faille de crédibilité la plus dangereuse si un client sophistiqué (franchise, grossiste, investisseur) teste sérieusement la fonctionnalité.
+C'était un moteur de correspondance de mots-clés qui renvoyait des réponses canned, pas un appel à un LLM. Or `has_ai_assistant` est déjà un feature flag payant dans le système de plans (`Pricing.tsx`). Un client qui payait pour "l'Assistant IA métier" recevait une simulation.
+
+**Corrigé** : `generateAIResponse()` remplacée par un vrai appel à l'API Groq (modèle `llama-3.3-70b-versatile`) via une nouvelle Edge Function (`supabase/functions/ai-assistant-chat`), grounded sur les vraies données du commerce (ventes du jour, crédits clients, stock bas/rupture, dépenses du mois — lues via le JWT de l'appelant, donc scopées automatiquement par RLS à son organisation). L'accès est re-vérifié côté serveur (`check_feature_access('ai_assistant')`) indépendamment du `FeatureGate` frontend — défense en profondeur cohérente avec le fix `PlanLimitGuard`/`FeatureGate` de la section 3.5. Clé API stockée uniquement en secret Supabase, jamais dans le dépôt.
 
 ### 2.2. Zéro internationalisation — plafond de verre pour "leader mondial"
 
@@ -71,8 +73,8 @@ RLS, audit logs, offline-first, CI E2E bloquante, modèle de paiement local, fea
 
 Priorisées par impact/effort, pas par ordre alphabétique.
 
-### 3.1. Rendre l'Assistant IA réel (P0 produit)
-Remplacer `generateAIResponse()` par un vrai appel LLM côté serveur (Edge Function Supabase, jamais de clé API côté client) sur les données réelles de l'utilisateur (ventes, stock, dépenses déjà agrégées par les RPC existantes). Un modèle rapide et peu coûteux (type Llama via Groq, déjà évoqué dans l'écosystème du projet, ou un équivalent) suffit largement pour "quels produits réapprovisionner" / "pourquoi mes ventes ont baissé cette semaine" — pas besoin de GPT-4 pour ce cas d'usage. C'est la fonctionnalité qui justifie le mieux un plan payant supérieur ; la laisser fausse est un risque de crédibilité disproportionné par rapport au coût de la corriger.
+### 3.1. Rendre l'Assistant IA réel (P0 produit) — FAIT (2026-07-31)
+Voir section 2.1. Groq (`llama-3.3-70b-versatile`) via Edge Function, grounded sur les données réelles de l'organisation, accès re-vérifié côté serveur.
 
 ### 3.2. Aligner le prix affiché sur la réalité du paiement
 Remplacer `PRICING_CURRENCY = "EUR"` par un affichage en devise locale (GNF, ou multi-devise avec détection du pays) — cohérent avec le choix stratégique "Mobile Money uniquement". Un commerçant qui voit "29 €" alors qu'il va payer en Orange Money GNF perd confiance avant même d'essayer.
@@ -117,11 +119,11 @@ Une expansion hors Guinée pose potentiellement des questions de résidence de d
 
 | Horizon | Action | Pourquoi maintenant |
 |---|---|---|
-| Immédiat (jours) | Corriger l'incohérence de devise sur `Pricing.tsx` | Coût quasi nul, incohérence visible par tout prospect |
-| Court terme (2–4 semaines) | Vrai LLM derrière l'Assistant IA | Écart promesse/réalité sur une fonctionnalité déjà facturable |
+| ~~Immédiat~~ **fait** | ~~Corriger l'incohérence de devise sur `Pricing.tsx`~~ livré (2026-07-30, PR #47) | Coût quasi nul, incohérence visible par tout prospect |
+| ~~Court terme~~ **fait** | ~~Vrai LLM derrière l'Assistant IA~~ Groq + Edge Function livré (2026-07-31) | Écart promesse/réalité sur une fonctionnalité déjà facturable |
 | Court terme (2–4 semaines) | Mobile money manuel + rapport quotidien (P1.4/P1.5 déjà planifiés) | Cœur du besoin terrain, déjà spécifié, jamais livré |
 | Court terme (2–6 semaines) | Étude de cas Diallo & Frères + argumentaire commercial | Actif sous-exploité, coût de production faible |
-| Moyen terme (1–3 mois) | Audit d'application réelle des feature flags par plan | Fuite de revenu potentielle si non vérifié |
+| ~~Moyen terme~~ **fait** | ~~Audit d'application réelle des feature flags par plan~~ bug trouvé et corrigé (2026-07-30, PR #48 — admin bypassait tous les quotas/features premium) | Fuite de revenu potentielle si non vérifié |
 | Moyen terme (1–3 mois) | Anglais pour marchés limitrophes | Effet de levier régional avant investissement i18n complet |
 | Long terme (3–12 mois) | Architecture i18n complète | Prérequis dur pour toute ambition hors Afrique francophone |
 | Long terme (6–18 mois) | API partenaire mature + BI cross-marchands | Différenciation "plateforme" vs "outil" |
