@@ -42,9 +42,12 @@ export function PlanLimitGuard({
   const { data: limitCheck, isLoading } = usePlanLimit(limitType);
   const { userRole } = useAuth();
 
-  // SECURITY: super_admin and admin bypass plan limits
-  // (admin = gérant du magasin, il gère son propre abonnement)
-  if (userRole === "super_admin" || userRole === "admin") {
+  // SECURITY: only super_admin (platform operator, not subject to any org's
+  // plan) bypasses plan limits. admin (gérant du magasin) IS the subscriber
+  // the plan model is meant to constrain -- bypassing admin here made every
+  // quota (boutiques/utilisateurs/produits) unenforced for the exact role
+  // that matters, on any plan below the one granting it unconditionally.
+  if (userRole === "super_admin") {
     return <>{children}</>;
   }
 
@@ -117,9 +120,11 @@ export function FeatureGate({ feature, children, fallback }: FeatureGateProps) {
   const { data: allowed, isLoading } = useFeatureAccess(feature);
   const { userRole } = useAuth();
 
-  // SECURITY: super_admin and admin bypass feature gates
-  // (admin = gérant du magasin, il a accès à toutes les features de son plan)
-  if (userRole === "super_admin" || userRole === "admin") {
+  // SECURITY: only super_admin (platform operator) bypasses feature gates.
+  // admin sees exactly what useFeatureAccess resolves for their org's actual
+  // plan (has_ai_assistant, has_api_access, etc.) -- see PlanLimitGuard above
+  // for why bypassing admin unconditionally was wrong.
+  if (userRole === "super_admin") {
     return <>{children}</>;
   }
 

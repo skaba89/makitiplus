@@ -111,6 +111,14 @@ describe("Hotfix: PlanLimitGuard super_admin-only bypass", () => {
     expect(guard).toMatch(/userRole\s*===\s*["']super_admin["']/);
     // Must NOT use isAdminRole which includes admin
     expect(guard).not.toContain("isAdminRole");
+    // Regression (fix/plan-limit-guard-admin-bypass) : cette assertion ne
+    // vérifiait auparavant PAS l'absence réelle du bypass "admin" -- elle ne
+    // détectait que isAdminRole, alors que le code utilisait un check direct
+    // `userRole === "super_admin" || userRole === "admin"` qui la contournait
+    // silencieusement. Isole le bloc if() du bypass et vérifie qu'il ne
+    // contient pas de comparaison directe à "admin".
+    const bypassCondition = guard.match(/if \(userRole === "super_admin"[^)]*\) \{/)?.[0] ?? "";
+    expect(bypassCondition).not.toMatch(/["']admin["']/);
   });
 
   it("PlanLimitGuard imports useAuth for role check", () => {
@@ -121,9 +129,13 @@ describe("Hotfix: PlanLimitGuard super_admin-only bypass", () => {
     // FeatureGate should have the same super_admin-only bypass
     const featureGateSection = guard.substring(
       guard.indexOf("export function FeatureGate"),
-      guard.indexOf("export function FeatureGate") + 400
+      guard.indexOf("export function FeatureGate") + 700
     );
     expect(featureGateSection).toMatch(/userRole\s*===\s*["']super_admin["']/);
+    // Regression (fix/plan-limit-guard-admin-bypass) : voir le commentaire
+    // équivalent sur le test PlanLimitGuard ci-dessus -- même faille de test.
+    const bypassCondition = featureGateSection.match(/if \(userRole === "super_admin"[^)]*\) \{/)?.[0] ?? "";
+    expect(bypassCondition).not.toMatch(/["']admin["']/);
   });
 });
 
@@ -492,13 +504,17 @@ describe("Hotfix: SaaS governance no-regression", () => {
   it("PlanLimitGuard bypasses only for super_admin", () => {
     expect(guard).toMatch(/userRole\s*===\s*["']super_admin["']/);
     expect(guard).not.toContain("isAdminRole");
+    const bypassCondition = guard.match(/if \(userRole === "super_admin"[^)]*\) \{/)?.[0] ?? "";
+    expect(bypassCondition).not.toMatch(/["']admin["']/);
   });
 
   it("FeatureGate bypasses only for super_admin", () => {
     const featureGateSection = guard.substring(
       guard.indexOf("export function FeatureGate"),
-      guard.indexOf("export function FeatureGate") + 400
+      guard.indexOf("export function FeatureGate") + 700
     );
     expect(featureGateSection).toMatch(/userRole\s*===\s*["']super_admin["']/);
+    const bypassCondition = featureGateSection.match(/if \(userRole === "super_admin"[^)]*\) \{/)?.[0] ?? "";
+    expect(bypassCondition).not.toMatch(/["']admin["']/);
   });
 });
