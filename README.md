@@ -37,7 +37,7 @@ MakitiPlus est une plateforme SaaS de gestion commerciale pensée pour les comme
 | **PDF** | jsPDF (reçus, rapports) |
 | **Monitoring** | Sentry (erreurs + Web Vitals) |
 | **CI/CD** | GitHub Actions + Render |
-| **Tests** | Vitest (174 unitaires) + Playwright (E2E) |
+| **Tests** | Vitest (1200+ unitaires) + Playwright (E2E) |
 
 ---
 

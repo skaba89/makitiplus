@@ -7,13 +7,12 @@
 
 import { usePlans, useSubscription } from "@/hooks/useSubscription";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCurrency } from "@/hooks/useCurrency";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Check, X, Loader2 } from "lucide-react";
-
-const PRICING_CURRENCY = "EUR";
 
 const PLAN_HIGHLIGHTS: Record<string, string> = {
   croissance: "Pour les boutiques qui grandissent",
@@ -107,6 +106,7 @@ interface PlanCardProps {
     description: string | null;
     price_monthly: number;
     price_yearly: number | null;
+    currency: string;
     max_stores: number | null;
     max_users: number | null;
     max_products: number | null;
@@ -130,7 +130,14 @@ interface PlanCardProps {
 function PlanCard({ plan, highlight, isCurrent, onSelect }: PlanCardProps) {
   const isPopular = plan.id === "croissance";
   const isEnterprise = plan.id === "enterprise";
-  const currencySymbol = PRICING_CURRENCY === "EUR" ? "€" : "$";
+  // Les prix sont stockés dans plan.currency (USD) — convertis vers la devise
+  // locale de l'utilisateur (déduite de son profil, ou Guinée/GNF par défaut
+  // pour un visiteur non connecté) via le même système de taux de change que
+  // le reste de l'app (useExchangeRates, base USD). Fallback gracieux : si les
+  // taux ne sont pas encore chargés, formatConvertedPrice affiche le montant
+  // dans la devise source plutôt que de planter.
+  const { formatConvertedPrice } = useCurrency();
+  const displayPrice = (amount: number) => formatConvertedPrice(amount, plan.currency);
 
   const features = [
     { label: `${plan.max_stores === null ? "Illimitées" : plan.max_stores} boutique${plan.max_stores !== 1 ? "s" : ""}`, included: true },
@@ -175,11 +182,11 @@ function PlanCard({ plan, highlight, isCurrent, onSelect }: PlanCardProps) {
             </div>
           ) : (
             <div>
-              <span className="text-4xl font-bold">{plan.price_monthly.toFixed(2).replace('.00', '')}{currencySymbol}</span>
+              <span className="text-4xl font-bold">{displayPrice(plan.price_monthly)}</span>
               <span className="text-muted-foreground">/mois</span>
               {plan.price_yearly && (
                 <p className="text-sm text-muted-foreground mt-1">
-                  {plan.price_yearly.toFixed(2).replace('.00', '')}{currencySymbol}/an — économisez 2 mois
+                  {displayPrice(plan.price_yearly)}/an — économisez 2 mois
                 </p>
               )}
             </div>
