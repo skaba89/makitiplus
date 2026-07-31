@@ -20,6 +20,26 @@ import { useCurrency } from "@/hooks/useCurrency";
 
 type PaymentMethod = Database["public"]["Enums"]["payment_method"];
 
+// Modes de paiement mobile money : la référence/numéro de transaction envoyé
+// par l'opérateur peut être saisie manuellement comme preuve de paiement
+// (aucune intégration API réelle avec les opérateurs — voir la migration
+// 20260731020000_add_mobile_money_payment_reference.sql).
+const MOBILE_MONEY_METHODS = new Set<PaymentMethod>([
+  "wave",
+  "orange_money",
+  "mtn_money",
+  "moov_money",
+  "mpesa",
+]);
+
+const MOBILE_MONEY_LABELS: Partial<Record<PaymentMethod, string>> = {
+  wave: "Wave",
+  orange_money: "Orange Money",
+  mtn_money: "MTN Money",
+  moov_money: "Moov Money",
+  mpesa: "M-Pesa",
+};
+
 interface POSPaymentDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -28,7 +48,8 @@ interface POSPaymentDialogProps {
     paymentMethod: PaymentMethod,
     amountPaid: number,
     customerName?: string,
-    customerPhone?: string
+    customerPhone?: string,
+    paymentReference?: string
   ) => void;
   isLoading: boolean;
   /** Ref to expose the confirm handler for Ctrl+Enter keyboard shortcut */
@@ -48,6 +69,7 @@ export const POSPaymentDialog = ({
   const [amountPaid, setAmountPaid] = useState<number>(total);
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [paymentReference, setPaymentReference] = useState("");
 
   // Mettre à jour amountPaid quand le total change
   useEffect(() => {
@@ -63,7 +85,8 @@ export const POSPaymentDialog = ({
       paymentMethod,
       paymentMethod === "credit" ? 0 : amountPaid,
       customerName || undefined,
-      customerPhone || undefined
+      customerPhone || undefined,
+      MOBILE_MONEY_METHODS.has(paymentMethod) ? paymentReference.trim() || undefined : undefined
     );
   };
 
@@ -168,17 +191,26 @@ export const POSPaymentDialog = ({
                 )}
               </TabsContent>
 
-              <TabsContent value="wave" className="mt-4">
-                <p className="text-sm text-muted-foreground">
-                  Le client paie {formatPrice(total)} via Wave
-                </p>
-              </TabsContent>
-
-              <TabsContent value="orange_money" className="mt-4">
-                <p className="text-sm text-muted-foreground">
-                  Le client paie {formatPrice(total)} via Orange Money
-                </p>
-              </TabsContent>
+              {paymentMethods
+                .filter((method) => MOBILE_MONEY_METHODS.has(method.value))
+                .map((method) => (
+                  <TabsContent key={method.value} value={method.value} className="space-y-4 mt-4">
+                    <p className="text-sm text-muted-foreground">
+                      Le client paie {formatPrice(total)} via {MOBILE_MONEY_LABELS[method.value]}
+                    </p>
+                    <div className="space-y-2">
+                      <Label htmlFor="pos-payment-reference">
+                        Référence transaction (optionnel)
+                      </Label>
+                      <Input
+                        id="pos-payment-reference"
+                        value={paymentReference}
+                        onChange={(e) => setPaymentReference(e.target.value)}
+                        placeholder="Ex : numéro de confirmation reçu par SMS"
+                      />
+                    </div>
+                  </TabsContent>
+                ))}
 
               <TabsContent value="card" className="mt-4">
                 <p className="text-sm text-muted-foreground">
