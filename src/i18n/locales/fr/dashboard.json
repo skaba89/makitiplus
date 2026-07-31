@@ -1,0 +1,84 @@
+{
+  "greeting": "Bonjour, {{name}}",
+  "greetingFallbackName": "Utilisateur",
+  "overviewSubtitle": "Voici un aperçu de votre activité - {{role}}",
+  "roles": {
+    "admin": "Administrateur",
+    "manager": "Manager",
+    "vendeur": "Vendeur",
+    "comptable": "Comptable"
+  },
+  "payments": {
+    "cash": "Espèces",
+    "wave": "Wave",
+    "orange_money": "Orange Money",
+    "mtn_money": "MTN Money",
+    "card": "Carte",
+    "credit": "Crédit"
+  },
+  "stats": {
+    "salesToday": { "title": "Ventes du jour", "change": "{{count}} vente(s)" },
+    "salesMonth": {
+      "title": "Ventes du mois",
+      "changeWithCredit": "{{count}} à crédit",
+      "changeSeeReports": "voir rapports"
+    },
+    "productsInStock": {
+      "title": "Produits en stock",
+      "alert": "{{count}} en alerte",
+      "ok": "Stock OK"
+    },
+    "expensesMonth": { "title": "Dépenses du mois", "change": "{{count}} dépense(s)" }
+  },
+  "netProfit": {
+    "title": "Bénéfice net du mois",
+    "formula": "Ventes {{sales}} − Dépenses {{expenses}}"
+  },
+  "suppliers": { "title": "Fournisseurs actifs", "seeSuppliers": "Voir les fournisseurs" },
+  "customerCredits": {
+    "title": "Crédits clients en cours",
+    "balance": "{{count}} client(s) avec un solde"
+  },
+  "paymentBreakdown": { "title": "Ventes du jour par paiement", "empty": "Aucune vente aujourd'hui" },
+  "stockAlerts": { "title": "Alertes de stock ({{count}})", "stockLabel": "Stock: {{stock}} / Seuil: {{threshold}}" },
+  "expiryAlerts": {
+    "title": "Alertes de péremption ({{count}})",
+    "description": "Produits périmés ou expirant dans les {{days}} prochains jours. Vérifiez le stock et appliquez une remise ou un retrait si nécessaire.",
+    "expiredSince": "Périmé depuis {{days}} jour(s)",
+    "expiresToday": "Expire aujourd'hui",
+    "expiresIn": "Expire dans {{days}} jour(s)",
+    "stockLabel": "Stock: {{stock}}"
+  },
+  "quickActions": {
+    "title": "Actions rapides",
+    "multiStoreAnalytics": "Analyse Multi-Magasins",
+    "newSale": "Nouvelle vente",
+    "addProduct": "Ajouter produit",
+    "suppliers": "Fournisseurs",
+    "recordExpense": "Enregistrer dépense",
+    "seeReports": "Voir rapports"
+  },
+  "recentSales": { "title": "Ventes recentes", "empty": "Aucune vente pour le moment" },
+  "financialSummary": {
+    "title": "Resume financier du mois",
+    "totalSales": "Ventes totales",
+    "expenses": "Depenses",
+    "netResult": "Resultat net"
+  },
+  "topProducts": { "title": "Top produits (30j)" },
+  "whatsapp": {
+    "button": "Rapport WhatsApp",
+    "promptPhone": "Numéro WhatsApp du gérant (ex: 224622000000):",
+    "title": "📊 *Rapport MakitiPlus — {{date}}*",
+    "salesToday": "💰 Ventes du jour : {{amount}}",
+    "transactions": "🛒 Transactions : {{count}}",
+    "stockCount": "📦 Produits en stock : {{count}}",
+    "lowStock": "⚠️ Stock bas : {{count}}",
+    "credits": "💰 Crédits clients en cours : {{amount}} ({{count}} client(s))",
+    "expenses": "💸 Dépenses du mois : {{amount}}",
+    "netProfit": "📊 Bénéfice net : {{sign}}{{amount}}",
+    "stockAlertsTitle": "*Alertes stock :*",
+    "noStockAlerts": "✅ Aucune alerte de stock",
+    "footer": "— MakitiPlus"
+  }
+}

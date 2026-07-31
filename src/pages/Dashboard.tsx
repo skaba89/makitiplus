@@ -1,4 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -49,6 +50,7 @@ interface DashboardProduct {
 const EXPIRY_WARNING_DAYS = 7;
 
 const Dashboard = () => {
+  const { t } = useTranslation("dashboard");
   const { user, profile, userRole } = useAuth();
   const { formatPrice } = useCurrency();
   const {
@@ -287,47 +289,51 @@ const Dashboard = () => {
     .sort((a, b) => a.expiryDays - b.expiryDays);
 
   const roleLabels: Record<string, string> = {
-    admin: "Administrateur",
-    manager: "Manager",
-    vendeur: "Vendeur",
-    comptable: "Comptable",
+    admin: t("roles.admin"),
+    manager: t("roles.manager"),
+    vendeur: t("roles.vendeur"),
+    comptable: t("roles.comptable"),
   };
 
   const paymentLabels: Record<string, string> = {
-    cash: "Espèces",
-    wave: "Wave",
-    orange_money: "Orange Money",
-    mtn_money: "MTN Money",
-    card: "Carte",
-    credit: "Crédit",
+    cash: t("payments.cash"),
+    wave: t("payments.wave"),
+    orange_money: t("payments.orange_money"),
+    mtn_money: t("payments.mtn_money"),
+    card: t("payments.card"),
+    credit: t("payments.credit"),
   };
 
   const stats = [
     {
-      title: "Ventes du jour",
+      title: t("stats.salesToday.title"),
       value: formatDisplayPrice(totalSalesToday, { showOriginal: isConverted }),
-      change: `${transactionsToday} vente(s)`,
+      change: t("stats.salesToday.change", { count: transactionsToday }),
       trend: "up" as const,
       icon: ShoppingCart,
     },
     {
-      title: "Ventes du mois",
+      title: t("stats.salesMonth.title"),
       value: formatDisplayPrice(totalSalesMonth, { showOriginal: isConverted }),
-      change: (dashboardStats?.monthCreditCount ?? 0) > 0 ? `${dashboardStats?.monthCreditCount} à crédit` : "voir rapports",
+      change: (dashboardStats?.monthCreditCount ?? 0) > 0
+        ? t("stats.salesMonth.changeWithCredit", { count: dashboardStats?.monthCreditCount })
+        : t("stats.salesMonth.changeSeeReports"),
       trend: "up" as const,
       icon: BarChart3,
     },
     {
-      title: "Produits en stock",
+      title: t("stats.productsInStock.title"),
       value: String(totalProducts),
-      change: lowStockProducts.length > 0 ? `${lowStockProducts.length} en alerte` : "Stock OK",
+      change: lowStockProducts.length > 0
+        ? t("stats.productsInStock.alert", { count: lowStockProducts.length })
+        : t("stats.productsInStock.ok"),
       trend: lowStockProducts.length > 0 ? "down" as const : "up" as const,
       icon: Package,
     },
     {
-      title: "Dépenses du mois",
+      title: t("stats.expensesMonth.title"),
       value: formatDisplayPrice(totalExpensesMonth, { showOriginal: isConverted }),
-      change: `${monthExpenses?.length || 0} dépense(s)`,
+      change: t("stats.expensesMonth.change", { count: monthExpenses?.length || 0 }),
       trend: "down" as const,
       icon: Wallet,
     },
@@ -339,10 +345,10 @@ const Dashboard = () => {
         <div className="flex items-start justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">
-              Bonjour, {profile?.owner_name?.split(" ")[0] || "Utilisateur"}
+              {t("greeting", { name: profile?.owner_name?.split(" ")[0] || t("greetingFallbackName") })}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Voici un aperçu de votre activité - {userRole && roleLabels[userRole]}
+              {t("overviewSubtitle", { role: userRole ? roleLabels[userRole] : "" })}
             </p>
           </div>
           {/* Bouton envoyer résumé par WhatsApp */}
@@ -361,29 +367,32 @@ const Dashboard = () => {
               size="sm"
               className="gap-2"
               onClick={() => {
-                const phone = prompt("Numéro WhatsApp du gérant (ex: 224622000000):");
+                const phone = prompt(t("whatsapp.promptPhone"));
                 if (!phone) return;
                 const cleanPhone = phone.replace(/[\s+\-()]/g, "");
                 const today = format(new Date(), "dd/MM/yyyy");
-                const msg = `📊 *Rapport MakitiPlus — ${today}*
+                const stockAlertsBlock = lowStockProducts.length > 0
+                  ? `${t("whatsapp.stockAlertsTitle")}\n${lowStockProducts.slice(0, 5).map(p => `• ${p.name} (${p.stock_quantity})`).join("\n")}`
+                  : t("whatsapp.noStockAlerts");
+                const msg = `${t("whatsapp.title", { date: today })}
 
-💰 Ventes du jour : ${formatPrice(totalSalesToday)}
-🛒 Transactions : ${transactionsToday}
+${t("whatsapp.salesToday", { amount: formatPrice(totalSalesToday) })}
+${t("whatsapp.transactions", { count: transactionsToday })}
 ${(todayPaymentBreakdown ?? []).map((e) => `   • ${paymentLabels[e.payment_method] || e.payment_method} : ${formatPrice(e.total)}`).join("\n")}
-📦 Produits en stock : ${totalProducts}
-⚠️ Stock bas : ${lowStockProducts.length}
-💰 Crédits clients en cours : ${formatPrice(dashboardStats?.totalCredits ?? 0)} (${dashboardStats?.creditsCount ?? 0} client(s))
-💸 Dépenses du mois : ${formatPrice(totalExpensesMonth)}
-📊 Bénéfice net : ${netProfit >= 0 ? "+" : ""}${formatPrice(netProfit)}
+${t("whatsapp.stockCount", { count: totalProducts })}
+${t("whatsapp.lowStock", { count: lowStockProducts.length })}
+${t("whatsapp.credits", { amount: formatPrice(dashboardStats?.totalCredits ?? 0), count: dashboardStats?.creditsCount ?? 0 })}
+${t("whatsapp.expenses", { amount: formatPrice(totalExpensesMonth) })}
+${t("whatsapp.netProfit", { sign: netProfit >= 0 ? "+" : "", amount: formatPrice(netProfit) })}
 
-${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 5).map(p => `• ${p.name} (${p.stock_quantity})`).join("\n")}` : "✅ Aucune alerte de stock"}
+${stockAlertsBlock}
 
-— MakitiPlus`;
+${t("whatsapp.footer")}`;
                 window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, "_blank");
               }}
             >
               <MessageCircle className="h-4 w-4" />
-              Rapport WhatsApp
+              {t("whatsapp.button")}
             </Button>
           )}
           </div>
@@ -418,7 +427,7 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Card className="card-elevated">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Bénéfice net du mois</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">{t("netProfit.title")}</CardTitle>
               <div className={`p-2 rounded-lg ${netProfit >= 0 ? "bg-green-500/10" : "bg-destructive/10"}`}>
                 <DollarSign className={`h-4 w-4 ${netProfit >= 0 ? "text-green-600" : "text-destructive"}`} />
               </div>
@@ -434,7 +443,10 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
                   <ArrowDownRight className="h-4 w-4 text-destructive" />
                 )}
                 <span className={`text-sm ${netProfit >= 0 ? "text-green-600" : "text-destructive"}`}>
-                  Ventes {formatDisplayPrice(totalSalesMonth, { showOriginal: isConverted })} − Dépenses {formatDisplayPrice(totalExpensesMonth, { showOriginal: isConverted })}
+                  {t("netProfit.formula", {
+                    sales: formatDisplayPrice(totalSalesMonth, { showOriginal: isConverted }),
+                    expenses: formatDisplayPrice(totalExpensesMonth, { showOriginal: isConverted }),
+                  })}
                 </span>
               </div>
             </CardContent>
@@ -447,7 +459,7 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/dashboard/suppliers"); } }}
           >
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Fournisseurs actifs</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">{t("suppliers.title")}</CardTitle>
               <div className="p-2 rounded-lg bg-blue-500/10">
                 <Truck className="h-4 w-4 text-blue-600" />
               </div>
@@ -457,7 +469,7 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
               <div className="flex items-center gap-1 mt-1">
                 <ArrowUpRight className="h-4 w-4 text-blue-600" />
                 <span className="text-sm text-blue-600 group-hover:underline">
-                  Voir les fournisseurs
+                  {t("suppliers.seeSuppliers")}
                 </span>
               </div>
             </CardContent>
@@ -474,7 +486,7 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/dashboard/customers"); } }}
           >
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Crédits clients en cours</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">{t("customerCredits.title")}</CardTitle>
               <div className="p-2 rounded-lg bg-amber-500/10">
                 <Wallet className="h-4 w-4 text-amber-600" />
               </div>
@@ -485,14 +497,14 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
               </div>
               <div className="flex items-center gap-1 mt-1">
                 <span className="text-sm text-muted-foreground group-hover:underline">
-                  {dashboardStats?.creditsCount ?? 0} client(s) avec un solde
+                  {t("customerCredits.balance", { count: dashboardStats?.creditsCount ?? 0 })}
                 </span>
               </div>
             </CardContent>
           </Card>
           <Card className="card-elevated">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Ventes du jour par paiement</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">{t("paymentBreakdown.title")}</CardTitle>
             </CardHeader>
             <CardContent>
               {todayPaymentBreakdown && todayPaymentBreakdown.length > 0 ? (
@@ -509,7 +521,7 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">Aucune vente aujourd'hui</p>
+                <p className="text-sm text-muted-foreground">{t("paymentBreakdown.empty")}</p>
               )}
             </CardContent>
           </Card>
@@ -521,7 +533,7 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-destructive">
                 <AlertTriangle className="h-5 w-5" />
-                Alertes de stock ({lowStockProducts.length})
+                {t("stockAlerts.title", { count: lowStockProducts.length })}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -536,7 +548,7 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">{p.name}</p>
                       <p className="text-xs text-destructive">
-                        Stock: {p.stock_quantity} / Seuil: {p.min_stock_alert || 5}
+                        {t("stockAlerts.stockLabel", { stock: p.stock_quantity, threshold: p.min_stock_alert || 5 })}
                       </p>
                       {p.suppliers?.name && (
                         <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
@@ -559,13 +571,12 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-orange-600 dark:text-orange-400">
                 <AlertTriangle className="h-5 w-5" />
-                Alertes de péremption ({expiryAlertProducts.length})
+                {t("expiryAlerts.title", { count: expiryAlertProducts.length })}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-xs text-muted-foreground mb-3">
-                Produits périmés ou expirant dans les {EXPIRY_WARNING_DAYS} prochains jours.
-                Vérifiez le stock et appliquez une remise ou un retrait si nécessaire.
+                {t("expiryAlerts.description", { days: EXPIRY_WARNING_DAYS })}
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {expiryAlertProducts.slice(0, 6).map((p) => {
@@ -582,13 +593,13 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
                         <p className="font-medium text-sm truncate">{p.name}</p>
                         <p className="text-xs text-orange-600 dark:text-orange-400">
                           {isExpired
-                            ? `Périmé depuis ${Math.abs(p.expiryDays)} jour(s)`
+                            ? t("expiryAlerts.expiredSince", { days: Math.abs(p.expiryDays) })
                             : isToday
-                            ? "Expire aujourd'hui"
-                            : `Expire dans ${p.expiryDays} jour(s)`}
+                            ? t("expiryAlerts.expiresToday")
+                            : t("expiryAlerts.expiresIn", { days: p.expiryDays })}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Stock: {p.stock_quantity} {p.suppliers?.name ? `· ${p.suppliers.name}` : ""}
+                          {t("expiryAlerts.stockLabel", { stock: p.stock_quantity })} {p.suppliers?.name ? `· ${p.suppliers.name}` : ""}
                         </p>
                       </div>
                       <Badge
@@ -606,7 +617,7 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
 
         {/* Quick Actions */}
         <div>
-          <h2 className="text-lg font-semibold mb-4">Actions rapides</h2>
+          <h2 className="text-lg font-semibold mb-4">{t("quickActions.title")}</h2>
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
             {userRole === "super_admin" && (
               <Card
@@ -620,7 +631,7 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
                   <div className="p-4 rounded-2xl bg-purple-500/10 mb-4 group-hover:scale-110 transition-transform">
                     <BarChart3 className="h-8 w-8 text-purple-600" />
                   </div>
-                  <span className="font-medium">Analyse Multi-Magasins</span>
+                  <span className="font-medium">{t("quickActions.multiStoreAnalytics")}</span>
                 </CardContent>
               </Card>
             )}
@@ -628,7 +639,7 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
               <Card
                 className="card-elevated hover:shadow-medium transition-shadow cursor-pointer group"
                 role="button"
-                aria-label="Nouvelle vente"
+                aria-label={t("quickActions.newSale")}
                 tabIndex={0}
                 onClick={() => navigate("/dashboard/pos")}
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/dashboard/pos"); } }}
@@ -637,7 +648,7 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
                   <div className="p-3 sm:p-4 rounded-2xl bg-hero-gradient mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
                     <ShoppingCart className="h-6 w-6 sm:h-8 sm:w-8 text-primary-foreground" />
                   </div>
-                  <span className="font-medium text-sm sm:text-base">Nouvelle vente</span>
+                  <span className="font-medium text-sm sm:text-base">{t("quickActions.newSale")}</span>
                 </CardContent>
               </Card>
             )}
@@ -645,7 +656,7 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
               <Card
                 className="card-elevated hover:shadow-medium transition-shadow cursor-pointer group"
                 role="button"
-                aria-label="Ajouter produit"
+                aria-label={t("quickActions.addProduct")}
                 tabIndex={0}
                 onClick={() => navigate("/dashboard/products")}
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/dashboard/products"); } }}
@@ -654,7 +665,7 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
                   <div className="p-3 sm:p-4 rounded-2xl bg-success-gradient mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
                     <Package className="h-6 w-6 sm:h-8 sm:w-8 text-success-foreground" />
                   </div>
-                  <span className="font-medium text-sm sm:text-base">Ajouter produit</span>
+                  <span className="font-medium text-sm sm:text-base">{t("quickActions.addProduct")}</span>
                 </CardContent>
               </Card>
             )}
@@ -670,7 +681,7 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
                   <div className="p-4 rounded-2xl bg-blue-500/10 mb-4 group-hover:scale-110 transition-transform">
                     <Truck className="h-8 w-8 text-blue-600" />
                   </div>
-                  <span className="font-medium">Fournisseurs</span>
+                  <span className="font-medium">{t("quickActions.suppliers")}</span>
                 </CardContent>
               </Card>
             )}
@@ -678,7 +689,7 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
               <Card
                 className="card-elevated hover:shadow-medium transition-shadow cursor-pointer group"
                 role="button"
-                aria-label="Enregistrer dépense"
+                aria-label={t("quickActions.recordExpense")}
                 tabIndex={0}
                 onClick={() => navigate("/dashboard/expenses")}
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/dashboard/expenses"); } }}
@@ -687,14 +698,14 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
                   <div className="p-3 sm:p-4 rounded-2xl bg-secondary mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
                     <Wallet className="h-6 w-6 sm:h-8 sm:w-8 text-secondary-foreground" />
                   </div>
-                  <span className="font-medium text-sm sm:text-base">Enregistrer dépense</span>
+                  <span className="font-medium text-sm sm:text-base">{t("quickActions.recordExpense")}</span>
                 </CardContent>
               </Card>
             )}
             <Card
               className="card-elevated hover:shadow-medium transition-shadow cursor-pointer group"
               role="button"
-              aria-label="Voir rapports"
+              aria-label={t("quickActions.seeReports")}
               tabIndex={0}
               onClick={() => navigate("/dashboard/reports")}
               onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/dashboard/reports"); } }}
@@ -703,7 +714,7 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
                 <div className="p-3 sm:p-4 rounded-2xl bg-muted mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
                   <TrendingUp className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground" />
                 </div>
-                <span className="font-medium text-sm sm:text-base">Voir rapports</span>
+                <span className="font-medium text-sm sm:text-base">{t("quickActions.seeReports")}</span>
               </CardContent>
             </Card>
           </div>
@@ -713,7 +724,7 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card className="card-elevated">
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Ventes recentes</CardTitle>
+              <CardTitle>{t("recentSales.title")}</CardTitle>
               <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard/reports")}>
                 <ArrowRight className="h-4 w-4" />
               </Button>
@@ -742,7 +753,7 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
                   <ShoppingCart className="h-10 w-10 mx-auto mb-3 opacity-50" />
-                  <p className="text-sm">Aucune vente pour le moment</p>
+                  <p className="text-sm">{t("recentSales.empty")}</p>
                 </div>
               )}
             </CardContent>
@@ -751,28 +762,28 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
           {/* Financial Summary */}
           <Card className="card-elevated">
             <CardHeader>
-              <CardTitle>Resume financier du mois</CardTitle>
+              <CardTitle>{t("financialSummary.title")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-3">
                 <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg">
                   <div className="flex items-center gap-2">
                     <TrendingUp className="h-4 w-4 text-primary" />
-                    <span className="text-sm">Ventes totales</span>
+                    <span className="text-sm">{t("financialSummary.totalSales")}</span>
                   </div>
                   <span className="font-bold text-primary">{formatDisplayPrice(totalSalesMonth, { showOriginal: isConverted })}</span>
                 </div>
                 <div className="flex items-center justify-between p-3 bg-destructive/5 rounded-lg">
                   <div className="flex items-center gap-2">
                     <Wallet className="h-4 w-4 text-destructive" />
-                    <span className="text-sm">Depenses</span>
+                    <span className="text-sm">{t("financialSummary.expenses")}</span>
                   </div>
                   <span className="font-bold text-destructive">{formatDisplayPrice(totalExpensesMonth, { showOriginal: isConverted })}</span>
                 </div>
                 <div className="flex items-center justify-between p-3 rounded-lg border-2 border-dashed">
                   <div className="flex items-center gap-2">
                     <BarChart3 className="h-4 w-4" />
-                    <span className="text-sm font-medium">Resultat net</span>
+                    <span className="text-sm font-medium">{t("financialSummary.netResult")}</span>
                   </div>
                   <span className={`font-bold ${netProfit >= 0 ? "text-success" : "text-destructive"}`}>
                     {formatDisplayPrice(netProfit, { showOriginal: isConverted })}
@@ -783,7 +794,7 @@ ${lowStockProducts.length > 0 ? `*Alertes stock :*\n${lowStockProducts.slice(0, 
               {/* Top products */}
               {topProducts && topProducts.length > 0 && (
                 <div className="pt-3 border-t">
-                  <p className="text-sm font-medium mb-2">Top produits (30j)</p>
+                  <p className="text-sm font-medium mb-2">{t("topProducts.title")}</p>
                   <div className="space-y-2">
                     {topProducts.map((item, i) => (
                       <div key={i} className="flex items-center justify-between text-sm">

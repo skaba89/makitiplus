@@ -1,0 +1,84 @@
+{
+  "greeting": "Hello, {{name}}",
+  "greetingFallbackName": "User",
+  "overviewSubtitle": "Here's an overview of your activity - {{role}}",
+  "roles": {
+    "admin": "Administrator",
+    "manager": "Manager",
+    "vendeur": "Seller",
+    "comptable": "Accountant"
+  },
+  "payments": {
+    "cash": "Cash",
+    "wave": "Wave",
+    "orange_money": "Orange Money",
+    "mtn_money": "MTN Money",
+    "card": "Card",
+    "credit": "Credit"
+  },
+  "stats": {
+    "salesToday": { "title": "Today's sales", "change": "{{count}} sale(s)" },
+    "salesMonth": {
+      "title": "Monthly sales",
+      "changeWithCredit": "{{count}} on credit",
+      "changeSeeReports": "see reports"
+    },
+    "productsInStock": {
+      "title": "Products in stock",
+      "alert": "{{count}} low",
+      "ok": "Stock OK"
+    },
+    "expensesMonth": { "title": "Monthly expenses", "change": "{{count}} expense(s)" }
+  },
+  "netProfit": {
+    "title": "Net profit this month",
+    "formula": "Sales {{sales}} − Expenses {{expenses}}"
+  },
+  "suppliers": { "title": "Active suppliers", "seeSuppliers": "See suppliers" },
+  "customerCredits": {
+    "title": "Outstanding customer credit",
+    "balance": "{{count}} customer(s) with a balance"
+  },
+  "paymentBreakdown": { "title": "Today's sales by payment method", "empty": "No sales today" },
+  "stockAlerts": { "title": "Stock alerts ({{count}})", "stockLabel": "Stock: {{stock}} / Threshold: {{threshold}}" },
+  "expiryAlerts": {
+    "title": "Expiry alerts ({{count}})",
+    "description": "Products expired or expiring within the next {{days}} days. Check stock and apply a discount or removal if needed.",
+    "expiredSince": "Expired {{days}} day(s) ago",
+    "expiresToday": "Expires today",
+    "expiresIn": "Expires in {{days}} day(s)",
+    "stockLabel": "Stock: {{stock}}"
+  },
+  "quickActions": {
+    "title": "Quick actions",
+    "multiStoreAnalytics": "Multi-Store Analytics",
+    "newSale": "New sale",
+    "addProduct": "Add product",
+    "suppliers": "Suppliers",
+    "recordExpense": "Record expense",
+    "seeReports": "See reports"
+  },
+  "recentSales": { "title": "Recent sales", "empty": "No sales yet" },
+  "financialSummary": {
+    "title": "Monthly financial summary",
+    "totalSales": "Total sales",
+    "expenses": "Expenses",
+    "netResult": "Net result"
+  },
+  "topProducts": { "title": "Top products (30d)" },
+  "whatsapp": {
+    "button": "WhatsApp report",
+    "promptPhone": "Manager's WhatsApp number (e.g. 224622000000):",
+    "title": "📊 *MakitiPlus Report — {{date}}*",
+    "salesToday": "💰 Today's sales: {{amount}}",
+    "transactions": "🛒 Transactions: {{count}}",
+    "stockCount": "📦 Products in stock: {{count}}",
+    "lowStock": "⚠️ Low stock: {{count}}",
+    "credits": "💰 Outstanding customer credit: {{amount}} ({{count}} customer(s))",
+    "expenses": "💸 Monthly expenses: {{amount}}",
+    "netProfit": "📊 Net profit: {{sign}}{{amount}}",
+    "stockAlertsTitle": "*Stock alerts:*",
+    "noStockAlerts": "✅ No stock alerts",
+    "footer": "— MakitiPlus"
+  }
+}
