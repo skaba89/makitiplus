@@ -188,14 +188,15 @@ export default function SellerActivity() {
     if (!sellers) return [];
     
     // Étape 1 : filtrer par rôle
-    // - super_admin ne doit pas apparaître dans la liste des vendeurs
-    // - admin voit tous les autres membres du magasin
-    // - manager ne voit que les membres de son magasin (vendeurs, comptables, autres managers)
-    const roleFiltered = sellers.filter((s) => {
-      // Cacher les super_admins de la liste des vendeurs
-      if (s.role === "super_admin") return false;
-      return true;
-    });
+    // Seuls les rôles qui peuvent vendre (POS_ROLES — src/types/index.ts :
+    // admin, manager, vendeur) apparaissent dans la liste des vendeurs —
+    // ni super_admin (opérateur plateforme), ni comptable (aucun accès
+    // POS, jamais de vente). Déjà filtré côté RPC (get_seller_performance,
+    // voir 20260731030000_seller_lists_exclude_non_selling_roles.sql) —
+    // ce filtre frontend reste en défense en profondeur.
+    const roleFiltered = sellers.filter((s) =>
+      s.role === "admin" || s.role === "manager" || s.role === "vendeur"
+    );
 
     // Étape 2 : filtrer par recherche
     if (!search.trim()) return roleFiltered;
