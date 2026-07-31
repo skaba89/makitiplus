@@ -430,13 +430,14 @@ const POS = () => {
           isOpen={isPaymentOpen}
           onClose={() => setIsPaymentOpen(false)}
           total={cartTotal}
-          onConfirm={(paymentMethod, amountPaid, customerName, customerPhone) => {
+          onConfirm={(paymentMethod, amountPaid, customerName, customerPhone, paymentReference) => {
             if (blockMutation('Enregistrer une vente')) return;
             createSaleMutation.mutate({
               paymentMethod,
               amountPaid,
               customerName,
               customerPhone,
+              paymentReference,
             });
           }}
           isLoading={createSaleMutation.isPending}

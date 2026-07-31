@@ -24,6 +24,8 @@ export interface ReceiptData {
   change: number;
   customerName?: string;
   customerPhone?: string;
+  /** Référence/numéro de transaction Mobile Money saisi manuellement par le vendeur */
+  paymentReference?: string;
   businessName: string;
   businessAddress?: string;
   businessPhone?: string;
@@ -406,6 +408,12 @@ function generateClassicReceipt(data: ReceiptData, doc: jsPDF, config: typeof PA
   rightText(paymentMethodLabels[data.paymentMethod] || data.paymentMethod, y);
   y += 4;
 
+  if (data.paymentReference) {
+    doc.text("Réf. transaction", m, y);
+    rightText(data.paymentReference, y);
+    y += 4;
+  }
+
   if (data.paymentMethod === "cash") {
     doc.text("Reçu", m, y);
     rightText(fPrice(data.amountPaid), y);
@@ -516,6 +524,11 @@ function generateMinimalReceipt(data: ReceiptData, doc: jsPDF, config: typeof PA
     rightText(`Monnaie: ${fPrice(data.change)}`, y);
   }
   y += 5;
+
+  if (data.paymentReference) {
+    doc.text(`Réf: ${data.paymentReference}`, m, y);
+    y += 5;
+  }
 
   // ── Footer ──
   if (data.footerText) {
@@ -716,6 +729,11 @@ function generateDetailedReceipt(data: ReceiptData, doc: jsPDF, config: typeof P
   doc.setFontSize(config.baseFontSize);
   leftText(`Mode de règlement : ${paymentMethodLabels[data.paymentMethod] || data.paymentMethod}`, y);
   y += isA4 ? 5 : 3.5;
+
+  if (data.paymentReference) {
+    leftText(`Réf. transaction : ${data.paymentReference}`, y);
+    y += isA4 ? 5 : 3.5;
+  }
 
   if (data.paymentMethod === "cash") {
     leftText(`Montant reçu : ${fPrice(data.amountPaid)}`, y);
@@ -940,6 +958,12 @@ function generateAfricanReceipt(data: ReceiptData, doc: jsPDF, config: typeof PA
   rightText(paymentMethodLabels[data.paymentMethod] || data.paymentMethod, y);
   y += 4;
 
+  if (data.paymentReference) {
+    doc.text("Réf. transaction", m, y);
+    rightText(data.paymentReference, y);
+    y += 4;
+  }
+
   if (data.paymentMethod === "cash") {
     doc.text("Reçu", m, y);
     rightText(fPrice(data.amountPaid), y);
@@ -1065,6 +1089,7 @@ export const generateReceiptText = (data: ReceiptData): string => {
       lines.push("");
       lines.push(`*Total: ${fPrice(data.total)}*`);
       lines.push(paymentMethodLabels[data.paymentMethod] || data.paymentMethod);
+      if (data.paymentReference) lines.push(`Réf: ${data.paymentReference}`);
       if (data.footerText) lines.push(data.footerText);
       break;
     }
@@ -1094,6 +1119,7 @@ export const generateReceiptText = (data: ReceiptData): string => {
       }
       lines.push(`*TOTAL TTC: ${fPrice(data.total)}*`);
       lines.push(`Paiement: ${paymentMethodLabels[data.paymentMethod] || data.paymentMethod}`);
+      if (data.paymentReference) lines.push(`Réf. transaction: ${data.paymentReference}`);
       if (data.paymentMethod === "cash" && data.change > 0) {
         lines.push(`Monnaie: ${fPrice(data.change)}`);
       }
@@ -1127,6 +1153,7 @@ export const generateReceiptText = (data: ReceiptData): string => {
       }
       lines.push(`*TOTAL: ${fPrice(data.total)}*`);
       lines.push(`Paiement: ${paymentMethodLabels[data.paymentMethod] || data.paymentMethod}`);
+      if (data.paymentReference) lines.push(`Réf. transaction: ${data.paymentReference}`);
       if (data.paymentMethod === "cash" && data.change > 0) {
         lines.push(`Monnaie: ${fPrice(data.change)}`);
       }
@@ -1171,6 +1198,7 @@ export const generateReceiptText = (data: ReceiptData): string => {
       }
       lines.push(`*TOTAL: ${fPrice(data.total)}*`);
       lines.push(`Paiement: ${paymentMethodLabels[data.paymentMethod] || data.paymentMethod}`);
+      if (data.paymentReference) lines.push(`Réf. transaction: ${data.paymentReference}`);
       if (data.paymentMethod === "cash") {
         lines.push(`Reçu: ${fPrice(data.amountPaid)}`);
         if (data.change > 0) {

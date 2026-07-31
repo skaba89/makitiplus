@@ -1075,6 +1075,7 @@ export type Database = {
           notes: string | null
           organization_id: string | null
           payment_method: Database["public"]["Enums"]["payment_method"]
+          payment_reference: string | null
           sale_number: string
           seller_name: string | null
           store_id: string | null
@@ -1096,6 +1097,7 @@ export type Database = {
           notes?: string | null
           organization_id?: string | null
           payment_method: Database["public"]["Enums"]["payment_method"]
+          payment_reference?: string | null
           sale_number: string
           seller_name?: string | null
           store_id?: string | null
@@ -1117,6 +1119,7 @@ export type Database = {
           notes?: string | null
           organization_id?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
+          payment_reference?: string | null
           sale_number?: string
           seller_name?: string | null
           store_id?: string | null
@@ -1901,6 +1904,7 @@ export type Database = {
           p_items: Json
           p_organization_id: string
           p_payment_method?: string
+          p_payment_reference?: string
           p_sale_number: string
           p_seller_name?: string
           p_store_id?: string
@@ -1938,6 +1942,7 @@ export type Database = {
           p_discount_amount?: number
           p_items: Json
           p_payment_method?: string
+          p_payment_reference?: string
           p_sale_number: string
           p_seller_name?: string
           p_store_id?: string

@@ -51,6 +51,7 @@ export interface OfflineSaleResult {
     amount_paid: number;
     customer_name: string | null;
     customer_phone: string | null;
+    payment_reference: string | null;
   };
   changeAmount: number;
   creditUpdateFailed: boolean;
@@ -89,11 +90,13 @@ export function useOfflineSale(options?: {
       amountPaid,
       customerName,
       customerPhone,
+      paymentReference,
     }: {
       paymentMethod: PaymentMethod;
       amountPaid: number;
       customerName?: string;
       customerPhone?: string;
+      paymentReference?: string;
     }): Promise<OfflineSaleResult> => {
       if (blockMutation("Enregistrer une vente")) {
         throw new Error("Mode démo — les ventes sont désactivées");
@@ -166,6 +169,7 @@ export function useOfflineSale(options?: {
           p_items: saleItems,
           p_discount_amount: discountAmount,
           p_store_id: currentStore?.id ?? undefined,
+          p_payment_reference: paymentReference || undefined,
         });
 
         if (rpcError || !rpcSaleId) {
@@ -177,7 +181,7 @@ export function useOfflineSale(options?: {
         // Fetch sale record for receipt
         const { data: sale } = await supabase
           .from("sales")
-          .select("id, sale_number, payment_method, amount_paid, customer_name, customer_phone")
+          .select("id, sale_number, payment_method, amount_paid, customer_name, customer_phone, payment_reference")
           .eq("id", rpcSaleId)
           .single();
 
@@ -263,6 +267,7 @@ export function useOfflineSale(options?: {
           p_items: saleItems,
           p_discount_amount: discountAmount,
           p_store_id: currentStore?.id ?? null,
+          p_payment_reference: paymentReference || null,
         },
         userId: user?.id,
         organizationId: orgId ?? undefined,
@@ -307,6 +312,7 @@ export function useOfflineSale(options?: {
           change_amount: changeAmount > 0 ? changeAmount : 0,
           customer_name: customerName || null,
           customer_phone: customerPhone || null,
+          payment_reference: paymentReference || null,
           total_amount: totalAmount,
           subtotal: htAmount,
           discount_amount: discountAmount,
@@ -327,6 +333,7 @@ export function useOfflineSale(options?: {
           amount_paid: amountPaid,
           customer_name: customerName || null,
           customer_phone: customerPhone || null,
+          payment_reference: paymentReference || null,
         },
         changeAmount,
         creditUpdateFailed: false,
@@ -359,6 +366,7 @@ export function useOfflineSale(options?: {
         change: result.changeAmount > 0 ? result.changeAmount : 0,
         customerName: result.sale.customer_name || undefined,
         customerPhone: result.sale.customer_phone || undefined,
+        paymentReference: result.sale.payment_reference || undefined,
         businessName: profile?.business_name || "Ma Boutique",
         businessAddress: profile?.address || undefined,
         businessPhone: profile?.phone || undefined,
