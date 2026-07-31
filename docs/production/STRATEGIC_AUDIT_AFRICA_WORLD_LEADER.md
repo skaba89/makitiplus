@@ -136,7 +136,7 @@ Une expansion hors Guinée pose potentiellement des questions de résidence de d
 | Court terme (2–6 semaines) | Étude de cas Diallo & Frères + argumentaire commercial | Actif sous-exploité, coût de production faible — nécessite l'accord explicite du magasin |
 | ~~Moyen terme~~ **fait, 1 écart restant** | Audit d'application réelle des feature flags par plan — 2 bugs corrigés (PR #48 admin bypass, PR #50 pilot_national) + `advanced_reports` jamais gaté sur `Reports.tsx` identifié (2026-07-31), décision produit requise avant correction | Fuite de revenu potentielle si non vérifié |
 | Moyen terme (1–3 mois) | Anglais pour marchés limitrophes | Effet de levier régional avant investissement i18n complet |
-| Long terme (3–12 mois) | Architecture i18n complète | Prérequis dur pour toute ambition hors Afrique francophone |
+| Long terme (3–12 mois) | ~~Architecture i18n complète~~ **plan écrit** (2026-07-31, `docs/production/I18N_MIGRATION_PLAN.md` — react-i18next, phasage 0→3, aucun code touché) | Prérequis dur pour toute ambition hors Afrique francophone |
 | Long terme (6–18 mois) | API partenaire mature + BI cross-marchands | Différenciation "plateforme" vs "outil" |
 
 ---
