@@ -50,7 +50,9 @@ import {
   DollarSign,
   Tag,
   BarChart3,
+  Lock,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { format, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
 import { fr } from "date-fns/locale";
 import { exportSalesToCSV, exportExpensesToCSV } from "@/utils/exportUtils";
@@ -88,6 +90,7 @@ interface SupplierReport {
 const Reports = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const { currency } = useCurrency();
   const { effectiveOrgId } = useOrgSelector();
   const {
@@ -908,9 +911,37 @@ const Reports = () => {
         </FeatureGate>
 
         <EnhancedDashboardStats />
-        <ProductKpisCard />
-        <CategoryKpisCard />
-        <SellerKpisCard />
+
+        {/* KPI détaillés (vendeurs/catégories/produits) : réservés au plan
+            "advanced_reports" (croissance+) -- les totaux/graphiques
+            ventes-dépenses ci-dessus restent inclus dans tous les plans
+            (basic_reports). Voir docs/production/
+            STRATEGIC_AUDIT_AFRICA_WORLD_LEADER.md §3.5. */}
+        <FeatureGate
+          feature="advanced_reports"
+          fallback={
+            <Card className="border-dashed">
+              <CardContent className="flex items-center gap-3 p-4">
+                <Lock className="h-5 w-5 text-muted-foreground shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">Rapports avancés</p>
+                  <p className="text-xs text-muted-foreground">
+                    Les KPI détaillés par vendeur, catégorie et produit sont disponibles à partir du plan Croissance.
+                  </p>
+                </div>
+                <Button size="sm" variant="outline" className="shrink-0" onClick={() => navigate("/dashboard/billing")}>
+                  Upgrader
+                </Button>
+              </CardContent>
+            </Card>
+          }
+        >
+          <div className="space-y-6">
+            <ProductKpisCard />
+            <CategoryKpisCard />
+            <SellerKpisCard />
+          </div>
+        </FeatureGate>
       </div>
     </DashboardLayout>
   );

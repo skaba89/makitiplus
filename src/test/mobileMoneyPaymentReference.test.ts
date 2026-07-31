@@ -23,16 +23,20 @@ const migrationPath = path.join(
   process.cwd(),
   "supabase/migrations/20260731020000_add_mobile_money_payment_reference.sql"
 );
-const migrationSql = fs.readFileSync(migrationPath, "utf-8");
+// Normalise CRLF -> LF : git peut checkouter ces fichiers avec des fins de
+// ligne CRLF sur Windows (core.autocrlf), ce qui casserait les regex/split
+// sur \n ci-dessous si on ne normalisait pas d'abord.
+const readNormalized = (p: string) => fs.readFileSync(p, "utf-8").replace(/\r\n/g, "\n");
 
-const dialogPath = path.join(process.cwd(), "src/components/pos/POSPaymentDialog.tsx");
-const dialogSrc = fs.readFileSync(dialogPath, "utf-8");
+const migrationSql = readNormalized(
+  path.join(process.cwd(), "supabase/migrations/20260731020000_add_mobile_money_payment_reference.sql")
+);
 
-const hookPath = path.join(process.cwd(), "src/hooks/useOfflineSale.ts");
-const hookSrc = fs.readFileSync(hookPath, "utf-8");
+const dialogSrc = readNormalized(path.join(process.cwd(), "src/components/pos/POSPaymentDialog.tsx"));
 
-const posPath = path.join(process.cwd(), "src/pages/POS.tsx");
-const posSrc = fs.readFileSync(posPath, "utf-8");
+const hookSrc = readNormalized(path.join(process.cwd(), "src/hooks/useOfflineSale.ts"));
+
+const posSrc = readNormalized(path.join(process.cwd(), "src/pages/POS.tsx"));
 
 describe("Migration 20260731020000 — payment_reference additive", () => {
   it("ajoute une colonne NULLABLE (pas de DEFAULT contraignant, pas de NOT NULL)", () => {
