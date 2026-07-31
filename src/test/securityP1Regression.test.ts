@@ -134,18 +134,38 @@ describe("P1 Fix: useOfflineMutation passes identity context", () => {
 });
 
 // ─── 4. CI security audit blocks on high/critical ───────────────
+//
+// The high/critical audit step used to be the raw `npm audit
+// --audit-level=high --omit=dev` command. Since PR #53
+// (chore/react-router-v7-upgrade), it delegates to
+// scripts/check_npm_audit.py — same blocking intent (exit 1 on any
+// unallowlisted high/critical prod vulnerability), but with a narrow,
+// per-advisory-ID allowlist for CVEs confirmed inapplicable to this
+// app's actual runtime (e.g. GHSA-qwww-vcr4-c8h2, a react-router "RSC
+// Mode" CSRF bypass — this app never uses React Server Components).
 describe("P1 Fix: CI security audit blocks on high/critical", () => {
-  it("npm audit high+ does NOT have || true", () => {
+  it("high/critical audit step calls check_npm_audit.py without || true", () => {
     const ci = readRoot(".github/workflows/ci.yml");
 
-    // The high-level audit step should NOT have || true
-    const highAuditMatch = ci.match(
-      /npm audit --audit-level=high[^\n]*/g
+    const auditStepMatch = ci.match(
+      /Security audit \(high\/critical[^\n]*\r?\n\s*run:\s*([^\r\n]*)/
     );
-    expect(highAuditMatch).not.toBeNull();
-    for (const line of highAuditMatch!) {
-      expect(line).not.toContain("|| true");
-    }
+    expect(auditStepMatch).not.toBeNull();
+    const runLine = auditStepMatch![1];
+    expect(runLine).toContain("check_npm_audit.py");
+    expect(runLine).not.toContain("|| true");
+  });
+
+  it("release-readiness.yml's blocking audit step also calls check_npm_audit.py", () => {
+    const releaseReadiness = readRoot(".github/workflows/release-readiness.yml");
+
+    const auditStepMatch = releaseReadiness.match(
+      /npm audit \(high\/critical — blocking\)\r?\n\s*run:\s*([^\r\n]*)/
+    );
+    expect(auditStepMatch).not.toBeNull();
+    const runLine = auditStepMatch![1];
+    expect(runLine).toContain("check_npm_audit.py");
+    expect(runLine).not.toContain("|| true");
   });
 
   it("moderate audit is informational only (has || true)", () => {
@@ -153,6 +173,24 @@ describe("P1 Fix: CI security audit blocks on high/critical", () => {
 
     // The moderate-level audit step SHOULD have || true
     expect(ci).toMatch(/npm audit --audit-level=moderate\s*\|\|\s*true/);
+  });
+
+  it("check_npm_audit.py exits non-zero on any unallowlisted high/critical finding", () => {
+    const script = readRoot("scripts/check_npm_audit.py");
+
+    // Blocking path must return/exit 1, not swallow the failure
+    expect(script).toMatch(/if blocking:/);
+    expect(script).toMatch(/return 1/);
+  });
+
+  it("the allowlist is per-advisory-ID, not a blanket bypass of the whole package/severity", () => {
+    const script = readRoot("scripts/check_npm_audit.py");
+
+    // Must diff the advisory IDs found against the allowlist (unallowed =
+    // set difference), not just check "package is react-router" or
+    // "severity is high" and skip wholesale.
+    expect(script).toMatch(/unallowed\s*=\s*advisory_ids\s*-\s*set\(ALLOWLISTED_ADVISORIES\)/);
+    expect(script).toMatch(/if unallowed or not advisory_ids:/);
   });
 });
 
