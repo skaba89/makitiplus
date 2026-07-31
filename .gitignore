@@ -55,3 +55,4 @@ ios/App/App/public
 tool-results/
 .vite/
 api_result.json
+__pycache__/
