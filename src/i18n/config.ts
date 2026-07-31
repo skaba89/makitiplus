@@ -4,6 +4,8 @@ import frCommon from "./locales/fr/common.json";
 import enCommon from "./locales/en/common.json";
 import frAuth from "./locales/fr/auth.json";
 import enAuth from "./locales/en/auth.json";
+import frDashboard from "./locales/fr/dashboard.json";
+import enDashboard from "./locales/en/dashboard.json";
 
 /**
  * Phase 1 (premier parcours traduit) — docs/production/I18N_MIGRATION_PLAN.md
@@ -16,8 +18,8 @@ import enAuth from "./locales/en/auth.json";
  */
 i18n.use(initReactI18next).init({
   resources: {
-    fr: { common: frCommon, auth: frAuth },
-    en: { common: enCommon, auth: enAuth },
+    fr: { common: frCommon, auth: frAuth, dashboard: frDashboard },
+    en: { common: enCommon, auth: enAuth, dashboard: enDashboard },
   },
   lng: "fr",
   fallbackLng: "fr",
