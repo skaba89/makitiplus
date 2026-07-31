@@ -79,14 +79,25 @@ Voir section 2.1. Groq (`llama-3.3-70b-versatile`) via Edge Function, grounded s
 ### 3.2. Aligner le prix affiché sur la réalité du paiement
 Remplacer `PRICING_CURRENCY = "EUR"` par un affichage en devise locale (GNF, ou multi-devise avec détection du pays) — cohérent avec le choix stratégique "Mobile Money uniquement". Un commerçant qui voit "29 €" alors qu'il va payer en Orange Money GNF perd confiance avant même d'essayer.
 
-### 3.3. Livrer le "mobile money manuel" et le "rapport quotidien" déjà planifiés
+### 3.3. Livrer le "mobile money manuel" et le "rapport quotidien" déjà planifiés — FAIT (2026-07-31)
 Ce sont les deux items P1.4/P1.5 du plan Market Leader déjà écrit et jamais commencés. Ce sont aussi, empiriquement, les fonctionnalités les plus proches du geste quotidien réel d'un commerçant ouest-africain (confirmer une réception Mobile Money, envoyer le récap du jour au patron par WhatsApp — le module Clôture de caisse a déjà un bouton WhatsApp, `handleShareWhatsApp`, qui montre que le pattern est déjà validé dans le code).
+
+**Rapport quotidien** : déjà livré (Dashboard.tsx, bouton "Rapport WhatsApp" gaté `FINANCIAL_ROLES`, agrège ventes/transactions/répartition par mode de paiement/stock bas/crédits/dépenses du mois — trouvé lors de la vérification, pas ajouté).
+
+**Mobile money manuel** : la référence/numéro de transaction envoyé par l'opérateur peut désormais être saisie manuellement lors d'un paiement wave/orange_money/mtn_money/moov_money/mpesa au POS (preuve de paiement déclarative, aucune intégration API opérateur — voir `supabase/migrations/20260731020000_add_mobile_money_payment_reference.sql`, PR #51). Corrige au passage un bug pré-existant : mtn_money/moov_money/mpesa étaient sélectionnables mais sans contenu d'onglet dédié dans `POSPaymentDialog`.
 
 ### 3.4. Construire l'argumentaire de vente à partir du pilote réel
 Diallo & Frères est un actif sous-exploité : c'est une preuve terrain, pas une démo. Documenter (avec l'accord explicite du magasin — RULE 1 s'applique aussi à la communication, pas seulement au code) une étude de cas courte et concrète : combien de ventes, quelle fiabilité offline, quel gain de temps à la clôture de caisse. C'est l'élément P3 du plan Market Leader jamais fait, et c'est souvent ce qui convainc le deuxième client bien plus que n'importe quelle fonctionnalité technique.
 
-### 3.5. Activer réellement le modèle multi-tiers
+### 3.5. Activer réellement le modèle multi-tiers — audit fait (2026-07-31), 1 écart trouvé
 `has_advanced_reports`, `has_supplier_management`, `has_multi_currency`, `has_loyalty_program`, `has_api_access` existent comme flags mais leur application effective (bridage réel des fonctionnalités par plan) mérite une vérification systématique — un flag non appliqué au bon endroit dans l'UI/API est une fuite de revenu silencieuse.
+
+**Audit effectué** : sur les 16 `feature_key` de `feature_flags`, 6 ne sont gatées nulle part côté code (`advanced_reports`, `offline_advanced`, `loyalty_program`, `backup_restore`, `api_access`, `priority_support`) — apparaissent uniquement comme lignes de comparaison marketing sur `Pricing.tsx`/`Billing.tsx`/`Onboarding.tsx`.
+
+- `priority_support`/`api_access` : pas de fuite — ce sont des promesses opérationnelles (support) ou une fonctionnalité qui n'existe pas encore dans le code (API publique), rien à gater.
+- `loyalty_program`/`backup_restore` : **vendus sur la page Pricing sans exister comme fonctionnalité construite nulle part dans le code** — pas une fuite de revenu (rien à contourner), mais un risque de crédibilité commerciale (vendre ce qu'on n'a pas construit) à trancher côté produit.
+- `offline_advanced` : idem, aucune distinction "offline basique/avancé" n'existe dans le code — le offline-first actuel est uniforme pour tous les plans.
+- **`advanced_reports` : écart réel, non résolu.** `Reports.tsx` (KPI vendeurs/catégories/produits, graphiques ventes/dépenses) est accessible en entier à tous les plans sans distinction — seuls les sous-blocs "exports" et "gestion fournisseurs" sont gatés. Un abonné `starter` (qui existe réellement en base) voit donc le même contenu qu'un `enterprise` payant pour "rapports avancés". Corriger nécessite de décider PRODUIT quels graphiques/cartes constituent le "basique" inclus dans tous les plans vs. l'"avancé" réservé — une décision non dérivable du code, volontairement non tranchée ici pour ne pas retirer une fonctionnalité à un client réel sans validation.
 
 ### 3.6. Verrouiller la fiabilité perçue avant l'échelle
 Avant de recruter des dizaines de nouveaux magasins pilotes, fermer les items connus qui touchent la confiance : bug `daysUntilExpiry()` documenté (impact nul en UTC+0 mais à nettoyer), README à jour, dette npm modérée. Rien de bloquant individuellement, mais l'accumulation de petites incohérences documentées-mais-non-corrigées finit par coûter cher en crédibilité technique face à un partenaire ou investisseur qui audite le dépôt.
@@ -121,9 +132,9 @@ Une expansion hors Guinée pose potentiellement des questions de résidence de d
 |---|---|---|
 | ~~Immédiat~~ **fait** | ~~Corriger l'incohérence de devise sur `Pricing.tsx`~~ livré (2026-07-30, PR #47) | Coût quasi nul, incohérence visible par tout prospect |
 | ~~Court terme~~ **fait** | ~~Vrai LLM derrière l'Assistant IA~~ Groq + Edge Function livré (2026-07-31) | Écart promesse/réalité sur une fonctionnalité déjà facturable |
-| Court terme (2–4 semaines) | Mobile money manuel + rapport quotidien (P1.4/P1.5 déjà planifiés) | Cœur du besoin terrain, déjà spécifié, jamais livré |
-| Court terme (2–6 semaines) | Étude de cas Diallo & Frères + argumentaire commercial | Actif sous-exploité, coût de production faible |
-| ~~Moyen terme~~ **fait** | ~~Audit d'application réelle des feature flags par plan~~ bug trouvé et corrigé (2026-07-30, PR #48 — admin bypassait tous les quotas/features premium) | Fuite de revenu potentielle si non vérifié |
+| ~~Court terme~~ **fait** | ~~Mobile money manuel + rapport quotidien~~ livré (2026-07-31, PR #51 — référence transaction + rapport quotidien déjà présent) | Cœur du besoin terrain, déjà spécifié, jamais livré |
+| Court terme (2–6 semaines) | Étude de cas Diallo & Frères + argumentaire commercial | Actif sous-exploité, coût de production faible — nécessite l'accord explicite du magasin |
+| ~~Moyen terme~~ **fait, 1 écart restant** | Audit d'application réelle des feature flags par plan — 2 bugs corrigés (PR #48 admin bypass, PR #50 pilot_national) + `advanced_reports` jamais gaté sur `Reports.tsx` identifié (2026-07-31), décision produit requise avant correction | Fuite de revenu potentielle si non vérifié |
 | Moyen terme (1–3 mois) | Anglais pour marchés limitrophes | Effet de levier régional avant investissement i18n complet |
 | Long terme (3–12 mois) | Architecture i18n complète | Prérequis dur pour toute ambition hors Afrique francophone |
 | Long terme (6–18 mois) | API partenaire mature + BI cross-marchands | Différenciation "plateforme" vs "outil" |
