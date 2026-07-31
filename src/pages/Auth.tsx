@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n/config";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,47 +18,53 @@ import { reportError } from "@/lib/sentry";
 import { extractErrorMessage } from "@/lib/extractErrorMessage";
 import { EdgeFunctionResponse, ADMIN_ROLES } from "@/types";
 
-const loginSchema = z.object({
-  email: z.string().email("Email invalide"),
-  password: z.string().min(6, "Le mot de passe doit contenir au moins 6 caractères"),
-});
+// Construits à l'appel (pas au chargement du module) pour refléter la
+// langue active au moment de la validation — le singleton i18n est utilisé
+// directement plutôt que useTranslation(), indisponible en dehors du composant.
+const buildLoginSchema = () =>
+  z.object({
+    email: z.string().email(i18n.t("auth:validation.emailInvalid")),
+    password: z.string().min(6, i18n.t("auth:validation.passwordMinLength")),
+  });
 
-const signupSchema = z.object({
-  email: z.string().email("Email invalide"),
-  password: z.string().min(6, "Le mot de passe doit contenir au moins 6 caractères"),
-  businessName: z.string().min(2, "Nom de l'entreprise requis"),
-  ownerName: z.string().min(2, "Nom du propriétaire requis"),
-  phone: z.string().optional(),
-});
+const buildSignupSchema = () =>
+  z.object({
+    email: z.string().email(i18n.t("auth:validation.emailInvalid")),
+    password: z.string().min(6, i18n.t("auth:validation.passwordMinLength")),
+    businessName: z.string().min(2, i18n.t("auth:validation.businessNameRequired")),
+    ownerName: z.string().min(2, i18n.t("auth:validation.ownerNameRequired")),
+    phone: z.string().optional(),
+  });
 
 const getAuthErrorMessage = (error: unknown): string => {
   const rawMessage = error instanceof Error ? error.message : extractErrorMessage(error);
-  const message = rawMessage || "Une erreur est survenue";
+  const message = rawMessage || i18n.t("auth:errors.generic");
 
   if (/Invalid login credentials/i.test(message)) {
-    return "Email ou mot de passe incorrect.";
+    return i18n.t("auth:errors.invalidCredentials");
   }
 
   if (/Email not confirmed/i.test(message)) {
-    return "Veuillez confirmer votre email avant de vous connecter.";
+    return i18n.t("auth:errors.emailNotConfirmed");
   }
 
   if (/Failed to fetch|NetworkError|ERR_CONNECTION_TIMED_OUT|timeout|Load failed|fetch/i.test(message)) {
-    return "Connexion impossible à Supabase. Vérifiez votre connexion internet, VPN, proxy, DNS ou pare-feu, puis réessayez. Essayez aussi avec un partage de connexion mobile.";
+    return i18n.t("auth:errors.networkError");
   }
 
   if (/r[oô]le|role|user_roles|profile|profiles|permission denied|42501|406|RLS/i.test(message)) {
-    return `Connexion réussie, mais le profil ou le rôle n'est pas lisible. Vérifiez les policies RLS, public.profiles et public.user_roles. Détail : ${message}`;
+    return i18n.t("auth:errors.roleError", { message });
   }
 
   if (/User already registered/i.test(message)) {
-    return "Un compte existe déjà avec cet email.";
+    return i18n.t("auth:errors.userExists");
   }
 
   return message;
 };
 
 const Auth = () => {
+  const { t } = useTranslation("auth");
   const navigate = useNavigate();
   const { signIn, signUp } = useAuth();
   const { toast } = useToast();
@@ -103,12 +111,12 @@ const Auth = () => {
     e.preventDefault();
     if (!resetToken) return;
     if (resetPwd !== resetPwd2) {
-      toast({ variant: "destructive", title: "Erreur", description: "Les mots de passe ne correspondent pas" });
+      toast({ variant: "destructive", title: t("errors.genericErrorTitle"), description: t("errors.passwordMismatch") });
       return;
     }
     const check = checkPassword(resetPwd);
     if (!check.ok) {
-      toast({ variant: "destructive", title: "Mot de passe non conforme", description: check.errors.join(" • ") });
+      toast({ variant: "destructive", title: t("errors.passwordPolicyTitle"), description: check.errors.join(" • ") });
       return;
     }
     setResetSubmitting(true);
@@ -118,14 +126,14 @@ const Auth = () => {
       });
       const fnData = data as EdgeFunctionResponse | undefined;
       if (error || fnData?.error) {
-        throw new Error(fnData?.error || error?.message || "Erreur");
+        throw new Error(fnData?.error || error?.message || t("errors.genericErrorTitle"));
       }
       setResetDone(true);
-      toast({ title: "Mot de passe mis à jour", description: "Vous pouvez maintenant vous connecter." });
+      toast({ title: t("success.passwordUpdatedTitle"), description: t("success.passwordUpdatedDesc") });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       reportError(err instanceof Error ? err : new Error(String(err)));
-      toast({ variant: "destructive", title: "Lien invalide", description: message });
+      toast({ variant: "destructive", title: t("errors.invalidLinkTitle"), description: message });
     } finally {
       setResetSubmitting(false);
     }
@@ -144,7 +152,7 @@ const Auth = () => {
     setIsLoading(true);
 
     try {
-      const validation = loginSchema.safeParse({
+      const validation = buildLoginSchema().safeParse({
         email: loginEmail,
         password: loginPassword,
       });
@@ -152,7 +160,7 @@ const Auth = () => {
       if (!validation.success) {
         toast({
           variant: "destructive",
-          title: "Erreur de validation",
+          title: t("errors.validationTitle"),
           description: validation.error.errors[0].message,
         });
         setIsLoading(false);
@@ -164,13 +172,13 @@ const Auth = () => {
       if (error) {
         toast({
           variant: "destructive",
-          title: "Erreur de connexion",
+          title: t("errors.loginErrorTitle"),
           description: getAuthErrorMessage(error),
         });
       } else {
         toast({
-          title: "Connexion réussie",
-          description: "Bienvenue sur MakitiPlus !",
+          title: t("success.loginTitle"),
+          description: t("success.loginDesc"),
         });
         navigate("/dashboard");
       }
@@ -178,7 +186,7 @@ const Auth = () => {
       reportError(error instanceof Error ? error : new Error(extractErrorMessage(error)));
       toast({
         variant: "destructive",
-        title: "Erreur de connexion",
+        title: t("errors.loginErrorTitle"),
         description: getAuthErrorMessage(error),
       });
     } finally {
@@ -196,14 +204,14 @@ const Auth = () => {
       if (!pwdCheck.ok) {
         toast({
           variant: "destructive",
-          title: "Mot de passe non conforme",
+          title: t("errors.passwordPolicyTitle"),
           description: pwdCheck.errors.join(" • "),
         });
         setIsLoading(false);
         return;
       }
 
-      const validation = signupSchema.safeParse({
+      const validation = buildSignupSchema().safeParse({
         email: signupEmail,
         password: signupPassword,
         businessName,
@@ -214,7 +222,7 @@ const Auth = () => {
       if (!validation.success) {
         toast({
           variant: "destructive",
-          title: "Erreur de validation",
+          title: t("errors.validationTitle"),
           description: validation.error.errors[0].message,
         });
         setIsLoading(false);
@@ -226,8 +234,8 @@ const Auth = () => {
       if (alreadyExists === true) {
         toast({
           variant: "destructive",
-          title: "Inscription fermée",
-          description: "Un administrateur existe déjà. Contactez-le pour obtenir un compte.",
+          title: t("errors.signupClosedTitle"),
+          description: t("errors.signupClosedDesc"),
         });
         setAdminExists(true);
         setActiveTab("login");
@@ -245,13 +253,13 @@ const Auth = () => {
       if (error) {
         toast({
           variant: "destructive",
-          title: "Erreur d'inscription",
+          title: t("errors.signupErrorTitle"),
           description: getAuthErrorMessage(error),
         });
       } else {
         toast({
-          title: "Compte créé avec succès",
-          description: "Connexion automatique...",
+          title: t("success.signupTitle"),
+          description: t("success.signupDesc"),
         });
         // Auto-confirm is enabled, sign in directly
         await signIn(signupEmail, signupPassword);
@@ -261,7 +269,7 @@ const Auth = () => {
       reportError(error instanceof Error ? error : new Error(extractErrorMessage(error)));
       toast({
         variant: "destructive",
-        title: "Erreur d'inscription",
+        title: t("errors.signupErrorTitle"),
         description: getAuthErrorMessage(error),
       });
     } finally {
@@ -278,9 +286,9 @@ const Auth = () => {
             <div className="w-16 h-16 rounded-2xl bg-hero-gradient flex items-center justify-center mx-auto mb-4">
               <KeyRound className="h-8 w-8 text-primary-foreground" />
             </div>
-            <h1 className="text-2xl font-bold">Nouveau mot de passe</h1>
+            <h1 className="text-2xl font-bold">{t("reset.title")}</h1>
             <p className="text-muted-foreground mt-2">
-              Lien à usage unique — définissez votre nouveau mot de passe
+              {t("reset.subtitle")}
             </p>
           </div>
 
@@ -290,19 +298,19 @@ const Auth = () => {
                 <div className="text-center space-y-4">
                   <CheckCircle2 className="h-12 w-12 text-primary mx-auto" />
                   <div>
-                    <h2 className="font-semibold text-lg">Mot de passe mis à jour</h2>
+                    <h2 className="font-semibold text-lg">{t("reset.doneTitle")}</h2>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Toutes vos sessions ont été déconnectées. Connectez-vous avec votre nouveau mot de passe.
+                      {t("reset.doneDesc")}
                     </p>
                   </div>
                   <Button className="w-full" onClick={clearResetToken}>
-                    Se connecter
+                    {t("buttons.login")}
                   </Button>
                 </div>
               ) : (
                 <form onSubmit={handleResetSubmit} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="reset-pwd">Nouveau mot de passe</Label>
+                    <Label htmlFor="reset-pwd">{t("reset.newPasswordLabel")}</Label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
@@ -311,7 +319,7 @@ const Auth = () => {
                         value={resetPwd}
                         onChange={(e) => setResetPwd(e.target.value)}
                         className="pl-10"
-                        placeholder="Min 8 car. + maj/min/chiffre/symbole"
+                        placeholder={t("reset.newPasswordPlaceholder")}
                         required
                         autoComplete="new-password"
                       />
@@ -319,7 +327,7 @@ const Auth = () => {
                     <PasswordStrengthMeter password={resetPwd} />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="reset-pwd2">Confirmer le mot de passe</Label>
+                    <Label htmlFor="reset-pwd2">{t("reset.confirmPasswordLabel")}</Label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
@@ -335,9 +343,9 @@ const Auth = () => {
                   </div>
                   <Button type="submit" className="w-full" size="lg" disabled={resetSubmitting}>
                     {resetSubmitting ? (
-                      <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Validation…</>
+                      <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("reset.submitting")}</>
                     ) : (
-                      <>Réinitialiser le mot de passe</>
+                      <>{t("reset.submitButton")}</>
                     )}
                   </Button>
                   <Button
@@ -347,7 +355,7 @@ const Auth = () => {
                     onClick={clearResetToken}
                     disabled={resetSubmitting}
                   >
-                    Annuler
+                    {t("reset.cancelButton")}
                   </Button>
                 </form>
               )}
@@ -355,7 +363,7 @@ const Auth = () => {
           </Card>
 
           <p className="text-center text-xs text-muted-foreground mt-6">
-            Lien valide 30 minutes — usage unique. Contactez votre administrateur si le lien a expiré.
+            {t("reset.footerNotice")}
           </p>
         </div>
       </div>
@@ -374,38 +382,38 @@ const Auth = () => {
             Makiti<span className="text-gradient">Plus</span>
           </h1>
           <p className="text-muted-foreground mt-2">
-            Système de caisse moderne pour l'Afrique
+            {t("tagline")}
           </p>
         </div>
 
         <Card className="card-elevated">
           <CardHeader className="text-center pb-2">
-            <CardTitle>Bienvenue</CardTitle>
+            <CardTitle>{t("welcome")}</CardTitle>
             <CardDescription>
               {adminExists === false
-                ? "Créez votre compte Super Administrateur"
-                : "Connectez-vous à votre compte"}
+                ? t("welcomeSuperAdminDesc")
+                : t("welcomeLoginDesc")}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className={`grid w-full mb-6 ${adminExists === false ? "grid-cols-2" : "grid-cols-1"}`}>
-                <TabsTrigger value="login">Connexion</TabsTrigger>
+                <TabsTrigger value="login">{t("tabs.login")}</TabsTrigger>
                 {adminExists === false && (
-                  <TabsTrigger value="signup">Inscription</TabsTrigger>
+                  <TabsTrigger value="signup">{t("tabs.signup")}</TabsTrigger>
                 )}
               </TabsList>
 
               <TabsContent value="login">
                 <form onSubmit={handleLogin} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="login-email">Email</Label>
+                    <Label htmlFor="login-email">{t("fields.email")}</Label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="login-email"
                         type="email"
-                        placeholder="votre@email.com"
+                        placeholder={t("placeholders.email")}
                         value={loginEmail}
                         onChange={(e) => setLoginEmail(e.target.value)}
                         className="pl-10"
@@ -415,13 +423,13 @@ const Auth = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="login-password">Mot de passe</Label>
+                    <Label htmlFor="login-password">{t("fields.password")}</Label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="login-password"
                         type="password"
-                        placeholder="••••••••"
+                        placeholder={t("placeholders.password")}
                         value={loginPassword}
                         onChange={(e) => setLoginPassword(e.target.value)}
                         className="pl-10"
@@ -439,10 +447,10 @@ const Auth = () => {
                     {isLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Connexion...
+                        {t("buttons.loggingIn")}
                       </>
                     ) : (
-                      "Se connecter"
+                      t("buttons.login")
                     )}
                   </Button>
                 </form>
@@ -451,13 +459,13 @@ const Auth = () => {
               <TabsContent value="signup">
                 <form onSubmit={handleSignup} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="signup-email">Email</Label>
+                    <Label htmlFor="signup-email">{t("fields.email")}</Label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="signup-email"
                         type="email"
-                        placeholder="votre@email.com"
+                        placeholder={t("placeholders.email")}
                         value={signupEmail}
                         onChange={(e) => setSignupEmail(e.target.value)}
                         className="pl-10"
@@ -467,13 +475,13 @@ const Auth = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="signup-password">Mot de passe</Label>
+                    <Label htmlFor="signup-password">{t("fields.password")}</Label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="signup-password"
                         type="password"
-                        placeholder="••••••••"
+                        placeholder={t("placeholders.password")}
                         value={signupPassword}
                         onChange={(e) => setSignupPassword(e.target.value)}
                         className="pl-10"
@@ -483,13 +491,13 @@ const Auth = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="business-name">Nom de l'entreprise</Label>
+                    <Label htmlFor="business-name">{t("fields.businessName")}</Label>
                     <div className="relative">
                       <Store className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="business-name"
                         type="text"
-                        placeholder="Ma Boutique"
+                        placeholder={t("placeholders.businessName")}
                         value={businessName}
                         onChange={(e) => setBusinessName(e.target.value)}
                         className="pl-10"
@@ -499,13 +507,13 @@ const Auth = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="owner-name">Nom du propriétaire</Label>
+                    <Label htmlFor="owner-name">{t("fields.ownerName")}</Label>
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="owner-name"
                         type="text"
-                        placeholder="Votre nom"
+                        placeholder={t("placeholders.ownerName")}
                         value={ownerName}
                         onChange={(e) => setOwnerName(e.target.value)}
                         className="pl-10"
@@ -515,13 +523,13 @@ const Auth = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="phone">Téléphone (optionnel)</Label>
+                    <Label htmlFor="phone">{t("fields.phone")}</Label>
                     <div className="relative">
                       <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="phone"
                         type="tel"
-                        placeholder="+221 77 000 00 00"
+                        placeholder={t("placeholders.phone")}
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
                         className="pl-10"
@@ -532,7 +540,7 @@ const Auth = () => {
                   <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 flex items-start gap-2">
                     <Shield className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                     <p className="text-xs text-muted-foreground">
-                      Vous serez le <strong className="text-foreground">Super Administrateur</strong> de la plateforme. Vous pourrez créer des magasins et nommer un admin pour chacun.
+                      {t("superAdminNoticePrefix")}<strong className="text-foreground">{t("superAdminNoticeStrong")}</strong>{t("superAdminNoticeSuffix")}
                     </p>
                   </div>
 
@@ -545,10 +553,10 @@ const Auth = () => {
                     {isLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Inscription...
+                        {t("buttons.signingUp")}
                       </>
                     ) : (
-                      "Créer un compte"
+                      t("buttons.signup")
                     )}
                   </Button>
                 </form>
@@ -558,7 +566,7 @@ const Auth = () => {
         </Card>
 
         <p className="text-center text-sm text-muted-foreground mt-6">
-          En vous inscrivant, vous acceptez nos conditions d'utilisation
+          {t("termsNotice")}
         </p>
       </div>
     </div>

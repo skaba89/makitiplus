@@ -2,21 +2,22 @@ import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import frCommon from "./locales/fr/common.json";
 import enCommon from "./locales/en/common.json";
+import frAuth from "./locales/fr/auth.json";
+import enAuth from "./locales/en/auth.json";
 
 /**
- * Phase 0 (infrastructure) — docs/production/I18N_MIGRATION_PLAN.md
+ * Phase 1 (premier parcours traduit) — docs/production/I18N_MIGRATION_PLAN.md
  *
- * Langue forcée à "fr" : aucun composant n'utilise encore useTranslation(),
- * donc rien ne doit changer visuellement. La ressource "en" existe déjà
- * (prouve que le mécanisme de bascule de langue fonctionne) mais n'est
- * activée par aucun sélecteur pour l'instant — ça viendra en Phase 1.
- * La langue par défaut dérivée de profile.country (comme useCurrency())
- * est prévue en Phase 3, pas avant.
+ * Langue par défaut toujours forcée à "fr" (comportement actuel inchangé
+ * pour l'utilisateur qui ne touche jamais au sélecteur de langue). Le
+ * sélecteur (Settings) permet de basculer vers "en" à la volée. La langue
+ * par défaut dérivée de profile.country (comme useCurrency()) reste prévue
+ * en Phase 3, pas avant.
  */
 i18n.use(initReactI18next).init({
   resources: {
-    fr: { common: frCommon },
-    en: { common: enCommon },
+    fr: { common: frCommon, auth: frAuth },
+    en: { common: enCommon, auth: enAuth },
   },
   lng: "fr",
   fallbackLng: "fr",

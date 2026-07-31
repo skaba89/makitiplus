@@ -22,6 +22,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { COUNTRIES, getCountryByCode, DEFAULT_CURRENCY } from "@/utils/currencies";
 import { CurrencySelector } from "@/components/ui/currency-selector";
+import { LanguageSelector } from "@/components/ui/language-selector";
 import { useCurrency } from "@/hooks/useCurrency";
 import { TaxSettingsCard } from "@/components/settings/TaxSettingsCard";
 import { FeatureGate } from "@/components/saas/PlanLimitGuard";
@@ -312,6 +313,11 @@ const Settings = () => {
                     <FeatureGate feature="multi_currency" fallback={<Input value={currency.code} disabled className="bg-muted" />}>
                       <CurrencySelector variant="full" />
                     </FeatureGate>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Langue</Label>
+                    <LanguageSelector />
                   </div>
 
                   {/* Mobile Payments Available */}
