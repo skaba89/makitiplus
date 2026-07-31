@@ -84,6 +84,21 @@ describe("SellerActivity.tsx — loading/error handling", () => {
   });
 });
 
+describe("SellerActivity.tsx — la liste des vendeurs n'affiche que admin/manager/vendeur", () => {
+  // Déjà filtré côté RPC (get_seller_performance) -- ce filtre frontend
+  // est une défense en profondeur, pas la source de vérité.
+  it("roleFiltered n'autorise que admin/manager/vendeur (pas super_admin, pas comptable)", () => {
+    const filterBlock = SELLER_ACTIVITY.match(
+      /const roleFiltered = sellers\.filter\(\(s\) =>([\s\S]*?)\);/
+    )?.[1] ?? "";
+    expect(filterBlock).toMatch(/s\.role === "admin"/);
+    expect(filterBlock).toMatch(/s\.role === "manager"/);
+    expect(filterBlock).toMatch(/s\.role === "vendeur"/);
+    expect(filterBlock).not.toMatch(/s\.role === "super_admin"/);
+    expect(filterBlock).not.toMatch(/s\.role === "comptable"/);
+  });
+});
+
 describe("Diagnostic.tsx — no hardcoded project ref", () => {
   it("does not contain exxntkuursgwhxvehekr", () => {
     expect(DIAGNOSTIC).not.toContain("exxntkuursgwhxvehekr");
