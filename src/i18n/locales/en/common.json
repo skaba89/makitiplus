@@ -1,0 +1,15 @@
+{
+  "app": {
+    "name": "MakitiPlus"
+  },
+  "common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "confirm": "Confirm",
+    "close": "Close",
+    "search": "Search",
+    "error": "An error occurred"
+  }
+}
