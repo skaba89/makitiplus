@@ -4,7 +4,12 @@
 2026-07-31
 
 ## Statut
-Plan écrit, **aucun code touché**. Item §3.7/§4.1 de l'audit stratégique (`docs/production/STRATEGIC_AUDIT_AFRICA_WORLD_LEADER.md`) — chantier structurant volontairement scopé avant exécution plutôt que codé à l'aveugle, vu son ampleur (213 fichiers composants/hooks, ~87 fichiers contenant des chaînes françaises en dur détectés par un scan grossier).
+Phase 0 et Phase 1 **livrées** (2026-08-01). Item §3.7/§4.1 de l'audit stratégique (`docs/production/STRATEGIC_AUDIT_AFRICA_WORLD_LEADER.md`).
+
+- **Phase 0** (infrastructure, zéro changement visible) — react-i18next installé, langue forcée à "fr", namespace `common` de départ. PR #54.
+- **Phase 1** (parcours "connexion → dashboard → caisse" traduit fr/en + sélecteur de langue) — `Auth.tsx` (PR #56), `Dashboard.tsx` (PR #57), `POS.tsx` (PR #58) intégralement migrés vers `useTranslation()`. Sélecteur de langue dans Settings > Pays et devise.
+  - **Portée volontairement limitée aux 3 pages elles-mêmes** — les composants ENFANTS du parcours caisse (`POSCart.tsx`, `POSPaymentDialog.tsx`, `POSProductGrid.tsx`/`POSProductList.tsx`, `MobileCartDrawer.tsx`, `ReceiptActionsDialog.tsx`, `BarcodeScannerDialog.tsx`) ne sont **pas encore traduits** — le namespace `pos` est en place et prêt à les accueillir, mais leur volume (7+ fichiers, contenu du panier/paiement/reçu) justifie un incrément séparé plutôt que de faire déborder la Phase 1 sur un scope non annoncé.
+- Chaque page migrée a son propre test de couverture (`i18nPhase1{Auth,Dashboard,Pos}Translations.test.ts`) : toute clé `t()` utilisée doit résoudre en fr ET en, les deux fichiers de ressources doivent avoir exactement les mêmes clés, et les variables d'interpolation `{{...}}` doivent être identiques entre les deux langues pour chaque clé partagée.
 
 ## Pourquoi ce n'est pas un simple ajout de traductions
 
@@ -25,16 +30,19 @@ Aucune librairie i18n n'existe dans le dépôt (`react-i18next`, `react-intl`, e
 
 ## Phasage recommandé (ne pas tout faire d'un coup)
 
-### Phase 0 — Fondations (1 PR, sans traduction visible)
+### Phase 0 — Fondations (FAIT, PR #54)
 - Installer `react-i18next` + `i18next`.
-- Créer `src/i18n/` : config, structure de namespaces (`common`, `pos`, `reports`, `settings`, `billing`, ...), fichier `fr.json` **généré à partir des chaînes déjà en dur** (pas retapé à la main — risque d'erreur/incohérence).
-- Wrapper `I18nextProvider` dans `App.tsx`, langue forcée à `fr` (comportement actuel inchangé).
-- Objectif : zéro changement visible, juste l'infrastructure posée + le premier fichier de traduction FR comme source de vérité.
+- Créer `src/i18n/` : config, namespace `common` de départ.
+- `main.tsx` importe la config avant le rendu, langue forcée à `fr` (comportement inchangé).
 
-### Phase 1 — Un vertical complet en anglais (POS + Auth + Dashboard)
-- Choisir le parcours le plus court utilisé par un nouveau commerçant anglophone (connexion → dashboard → caisse) et le traduire intégralement, pas page par page dispersée.
-- Ajouter le sélecteur de langue (Settings, probablement à côté du `CurrencyDisplaySelector` déjà existant — pattern UI déjà connu des utilisateurs).
-- Valider avec un test manuel complet du parcours POS en anglais avant d'étendre.
+### Phase 1 — Un vertical complet en anglais (FAIT, PR #56/#57/#58)
+- `Auth.tsx`, `Dashboard.tsx`, `POS.tsx` (page elle-même, pas ses composants enfants — voir Statut ci-dessus) traduits intégralement.
+- Sélecteur de langue ajouté dans Settings > Pays et devise.
+- Vérifié en direct (dev server + navigateur, `i18n.changeLanguage("en")` déclenché depuis la console) pour chaque page : re-rendu correct, interpolation fonctionnelle, zéro erreur console. Pas de test manuel humain du parcours complet (contrainte de session : impossible de se connecter avec un vrai compte — RULE 1).
+
+### Phase 1.5 — Composants enfants du parcours caisse (PAS FAIT — prochaine étape suggérée)
+- `POSCart.tsx`, `POSPaymentDialog.tsx`, `POSProductGrid.tsx`/`POSProductList.tsx`, `MobileCartDrawer.tsx`, `ReceiptActionsDialog.tsx`, `BarcodeScannerDialog.tsx` — namespace `pos` déjà créé, il ne reste qu'à y ajouter les clés et migrer chaque composant.
+- Sans cette étape, un utilisateur qui bascule en anglais voit la page POS traduite mais le panier/dialogue de paiement/reçu encore en français — incohérence à corriger avant de considérer le parcours caisse "complet".
 
 ### Phase 2 — Reste de l'application
 - Étendre namespace par namespace, dans l'ordre d'usage réel (Reports/Customers/Suppliers avant Diagnostic/OrganizationManagement qui sont des pages admin peu visitées).
@@ -57,4 +65,4 @@ Aucune librairie i18n n'existe dans le dépôt (`react-i18next`, `react-intl`, e
 
 ## Prochaine étape
 
-Aucune — ce document attend une décision explicite de démarrage de la Phase 0. Rien n'est codé.
+Phase 1.5 (composants enfants du parcours caisse — voir ci-dessus) ou Phase 2 (reste de l'application), selon la priorité voulue. Attend une décision explicite avant de démarrer.

@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useDeferredValue, lazy, Suspense } from "react";
+import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDemo } from "@/contexts/DemoContext";
@@ -52,6 +53,7 @@ type Product = Database["public"]["Tables"]["products"]["Row"] & {
 };
 
 const POS = () => {
+  const { t } = useTranslation("pos");
   useAuth();
   const { effectiveOrgId } = useOrgSelector();
   const { toast } = useToast();
@@ -125,13 +127,16 @@ const POS = () => {
     if (targetQty > product.stock_quantity) {
       toast({
         variant: "destructive",
-        title: "Stock insuffisant",
-        description: `Seulement ${product.stock_quantity} ${product.unit || "unité(s)"} disponible(s)`,
+        title: t("toasts.insufficientStockTitle"),
+        description: t("toasts.insufficientStockOnly", {
+          quantity: product.stock_quantity,
+          unit: product.unit || t("toasts.defaultUnit"),
+        }),
       });
       return;
     }
     addToCartStore(product, addQty);
-  }, [cart, toast, addToCartStore]);
+  }, [cart, toast, addToCartStore, t]);
 
   const updateCartQuantity = useCallback((productId: string, quantity: number) => {
     if (quantity <= 0) {
@@ -142,13 +147,13 @@ const POS = () => {
     if (item && quantity > item.product.stock_quantity) {
       toast({
         variant: "destructive",
-        title: "Stock insuffisant",
-        description: `Seulement ${item.product.stock_quantity} disponible(s)`,
+        title: t("toasts.insufficientStockTitle"),
+        description: t("toasts.insufficientStockOnlyShort", { quantity: item.product.stock_quantity }),
       });
       return;
     }
     updateQuantity(productId, quantity);
-  }, [cart, toast, updateQuantity, removeItem]);
+  }, [cart, toast, updateQuantity, removeItem, t]);
 
   const removeFromCart = useCallback((productId: string) => {
     removeItem(productId);
@@ -166,16 +171,16 @@ const POS = () => {
         setGridSearchInput(barcode);
         toast({
           variant: "destructive",
-          title: "Produit non trouvé",
-          description: `Aucun produit avec le code-barres: ${barcode}`,
+          title: t("toasts.productNotFoundTitle"),
+          description: t("toasts.productNotFoundDesc", { barcode }),
         });
       }
     } catch {
       setGridSearchInput(barcode);
       toast({
         variant: "destructive",
-        title: "Produit non trouvé",
-        description: `Aucun produit avec le code-barres: ${barcode}`,
+        title: t("toasts.productNotFoundTitle"),
+        description: t("toasts.productNotFoundDesc", { barcode }),
       });
     }
   };
@@ -236,21 +241,21 @@ const POS = () => {
                   if (p.stock_quantity === 0) {
                     toast({
                       variant: "destructive",
-                      title: "Rupture de stock",
-                      description: `${p.name} n'est pas disponible`,
+                      title: t("toasts.outOfStockTitle"),
+                      description: t("toasts.outOfStockDesc", { name: p.name }),
                     });
                     return;
                   }
                   addToCart(p, qty);
                 }}
-                placeholder="Rechercher un produit (nom ou code-barres)..."
+                placeholder={t("search.placeholder")}
               />
               <Button
                 variant="outline"
                 size="icon"
                 onClick={() => setIsScannerOpen(true)}
-                title="F7 : Scanner un code-barres"
-                aria-label="Scanner un code-barres"
+                title={t("search.scannerTitle")}
+                aria-label={t("search.scannerAriaLabel")}
               >
                 <Camera className="h-4 w-4" />
               </Button>
@@ -258,8 +263,8 @@ const POS = () => {
                 variant="outline"
                 size="icon"
                 onClick={() => setShowShortcuts(true)}
-                title="Raccourcis clavier"
-                aria-label="Raccourcis clavier"
+                title={t("search.shortcutsAriaLabel")}
+                aria-label={t("search.shortcutsAriaLabel")}
               >
                 <Keyboard className="h-4 w-4" />
               </Button>
@@ -267,8 +272,8 @@ const POS = () => {
 
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div className="text-xs text-muted-foreground">
-                {products.length} produit(s) affiché(s)
-                {totalProductCount > 0 && ` / ${totalProductCount} au total`}
+                {t("productsCount", { count: products.length })}
+                {totalProductCount > 0 && t("productsCountTotal", { total: totalProductCount })}
               </div>
               <div className="flex items-center gap-2 sm:gap-3">
                 <CurrencySelector variant="compact" />
@@ -279,7 +284,7 @@ const POS = () => {
                     size="icon"
                     className="h-7 w-7 rounded-r-none"
                     onClick={() => setViewMode("grid")}
-                    aria-label="Vue grille"
+                    aria-label={t("viewMode.gridAriaLabel")}
                   >
                     <LayoutGrid className="h-3.5 w-3.5" />
                   </Button>
@@ -288,7 +293,7 @@ const POS = () => {
                     size="icon"
                     className="h-7 w-7 rounded-l-none"
                     onClick={() => setViewMode("list")}
-                    aria-label="Vue liste"
+                    aria-label={t("viewMode.listAriaLabel")}
                   >
                     <List className="h-3.5 w-3.5" />
                   </Button>
@@ -300,7 +305,7 @@ const POS = () => {
                     onCheckedChange={setShowOutOfStock}
                   />
                   <Label htmlFor="show-out-of-stock" className="text-xs cursor-pointer hidden sm:inline">
-                    Ruptures
+                    {t("outOfStock.label")}
                   </Label>
                 </div>
               </div>
@@ -313,7 +318,7 @@ const POS = () => {
                 size="sm"
                 onClick={() => setSelectedCategory(null)}
               >
-                Tous
+                {t("categories.all")}
               </Button>
               {categories?.map((category) => (
                 <Button
@@ -365,7 +370,7 @@ const POS = () => {
             ) : (
               <div className="text-center py-12">
                 <ShoppingCart className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                <p className="text-muted-foreground">Aucun produit trouvé</p>
+                <p className="text-muted-foreground">{t("noProductsFound")}</p>
               </div>
             )}
           </div>
@@ -400,7 +405,7 @@ const POS = () => {
               size="lg"
               className="rounded-full shadow-lg h-14 w-14 relative"
               onClick={() => setIsMobileCartOpen(true)}
-              aria-label="Voir le panier"
+              aria-label={t("mobileCart.viewCartAriaLabel")}
             >
               <ShoppingCart className="h-6 w-6" />
               <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
@@ -468,21 +473,21 @@ const POS = () => {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Keyboard className="h-5 w-5" />
-                Raccourcis clavier
+                {t("shortcuts.title")}
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-2 text-sm">
               {[
-                { keys: "F1", action: "Aide raccourcis clavier" },
-                { keys: "/ ou Ctrl+K", action: "Rechercher un produit" },
-                { keys: "F2", action: "Ouvrir le paiement" },
-                { keys: "Ctrl+Entrée", action: "Confirmer le paiement" },
-                { keys: "F4", action: "Vider le panier" },
-                { keys: "+ / -", action: "Modifier qté dernier article" },
-                { keys: "F5", action: "Basculer grille / liste" },
-                { keys: "F6", action: "Afficher / masquer ruptures" },
-                { keys: "F7", action: "Scanner un code-barres" },
-                { keys: "Escape", action: "Fermer / annuler" },
+                { keys: "F1", action: t("shortcuts.helpAction") },
+                { keys: "/ ou Ctrl+K", action: t("shortcuts.searchAction") },
+                { keys: "F2", action: t("shortcuts.openPaymentAction") },
+                { keys: "Ctrl+Entrée", action: t("shortcuts.confirmPaymentAction") },
+                { keys: "F4", action: t("shortcuts.clearCartAction") },
+                { keys: "+ / -", action: t("shortcuts.adjustQuantityAction") },
+                { keys: "F5", action: t("shortcuts.toggleViewAction") },
+                { keys: "F6", action: t("shortcuts.toggleOutOfStockAction") },
+                { keys: "F7", action: t("shortcuts.scanAction") },
+                { keys: "Escape", action: t("shortcuts.closeAction") },
               ].map((shortcut) => (
                 <div key={shortcut.keys} className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0">
                   <span className="text-muted-foreground">{shortcut.action}</span>
