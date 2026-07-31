@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import "./i18n/config";
 import { registerServiceWorker } from "./lib/registerServiceWorker";
 import { runMigrations, getDB } from "./lib/indexedDBStorage";
 import { initSentry, reportError } from "./lib/sentry";

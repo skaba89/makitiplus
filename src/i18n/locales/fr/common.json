@@ -1,0 +1,15 @@
+{
+  "app": {
+    "name": "MakitiPlus"
+  },
+  "common": {
+    "loading": "Chargement...",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "confirm": "Confirmer",
+    "close": "Fermer",
+    "search": "Rechercher",
+    "error": "Une erreur est survenue"
+  }
+}
