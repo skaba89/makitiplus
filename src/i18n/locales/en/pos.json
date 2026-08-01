@@ -1,0 +1,47 @@
+{
+  "search": {
+    "placeholder": "Search a product (name or barcode)...",
+    "scannerTitle": "F7: Scan a barcode",
+    "scannerAriaLabel": "Scan a barcode",
+    "shortcutsAriaLabel": "Keyboard shortcuts"
+  },
+  "productsCount": "{{count}} product(s) shown",
+  "productsCountTotal": " / {{total}} total",
+  "viewMode": {
+    "gridAriaLabel": "Grid view",
+    "listAriaLabel": "List view"
+  },
+  "outOfStock": {
+    "label": "Out of stock"
+  },
+  "categories": {
+    "all": "All"
+  },
+  "noProductsFound": "No products found",
+  "mobileCart": {
+    "viewCartAriaLabel": "View cart"
+  },
+  "toasts": {
+    "insufficientStockTitle": "Insufficient stock",
+    "insufficientStockOnly": "Only {{quantity}} {{unit}} available",
+    "defaultUnit": "unit(s)",
+    "insufficientStockOnlyShort": "Only {{quantity}} available",
+    "outOfStockTitle": "Out of stock",
+    "outOfStockDesc": "{{name}} is not available",
+    "productNotFoundTitle": "Product not found",
+    "productNotFoundDesc": "No product with barcode: {{barcode}}"
+  },
+  "shortcuts": {
+    "title": "Keyboard shortcuts",
+    "helpAction": "Keyboard shortcuts help",
+    "searchAction": "Search a product",
+    "openPaymentAction": "Open payment",
+    "confirmPaymentAction": "Confirm payment",
+    "clearCartAction": "Clear cart",
+    "adjustQuantityAction": "Adjust last item quantity",
+    "toggleViewAction": "Toggle grid / list",
+    "toggleOutOfStockAction": "Show / hide out of stock",
+    "scanAction": "Scan a barcode",
+    "closeAction": "Close / cancel"
+  }
+}

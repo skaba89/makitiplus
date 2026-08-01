@@ -1,0 +1,47 @@
+{
+  "search": {
+    "placeholder": "Rechercher un produit (nom ou code-barres)...",
+    "scannerTitle": "F7 : Scanner un code-barres",
+    "scannerAriaLabel": "Scanner un code-barres",
+    "shortcutsAriaLabel": "Raccourcis clavier"
+  },
+  "productsCount": "{{count}} produit(s) affiché(s)",
+  "productsCountTotal": " / {{total}} au total",
+  "viewMode": {
+    "gridAriaLabel": "Vue grille",
+    "listAriaLabel": "Vue liste"
+  },
+  "outOfStock": {
+    "label": "Ruptures"
+  },
+  "categories": {
+    "all": "Tous"
+  },
+  "noProductsFound": "Aucun produit trouvé",
+  "mobileCart": {
+    "viewCartAriaLabel": "Voir le panier"
+  },
+  "toasts": {
+    "insufficientStockTitle": "Stock insuffisant",
+    "insufficientStockOnly": "Seulement {{quantity}} {{unit}} disponible(s)",
+    "defaultUnit": "unité(s)",
+    "insufficientStockOnlyShort": "Seulement {{quantity}} disponible(s)",
+    "outOfStockTitle": "Rupture de stock",
+    "outOfStockDesc": "{{name}} n'est pas disponible",
+    "productNotFoundTitle": "Produit non trouvé",
+    "productNotFoundDesc": "Aucun produit avec le code-barres: {{barcode}}"
+  },
+  "shortcuts": {
+    "title": "Raccourcis clavier",
+    "helpAction": "Aide raccourcis clavier",
+    "searchAction": "Rechercher un produit",
+    "openPaymentAction": "Ouvrir le paiement",
+    "confirmPaymentAction": "Confirmer le paiement",
+    "clearCartAction": "Vider le panier",
+    "adjustQuantityAction": "Modifier qté dernier article",
+    "toggleViewAction": "Basculer grille / liste",
+    "toggleOutOfStockAction": "Afficher / masquer ruptures",
+    "scanAction": "Scanner un code-barres",
+    "closeAction": "Fermer / annuler"
+  }
+}
