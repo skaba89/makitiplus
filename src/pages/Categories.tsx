@@ -44,7 +44,11 @@ type Category = Database["public"]["Tables"]["categories"]["Row"] & {
 };
 type CategoryInsert = Database["public"]["Tables"]["categories"]["Insert"];
 
-const PRESET_ICONS = ["Package", "Wheat", "CupSoda", "Sparkles", "Brush", "Wrench", "Smartphone", "Shirt", "Croissant", "Leaf", "Drumstick", "Snowflake"];
+const PRESET_ICONS = [
+  "Package", "Wheat", "CupSoda", "Sparkles", "Brush", "Wrench", "Smartphone", "Shirt", "Croissant", "Leaf", "Drumstick", "Snowflake",
+  "Milk", "Fish", "Candy", "Coffee", "Pill", "Baby", "PawPrint", "BookOpen", "Sofa", "Car", "Cigarette", "Wine",
+  "Beer", "Gem", "Footprints", "Home", "Lightbulb", "SprayCan", "ToyBrick", "Dumbbell", "Flame", "Droplet", "Utensils", "ShoppingBasket",
+];
 
 const Categories = () => {
   const { user, userRole } = useAuth();
