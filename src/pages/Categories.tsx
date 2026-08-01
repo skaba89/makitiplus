@@ -48,6 +48,16 @@ const PRESET_ICONS = [
   "Package", "Wheat", "CupSoda", "Sparkles", "Brush", "Wrench", "Smartphone", "Shirt", "Croissant", "Leaf", "Drumstick", "Snowflake",
   "Milk", "Fish", "Candy", "Coffee", "Pill", "Baby", "PawPrint", "BookOpen", "Sofa", "Car", "Cigarette", "Wine",
   "Beer", "Gem", "Footprints", "Home", "Lightbulb", "SprayCan", "ToyBrick", "Dumbbell", "Flame", "Droplet", "Utensils", "ShoppingBasket",
+  "Tv", "Refrigerator", "WashingMachine", "Headphones", "Camera", "Laptop", "Router", "Battery", "Plug",
+  "Apple", "Banana", "Carrot", "Egg", "Cookie", "Popcorn", "IceCreamCone", "Pizza", "Sandwich", "Grape",
+  "Lamp", "Armchair", "Bed", "Bath", "Umbrella", "Key",
+  "Pen", "Pencil", "Ruler", "Calculator", "Backpack",
+  "Scissors", "Palette", "Stethoscope", "Bandage", "Syringe", "Thermometer",
+  "Gamepad2", "Bike", "Trophy",
+  "Watch", "Glasses", "Crown",
+  "Wallet", "CreditCard", "Banknote", "Coins", "PhoneCall", "Wifi",
+  "Zap", "Hammer", "HardHat", "Briefcase", "Luggage",
+  "ChefHat", "CookingPot", "UtensilsCrossed",
 ];
 
 const Categories = () => {
