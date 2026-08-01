@@ -44,9 +44,12 @@ Aucune librairie i18n n'existe dans le dépôt (`react-i18next`, `react-intl`, e
 - `POSCart.tsx`, `POSPaymentDialog.tsx`, `POSProductGrid.tsx`/`POSProductList.tsx`, `MobileCartDrawer.tsx`, `ReceiptActionsDialog.tsx`, `BarcodeScannerDialog.tsx` — namespace `pos` déjà créé, il ne reste qu'à y ajouter les clés et migrer chaque composant.
 - Sans cette étape, un utilisateur qui bascule en anglais voit la page POS traduite mais le panier/dialogue de paiement/reçu encore en français — incohérence à corriger avant de considérer le parcours caisse "complet".
 
-### Phase 2 — Reste de l'application
+### Phase 2 — Reste de l'application (EN COURS — voir docs/production/I18N_PHASE_2_REPORT.md)
 - Étendre namespace par namespace, dans l'ordre d'usage réel (Reports/Customers/Suppliers avant Diagnostic/OrganizationManagement qui sont des pages admin peu visitées).
 - Chaque nouveau composant écrit APRÈS la Phase 0 doit utiliser `useTranslation()` dès l'écriture — coût marginal quasi nul si fait dès le départ, coût élevé si rattrapé après coup (rappel de l'audit §4.1).
+- Périmètre demandé par l'audit final hardening 2026-08-01 : Reports, Products, Categories, Customers, Suppliers, CashClosing, Pricing, Billing + persistance de la langue côté profil + interdiction des chaînes FR codées en dur. Traité page par page (même méthode qu'Auth/Dashboard/POS en Phase 1), chacune avec son propre commit/PR validé, pas en un seul gros changement.
+- **Fait** : persistance de la langue (`profiles.language`, colonne déjà existante) + `Pricing.tsx` (premier incrément, page publique, la plus petite/isolée des 8).
+- **Restant** : Reports, Products, Categories, Customers, Suppliers, CashClosing, Billing, toasts/messages d'erreur globaux, test anti-chaînes-FR-codées-en-dur.
 
 ### Phase 3 — Langue par défaut par pays
 - Une fois l'anglais complet et stable, brancher la langue par défaut sur `profile.country` (Nigeria/Ghana/Sierra Leone/Liberia → `en`, reste → `fr`), avec sélecteur manuel toujours disponible pour override.

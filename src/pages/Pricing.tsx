@@ -5,6 +5,7 @@
  * Accessible without authentication (public route).
  */
 
+import { useTranslation } from "react-i18next";
 import { usePlans, useSubscription } from "@/hooks/useSubscription";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -14,28 +15,26 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Badge } from "@/components/ui/badge";
 import { Check, X, Loader2 } from "lucide-react";
 
-const PLAN_HIGHLIGHTS: Record<string, string> = {
-  croissance: "Pour les boutiques qui grandissent",
-  enterprise: "Pour les chaînes et grossistes",
+const PLAN_HIGHLIGHT_KEYS: Record<string, string> = {
+  croissance: "planHighlights.croissance",
+  enterprise: "planHighlights.enterprise",
 };
 
-const FEATURE_LABELS: Record<string, string> = {
-  max_stores: "Boutiques",
-  max_users: "Utilisateurs",
-  max_products: "Produits",
-  has_advanced_reports: "Rapports avancés",
-  has_exports: "Exports PDF / Excel",
-  has_supplier_management: "Gestion fournisseurs",
-  has_offline_advanced: "Mode offline avancé",
-  has_custom_branding: "Branding personnalisé",
-  has_multi_currency: "Multi-devises",
-  has_api_access: "API externe",
-  has_priority_support: "Support prioritaire",
-  has_ai_assistant: "Assistant IA métier",
-  has_loyalty_program: "Programme fidélité",
+const FEATURE_LABEL_KEYS: Record<string, string> = {
+  has_advanced_reports: "features.has_advanced_reports",
+  has_exports: "features.has_exports",
+  has_supplier_management: "features.has_supplier_management",
+  has_offline_advanced: "features.has_offline_advanced",
+  has_custom_branding: "features.has_custom_branding",
+  has_multi_currency: "features.has_multi_currency",
+  has_api_access: "features.has_api_access",
+  has_priority_support: "features.has_priority_support",
+  has_ai_assistant: "features.has_ai_assistant",
+  has_loyalty_program: "features.has_loyalty_program",
 };
 
 export default function Pricing() {
+  const { t } = useTranslation("pricing");
   const { data: plans, isLoading } = usePlans();
   const { user } = useAuth();
   const { data: subscription } = useSubscription();
@@ -54,11 +53,10 @@ export default function Pricing() {
       {/* Header */}
       <div className="text-center pt-16 pb-8 px-4">
         <h1 className="text-4xl font-bold mb-4">
-          Choisissez votre plan
+          {t("title")}
         </h1>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-          La caisse intelligente et offline-first pour les boutiques, grossistes
-          et chaînes de magasins en Afrique.
+          {t("subtitle")}
         </p>
       </div>
 
@@ -69,7 +67,7 @@ export default function Pricing() {
             <PlanCard
               key={plan.id}
               plan={plan}
-              highlight={PLAN_HIGHLIGHTS[plan.id] || ""}
+              highlight={PLAN_HIGHLIGHT_KEYS[plan.id] ? t(PLAN_HIGHLIGHT_KEYS[plan.id]) : ""}
               isCurrent={!!subscription && subscription.plan_id === plan.id}
               onSelect={() => {
                 if (user) {
@@ -85,12 +83,12 @@ export default function Pricing() {
         {/* FAQ / Bottom CTA */}
         <div className="text-center mt-12">
           <p className="text-muted-foreground mb-4">
-            Tous les plans incluent : POS, gestion stock, clients à crédit, reçus PDF, mode offline basique
+            {t("footerIncludes")}
           </p>
           <p className="text-sm text-muted-foreground">
-            Besoin d'un plan personnalisé ?{" "}
+            {t("customPlan")}{" "}
             <a href="mailto:contact@makitiplus.com" className="text-primary underline">
-              Contactez-nous
+              {t("contactUs")}
             </a>
           </p>
         </div>
@@ -128,6 +126,7 @@ interface PlanCardProps {
 }
 
 function PlanCard({ plan, highlight, isCurrent, onSelect }: PlanCardProps) {
+  const { t } = useTranslation("pricing");
   const isPopular = plan.id === "croissance";
   const isEnterprise = plan.id === "enterprise";
   // Les prix sont stockés dans plan.currency (USD) — convertis vers la devise
@@ -140,31 +139,46 @@ function PlanCard({ plan, highlight, isCurrent, onSelect }: PlanCardProps) {
   const displayPrice = (amount: number) => formatConvertedPrice(amount, plan.currency);
 
   const features = [
-    { label: `${plan.max_stores === null ? "Illimitées" : plan.max_stores} boutique${plan.max_stores !== 1 ? "s" : ""}`, included: true },
-    { label: `${plan.max_users === null ? "Illimités" : plan.max_users} utilisateur${plan.max_users !== 1 ? "s" : ""}`, included: true },
-    { label: `${plan.max_products === null ? "Illimités" : plan.max_products} produit${plan.max_products !== 1 ? "s" : ""}`, included: true },
-    { label: FEATURE_LABELS.has_advanced_reports, included: plan.has_advanced_reports },
-    { label: FEATURE_LABELS.has_exports, included: plan.has_exports },
-    { label: FEATURE_LABELS.has_supplier_management, included: plan.has_supplier_management },
-    { label: FEATURE_LABELS.has_offline_advanced, included: plan.has_offline_advanced },
-    { label: FEATURE_LABELS.has_custom_branding, included: plan.has_custom_branding },
-    { label: FEATURE_LABELS.has_multi_currency, included: plan.has_multi_currency },
-    { label: FEATURE_LABELS.has_api_access, included: plan.has_api_access },
-    { label: FEATURE_LABELS.has_priority_support, included: plan.has_priority_support },
-    { label: FEATURE_LABELS.has_ai_assistant, included: plan.has_ai_assistant },
-    { label: FEATURE_LABELS.has_loyalty_program, included: plan.has_loyalty_program },
+    {
+      label: plan.max_stores === null
+        ? `${t("unlimited")} ${t("store_other")}`
+        : `${plan.max_stores} ${t(plan.max_stores === 1 ? "store_one" : "store_other")}`,
+      included: true,
+    },
+    {
+      label: plan.max_users === null
+        ? `${t("unlimitedMasculine")} ${t("user_other")}`
+        : `${plan.max_users} ${t(plan.max_users === 1 ? "user_one" : "user_other")}`,
+      included: true,
+    },
+    {
+      label: plan.max_products === null
+        ? `${t("unlimitedMasculine")} ${t("product_other")}`
+        : `${plan.max_products} ${t(plan.max_products === 1 ? "product_one" : "product_other")}`,
+      included: true,
+    },
+    { label: t(FEATURE_LABEL_KEYS.has_advanced_reports), included: plan.has_advanced_reports },
+    { label: t(FEATURE_LABEL_KEYS.has_exports), included: plan.has_exports },
+    { label: t(FEATURE_LABEL_KEYS.has_supplier_management), included: plan.has_supplier_management },
+    { label: t(FEATURE_LABEL_KEYS.has_offline_advanced), included: plan.has_offline_advanced },
+    { label: t(FEATURE_LABEL_KEYS.has_custom_branding), included: plan.has_custom_branding },
+    { label: t(FEATURE_LABEL_KEYS.has_multi_currency), included: plan.has_multi_currency },
+    { label: t(FEATURE_LABEL_KEYS.has_api_access), included: plan.has_api_access },
+    { label: t(FEATURE_LABEL_KEYS.has_priority_support), included: plan.has_priority_support },
+    { label: t(FEATURE_LABEL_KEYS.has_ai_assistant), included: plan.has_ai_assistant },
+    { label: t(FEATURE_LABEL_KEYS.has_loyalty_program), included: plan.has_loyalty_program },
   ];
 
   return (
     <Card className={`relative flex flex-col ${isPopular ? "border-primary shadow-lg scale-105" : ""} ${isEnterprise ? "border-amber-400" : ""}`}>
       {isPopular && (
         <Badge className="absolute -top-3 left-1/2 -translate-x-1/2" variant="default">
-          Populaire
+          {t("popular")}
         </Badge>
       )}
       {isEnterprise && (
         <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-500">
-          Premium
+          {t("premium")}
         </Badge>
       )}
 
@@ -178,15 +192,15 @@ function PlanCard({ plan, highlight, isCurrent, onSelect }: PlanCardProps) {
         <div className="text-center mb-6">
           {plan.price_monthly === 0 ? (
             <div>
-              <span className="text-4xl font-bold">Gratuit</span>
+              <span className="text-4xl font-bold">{t("free")}</span>
             </div>
           ) : (
             <div>
               <span className="text-4xl font-bold">{displayPrice(plan.price_monthly)}</span>
-              <span className="text-muted-foreground">/mois</span>
+              <span className="text-muted-foreground">{t("perMonth")}</span>
               {plan.price_yearly && (
                 <p className="text-sm text-muted-foreground mt-1">
-                  {displayPrice(plan.price_yearly)}/an — économisez 2 mois
+                  {t("perYearSavings", { price: displayPrice(plan.price_yearly) })}
                 </p>
               )}
             </div>
@@ -213,11 +227,11 @@ function PlanCard({ plan, highlight, isCurrent, onSelect }: PlanCardProps) {
       <CardFooter>
         {isCurrent ? (
           <Button className="w-full" variant="outline" disabled>
-            Plan actuel
+            {t("currentPlan")}
           </Button>
         ) : (
           <Button className="w-full" onClick={onSelect}>
-            Choisir {plan.name}
+            {t("choosePlan", { planName: plan.name })}
           </Button>
         )}
       </CardFooter>

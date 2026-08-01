@@ -10,6 +10,7 @@ import { extractErrorMessage } from "@/lib/extractErrorMessage";
 import { ADMIN_ROLES, FINANCIAL_ROLES, POS_ROLES, STORE_ROLES, MANAGEMENT_ROLES, PRODUCT_MANAGEMENT_ROLES, CASH_CLOSING_ACCESS_ROLES } from "@/types";
 import { toast as sonnerToast } from "sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ProfileLanguageSync } from "@/components/i18n/ProfileLanguageSync";
 import { OrgSelectorProvider } from "@/contexts/OrgSelectorContext";
 import { OfflineProvider } from "@/contexts/OfflineContext";
 import { BrandingProvider } from "@/contexts/BrandingContext";
@@ -281,6 +282,7 @@ const App = () => {
     <BrandingProvider>
     <ThemeProvider>
       <TooltipProvider>
+        <ProfileLanguageSync />
         <Toaster />
         <Sonner />
         <BrowserRouter>

@@ -1,0 +1,41 @@
+{
+  "title": "Choisissez votre plan",
+  "subtitle": "La caisse intelligente et offline-first pour les boutiques, grossistes et chaînes de magasins en Afrique.",
+  "planHighlights": {
+    "croissance": "Pour les boutiques qui grandissent",
+    "enterprise": "Pour les chaînes et grossistes"
+  },
+  "features": {
+    "max_stores": "Boutiques",
+    "max_users": "Utilisateurs",
+    "max_products": "Produits",
+    "has_advanced_reports": "Rapports avancés",
+    "has_exports": "Exports PDF / Excel",
+    "has_supplier_management": "Gestion fournisseurs",
+    "has_offline_advanced": "Mode offline avancé",
+    "has_custom_branding": "Branding personnalisé",
+    "has_multi_currency": "Multi-devises",
+    "has_api_access": "API externe",
+    "has_priority_support": "Support prioritaire",
+    "has_ai_assistant": "Assistant IA métier",
+    "has_loyalty_program": "Programme fidélité"
+  },
+  "unlimited": "Illimitées",
+  "unlimitedMasculine": "Illimités",
+  "store_one": "boutique",
+  "store_other": "boutiques",
+  "user_one": "utilisateur",
+  "user_other": "utilisateurs",
+  "product_one": "produit",
+  "product_other": "produits",
+  "popular": "Populaire",
+  "premium": "Premium",
+  "free": "Gratuit",
+  "perMonth": "/mois",
+  "perYearSavings": "{{price}}/an — économisez 2 mois",
+  "currentPlan": "Plan actuel",
+  "choosePlan": "Choisir {{planName}}",
+  "footerIncludes": "Tous les plans incluent : POS, gestion stock, clients à crédit, reçus PDF, mode offline basique",
+  "customPlan": "Besoin d'un plan personnalisé ?",
+  "contactUs": "Contactez-nous"
+}

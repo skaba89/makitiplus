@@ -8,6 +8,8 @@ import frDashboard from "./locales/fr/dashboard.json";
 import enDashboard from "./locales/en/dashboard.json";
 import frPos from "./locales/fr/pos.json";
 import enPos from "./locales/en/pos.json";
+import frPricing from "./locales/fr/pricing.json";
+import enPricing from "./locales/en/pricing.json";
 
 /**
  * Phase 1 (premier parcours traduit) — docs/production/I18N_MIGRATION_PLAN.md
@@ -20,8 +22,8 @@ import enPos from "./locales/en/pos.json";
  */
 i18n.use(initReactI18next).init({
   resources: {
-    fr: { common: frCommon, auth: frAuth, dashboard: frDashboard, pos: frPos },
-    en: { common: enCommon, auth: enAuth, dashboard: enDashboard, pos: enPos },
+    fr: { common: frCommon, auth: frAuth, dashboard: frDashboard, pos: frPos, pricing: frPricing },
+    en: { common: enCommon, auth: enAuth, dashboard: enDashboard, pos: enPos, pricing: enPricing },
   },
   lng: "fr",
   fallbackLng: "fr",
