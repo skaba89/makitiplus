@@ -120,14 +120,33 @@ export default function CashClosing() {
   const [filterUserId, setFilterUserId] = useState<string>("");
   const [filterStoreId, setFilterStoreId] = useState<string>("");
 
-  // ─── Noms des vendeurs de l'organisation (manager/admin/comptable/super_admin
-  // uniquement — un vendeur n'a besoin de voir que le sien, déjà connu). ────
+  // ─── Noms des vendeurs de l'organisation — visible seulement aux reviewers/
+  // audit (manager/admin/comptable/super_admin) ; un vendeur n'a besoin de
+  // voir que le sien, déjà connu). ────
+  //
+  // Filtré à POS_ROLES (admin/manager/vendeur) : seuls ces rôles peuvent
+  // ouvrir une session de caisse (CASH_CLOSING_CREATE_ROLES = POS_ROLES,
+  // src/types/index.ts) -- comptable/super_admin n'apparaissent donc jamais
+  // comme "opened_by" d'une vraie session, mais s'affichaient quand même
+  // dans le filtre "Vendeur" (aucun filtre de rôle n'existait avant),
+  // trouvé sur le compte réel Diallo & Frères (le super_admin de la
+  // plateforme y a un profil rattaché à l'organisation).
   const { data: orgProfiles } = useQuery({
     queryKey: ["cash-org-profiles", effectiveOrgId],
     queryFn: async (): Promise<{ user_id: string; owner_name: string }[]> => {
-      const { data, error } = await supabase.from("profiles").select("user_id, owner_name");
-      if (error) return [];
-      return data ?? [];
+      const [profilesRes, rolesRes] = await Promise.all([
+        supabase.from("profiles").select("user_id, owner_name"),
+        supabase.from("user_roles").select("user_id, role"),
+      ]);
+      if (profilesRes.error || rolesRes.error) return [];
+      const roleByUserId = new Map((rolesRes.data ?? []).map((r) => [r.user_id, r.role]));
+      // Pas de fallback "vendeur" par défaut : un rôle introuvable (ex. une
+      // ligne super_admin masquée par la RLS de user_roles pour ce viewer)
+      // doit EXCLURE le profil, jamais le laisser passer par supposition.
+      return (profilesRes.data ?? []).filter((p) => {
+        const role = roleByUserId.get(p.user_id);
+        return role === "admin" || role === "manager" || role === "vendeur";
+      });
     },
     enabled: !!user && (isReviewer || isReadOnlyAudit),
   });
