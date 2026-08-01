@@ -43,3 +43,22 @@
 ## Constat principal
 
 **Un seul écart bloquant trouvé à ce stade** : Render sert un commit plus ancien que `main` (manque au minimum le PR #61). Aucune régression fonctionnelle détectée par ailleurs — code, tests, migrations et Edge Functions sont sains et cohérents avec le dépôt.
+
+## Section P0.5 — Clôture de caisse (réalisé)
+
+Les identifiants `E2E_TEST_ORG`/`E2E_ADMIN`/`E2E_MANAGER`/`E2E_VENDOR` n'existent que côté secrets GitHub Actions (absents du `.env` local) — impossible de piloter interactivement un scénario complet (ouverture → vente cash → vente Mobile Money → clôture → approbation/rejet) depuis cette session. Le scénario de rôles/accès équivalent (`e2e/cash-closing.spec.ts`) tourne déjà avec succès dans la Release Readiness vérifiée ci-dessus.
+
+Trois tests de régression ajoutés (statiques, sans dépendance réseau) :
+- `src/test/cashClosingLiveReadiness.test.ts` — vérifie que CashClosing.tsx appelle exactement les RPC vérifiées live (section Supabase live ci-dessus), garde-fou anti-dérive doc/code.
+- `src/test/cashClosingSuperAdminVisibilityRegression.test.ts` — trip-wire dédié empêchant la réapparition du bug super_admin dans le filtre Vendeur (corrigé le 2026-08-01, PR #59).
+- `src/test/cashClosingPaymentReferenceRegression.test.ts` — confirme par lecture des migrations que `open/close/approve/reject_cash_register_session` et `get_cash_closing_summary` n'écrivent **jamais** dans `sales` ou `expenses` (seulement `cash_register_sessions` et `user_activity_logs`) — garantit qu'une clôture ne peut pas altérer une vente réelle ou sa référence Mobile Money.
+
+## Section P0.6 — Assistant IA (réalisé, avec limite honnête)
+
+Revue de code complète de `supabase/functions/ai-assistant-chat` contre les 9 critères de sécurité demandés — tous conformes au code (voir `docs/production/AI_ASSISTANT_LIVE_VALIDATION.md` pour le détail point par point).
+
+**Un seul test réellement exécuté en direct contre la fonction déployée** : appel `curl` sans header `Authorization` → **`401` confirmé réellement**, pas seulement en lecture de code.
+
+**Le parcours complet avec un compte réellement autorisé (plan incluant `ai_assistant`, réponse Groq réelle affichée) n'a PAS pu être testé** — aucun identifiant disponible pour cet audit n'a ce plan actif. Conformément à la règle du plan d'audit ("Ne pas vendre l'IA comme fonctionnalité premium tant que le test réel avec un compte autorisé n'est pas passé"), **ce test reste à faire avant toute annonce commerciale de l'Assistant IA**.
+
+Test de régression ajouté : `src/test/aiAssistantSecurityRegression.test.ts` (aucune clé service_role, aucune fuite cross-tenant possible par construction, preuve live documentée).
