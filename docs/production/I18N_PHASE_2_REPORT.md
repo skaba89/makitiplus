@@ -60,9 +60,17 @@ Quatrième incrément (601 lignes) : en-tête (avec compte pluralisé catégorie
 
 Test : `src/test/i18nCategoriesTranslations.test.ts` (96 assertions).
 
-## 6. Restant (pas encore fait)
+## 6. Customers.tsx (fait)
 
-Customers, Suppliers, CashClosing, Billing — chacune sera traitée comme un incrément séparé (namespace + migration + tests + validation complète), suivant exactement la même méthode que ci-dessus. CashClosing en particulier demandera une attention accrue vu sa criticité (voir section P0.5 de l'audit du 2026-08-01) — traduction uniquement, aucune logique métier à toucher. `DemoContext.tsx` (blockMutation) reste également à traiter comme une tâche transversale séparée si on veut une couverture i18n complète.
+Cinquième incrément : en-tête, export, 3 cartes de stats (total clients, crédits en cours, clients avec crédit), recherche + filtre "crédit uniquement", tableau (colonnes, cellules, actions avec aria-label), pagination complète (aria-label par page), état vide, dialogue formulaire (nom/téléphone/email/adresse/notes), dialogue de suppression, tous les toasts de mutation + export + validation de données invalides. Composants enfants (`CustomerDetailDialog`, `CreditPaymentDialog`) hors périmètre.
+
+`formatErrors(validation.errors)` (`src/lib/schemas.ts`) reste hors périmètre : ce n'est pas une chaîne littérale mais un message composé dynamiquement par la librairie de validation Zod — une migration à part si on veut l'internationaliser.
+
+Test : `src/test/i18nCustomersTranslations.test.ts` (118 assertions, incluant une vérification anti-régression sur les `aria-label` codés en dur en plus du JSX visible).
+
+## 7. Restant (pas encore fait)
+
+Suppliers, CashClosing, Billing — chacune sera traitée comme un incrément séparé (namespace + migration + tests + validation complète), suivant exactement la même méthode que ci-dessus. CashClosing en particulier demandera une attention accrue vu sa criticité (voir section P0.5 de l'audit du 2026-08-01) — traduction uniquement, aucune logique métier à toucher. `DemoContext.tsx` (blockMutation) reste également à traiter comme une tâche transversale séparée si on veut une couverture i18n complète.
 
 Toasts et messages d'erreur globaux (hors namespaces de page) et le test anti-chaînes-FR-codées-en-dur généralisé restent également à faire, une fois les 8 pages couvertes (le test générique n'a de sens qu'une fois qu'on sait exactement quelles pages sont "censées" être entièrement traduites vs. celles qui ne le sont pas encore).
 

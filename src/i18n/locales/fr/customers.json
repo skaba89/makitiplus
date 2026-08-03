@@ -1,0 +1,78 @@
+{
+  "title": "Clients",
+  "subtitle": "Gérez vos clients et suivez les crédits",
+  "actions": {
+    "export": "Exporter",
+    "addCustomer": "Ajouter un client"
+  },
+  "stats": {
+    "totalCustomers": "Total clients",
+    "creditsInProgress": "Crédits en cours",
+    "customersWithCredit": "Clients avec crédit"
+  },
+  "search": {
+    "placeholder": "Rechercher par nom ou téléphone..."
+  },
+  "filter": {
+    "creditOnlyAria": "Filtrer les clients à crédit",
+    "creditOnlyLabel": "Crédit uniquement"
+  },
+  "table": {
+    "columnName": "Nom",
+    "columnPhone": "Téléphone",
+    "columnTotalPurchases": "Achats totaux",
+    "columnCredit": "Crédit",
+    "columnActions": "Actions",
+    "noPhone": "-",
+    "viewDetailsAria": "Voir les détails",
+    "customerCreditAria": "Crédit client",
+    "editCustomerAria": "Modifier le client",
+    "deleteCustomerAria": "Supprimer le client"
+  },
+  "pagination": {
+    "showing": "{{from}}–{{to}} sur {{total}}",
+    "previous": "Précédent",
+    "next": "Suivant",
+    "previousAria": "Page précédente",
+    "nextAria": "Page suivante",
+    "pageAria": "Page {{page}}"
+  },
+  "empty": {
+    "title": "Aucun client",
+    "description": "Ajoutez vos premiers clients",
+    "addFirst": "Ajouter un client"
+  },
+  "formDialog": {
+    "editTitle": "Modifier le client",
+    "newTitle": "Nouveau client",
+    "nameLabel": "Nom *",
+    "phoneLabel": "Téléphone",
+    "emailLabel": "Email",
+    "addressLabel": "Adresse",
+    "notesLabel": "Notes",
+    "submitSave": "Enregistrer",
+    "submitAdd": "Ajouter"
+  },
+  "deleteDialog": {
+    "title": "Supprimer ce client?",
+    "description": "Cette action est irréversible. Les crédits associés seront conservés.",
+    "cancel": "Annuler",
+    "confirm": "Supprimer"
+  },
+  "toasts": {
+    "genericErrorTitle": "Erreur",
+    "invalidDataTitle": "Données invalides",
+    "createSuccess": "Client ajouté",
+    "createErrorDescription": "Impossible d'ajouter le client",
+    "updateSuccess": "Client mis à jour",
+    "updateErrorDescription": "Impossible de modifier le client",
+    "deleteSuccess": "Client supprimé",
+    "deleteErrorDescription": "Impossible de supprimer le client",
+    "exportSuccessTitle": "Export réussi",
+    "exportSuccessDescription": "{{count}} clients exportés",
+    "exportEmptyTitle": "Aucun client",
+    "exportEmptyDescription": "Pas de clients à exporter",
+    "exportErrorTitle": "Erreur d'export",
+    "exportErrorDescription": "Impossible d'exporter les clients"
+  }
+}
