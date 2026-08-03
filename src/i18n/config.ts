@@ -18,6 +18,8 @@ import frCategories from "./locales/fr/categories.json";
 import enCategories from "./locales/en/categories.json";
 import frCustomers from "./locales/fr/customers.json";
 import enCustomers from "./locales/en/customers.json";
+import frSuppliers from "./locales/fr/suppliers.json";
+import enSuppliers from "./locales/en/suppliers.json";
 
 /**
  * Phase 1 (premier parcours traduit) — docs/production/I18N_MIGRATION_PLAN.md
@@ -30,8 +32,8 @@ import enCustomers from "./locales/en/customers.json";
  */
 i18n.use(initReactI18next).init({
   resources: {
-    fr: { common: frCommon, auth: frAuth, dashboard: frDashboard, pos: frPos, pricing: frPricing, reports: frReports, products: frProducts, categories: frCategories, customers: frCustomers },
-    en: { common: enCommon, auth: enAuth, dashboard: enDashboard, pos: enPos, pricing: enPricing, reports: enReports, products: enProducts, categories: enCategories, customers: enCustomers },
+    fr: { common: frCommon, auth: frAuth, dashboard: frDashboard, pos: frPos, pricing: frPricing, reports: frReports, products: frProducts, categories: frCategories, customers: frCustomers, suppliers: frSuppliers },
+    en: { common: enCommon, auth: enAuth, dashboard: enDashboard, pos: enPos, pricing: enPricing, reports: enReports, products: enProducts, categories: enCategories, customers: enCustomers, suppliers: enSuppliers },
   },
   lng: "fr",
   fallbackLng: "fr",

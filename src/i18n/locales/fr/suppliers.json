@@ -1,0 +1,76 @@
+{
+  "featureGate": {
+    "title": "Gestion des fournisseurs",
+    "description": "La gestion des fournisseurs est disponible à partir du plan Croissance. Upgradez votre abonnement pour accéder à cette fonctionnalité.",
+    "upgradeButton": "Voir les abonnements"
+  },
+  "title": "Fournisseurs",
+  "subtitle": "Gérez vos fournisseurs et suivez les approvisionnements",
+  "addSupplier": "Ajouter un fournisseur",
+  "stats": {
+    "activeSuppliers": "Fournisseurs actifs",
+    "productsSupplied": "Produits approvisionnés",
+    "stockValue": "Valeur du stock fournisseur"
+  },
+  "search": {
+    "placeholder": "Rechercher par nom, téléphone, email ou ville..."
+  },
+  "table": {
+    "columnSupplier": "Fournisseur",
+    "columnContact": "Contact",
+    "columnCity": "Ville",
+    "columnProducts": "Produits",
+    "columnStatus": "Statut",
+    "columnActions": "Actions",
+    "empty": "-",
+    "statusActive": "Actif",
+    "statusInactive": "Inactif",
+    "viewDetailsAria": "Voir les détails",
+    "activateAria": "Activer le fournisseur",
+    "deactivateAria": "Désactiver le fournisseur",
+    "editAria": "Modifier le fournisseur",
+    "deleteAria": "Supprimer le fournisseur"
+  },
+  "empty": {
+    "title": "Aucun fournisseur",
+    "description": "Ajoutez vos premiers fournisseurs pour suivre vos approvisionnements",
+    "addFirst": "Ajouter un fournisseur"
+  },
+  "formDialog": {
+    "editTitle": "Modifier le fournisseur",
+    "newTitle": "Nouveau fournisseur",
+    "srDescription": "Formulaire de création ou modification d'un fournisseur",
+    "nameLabel": "Nom du fournisseur *",
+    "namePlaceholder": "Ex: Global Trading SARL",
+    "phoneLabel": "Téléphone",
+    "phonePlaceholder": "+224 XXX XXX XXX",
+    "emailLabel": "Email",
+    "emailPlaceholder": "contact@fournisseur.com",
+    "addressLabel": "Adresse",
+    "addressPlaceholder": "Quartier, rue...",
+    "cityLabel": "Ville",
+    "cityPlaceholder": "Conakry",
+    "countryLabel": "Pays",
+    "countryPlaceholder": "Guinée",
+    "notesLabel": "Notes",
+    "notesPlaceholder": "Conditions de paiement, délais de livraison...",
+    "submitSave": "Enregistrer",
+    "submitAdd": "Ajouter le fournisseur"
+  },
+  "deleteDialog": {
+    "title": "Supprimer le fournisseur ?",
+    "descriptionPrefix": "Êtes-vous sûr de vouloir supprimer",
+    "descriptionSuffix": "? Les produits associés ne seront pas supprimés, mais ils ne seront plus liés à ce fournisseur. Cette action est irréversible.",
+    "cancel": "Annuler",
+    "confirm": "Supprimer"
+  },
+  "toasts": {
+    "genericErrorTitle": "Erreur",
+    "createSuccess": "Fournisseur ajouté",
+    "createErrorFallback": "Impossible d'ajouter le fournisseur",
+    "updateSuccess": "Fournisseur mis à jour",
+    "updateErrorFallback": "Impossible de modifier le fournisseur",
+    "deleteSuccess": "Fournisseur supprimé",
+    "deleteErrorFallback": "Impossible de supprimer le fournisseur"
+  }
+}

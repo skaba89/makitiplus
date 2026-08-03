@@ -1,0 +1,76 @@
+{
+  "featureGate": {
+    "title": "Supplier management",
+    "description": "Supplier management is available from the Croissance plan. Upgrade your subscription to access this feature.",
+    "upgradeButton": "View plans"
+  },
+  "title": "Suppliers",
+  "subtitle": "Manage your suppliers and track purchases",
+  "addSupplier": "Add a supplier",
+  "stats": {
+    "activeSuppliers": "Active suppliers",
+    "productsSupplied": "Products supplied",
+    "stockValue": "Supplier stock value"
+  },
+  "search": {
+    "placeholder": "Search by name, phone, email or city..."
+  },
+  "table": {
+    "columnSupplier": "Supplier",
+    "columnContact": "Contact",
+    "columnCity": "City",
+    "columnProducts": "Products",
+    "columnStatus": "Status",
+    "columnActions": "Actions",
+    "empty": "-",
+    "statusActive": "Active",
+    "statusInactive": "Inactive",
+    "viewDetailsAria": "View details",
+    "activateAria": "Activate supplier",
+    "deactivateAria": "Deactivate supplier",
+    "editAria": "Edit supplier",
+    "deleteAria": "Delete supplier"
+  },
+  "empty": {
+    "title": "No suppliers",
+    "description": "Add your first suppliers to track your purchases",
+    "addFirst": "Add a supplier"
+  },
+  "formDialog": {
+    "editTitle": "Edit supplier",
+    "newTitle": "New supplier",
+    "srDescription": "Form to create or edit a supplier",
+    "nameLabel": "Supplier name *",
+    "namePlaceholder": "E.g.: Global Trading LLC",
+    "phoneLabel": "Phone",
+    "phonePlaceholder": "+224 XXX XXX XXX",
+    "emailLabel": "Email",
+    "emailPlaceholder": "contact@supplier.com",
+    "addressLabel": "Address",
+    "addressPlaceholder": "District, street...",
+    "cityLabel": "City",
+    "cityPlaceholder": "Conakry",
+    "countryLabel": "Country",
+    "countryPlaceholder": "Guinea",
+    "notesLabel": "Notes",
+    "notesPlaceholder": "Payment terms, delivery times...",
+    "submitSave": "Save",
+    "submitAdd": "Add supplier"
+  },
+  "deleteDialog": {
+    "title": "Delete this supplier?",
+    "descriptionPrefix": "Are you sure you want to delete",
+    "descriptionSuffix": "? Associated products will not be deleted, but will no longer be linked to this supplier. This action is irreversible.",
+    "cancel": "Cancel",
+    "confirm": "Delete"
+  },
+  "toasts": {
+    "genericErrorTitle": "Error",
+    "createSuccess": "Supplier added",
+    "createErrorFallback": "Unable to add supplier",
+    "updateSuccess": "Supplier updated",
+    "updateErrorFallback": "Unable to edit supplier",
+    "deleteSuccess": "Supplier deleted",
+    "deleteErrorFallback": "Unable to delete supplier"
+  }
+}

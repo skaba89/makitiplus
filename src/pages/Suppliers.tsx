@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -62,6 +63,7 @@ import { FeatureGate } from "@/components/saas/PlanLimitGuard";
 import { Lock } from "lucide-react";
 
 const Suppliers = () => {
+  const { t } = useTranslation("suppliers");
   const { user, userRole } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -159,7 +161,7 @@ const Suppliers = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] });
-      toast({ title: "Fournisseur ajouté" });
+      toast({ title: t("toasts.createSuccess") });
       setIsFormOpen(false);
       resetForm();
     },
@@ -168,8 +170,8 @@ const Suppliers = () => {
       reportError(error, { action: 'create_supplier' });
       toast({
         variant: "destructive",
-        title: "Erreur",
-        description: msg.length > 120 ? msg.slice(0, 120) + '\u2026' : "Impossible d'ajouter le fournisseur",
+        title: t("toasts.genericErrorTitle"),
+        description: msg.length > 120 ? msg.slice(0, 120) + '\u2026' : t("toasts.createErrorFallback"),
       });
     },
   });
@@ -186,7 +188,7 @@ const Suppliers = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] });
-      toast({ title: "Fournisseur mis à jour" });
+      toast({ title: t("toasts.updateSuccess") });
       setIsFormOpen(false);
       setSelectedSupplier(null);
       resetForm();
@@ -196,8 +198,8 @@ const Suppliers = () => {
       reportError(error, { action: 'update_supplier', supplierId: selectedSupplier?.id });
       toast({
         variant: "destructive",
-        title: "Erreur",
-        description: msg.length > 120 ? msg.slice(0, 120) + '\u2026' : "Impossible de modifier le fournisseur",
+        title: t("toasts.genericErrorTitle"),
+        description: msg.length > 120 ? msg.slice(0, 120) + '\u2026' : t("toasts.updateErrorFallback"),
       });
     },
   });
@@ -214,7 +216,7 @@ const Suppliers = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] });
       queryClient.invalidateQueries({ queryKey: ["products"] });
-      toast({ title: "Fournisseur supprimé" });
+      toast({ title: t("toasts.deleteSuccess") });
       setIsDeleteOpen(false);
       setSelectedSupplier(null);
     },
@@ -223,8 +225,8 @@ const Suppliers = () => {
       reportError(error, { action: 'delete_supplier', supplierId: selectedSupplier?.id });
       toast({
         variant: "destructive",
-        title: "Erreur",
-        description: msg.length > 120 ? msg.slice(0, 120) + '\u2026' : "Impossible de supprimer le fournisseur",
+        title: t("toasts.genericErrorTitle"),
+        description: msg.length > 120 ? msg.slice(0, 120) + '\u2026' : t("toasts.deleteErrorFallback"),
       });
     },
   });
@@ -308,13 +310,12 @@ const Suppliers = () => {
             <div className="p-4 rounded-full bg-primary/10 mb-4">
               <Lock className="h-8 w-8 text-primary" />
             </div>
-            <h2 className="text-xl font-bold mb-2">Gestion des fournisseurs</h2>
+            <h2 className="text-xl font-bold mb-2">{t("featureGate.title")}</h2>
             <p className="text-muted-foreground max-w-md mb-6">
-              La gestion des fournisseurs est disponible à partir du plan Croissance.
-              Upgradez votre abonnement pour accéder à cette fonctionnalité.
+              {t("featureGate.description")}
             </p>
             <Button onClick={() => navigate("/dashboard/billing")}>
-              Voir les abonnements
+              {t("featureGate.upgradeButton")}
             </Button>
           </div>
         }
@@ -324,10 +325,10 @@ const Suppliers = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
-              Fournisseurs
+              {t("title")}
             </h1>
             <p className="text-muted-foreground mt-1">
-              Gérez vos fournisseurs et suivez les approvisionnements
+              {t("subtitle")}
             </p>
           </div>
           {canModify && (
@@ -340,7 +341,7 @@ const Suppliers = () => {
               className="gap-2"
             >
               <Plus className="h-4 w-4" />
-              Ajouter un fournisseur
+              {t("addSupplier")}
             </Button>
           )}
         </div>
@@ -355,7 +356,7 @@ const Suppliers = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">
-                    Fournisseurs actifs
+                    {t("stats.activeSuppliers")}
                   </p>
                   <p className="text-2xl font-bold">{activeSuppliers.length}</p>
                 </div>
@@ -370,7 +371,7 @@ const Suppliers = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">
-                    Produits approvisionnés
+                    {t("stats.productsSupplied")}
                   </p>
                   <p className="text-2xl font-bold">{totalProductCount}</p>
                 </div>
@@ -385,7 +386,7 @@ const Suppliers = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">
-                    Valeur du stock fournisseur
+                    {t("stats.stockValue")}
                   </p>
                   <p className="text-2xl font-bold">
                     {formatDisplayPrice(totalStockValue, { showOriginal: isConverted })}
@@ -400,7 +401,7 @@ const Suppliers = () => {
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Rechercher par nom, téléphone, email ou ville..."
+            placeholder={t("search.placeholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -419,16 +420,16 @@ const Suppliers = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Fournisseur</TableHead>
+                      <TableHead>{t("table.columnSupplier")}</TableHead>
                       <TableHead className="hidden sm:table-cell">
-                        Contact
+                        {t("table.columnContact")}
                       </TableHead>
                       <TableHead className="hidden md:table-cell">
-                        Ville
+                        {t("table.columnCity")}
                       </TableHead>
-                      <TableHead className="text-center">Produits</TableHead>
-                      <TableHead>Statut</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead className="text-center">{t("table.columnProducts")}</TableHead>
+                      <TableHead>{t("table.columnStatus")}</TableHead>
+                      <TableHead className="text-right">{t("table.columnActions")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -456,11 +457,11 @@ const Suppliers = () => {
                                 {supplier.email}
                               </div>
                             )}
-                            {!supplier.phone && !supplier.email && "-"}
+                            {!supplier.phone && !supplier.email && t("table.empty")}
                           </div>
                         </TableCell>
                         <TableCell className="hidden md:table-cell">
-                          {supplier.city || "-"}
+                          {supplier.city || t("table.empty")}
                         </TableCell>
                         <TableCell className="text-center">
                           <Badge variant="secondary">
@@ -470,10 +471,10 @@ const Suppliers = () => {
                         <TableCell>
                           {supplier.is_active ? (
                             <Badge className="bg-green-100 text-green-800">
-                              Actif
+                              {t("table.statusActive")}
                             </Badge>
                           ) : (
-                            <Badge variant="secondary">Inactif</Badge>
+                            <Badge variant="secondary">{t("table.statusInactive")}</Badge>
                           )}
                         </TableCell>
                         <TableCell className="text-right">
@@ -486,7 +487,7 @@ const Suppliers = () => {
                                 setSelectedSupplier(supplier);
                                 setIsDetailOpen(true);
                               }}
-                              aria-label="Voir les détails"
+                              aria-label={t("table.viewDetailsAria")}
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
@@ -504,8 +505,8 @@ const Suppliers = () => {
                                   }}
                                   aria-label={
                                     supplier.is_active
-                                      ? "Désactiver le fournisseur"
-                                      : "Activer le fournisseur"
+                                      ? t("table.deactivateAria")
+                                      : t("table.activateAria")
                                   }
                                 >
                                   {supplier.is_active ? (
@@ -518,7 +519,7 @@ const Suppliers = () => {
                                   variant="ghost"
                                   size="icon"
                                   onClick={() => handleEdit(supplier)}
-                                  aria-label="Modifier le fournisseur"
+                                  aria-label={t("table.editAria")}
                                 >
                                   <Edit className="h-4 w-4" />
                                 </Button>
@@ -529,7 +530,7 @@ const Suppliers = () => {
                                     setSelectedSupplier(supplier);
                                     setIsDeleteOpen(true);
                                   }}
-                                  aria-label="Supprimer le fournisseur"
+                                  aria-label={t("table.deleteAria")}
                                 >
                                   <Trash2 className="h-4 w-4 text-destructive" />
                                 </Button>
@@ -547,15 +548,14 @@ const Suppliers = () => {
         ) : (
           <div className="text-center py-12 bg-card rounded-xl border">
             <Truck className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-            <h3 className="text-lg font-medium mb-2">Aucun fournisseur</h3>
+            <h3 className="text-lg font-medium mb-2">{t("empty.title")}</h3>
             <p className="text-muted-foreground mb-4">
-              Ajoutez vos premiers fournisseurs pour suivre vos
-              approvisionnements
+              {t("empty.description")}
             </p>
             {canModify && (
               <Button onClick={() => setIsFormOpen(true)} variant="outline">
                 <Plus className="h-4 w-4 mr-2" />
-                Ajouter un fournisseur
+                {t("empty.addFirst")}
               </Button>
             )}
           </div>
@@ -567,88 +567,88 @@ const Suppliers = () => {
             <DialogHeader>
               <DialogTitle>
                 {selectedSupplier
-                  ? "Modifier le fournisseur"
-                  : "Nouveau fournisseur"}
+                  ? t("formDialog.editTitle")
+                  : t("formDialog.newTitle")}
               </DialogTitle>
               <DialogDescription className="sr-only">
-                Formulaire de création ou modification d'un fournisseur
+                {t("formDialog.srDescription")}
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label>Nom du fournisseur *</Label>
+                <Label>{t("formDialog.nameLabel")}</Label>
                 <Input
                   value={formData.name}
                   onChange={(e) =>
                     setFormData({ ...formData, name: e.target.value })
                   }
-                  placeholder="Ex: Global Trading SARL"
+                  placeholder={t("formDialog.namePlaceholder")}
                   required
                 />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Téléphone</Label>
+                  <Label>{t("formDialog.phoneLabel")}</Label>
                   <Input
                     value={formData.phone}
                     onChange={(e) =>
                       setFormData({ ...formData, phone: e.target.value })
                     }
-                    placeholder="+224 XXX XXX XXX"
+                    placeholder={t("formDialog.phonePlaceholder")}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Email</Label>
+                  <Label>{t("formDialog.emailLabel")}</Label>
                   <Input
                     type="email"
                     value={formData.email}
                     onChange={(e) =>
                       setFormData({ ...formData, email: e.target.value })
                     }
-                    placeholder="contact@fournisseur.com"
+                    placeholder={t("formDialog.emailPlaceholder")}
                   />
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Adresse</Label>
+                  <Label>{t("formDialog.addressLabel")}</Label>
                   <Input
                     value={formData.address}
                     onChange={(e) =>
                       setFormData({ ...formData, address: e.target.value })
                     }
-                    placeholder="Quartier, rue..."
+                    placeholder={t("formDialog.addressPlaceholder")}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Ville</Label>
+                  <Label>{t("formDialog.cityLabel")}</Label>
                   <Input
                     value={formData.city}
                     onChange={(e) =>
                       setFormData({ ...formData, city: e.target.value })
                     }
-                    placeholder="Conakry"
+                    placeholder={t("formDialog.cityPlaceholder")}
                   />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Pays</Label>
+                <Label>{t("formDialog.countryLabel")}</Label>
                 <Input
                   value={formData.country}
                   onChange={(e) =>
                     setFormData({ ...formData, country: e.target.value })
                   }
-                  placeholder="Guinée"
+                  placeholder={t("formDialog.countryPlaceholder")}
                 />
               </div>
               <div className="space-y-2">
-                <Label>Notes</Label>
+                <Label>{t("formDialog.notesLabel")}</Label>
                 <Textarea
                   value={formData.notes}
                   onChange={(e) =>
                     setFormData({ ...formData, notes: e.target.value })
                   }
-                  placeholder="Conditions de paiement, délais de livraison..."
+                  placeholder={t("formDialog.notesPlaceholder")}
                   rows={3}
                 />
               </div>
@@ -659,7 +659,7 @@ const Suppliers = () => {
                   createMutation.isPending || updateMutation.isPending
                 }
               >
-                {selectedSupplier ? "Enregistrer" : "Ajouter le fournisseur"}
+                {selectedSupplier ? t("formDialog.submitSave") : t("formDialog.submitAdd")}
               </Button>
             </form>
           </DialogContent>
@@ -676,16 +676,14 @@ const Suppliers = () => {
         <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Supprimer le fournisseur ?</AlertDialogTitle>
+              <AlertDialogTitle>{t("deleteDialog.title")}</AlertDialogTitle>
               <AlertDialogDescription>
-                Êtes-vous sûr de vouloir supprimer{" "}
-                <strong>{selectedSupplier?.name}</strong> ? Les produits associés
-                ne seront pas supprimés, mais ils ne seront plus liés à ce
-                fournisseur. Cette action est irréversible.
+                {t("deleteDialog.descriptionPrefix")}{" "}
+                <strong>{selectedSupplier?.name}</strong> {t("deleteDialog.descriptionSuffix")}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Annuler</AlertDialogCancel>
+              <AlertDialogCancel>{t("deleteDialog.cancel")}</AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => {
                   if (selectedSupplier) {
@@ -695,7 +693,7 @@ const Suppliers = () => {
                 }}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
-                Supprimer
+                {t("deleteDialog.confirm")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

@@ -68,9 +68,17 @@ Cinquième incrément : en-tête, export, 3 cartes de stats (total clients, cré
 
 Test : `src/test/i18nCustomersTranslations.test.ts` (118 assertions, incluant une vérification anti-régression sur les `aria-label` codés en dur en plus du JSX visible).
 
-## 7. Restant (pas encore fait)
+## 7. Suppliers.tsx (fait)
 
-Suppliers, CashClosing, Billing — chacune sera traitée comme un incrément séparé (namespace + migration + tests + validation complète), suivant exactement la même méthode que ci-dessus. CashClosing en particulier demandera une attention accrue vu sa criticité (voir section P0.5 de l'audit du 2026-08-01) — traduction uniquement, aucune logique métier à toucher. `DemoContext.tsx` (blockMutation) reste également à traiter comme une tâche transversale séparée si on veut une couverture i18n complète.
+Sixième incrément (709 lignes) : verrou "gestion des fournisseurs" (plan Croissance requis), en-tête, 3 cartes de stats, recherche, tableau (colonnes, cellules, badges actif/inactif, actions avec aria-label), état vide, dialogue formulaire complet (nom/téléphone/email/adresse/ville/pays/notes), dialogue de suppression (composé préfixe + nom en gras + suffixe), tous les toasts de mutation. Composant enfant (`SupplierDetailDialog`) hors périmètre.
+
+Le pays par défaut `"Guinée"` dans `formData` n'est volontairement **pas** traduit : c'est une valeur de donnée métier stockée telle quelle en base pour le champ `country` d'un fournisseur, pas du texte d'interface — la traduire créerait une incohérence de données entre fournisseurs créés dans des langues d'interface différentes (même principe que les codes de devise, jamais traduits).
+
+Test : `src/test/i18nSuppliersTranslations.test.ts` (123 assertions).
+
+## 8. Restant (pas encore fait)
+
+CashClosing, Billing — chacune sera traitée comme un incrément séparé (namespace + migration + tests + validation complète), suivant exactement la même méthode que ci-dessus. CashClosing en particulier demandera une attention accrue vu sa criticité (voir section P0.5 de l'audit du 2026-08-01) — traduction uniquement, aucune logique métier à toucher. `DemoContext.tsx` (blockMutation) reste également à traiter comme une tâche transversale séparée si on veut une couverture i18n complète.
 
 Toasts et messages d'erreur globaux (hors namespaces de page) et le test anti-chaînes-FR-codées-en-dur généralisé restent également à faire, une fois les 8 pages couvertes (le test générique n'a de sens qu'une fois qu'on sait exactement quelles pages sont "censées" être entièrement traduites vs. celles qui ne le sont pas encore).
 
