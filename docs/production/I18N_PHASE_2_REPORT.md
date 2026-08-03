@@ -52,9 +52,17 @@ Troisième incrément (743 lignes) : en-tête, actions (import CSV/export/ajoute
 
 Test : `src/test/i18nProductsTranslations.test.ts` (93 assertions). Au passage, correction d'un bug de regex dans le test anti-chaîne-codée-en-dur (aussi corrigé rétroactivement dans `i18nReportsTranslations.test.ts`) : le pattern `[^<{]` traversait les retours à la ligne, donc un générique TypeScript comme `useState<Product | null>` fournissait un `>` qui faisait dériver le match jusqu'au prochain `<` bien plus loin dans le fichier, engloutissant du code et des commentaires sans rapport. Corrigé en `[^<{\n]` (borné à une seule ligne).
 
-## 5. Restant (pas encore fait)
+## 5. Categories.tsx (fait)
 
-Categories, Customers, Suppliers, CashClosing, Billing — chacune sera traitée comme un incrément séparé (namespace + migration + tests + validation complète), suivant exactement la même méthode que ci-dessus. CashClosing en particulier demandera une attention accrue vu sa criticité (voir section P0.5 de l'audit du 2026-08-01) — traduction uniquement, aucune logique métier à toucher. `DemoContext.tsx` (blockMutation) reste également à traiter comme une tâche transversale séparée si on veut une couverture i18n complète.
+Quatrième incrément (601 lignes) : en-tête (avec compte pluralisé catégories/produits), recherche, tri, grille de cartes (badge Défaut, compte produits, libellés aria modifier/supprimer), états vides (aucun résultat / aucune catégorie), dialogue formulaire complet (nom, description, icône, couleur, aperçu), dialogue de suppression, tous les toasts de mutation. Réutilise `card.productCount` (déjà défini pour les cartes) pour le total de produits affiché dans l'en-tête, évitant une clé dupliquée pour le même texte pluralisé.
+
+`PRESET_ICONS` (36 icônes de catégorie, ajoutées PR #61) n'est volontairement pas touché — ce sont des noms techniques d'icônes Lucide, pas du texte affiché à l'utilisateur.
+
+Test : `src/test/i18nCategoriesTranslations.test.ts` (96 assertions).
+
+## 6. Restant (pas encore fait)
+
+Customers, Suppliers, CashClosing, Billing — chacune sera traitée comme un incrément séparé (namespace + migration + tests + validation complète), suivant exactement la même méthode que ci-dessus. CashClosing en particulier demandera une attention accrue vu sa criticité (voir section P0.5 de l'audit du 2026-08-01) — traduction uniquement, aucune logique métier à toucher. `DemoContext.tsx` (blockMutation) reste également à traiter comme une tâche transversale séparée si on veut une couverture i18n complète.
 
 Toasts et messages d'erreur globaux (hors namespaces de page) et le test anti-chaînes-FR-codées-en-dur généralisé restent également à faire, une fois les 8 pages couvertes (le test générique n'a de sens qu'une fois qu'on sait exactement quelles pages sont "censées" être entièrement traduites vs. celles qui ne le sont pas encore).
 

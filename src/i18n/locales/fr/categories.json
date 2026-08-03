@@ -1,0 +1,66 @@
+{
+  "title": "Catégories",
+  "subtitle": "Organisez vos produits par catégorie",
+  "categoryCount_one": "{{count}} catégorie",
+  "categoryCount_other": "{{count}} catégories",
+  "newCategory": "Nouvelle catégorie",
+  "search": {
+    "placeholder": "Rechercher une catégorie..."
+  },
+  "sort": {
+    "byName": "Nom A-Z",
+    "byProducts": "Par produits",
+    "byDefault": "Par défaut"
+  },
+  "card": {
+    "defaultBadge": "Défaut",
+    "productCount_one": "{{count}} produit",
+    "productCount_other": "{{count}} produits",
+    "editAria": "Modifier la catégorie",
+    "deleteAria": "Supprimer la catégorie"
+  },
+  "noResults": {
+    "title": "Aucun résultat",
+    "description": "Aucune catégorie ne correspond à votre recherche",
+    "clearSearch": "Effacer la recherche"
+  },
+  "empty": {
+    "title": "Aucune catégorie",
+    "description": "Créez des catégories pour organiser vos produits",
+    "createFirst": "Créer une catégorie"
+  },
+  "formDialog": {
+    "editTitle": "Modifier la catégorie",
+    "newTitle": "Nouvelle catégorie",
+    "nameLabel": "Nom de la catégorie *",
+    "namePlaceholder": "Ex: Alimentaire, Boissons...",
+    "descriptionLabel": "Description",
+    "descriptionPlaceholder": "Décrivez les produits de cette catégorie...",
+    "iconLabel": "Icône",
+    "colorLabel": "Couleur",
+    "previewLabel": "Aperçu",
+    "previewDefaultName": "Nom de la catégorie",
+    "previewProductCount": "0 produits",
+    "submitSaving": "Enregistrement...",
+    "submitUpdate": "Enregistrer les modifications",
+    "submitCreate": "Créer la catégorie"
+  },
+  "deleteDialog": {
+    "title": "Supprimer cette catégorie ?",
+    "description": "Cette action est irréversible. Les produits associés ne seront pas supprimés mais n'auront plus de catégorie.",
+    "cancel": "Annuler",
+    "confirm": "Supprimer"
+  },
+  "toasts": {
+    "genericErrorTitle": "Erreur",
+    "createSuccess": "Catégorie créée avec succès",
+    "createRlsDescription": "Permission insuffisante. Seuls les administrateurs et managers peuvent créer des catégories.",
+    "createErrorDescription": "Impossible de créer la catégorie",
+    "updateSuccess": "Catégorie mise à jour",
+    "updateRlsDescription": "Permission insuffisante pour modifier cette catégorie.",
+    "updateErrorDescription": "Impossible de modifier la catégorie",
+    "deleteSuccess": "Catégorie supprimée",
+    "deleteRlsDescription": "Permission insuffisante pour supprimer cette catégorie.",
+    "deleteErrorDescription": "Impossible de supprimer la catégorie (elle contient peut-être des produits)"
+  }
+}
