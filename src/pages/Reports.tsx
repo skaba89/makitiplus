@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation, Trans } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -88,6 +89,7 @@ interface SupplierReport {
 }
 
 const Reports = () => {
+  const { t } = useTranslation("reports");
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -297,9 +299,9 @@ const Reports = () => {
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <BarChart3 className="h-12 w-12 text-muted-foreground mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Aucune organisation</h2>
+          <h2 className="text-xl font-semibold mb-2">{t("noOrganization.title")}</h2>
           <p className="text-muted-foreground">
-            Vous devez appartenir à une organisation pour voir les rapports.
+            {t("noOrganization.description")}
           </p>
         </div>
       </DashboardLayout>
@@ -323,16 +325,10 @@ const Reports = () => {
   // Payment distribution from RPC
   const paymentDistribution: { method: string; value: number }[] = reportsStats?.paymentBreakdown ?? [];
 
-  const paymentLabels: Record<string, string> = {
-    cash: "Espèces",
-    wave: "Wave",
-    orange_money: "Orange Money",
-    mtn_money: "MTN Money",
-    moov_money: "Moov Money",
-    mpesa: "M-Pesa",
-    card: "Carte",
-    credit: "Crédit",
-  };
+  const PAYMENT_METHOD_KEYS = ["cash", "wave", "orange_money", "mtn_money", "moov_money", "mpesa", "card", "credit"];
+  const paymentLabels: Record<string, string> = Object.fromEntries(
+    PAYMENT_METHOD_KEYS.map((method) => [method, t(`paymentLabels.${method}`)])
+  );
 
   // Daily sales for chart — from RPC (server-side generate_series)
   const dailySalesData: { date: string; ventes: number; transactions: number }[] = (() => {
@@ -351,31 +347,32 @@ const Reports = () => {
     });
   })();
 
-  // Supplier chart data
+  // Supplier chart data — clés techniques stables (indépendantes de la langue
+  // affichée) : le label visible vient de supplierChartConfig, pas du dataKey.
   const supplierChartData = (supplierReport || []).slice(0, 6).map((s) => ({
     name: s.name.length > 12 ? s.name.slice(0, 12) + "…" : s.name,
-    "Valeur stock (achat)": s.stock_value_at_cost,
-    "Valeur stock (vente)": s.stock_value_at_price,
+    purchaseValue: s.stock_value_at_cost,
+    saleValue: s.stock_value_at_price,
   }));
 
   const supplierChartConfig = {
-    "Valeur stock (achat)": {
-      label: "Valeur stock (achat)",
+    purchaseValue: {
+      label: t("supplierAnalytics.stockValueChart.purchaseValue"),
       color: "hsl(var(--primary))",
     },
-    "Valeur stock (vente)": {
-      label: "Valeur stock (vente)",
+    saleValue: {
+      label: t("supplierAnalytics.stockValueChart.saleValue"),
       color: "hsl(var(--success))",
     },
   };
 
   const chartConfig = {
     ventes: {
-      label: "Ventes",
+      label: t("charts.salesSeriesLabel"),
       color: "hsl(var(--primary))",
     },
     transactions: {
-      label: "Transactions",
+      label: t("stats.transactions.title"),
       color: "hsl(var(--success))",
     },
   };
@@ -387,10 +384,10 @@ const Reports = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">
-              Rapports
+              {t("title")}
             </h1>
             <p className="text-muted-foreground mt-1">
-              Analysez les performances de votre boutique
+              {t("subtitle")}
             </p>
           </div>
 
@@ -407,11 +404,11 @@ const Reports = () => {
               <TabsList className="flex flex-wrap">
                 <TabsTrigger value="day" className="gap-1.5">
                   <Calendar className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Aujourd'hui</span>
-                  <span className="sm:hidden">Jour</span>
+                  <span className="hidden sm:inline">{t("periods.todayFull")}</span>
+                  <span className="sm:hidden">{t("periods.todayShort")}</span>
                 </TabsTrigger>
-                <TabsTrigger value="week" className="text-xs sm:text-sm">Semaine</TabsTrigger>
-                <TabsTrigger value="month" className="text-xs sm:text-sm">Mois</TabsTrigger>
+                <TabsTrigger value="week" className="text-xs sm:text-sm">{t("periods.week")}</TabsTrigger>
+                <TabsTrigger value="month" className="text-xs sm:text-sm">{t("periods.month")}</TabsTrigger>
               </TabsList>
             </Tabs>
 
@@ -420,7 +417,7 @@ const Reports = () => {
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
                   <Download className="mr-2 h-4 w-4" />
-                  Exporter
+                  {t("export.button")}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -437,17 +434,17 @@ const Reports = () => {
                       });
                       if (sales && sales.length > 0) {
                         exportSalesToCSV(sales as Sale[], currency.displaySymbol || currency.symbol);
-                        toast({ title: "Export réussi", description: `${sales.length} ventes exportées` });
+                        toast({ title: t("export.salesSuccessTitle"), description: t("export.salesSuccessDescription", { count: sales.length }) });
                       } else {
-                        toast({ variant: "destructive", title: "Aucune donnée", description: "Pas de ventes à exporter" });
+                        toast({ variant: "destructive", title: t("export.noSalesTitle"), description: t("export.noSalesDescription") });
                       }
                     } catch {
-                      toast({ variant: "destructive", title: "Erreur", description: "Impossible d'exporter les ventes" });
+                      toast({ variant: "destructive", title: t("export.salesErrorTitle"), description: t("export.salesErrorDescription") });
                     }
                   }}
                 >
                   <FileSpreadsheet className="mr-2 h-4 w-4" />
-                  Ventes (CSV)
+                  {t("export.salesCsv")}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={async () => {
@@ -461,17 +458,17 @@ const Reports = () => {
                       });
                       if (expenses && expenses.length > 0) {
                         exportExpensesToCSV(expenses as Expense[], currency.displaySymbol || currency.symbol);
-                        toast({ title: "Export réussi", description: `${expenses.length} dépenses exportées` });
+                        toast({ title: t("export.expensesSuccessTitle"), description: t("export.expensesSuccessDescription", { count: expenses.length }) });
                       } else {
-                        toast({ variant: "destructive", title: "Aucune donnée", description: "Pas de dépenses à exporter" });
+                        toast({ variant: "destructive", title: t("export.noExpensesTitle"), description: t("export.noExpensesDescription") });
                       }
                     } catch {
-                      toast({ variant: "destructive", title: "Erreur", description: "Impossible d'exporter les dépenses" });
+                      toast({ variant: "destructive", title: t("export.expensesErrorTitle"), description: t("export.expensesErrorDescription") });
                     }
                   }}
                 >
                   <FileSpreadsheet className="mr-2 h-4 w-4" />
-                  Dépenses (CSV)
+                  {t("export.expensesCsv")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -484,7 +481,7 @@ const Reports = () => {
           <Card className="card-elevated">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Chiffre d'affaires
+                {t("stats.revenue.title")}
               </CardTitle>
               <div className="p-2 rounded-lg bg-primary/10">
                 <ShoppingCart className="h-4 w-4 text-primary" />
@@ -494,7 +491,7 @@ const Reports = () => {
               <div className="text-lg sm:text-2xl font-bold">{formatDisplayPrice(totalSales, { showOriginal: isConverted })}</div>
               <div className="flex items-center gap-1 mt-1">
                 <ArrowUpRight className="h-4 w-4 text-success" />
-                <span className="text-success text-sm">{totalTransactions} ventes</span>
+                <span className="text-success text-sm">{t("stats.revenue.salesCount", { count: totalTransactions })}</span>
               </div>
             </CardContent>
           </Card>
@@ -502,7 +499,7 @@ const Reports = () => {
           <Card className="card-elevated">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Transactions
+                {t("stats.transactions.title")}
               </CardTitle>
               <div className="p-2 rounded-lg bg-success/10">
                 <TrendingUp className="h-4 w-4 text-success" />
@@ -512,8 +509,8 @@ const Reports = () => {
               <div className="text-lg sm:text-2xl font-bold">{totalTransactions}</div>
               <div className="text-muted-foreground text-sm mt-1">
                 {totalTransactions > 0
-                  ? `Panier moyen: ${formatDisplayPrice(Math.round(totalSales / totalTransactions), { showOriginal: isConverted })}`
-                  : "Aucune vente"}
+                  ? t("stats.transactions.averageBasket", { amount: formatDisplayPrice(Math.round(totalSales / totalTransactions), { showOriginal: isConverted }) })
+                  : t("stats.transactions.noSales")}
               </div>
             </CardContent>
           </Card>
@@ -521,7 +518,7 @@ const Reports = () => {
           <Card className="card-elevated">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Dépenses
+                {t("stats.expenses.title")}
               </CardTitle>
               <div className="p-2 rounded-lg bg-destructive/10">
                 <Wallet className="h-4 w-4 text-destructive" />
@@ -532,7 +529,7 @@ const Reports = () => {
               <div className="flex items-center gap-1 mt-1">
                 <ArrowDownRight className="h-4 w-4 text-destructive" />
                 <span className="text-destructive text-sm">
-                  {reportsStats?.expenseCount || 0} dépenses
+                  {t("stats.expenses.count", { count: reportsStats?.expenseCount || 0 })}
                 </span>
               </div>
             </CardContent>
@@ -541,7 +538,7 @@ const Reports = () => {
           <Card className="card-elevated">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Résultat net
+                {t("stats.netResult.title")}
               </CardTitle>
               <div className={`p-2 rounded-lg ${netProfit >= 0 ? "bg-success/10" : "bg-destructive/10"}`}>
                 <Package className={`h-4 w-4 ${netProfit >= 0 ? "text-success" : "text-destructive"}`} />
@@ -552,10 +549,10 @@ const Reports = () => {
                 {formatDisplayPrice(netProfit, { showOriginal: isConverted })}
               </div>
               <div className="text-muted-foreground text-sm mt-1">
-                Ventes - Dépenses
+                {t("stats.netResult.subtitle")}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Indicatif. Ne tient pas compte des coûts d'achat.
+                {t("stats.netResult.disclaimer")}
               </p>
             </CardContent>
           </Card>
@@ -565,11 +562,11 @@ const Reports = () => {
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <DollarSign className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold">Rentabilité</h2>
+            <h2 className="text-lg font-semibold">{t("profitability.title")}</h2>
             <Badge variant="outline" className="text-xs">
               {totalTransactions > 0
-                ? `${totalTransactions} vente(s)`
-                : "Aucune vente"}
+                ? t("profitability.salesBadge", { count: totalTransactions })
+                : t("profitability.noSales")}
             </Badge>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -577,7 +574,7 @@ const Reports = () => {
             <Card className="card-elevated border-primary/30">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Marge brute
+                  {t("profitability.grossMargin.title")}
                 </CardTitle>
                 <div className="p-2 rounded-lg bg-primary/10">
                   <TrendingUp className="h-4 w-4 text-primary" />
@@ -588,11 +585,11 @@ const Reports = () => {
                   {formatDisplayPrice(grossMargin, { showOriginal: isConverted })}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
-                  Ventes - Coût des marchandises
+                  {t("profitability.grossMargin.subtitle")}
                 </div>
                 {totalCost > 0 && (
                   <div className="text-xs text-muted-foreground mt-0.5">
-                    Coût: {formatDisplayPrice(totalCost, { showOriginal: isConverted })}
+                    {t("profitability.grossMargin.cost", { amount: formatDisplayPrice(totalCost, { showOriginal: isConverted }) })}
                   </div>
                 )}
               </CardContent>
@@ -602,7 +599,7 @@ const Reports = () => {
             <Card className="card-elevated border-primary/30">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Taux de marge
+                  {t("profitability.marginRate.title")}
                 </CardTitle>
                 <div className="p-2 rounded-lg bg-primary/10">
                   <TrendingUp className="h-4 w-4 text-primary" />
@@ -616,12 +613,12 @@ const Reports = () => {
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
                   {grossMarginPct >= 30
-                    ? "Excellente marge"
+                    ? t("profitability.marginRate.excellent")
                     : grossMarginPct >= 10
-                    ? "Marge correcte"
+                    ? t("profitability.marginRate.correct")
                     : grossMarginPct > 0
-                    ? "Marge faible — vérifiez vos prix"
-                    : "Marge négative ou nulle"}
+                    ? t("profitability.marginRate.low")
+                    : t("profitability.marginRate.negative")}
                 </div>
               </CardContent>
             </Card>
@@ -630,7 +627,7 @@ const Reports = () => {
             <Card className={`card-elevated ${totalDiscount > 0 ? "border-orange-500/30" : ""}`}>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Remises totales
+                  {t("profitability.discounts.title")}
                 </CardTitle>
                 <div className="p-2 rounded-lg bg-orange-500/10">
                   <Tag className="h-4 w-4 text-orange-600" />
@@ -642,8 +639,8 @@ const Reports = () => {
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
                   {totalSales > 0
-                    ? `${((totalDiscount / (totalSales + totalDiscount)) * 100).toFixed(1)}% du CA potentiel`
-                    : "Aucune remise"}
+                    ? t("profitability.discounts.percentOfPotential", { percent: ((totalDiscount / (totalSales + totalDiscount)) * 100).toFixed(1) })
+                    : t("profitability.discounts.none")}
                 </div>
               </CardContent>
             </Card>
@@ -654,7 +651,7 @@ const Reports = () => {
             }`}>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Bénéfice net réel
+                  {t("profitability.netProfitReal.title")}
                 </CardTitle>
                 <div className={`p-2 rounded-lg ${netProfitWithMargin >= 0 ? "bg-success/10" : "bg-destructive/10"}`}>
                   <DollarSign className={`h-4 w-4 ${netProfitWithMargin >= 0 ? "text-success" : "text-destructive"}`} />
@@ -667,12 +664,12 @@ const Reports = () => {
                   {netProfitWithMargin >= 0 ? "+" : ""}{formatDisplayPrice(netProfitWithMargin, { showOriginal: isConverted })}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
-                  Marge brute - Dépenses
+                  {t("profitability.netProfitReal.subtitle")}
                 </div>
                 <div className="text-xs text-muted-foreground mt-0.5">
                   {netProfitWithMargin !== netProfit && (
-                    <span title="Écart vs calcul simple (CA - Dépenses)">
-                      vs {formatDisplayPrice(netProfit, { showOriginal: isConverted })} (CA - Dép.)
+                    <span title={t("profitability.netProfitReal.vsSimpleTooltip")}>
+                      {t("profitability.netProfitReal.vsSimple", { amount: formatDisplayPrice(netProfit, { showOriginal: isConverted }) })}
                     </span>
                   )}
                 </div>
@@ -686,7 +683,7 @@ const Reports = () => {
           {/* Sales Chart */}
           <Card className="card-elevated">
             <CardHeader>
-              <CardTitle>Évolution des ventes</CardTitle>
+              <CardTitle>{t("charts.salesEvolution")}</CardTitle>
             </CardHeader>
             <CardContent>
               <ChartContainer config={chartConfig} className="h-[220px] sm:h-[300px]">
@@ -709,7 +706,7 @@ const Reports = () => {
           {/* Payment Distribution */}
           <Card className="card-elevated">
             <CardHeader>
-              <CardTitle>Répartition par mode de paiement</CardTitle>
+              <CardTitle>{t("charts.paymentDistribution.title")}</CardTitle>
             </CardHeader>
             <CardContent>
               {paymentDistribution.length > 0 ? (
@@ -738,7 +735,7 @@ const Reports = () => {
                 </div>
               ) : (
                 <div className="h-[220px] sm:h-[300px] flex items-center justify-center text-muted-foreground">
-                  Aucune donnée disponible
+                  {t("charts.paymentDistribution.noData")}
                 </div>
               )}
             </CardContent>
@@ -748,7 +745,7 @@ const Reports = () => {
         {/* Top Products */}
         <Card className="card-elevated">
           <CardHeader>
-            <CardTitle>Produits les plus vendus</CardTitle>
+            <CardTitle>{t("topProducts.title")}</CardTitle>
           </CardHeader>
           <CardContent>
             {reportsStats?.topProducts && reportsStats.topProducts.length > 0 ? (
@@ -764,7 +761,7 @@ const Reports = () => {
                     <div className="flex-1">
                       <p className="font-medium">{product.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        {product.quantity} vendus
+                        {t("topProducts.sold", { count: product.quantity })}
                       </p>
                     </div>
                     <div className="text-right">
@@ -778,7 +775,7 @@ const Reports = () => {
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Aucune vente pour cette période</p>
+                <p>{t("topProducts.empty")}</p>
               </div>
             )}
           </CardContent>
@@ -792,9 +789,9 @@ const Reports = () => {
               <Truck className="h-5 w-5 text-blue-600" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold">Analyse Fournisseurs</h2>
+              <h2 className="text-lg font-semibold">{t("supplierAnalytics.title")}</h2>
               <p className="text-sm text-muted-foreground">
-                Valeur du stock par fournisseur et répartition de l'inventaire
+                {t("supplierAnalytics.subtitle")}
               </p>
             </div>
           </div>
@@ -805,9 +802,9 @@ const Reports = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <DollarSign className="h-4 w-4" />
-                  Valeur du stock par fournisseur
+                  {t("supplierAnalytics.stockValueChart.title")}
                 </CardTitle>
-                <CardDescription>Comparaison prix d'achat vs prix de vente</CardDescription>
+                <CardDescription>{t("supplierAnalytics.stockValueChart.description")}</CardDescription>
               </CardHeader>
               <CardContent>
                 {supplierChartData.length > 0 ? (
@@ -817,16 +814,16 @@ const Reports = () => {
                         <XAxis type="number" tickFormatter={(value) => `${value / 1000}k`} />
                         <YAxis type="category" dataKey="name" width={100} />
                         <ChartTooltip content={<ChartTooltipContent />} />
-                        <Bar dataKey="Valeur stock (achat)" fill="var(--color-Valeur stock (achat))" radius={[0, 4, 4, 0]} />
-                        <Bar dataKey="Valeur stock (vente)" fill="var(--color-Valeur stock (vente))" radius={[0, 4, 4, 0]} />
+                        <Bar dataKey="purchaseValue" fill="var(--color-purchaseValue)" radius={[0, 4, 4, 0]} />
+                        <Bar dataKey="saleValue" fill="var(--color-saleValue)" radius={[0, 4, 4, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   </ChartContainer>
                 ) : (
                   <div className="h-[280px] flex flex-col items-center justify-center text-muted-foreground">
                     <Truck className="h-10 w-10 mb-3 opacity-50" />
-                    <p>Aucun fournisseur avec produits</p>
-                    <p className="text-sm">Associez des produits à vos fournisseurs</p>
+                    <p>{t("supplierAnalytics.stockValueChart.empty1")}</p>
+                    <p className="text-sm">{t("supplierAnalytics.stockValueChart.empty2")}</p>
                   </div>
                 )}
               </CardContent>
@@ -835,9 +832,9 @@ const Reports = () => {
             {/* Supplier Detail Table */}
             <Card className="card-elevated">
               <CardHeader>
-                <CardTitle>Détail par fournisseur</CardTitle>
+                <CardTitle>{t("supplierAnalytics.detailTable.title")}</CardTitle>
                 <CardDescription>
-                  Produits, stock et valeur par fournisseur
+                  {t("supplierAnalytics.detailTable.description")}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -846,10 +843,10 @@ const Reports = () => {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Fournisseur</TableHead>
-                          <TableHead className="text-center">Produits</TableHead>
-                          <TableHead className="text-center">Stock</TableHead>
-                          <TableHead className="text-right">Valeur (achat)</TableHead>
+                          <TableHead>{t("supplierAnalytics.columns.supplier")}</TableHead>
+                          <TableHead className="text-center">{t("supplierAnalytics.columns.products")}</TableHead>
+                          <TableHead className="text-center">{t("supplierAnalytics.columns.stock")}</TableHead>
+                          <TableHead className="text-right">{t("supplierAnalytics.columns.purchaseValue")}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -865,7 +862,7 @@ const Reports = () => {
                         ))}
                         {/* Total row */}
                         <TableRow className="font-bold border-t-2">
-                          <TableCell>Total</TableCell>
+                          <TableCell>{t("supplierAnalytics.total")}</TableCell>
                           <TableCell className="text-center">
                             {supplierReport.reduce((s, r) => s + r.product_count, 0)}
                           </TableCell>
@@ -882,7 +879,7 @@ const Reports = () => {
                 ) : (
                   <div className="py-8 text-center text-muted-foreground">
                     <Truck className="h-10 w-10 mx-auto mb-3 opacity-50" />
-                    <p>Aucune donnée fournisseur</p>
+                    <p>{t("supplierAnalytics.detailTable.empty")}</p>
                   </div>
                 )}
               </CardContent>
@@ -895,14 +892,20 @@ const Reports = () => {
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium text-amber-700 dark:text-amber-400 flex items-center gap-2">
                   <Package className="h-4 w-4" />
-                  Produits sans fournisseur
+                  {t("orphanProducts.title")}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground">
-                  <strong>{orphanProducts.count}</strong> produit(s) ne sont associés à aucun fournisseur,
-                  représentant une valeur de stock de <strong>{formatDisplayPrice(orphanProducts.totalValue, { showOriginal: isConverted })}</strong>.
-                  Associez-les à un fournisseur pour un meilleur suivi de vos approvisionnements.
+                  <Trans
+                    i18nKey="orphanProducts.description"
+                    t={t}
+                    values={{
+                      count: orphanProducts.count,
+                      value: formatDisplayPrice(orphanProducts.totalValue, { showOriginal: isConverted }),
+                    }}
+                    components={{ strong: <strong /> }}
+                  />
                 </p>
               </CardContent>
             </Card>
@@ -924,13 +927,13 @@ const Reports = () => {
               <CardContent className="flex items-center gap-3 p-4">
                 <Lock className="h-5 w-5 text-muted-foreground shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium">Rapports avancés</p>
+                  <p className="text-sm font-medium">{t("advancedReports.lockedTitle")}</p>
                   <p className="text-xs text-muted-foreground">
-                    Les KPI détaillés par vendeur, catégorie et produit sont disponibles à partir du plan Croissance.
+                    {t("advancedReports.lockedDescription")}
                   </p>
                 </div>
                 <Button size="sm" variant="outline" className="shrink-0" onClick={() => navigate("/dashboard/billing")}>
-                  Upgrader
+                  {t("advancedReports.upgradeButton")}
                 </Button>
               </CardContent>
             </Card>

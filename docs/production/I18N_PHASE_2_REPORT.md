@@ -32,9 +32,19 @@ Namespace `pricing` créé (`src/i18n/locales/{fr,en}/pricing.json`), page migr�
 
 Test : `src/test/i18nPricingTranslations.test.ts` (41 assertions : résolution de toutes les clés utilisées en fr/en, alignement des ressources, absence de chaîne FR codée en dur résiduelle sur les libellés visibles).
 
-## 3. Restant (pas encore fait)
+## 3. Reports.tsx (fait)
 
-Reports, Products, Categories, Customers, Suppliers, CashClosing, Billing — chacune sera traitée comme un incrément séparé (namespace + migration + tests + validation complète), suivant exactement la même méthode que Pricing.tsx ci-dessus. CashClosing en particulier demandera une attention accrue vu sa criticité (voir section P0.5 de l'audit du 2026-08-01) — traduction uniquement, aucune logique métier à toucher.
+Deuxième incrément — la plus volumineuse des 8 pages (950 lignes : cartes de stats, section rentabilité, 2 graphiques Recharts, tableau fournisseurs, alerte produits orphelins). Seule la page elle-même est migrée, pas ses composants enfants importés (`ProductKpisCard`, `CategoryKpisCard`, `SellerKpisCard`, `EnhancedDashboardStats`) — même principe que POS.tsx/Phase 1.5, ce sont des unités de travail séparées.
+
+Point d'attention corrigé pendant la migration : le graphique "Valeur du stock par fournisseur" utilisait le libellé français affiché ("Valeur stock (achat)") à la fois comme `dataKey` de la donnée, comme clé de `ChartConfig`, et comme variable CSS générée (`--color-Valeur stock (achat)`). Changer de langue aurait cassé le graphique (barres invisibles, faute de correspondance dataKey/CSS var). Corrigé en introduisant des clés techniques stables et indépendantes de la langue (`purchaseValue`/`saleValue`), le libellé traduit ne vivant plus que dans `ChartConfig.label`.
+
+Un message combinant texte et mise en emphase (`<strong>`) — l'alerte "produits sans fournisseur" — utilise le composant `Trans` de `react-i18next` plutôt qu'une interpolation de chaîne brute, premier usage de `Trans` dans ce dépôt.
+
+Test : `src/test/i18nReportsTranslations.test.ts` (166 assertions, incluant une vérification anti-régression spécifique sur les clés techniques du graphique fournisseurs et un scan anti-chaîne-FR-codée-en-dur sur tout le JSX de la page).
+
+## 4. Restant (pas encore fait)
+
+Products, Categories, Customers, Suppliers, CashClosing, Billing — chacune sera traitée comme un incrément séparé (namespace + migration + tests + validation complète), suivant exactement la même méthode que Pricing.tsx/Reports.tsx ci-dessus. CashClosing en particulier demandera une attention accrue vu sa criticité (voir section P0.5 de l'audit du 2026-08-01) — traduction uniquement, aucune logique métier à toucher.
 
 Toasts et messages d'erreur globaux (hors namespaces de page) et le test anti-chaînes-FR-codées-en-dur généralisé restent également à faire, une fois les 8 pages couvertes (le test générique n'a de sens qu'une fois qu'on sait exactement quelles pages sont "censées" être entièrement traduites vs. celles qui ne le sont pas encore).
 

@@ -1,0 +1,129 @@
+{
+  "title": "Rapports",
+  "subtitle": "Analysez les performances de votre boutique",
+  "periods": {
+    "todayFull": "Aujourd'hui",
+    "todayShort": "Jour",
+    "week": "Semaine",
+    "month": "Mois"
+  },
+  "export": {
+    "button": "Exporter",
+    "salesCsv": "Ventes (CSV)",
+    "expensesCsv": "Dépenses (CSV)",
+    "salesSuccessTitle": "Export réussi",
+    "salesSuccessDescription": "{{count}} ventes exportées",
+    "expensesSuccessTitle": "Export réussi",
+    "expensesSuccessDescription": "{{count}} dépenses exportées",
+    "noSalesTitle": "Aucune donnée",
+    "noSalesDescription": "Pas de ventes à exporter",
+    "noExpensesTitle": "Aucune donnée",
+    "noExpensesDescription": "Pas de dépenses à exporter",
+    "salesErrorTitle": "Erreur",
+    "salesErrorDescription": "Impossible d'exporter les ventes",
+    "expensesErrorTitle": "Erreur",
+    "expensesErrorDescription": "Impossible d'exporter les dépenses"
+  },
+  "noOrganization": {
+    "title": "Aucune organisation",
+    "description": "Vous devez appartenir à une organisation pour voir les rapports."
+  },
+  "stats": {
+    "revenue": { "title": "Chiffre d'affaires", "salesCount": "{{count}} ventes" },
+    "transactions": {
+      "title": "Transactions",
+      "averageBasket": "Panier moyen: {{amount}}",
+      "noSales": "Aucune vente"
+    },
+    "expenses": { "title": "Dépenses", "count": "{{count}} dépenses" },
+    "netResult": {
+      "title": "Résultat net",
+      "subtitle": "Ventes - Dépenses",
+      "disclaimer": "Indicatif. Ne tient pas compte des coûts d'achat."
+    }
+  },
+  "profitability": {
+    "title": "Rentabilité",
+    "salesBadge": "{{count}} vente(s)",
+    "noSales": "Aucune vente",
+    "grossMargin": {
+      "title": "Marge brute",
+      "subtitle": "Ventes - Coût des marchandises",
+      "cost": "Coût: {{amount}}"
+    },
+    "marginRate": {
+      "title": "Taux de marge",
+      "excellent": "Excellente marge",
+      "correct": "Marge correcte",
+      "low": "Marge faible — vérifiez vos prix",
+      "negative": "Marge négative ou nulle"
+    },
+    "discounts": {
+      "title": "Remises totales",
+      "percentOfPotential": "{{percent}}% du CA potentiel",
+      "none": "Aucune remise"
+    },
+    "netProfitReal": {
+      "title": "Bénéfice net réel",
+      "subtitle": "Marge brute - Dépenses",
+      "vsSimple": "vs {{amount}} (CA - Dép.)",
+      "vsSimpleTooltip": "Écart vs calcul simple (CA - Dépenses)"
+    }
+  },
+  "charts": {
+    "salesEvolution": "Évolution des ventes",
+    "salesSeriesLabel": "Ventes",
+    "paymentDistribution": {
+      "title": "Répartition par mode de paiement",
+      "noData": "Aucune donnée disponible"
+    }
+  },
+  "paymentLabels": {
+    "cash": "Espèces",
+    "wave": "Wave",
+    "orange_money": "Orange Money",
+    "mtn_money": "MTN Money",
+    "moov_money": "Moov Money",
+    "mpesa": "M-Pesa",
+    "card": "Carte",
+    "credit": "Crédit"
+  },
+  "topProducts": {
+    "title": "Produits les plus vendus",
+    "sold": "{{count}} vendus",
+    "empty": "Aucune vente pour cette période"
+  },
+  "supplierAnalytics": {
+    "title": "Analyse Fournisseurs",
+    "subtitle": "Valeur du stock par fournisseur et répartition de l'inventaire",
+    "stockValueChart": {
+      "title": "Valeur du stock par fournisseur",
+      "description": "Comparaison prix d'achat vs prix de vente",
+      "empty1": "Aucun fournisseur avec produits",
+      "empty2": "Associez des produits à vos fournisseurs",
+      "purchaseValue": "Valeur stock (achat)",
+      "saleValue": "Valeur stock (vente)"
+    },
+    "detailTable": {
+      "title": "Détail par fournisseur",
+      "description": "Produits, stock et valeur par fournisseur",
+      "empty": "Aucune donnée fournisseur"
+    },
+    "columns": {
+      "supplier": "Fournisseur",
+      "products": "Produits",
+      "stock": "Stock",
+      "purchaseValue": "Valeur (achat)"
+    },
+    "total": "Total"
+  },
+  "orphanProducts": {
+    "title": "Produits sans fournisseur",
+    "description": "<strong>{{count}}</strong> produit(s) ne sont associés à aucun fournisseur, représentant une valeur de stock de <strong>{{value}}</strong>. Associez-les à un fournisseur pour un meilleur suivi de vos approvisionnements."
+  },
+  "advancedReports": {
+    "lockedTitle": "Rapports avancés",
+    "lockedDescription": "Les KPI détaillés par vendeur, catégorie et produit sont disponibles à partir du plan Croissance.",
+    "upgradeButton": "Upgrader"
+  }
+}

@@ -1,0 +1,129 @@
+{
+  "title": "Reports",
+  "subtitle": "Analyze your shop's performance",
+  "periods": {
+    "todayFull": "Today",
+    "todayShort": "Day",
+    "week": "Week",
+    "month": "Month"
+  },
+  "export": {
+    "button": "Export",
+    "salesCsv": "Sales (CSV)",
+    "expensesCsv": "Expenses (CSV)",
+    "salesSuccessTitle": "Export successful",
+    "salesSuccessDescription": "{{count}} sales exported",
+    "expensesSuccessTitle": "Export successful",
+    "expensesSuccessDescription": "{{count}} expenses exported",
+    "noSalesTitle": "No data",
+    "noSalesDescription": "No sales to export",
+    "noExpensesTitle": "No data",
+    "noExpensesDescription": "No expenses to export",
+    "salesErrorTitle": "Error",
+    "salesErrorDescription": "Unable to export sales",
+    "expensesErrorTitle": "Error",
+    "expensesErrorDescription": "Unable to export expenses"
+  },
+  "noOrganization": {
+    "title": "No organization",
+    "description": "You must belong to an organization to view reports."
+  },
+  "stats": {
+    "revenue": { "title": "Revenue", "salesCount": "{{count}} sales" },
+    "transactions": {
+      "title": "Transactions",
+      "averageBasket": "Average basket: {{amount}}",
+      "noSales": "No sales"
+    },
+    "expenses": { "title": "Expenses", "count": "{{count}} expenses" },
+    "netResult": {
+      "title": "Net result",
+      "subtitle": "Sales - Expenses",
+      "disclaimer": "Indicative. Does not account for purchase costs."
+    }
+  },
+  "profitability": {
+    "title": "Profitability",
+    "salesBadge": "{{count}} sale(s)",
+    "noSales": "No sales",
+    "grossMargin": {
+      "title": "Gross margin",
+      "subtitle": "Sales - Cost of goods",
+      "cost": "Cost: {{amount}}"
+    },
+    "marginRate": {
+      "title": "Margin rate",
+      "excellent": "Excellent margin",
+      "correct": "Fair margin",
+      "low": "Low margin — check your prices",
+      "negative": "Negative or zero margin"
+    },
+    "discounts": {
+      "title": "Total discounts",
+      "percentOfPotential": "{{percent}}% of potential revenue",
+      "none": "No discounts"
+    },
+    "netProfitReal": {
+      "title": "Actual net profit",
+      "subtitle": "Gross margin - Expenses",
+      "vsSimple": "vs {{amount}} (Revenue - Exp.)",
+      "vsSimpleTooltip": "Difference vs. simple calculation (Revenue - Expenses)"
+    }
+  },
+  "charts": {
+    "salesEvolution": "Sales trend",
+    "salesSeriesLabel": "Sales",
+    "paymentDistribution": {
+      "title": "Breakdown by payment method",
+      "noData": "No data available"
+    }
+  },
+  "paymentLabels": {
+    "cash": "Cash",
+    "wave": "Wave",
+    "orange_money": "Orange Money",
+    "mtn_money": "MTN Money",
+    "moov_money": "Moov Money",
+    "mpesa": "M-Pesa",
+    "card": "Card",
+    "credit": "Credit"
+  },
+  "topProducts": {
+    "title": "Best-selling products",
+    "sold": "{{count}} sold",
+    "empty": "No sales for this period"
+  },
+  "supplierAnalytics": {
+    "title": "Supplier Analytics",
+    "subtitle": "Stock value by supplier and inventory breakdown",
+    "stockValueChart": {
+      "title": "Stock value by supplier",
+      "description": "Purchase price vs. sale price comparison",
+      "empty1": "No supplier with products",
+      "empty2": "Link products to your suppliers",
+      "purchaseValue": "Stock value (purchase)",
+      "saleValue": "Stock value (sale)"
+    },
+    "detailTable": {
+      "title": "Supplier detail",
+      "description": "Products, stock and value by supplier",
+      "empty": "No supplier data"
+    },
+    "columns": {
+      "supplier": "Supplier",
+      "products": "Products",
+      "stock": "Stock",
+      "purchaseValue": "Value (purchase)"
+    },
+    "total": "Total"
+  },
+  "orphanProducts": {
+    "title": "Products without a supplier",
+    "description": "<strong>{{count}}</strong> product(s) are not linked to any supplier, representing a stock value of <strong>{{value}}</strong>. Link them to a supplier for better tracking of your purchases."
+  },
+  "advancedReports": {
+    "lockedTitle": "Advanced reports",
+    "lockedDescription": "Detailed KPIs by seller, category and product are available from the Croissance plan.",
+    "upgradeButton": "Upgrade"
+  }
+}
