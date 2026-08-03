@@ -1,0 +1,69 @@
+{
+  "title": "Produits",
+  "subtitle": "Gérez votre inventaire de produits",
+  "actions": {
+    "importCsv": "Importer CSV",
+    "export": "Exporter",
+    "addProduct": "Ajouter un produit"
+  },
+  "stockAlerts": {
+    "outOfStock_one": "{{count}} produit en rupture",
+    "outOfStock_other": "{{count}} produits en rupture",
+    "lowStock_one": "{{count}} produit en stock bas",
+    "lowStock_other": "{{count}} produits en stock bas"
+  },
+  "search": {
+    "placeholder": "Rechercher un produit..."
+  },
+  "storeFilter": {
+    "allStoresPlaceholder": "Tous les magasins",
+    "allStores": "Tous les magasins",
+    "currentStore": "Magasin courant ({{name}})"
+  },
+  "categoryFilter": {
+    "all": "Toutes ({{count}})"
+  },
+  "empty": {
+    "title": "Aucun produit",
+    "description": "Commencez par ajouter votre premier produit",
+    "addFirst": "Ajouter un produit"
+  },
+  "pagination": {
+    "showing": "{{from}}–{{to}} sur {{total}}",
+    "previous": "Précédent",
+    "next": "Suivant"
+  },
+  "form": {
+    "editTitle": "Modifier le produit",
+    "newTitle": "Nouveau produit"
+  },
+  "deleteDialog": {
+    "title": "Supprimer le produit?",
+    "description": "Cette action est irréversible. Les ventes associées seront conservées.",
+    "cancel": "Annuler",
+    "confirm": "Supprimer"
+  },
+  "toasts": {
+    "genericErrorTitle": "Erreur",
+    "createSuccess": "Produit créé avec succès",
+    "createLimitTitle": "Limite atteinte",
+    "createLimitDescription": "Limite de produits atteinte pour votre plan. Upgradez votre abonnement.",
+    "createRlsDescription": "Permission insuffisante. Seuls les administrateurs et managers peuvent créer des produits.",
+    "createErrorDescription": "Impossible de créer le produit: {{message}}",
+    "updateSuccess": "Produit mis à jour",
+    "updateRlsDescription": "Permission insuffisante pour modifier ce produit.",
+    "updateErrorDescription": "Impossible de modifier le produit: {{message}}",
+    "deleteSuccess": "Produit supprimé",
+    "deleteRlsDescription": "Permission insuffisante pour supprimer ce produit.",
+    "deleteErrorDescription": "Impossible de supprimer le produit: {{message}}",
+    "stockRestockSuccess": "Réapprovisionnement enregistré",
+    "stockLossSuccess": "Perte enregistrée",
+    "stockAdjustedSuccess": "Stock ajusté",
+    "stockAdjustErrorDescription": "Impossible d'ajuster le stock",
+    "exportSuccessTitle": "Export réussi",
+    "exportSuccessDescription": "{{count}} produits exportés",
+    "exportEmptyTitle": "Aucun produit",
+    "exportEmptyDescription": "Pas de produits à exporter",
+    "exportErrorDescription": "Impossible d'exporter les produits"
+  }
+}

@@ -42,9 +42,19 @@ Un message combinant texte et mise en emphase (`<strong>`) — l'alerte "produit
 
 Test : `src/test/i18nReportsTranslations.test.ts` (166 assertions, incluant une vérification anti-régression spécifique sur les clés techniques du graphique fournisseurs et un scan anti-chaîne-FR-codée-en-dur sur tout le JSX de la page).
 
-## 4. Restant (pas encore fait)
+## 4. Products.tsx (fait)
 
-Products, Categories, Customers, Suppliers, CashClosing, Billing — chacune sera traitée comme un incrément séparé (namespace + migration + tests + validation complète), suivant exactement la même méthode que Pricing.tsx/Reports.tsx ci-dessus. CashClosing en particulier demandera une attention accrue vu sa criticité (voir section P0.5 de l'audit du 2026-08-01) — traduction uniquement, aucune logique métier à toucher.
+Troisième incrément (743 lignes) : en-tête, actions (import CSV/export/ajouter), bandeau d'alertes stock (rupture/stock bas, avec pluralisation `_one`/`_other`), recherche, filtre magasin, filtres catégorie, liste vide, pagination, dialogue formulaire, dialogue de suppression. Composants enfants (`ProductList`, `ProductForm`, `StockAdjustDialog`, `ProductImportDialog`, `StockMovementHistory`) hors périmètre.
+
+**Toasts et messages d'erreur** (demandés explicitement par la section 7) : toutes les mutations (créer/modifier/supprimer un produit, ajuster le stock, exporter) sont couvertes — succès, erreur RLS, erreur générique avec message d'origine interpolé, limite de plan atteinte.
+
+**Écart connu, documenté et volontairement hors périmètre** : `blockMutation()` (`src/contexts/DemoContext.tsx`) affiche un toast "Mode démo" en français codé en dur, mais c'est un fichier **partagé par toutes les pages de l'app** (pas seulement Products.tsx) — le traiter correctement demanderait de le migrer une seule fois pour toutes les pages qui l'utilisent, une tâche à part, pas un sous-produit de la migration d'une page individuelle.
+
+Test : `src/test/i18nProductsTranslations.test.ts` (93 assertions). Au passage, correction d'un bug de regex dans le test anti-chaîne-codée-en-dur (aussi corrigé rétroactivement dans `i18nReportsTranslations.test.ts`) : le pattern `[^<{]` traversait les retours à la ligne, donc un générique TypeScript comme `useState<Product | null>` fournissait un `>` qui faisait dériver le match jusqu'au prochain `<` bien plus loin dans le fichier, engloutissant du code et des commentaires sans rapport. Corrigé en `[^<{\n]` (borné à une seule ligne).
+
+## 5. Restant (pas encore fait)
+
+Categories, Customers, Suppliers, CashClosing, Billing — chacune sera traitée comme un incrément séparé (namespace + migration + tests + validation complète), suivant exactement la même méthode que ci-dessus. CashClosing en particulier demandera une attention accrue vu sa criticité (voir section P0.5 de l'audit du 2026-08-01) — traduction uniquement, aucune logique métier à toucher. `DemoContext.tsx` (blockMutation) reste également à traiter comme une tâche transversale séparée si on veut une couverture i18n complète.
 
 Toasts et messages d'erreur globaux (hors namespaces de page) et le test anti-chaînes-FR-codées-en-dur généralisé restent également à faire, une fois les 8 pages couvertes (le test générique n'a de sens qu'une fois qu'on sait exactement quelles pages sont "censées" être entièrement traduites vs. celles qui ne le sont pas encore).
 

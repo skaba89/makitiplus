@@ -107,7 +107,10 @@ describe("i18n Phase 2 — Reports.tsx", () => {
   });
 
   it("n'a plus de littéral français codé en dur dans le JSX visible", () => {
-    const hardcodedText = reportsSrc.match(/>[^<{]*[À-ÿ][^<{]*</g) ?? [];
+    // [^<{\n] borne le match à une seule ligne -- sans ça un ">" isolé
+    // (générique TypeScript, comparateur JSX...) ferait dériver le match
+    // jusqu'au prochain "<" bien plus loin dans le fichier.
+    const hardcodedText = reportsSrc.match(/>[^<{\n]*[À-ÿ][^<{\n]*</g) ?? [];
     expect(hardcodedText).toEqual([]);
   });
 });

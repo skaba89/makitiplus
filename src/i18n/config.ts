@@ -12,6 +12,8 @@ import frPricing from "./locales/fr/pricing.json";
 import enPricing from "./locales/en/pricing.json";
 import frReports from "./locales/fr/reports.json";
 import enReports from "./locales/en/reports.json";
+import frProducts from "./locales/fr/products.json";
+import enProducts from "./locales/en/products.json";
 
 /**
  * Phase 1 (premier parcours traduit) — docs/production/I18N_MIGRATION_PLAN.md
@@ -24,8 +26,8 @@ import enReports from "./locales/en/reports.json";
  */
 i18n.use(initReactI18next).init({
   resources: {
-    fr: { common: frCommon, auth: frAuth, dashboard: frDashboard, pos: frPos, pricing: frPricing, reports: frReports },
-    en: { common: enCommon, auth: enAuth, dashboard: enDashboard, pos: enPos, pricing: enPricing, reports: enReports },
+    fr: { common: frCommon, auth: frAuth, dashboard: frDashboard, pos: frPos, pricing: frPricing, reports: frReports, products: frProducts },
+    en: { common: enCommon, auth: enAuth, dashboard: enDashboard, pos: enPos, pricing: enPricing, reports: enReports, products: enProducts },
   },
   lng: "fr",
   fallbackLng: "fr",

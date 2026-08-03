@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useDeferredValue } from "react";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -60,6 +61,7 @@ type ProductInsert = Database["public"]["Tables"]["products"]["Insert"];
 type ProductWithCat = ProductWithCategory;
 
 const Products = () => {
+  const { t } = useTranslation("products");
   const { user, userRole } = useAuth();
   const { effectiveOrgId } = useOrgSelector();
   const { currency } = useCurrency();
@@ -182,7 +184,7 @@ const Products = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["products-stats"] });
-      toast({ title: "Produit créé avec succès" });
+      toast({ title: t("toasts.createSuccess") });
       setIsFormOpen(false);
     },
     onError: (error: unknown) => {
@@ -192,12 +194,12 @@ const Products = () => {
       const isRlsError = msg.includes('policy') || msg.includes('row-level') || msg.includes('violates') || msg.includes('409');
       toast({
         variant: "destructive",
-        title: isPlanLimit ? "Limite atteinte" : "Erreur",
+        title: isPlanLimit ? t("toasts.createLimitTitle") : t("toasts.genericErrorTitle"),
         description: isPlanLimit
-          ? "Limite de produits atteinte pour votre plan. Upgradez votre abonnement."
+          ? t("toasts.createLimitDescription")
           : isRlsError
-          ? "Permission insuffisante. Seuls les administrateurs et managers peuvent créer des produits."
-          : `Impossible de créer le produit: ${msg}`,
+          ? t("toasts.createRlsDescription")
+          : t("toasts.createErrorDescription", { message: msg }),
       });
       reportError(error instanceof Error ? error : new Error(msg));
     },
@@ -221,7 +223,7 @@ const Products = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["products-stats"] });
-      toast({ title: "Produit mis à jour" });
+      toast({ title: t("toasts.updateSuccess") });
       setIsFormOpen(false);
       setSelectedProduct(null);
     },
@@ -230,10 +232,10 @@ const Products = () => {
       const isRlsError = msg.includes('policy') || msg.includes('row-level') || msg.includes('violates') || msg.includes('409');
       toast({
         variant: "destructive",
-        title: "Erreur",
+        title: t("toasts.genericErrorTitle"),
         description: isRlsError
-          ? "Permission insuffisante pour modifier ce produit."
-          : `Impossible de modifier le produit: ${msg}`,
+          ? t("toasts.updateRlsDescription")
+          : t("toasts.updateErrorDescription", { message: msg }),
       });
       reportError(error instanceof Error ? error : new Error(msg));
     },
@@ -247,17 +249,17 @@ const Products = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["products-stats"] });
-      toast({ title: "Produit supprimé" });
+      toast({ title: t("toasts.deleteSuccess") });
     },
     onError: (error: unknown) => {
       const msg = extractErrorMessage(error);
       const isRlsError = msg.includes('policy') || msg.includes('row-level') || msg.includes('violates') || msg.includes('409');
       toast({
         variant: "destructive",
-        title: "Erreur",
+        title: t("toasts.genericErrorTitle"),
         description: isRlsError
-          ? "Permission insuffisante pour supprimer ce produit."
-          : `Impossible de supprimer le produit: ${msg}`,
+          ? t("toasts.deleteRlsDescription")
+          : t("toasts.deleteErrorDescription", { message: msg }),
       });
       reportError(error instanceof Error ? error : new Error(msg));
     },
@@ -295,9 +297,9 @@ const Products = () => {
       queryClient.invalidateQueries({ queryKey: ["stock-movements", variables.productId] });
 
       const typeLabels = {
-        restock: "Réapprovisionnement enregistré",
-        loss: "Perte enregistrée",
-        adjustment: "Stock ajusté",
+        restock: t("toasts.stockRestockSuccess"),
+        loss: t("toasts.stockLossSuccess"),
+        adjustment: t("toasts.stockAdjustedSuccess"),
       };
       toast({ title: typeLabels[variables.type] });
       setIsStockAdjustOpen(false);
@@ -306,8 +308,8 @@ const Products = () => {
     onError: (error) => {
       toast({
         variant: "destructive",
-        title: "Erreur",
-        description: "Impossible d'ajuster le stock",
+        title: t("toasts.genericErrorTitle"),
+        description: t("toasts.stockAdjustErrorDescription"),
       });
       reportError(error instanceof Error ? error : new Error(extractErrorMessage(error)));
     },
@@ -424,20 +426,20 @@ const Products = () => {
           currency.displaySymbol || currency.symbol
         );
         toast({
-          title: "Export réussi",
-          description: `${data.length} produits exportés`,
+          title: t("toasts.exportSuccessTitle"),
+          description: t("toasts.exportSuccessDescription", { count: data.length }),
         });
       } else {
         toast({
           variant: "destructive",
-          title: "Aucun produit",
-          description: "Pas de produits à exporter",
+          title: t("toasts.exportEmptyTitle"),
+          description: t("toasts.exportEmptyDescription"),
         });
       }
     } catch {
-      toast({ variant: "destructive", title: "Erreur", description: "Impossible d'exporter les produits" });
+      toast({ variant: "destructive", title: t("toasts.genericErrorTitle"), description: t("toasts.exportErrorDescription") });
     }
-  }, [currency, toast, effectiveOrgId]);
+  }, [currency, toast, effectiveOrgId, t]);
 
   return (
     <DashboardLayout>
@@ -446,10 +448,10 @@ const Products = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">
-              Produits
+              {t("title")}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Gérez votre inventaire de produits
+              {t("subtitle")}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -467,7 +469,7 @@ const Products = () => {
                 onClick={handleOpenImportDialog}
               >
                 <Upload className="mr-2 h-4 w-4" />
-                Importer CSV
+                {t("actions.importCsv")}
               </Button>
             )}
             <FeatureGate feature="exports" fallback={null}>
@@ -476,14 +478,14 @@ const Products = () => {
                 onClick={handleExport}
               >
                 <Download className="mr-2 h-4 w-4" />
-                Exporter
+                {t("actions.export")}
               </Button>
             </FeatureGate>
             {canModify && (
               <PlanLimitGuard limitType="products" showUpgrade={true}>
                 <Button onClick={handleOpenForm} className="gap-2">
                   <Plus className="h-4 w-4" />
-                  Ajouter un produit
+                  {t("actions.addProduct")}
                 </Button>
               </PlanLimitGuard>
             )}
@@ -497,7 +499,7 @@ const Products = () => {
             <div className="text-sm">
               {outOfStockCount > 0 && (
                 <span className="font-medium text-destructive">
-                  {outOfStockCount} produit{outOfStockCount > 1 ? "s" : ""} en rupture
+                  {t("stockAlerts.outOfStock", { count: outOfStockCount })}
                 </span>
               )}
               {outOfStockCount > 0 && lowStockCount > 0 && (
@@ -505,7 +507,7 @@ const Products = () => {
               )}
               {lowStockCount > 0 && (
                 <span className="font-medium text-warning">
-                  {lowStockCount} produit{lowStockCount > 1 ? "s" : ""} en stock bas
+                  {t("stockAlerts.lowStock", { count: lowStockCount })}
                 </span>
               )}
             </div>
@@ -517,7 +519,7 @@ const Products = () => {
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Rechercher un produit..."
+              placeholder={t("search.placeholder")}
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               className="pl-10"
@@ -527,13 +529,13 @@ const Products = () => {
           {stores.length > 1 && (
             <Select value={storeFilter} onValueChange={setStoreFilter}>
               <SelectTrigger className="w-full sm:w-56">
-                <SelectValue placeholder="Tous les magasins" />
+                <SelectValue placeholder={t("storeFilter.allStoresPlaceholder")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tous les magasins</SelectItem>
+                <SelectItem value="all">{t("storeFilter.allStores")}</SelectItem>
                 {activeCurrentStore && (
                   <SelectItem value={activeCurrentStore.id}>
-                    Magasin courant ({activeCurrentStore.name})
+                    {t("storeFilter.currentStore", { name: activeCurrentStore.name })}
                   </SelectItem>
                 )}
                 {stores
@@ -556,7 +558,7 @@ const Products = () => {
               size="sm"
               onClick={() => setSelectedCategory(null)}
             >
-              Toutes ({totalProducts})
+              {t("categoryFilter.all", { count: totalProducts })}
             </Button>
             {categories.map((category) => {
               const count = catCounts.get(category.id) || 0;
@@ -594,14 +596,14 @@ const Products = () => {
         ) : (
           <div className="text-center py-12 bg-card rounded-xl border">
             <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-            <h3 className="text-lg font-medium mb-2">Aucun produit</h3>
+            <h3 className="text-lg font-medium mb-2">{t("empty.title")}</h3>
             <p className="text-muted-foreground mb-4">
-              Commencez par ajouter votre premier produit
+              {t("empty.description")}
             </p>
             {canModify && (
               <Button onClick={handleOpenForm} variant="outline">
                 <Plus className="h-4 w-4 mr-2" />
-                Ajouter un produit
+                {t("empty.addFirst")}
               </Button>
             )}
           </div>
@@ -611,7 +613,7 @@ const Products = () => {
         {totalPages > 1 && (
           <div className="flex items-center justify-between pt-4 border-t">
             <p className="text-sm text-muted-foreground">
-              {((safeCurrentPage - 1) * PAGE_SIZE) + 1}–{Math.min(safeCurrentPage * PAGE_SIZE, totalCount)} sur {totalCount}
+              {t("pagination.showing", { from: ((safeCurrentPage - 1) * PAGE_SIZE) + 1, to: Math.min(safeCurrentPage * PAGE_SIZE, totalCount), total: totalCount })}
             </p>
             <div className="flex gap-2">
               <Button
@@ -620,7 +622,7 @@ const Products = () => {
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={safeCurrentPage <= 1}
               >
-                Précédent
+                {t("pagination.previous")}
               </Button>
               <div className="flex items-center gap-1">
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -653,7 +655,7 @@ const Products = () => {
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 disabled={safeCurrentPage >= totalPages}
               >
-                Suivant
+                {t("pagination.next")}
               </Button>
             </div>
           </div>
@@ -664,7 +666,7 @@ const Products = () => {
           <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" aria-describedby={undefined}>
             <DialogHeader>
               <DialogTitle>
-                {selectedProduct ? "Modifier le produit" : "Nouveau produit"}
+                {selectedProduct ? t("form.editTitle") : t("form.newTitle")}
               </DialogTitle>
             </DialogHeader>
             <ProductForm
@@ -713,13 +715,13 @@ const Products = () => {
         <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Supprimer le produit?</AlertDialogTitle>
+              <AlertDialogTitle>{t("deleteDialog.title")}</AlertDialogTitle>
               <AlertDialogDescription>
-                Cette action est irréversible. Les ventes associées seront conservées.
+                {t("deleteDialog.description")}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setDeleteTarget(null)}>Annuler</AlertDialogCancel>
+              <AlertDialogCancel onClick={() => setDeleteTarget(null)}>{t("deleteDialog.cancel")}</AlertDialogCancel>
               <AlertDialogAction
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 onClick={() => {
@@ -730,7 +732,7 @@ const Products = () => {
                   }
                 }}
               >
-                Supprimer
+                {t("deleteDialog.confirm")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
