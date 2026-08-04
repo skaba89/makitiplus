@@ -1,0 +1,41 @@
+{
+  "title": "Choose your plan",
+  "subtitle": "The smart, offline-first point of sale for shops, wholesalers and retail chains in Africa.",
+  "planHighlights": {
+    "croissance": "For growing shops",
+    "enterprise": "For chains and wholesalers"
+  },
+  "features": {
+    "max_stores": "Stores",
+    "max_users": "Users",
+    "max_products": "Products",
+    "has_advanced_reports": "Advanced reports",
+    "has_exports": "PDF / Excel exports",
+    "has_supplier_management": "Supplier management",
+    "has_offline_advanced": "Advanced offline mode",
+    "has_custom_branding": "Custom branding",
+    "has_multi_currency": "Multi-currency",
+    "has_api_access": "External API",
+    "has_priority_support": "Priority support",
+    "has_ai_assistant": "AI business assistant",
+    "has_loyalty_program": "Loyalty program"
+  },
+  "unlimited": "Unlimited",
+  "unlimitedMasculine": "Unlimited",
+  "store_one": "store",
+  "store_other": "stores",
+  "user_one": "user",
+  "user_other": "users",
+  "product_one": "product",
+  "product_other": "products",
+  "popular": "Popular",
+  "premium": "Premium",
+  "free": "Free",
+  "perMonth": "/month",
+  "perYearSavings": "{{price}}/year — save 2 months",
+  "currentPlan": "Current plan",
+  "choosePlan": "Choose {{planName}}",
+  "footerIncludes": "All plans include: POS, stock management, credit customers, PDF receipts, basic offline mode",
+  "customPlan": "Need a custom plan?",
+  "contactUs": "Contact us"
+}

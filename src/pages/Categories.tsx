@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useDeferredValue } from "react";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -61,6 +62,7 @@ const PRESET_ICONS = [
 ];
 
 const Categories = () => {
+  const { t } = useTranslation("categories");
   const { user, userRole } = useAuth();
   const { effectiveOrgId } = useOrgSelector();
   const { toast } = useToast();
@@ -136,7 +138,7 @@ const Categories = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["categories"] });
-      toast({ title: "Catégorie créée avec succès" });
+      toast({ title: t("toasts.createSuccess") });
       handleCloseForm();
     },
     onError: (error) => {
@@ -145,10 +147,10 @@ const Categories = () => {
       const isRlsError = msg.includes('policy') || msg.includes('row-level') || msg.includes('violates');
       toast({
         variant: "destructive",
-        title: "Erreur",
+        title: t("toasts.genericErrorTitle"),
         description: isRlsError
-          ? "Permission insuffisante. Seuls les administrateurs et managers peuvent créer des catégories."
-          : "Impossible de créer la catégorie",
+          ? t("toasts.createRlsDescription")
+          : t("toasts.createErrorDescription"),
       });
     },
   });
@@ -167,7 +169,7 @@ const Categories = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["categories"] });
-      toast({ title: "Catégorie mise à jour" });
+      toast({ title: t("toasts.updateSuccess") });
       handleCloseForm();
     },
     onError: (error) => {
@@ -176,10 +178,10 @@ const Categories = () => {
       const isRlsError = msg.includes('policy') || msg.includes('row-level') || msg.includes('violates');
       toast({
         variant: "destructive",
-        title: "Erreur",
+        title: t("toasts.genericErrorTitle"),
         description: isRlsError
-          ? "Permission insuffisante pour modifier cette catégorie."
-          : "Impossible de modifier la catégorie",
+          ? t("toasts.updateRlsDescription")
+          : t("toasts.updateErrorDescription"),
       });
     },
   });
@@ -191,7 +193,7 @@ const Categories = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["categories"] });
-      toast({ title: "Catégorie supprimée" });
+      toast({ title: t("toasts.deleteSuccess") });
       setDeleteId(null);
     },
     onError: (error) => {
@@ -200,10 +202,10 @@ const Categories = () => {
       const isRlsError = msg.includes('policy') || msg.includes('row-level') || msg.includes('violates');
       toast({
         variant: "destructive",
-        title: "Erreur",
+        title: t("toasts.genericErrorTitle"),
         description: isRlsError
-          ? "Permission insuffisante pour supprimer cette catégorie."
-          : "Impossible de supprimer la catégorie (elle contient peut-être des produits)",
+          ? t("toasts.deleteRlsDescription")
+          : t("toasts.deleteErrorDescription"),
       });
       setDeleteId(null);
     },
@@ -286,13 +288,13 @@ const Categories = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">
-              Catégories
+              {t("title")}
             </h1>
             <p className="text-muted-foreground mt-1">
-              Organisez vos produits par catégorie
+              {t("subtitle")}
               {categories && categories.length > 0 && (
                 <span className="ml-2">
-                  — {categories.length} catégorie{categories.length > 1 ? "s" : ""}, {totalProducts} produit{totalProducts > 1 ? "s" : ""}
+                  — {t("categoryCount", { count: categories.length })}, {t("card.productCount", { count: totalProducts })}
                 </span>
               )}
             </p>
@@ -300,7 +302,7 @@ const Categories = () => {
           {canModify && (
             <Button onClick={() => handleOpenForm()} className="gap-2">
               <Plus className="h-4 w-4" />
-              Nouvelle catégorie
+              {t("newCategory")}
             </Button>
           )}
         </div>
@@ -313,7 +315,7 @@ const Categories = () => {
               <Input
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                placeholder="Rechercher une catégorie..."
+                placeholder={t("search.placeholder")}
                 className="pl-10"
               />
             </div>
@@ -325,7 +327,7 @@ const Categories = () => {
                 onClick={() => setSortBy(sortBy === "name" ? "products" : sortBy === "products" ? "default" : "name")}
                 className="text-xs"
               >
-                {sortBy === "name" ? "Nom A-Z" : sortBy === "products" ? "Par produits" : "Par défaut"}
+                {sortBy === "name" ? t("sort.byName") : sortBy === "products" ? t("sort.byProducts") : t("sort.byDefault")}
               </Button>
             </div>
           </div>
@@ -369,7 +371,7 @@ const Categories = () => {
                             <h3 className="font-semibold truncate">{category.name}</h3>
                             {isDefault && (
                               <Badge variant="secondary" className="text-micro px-1.5 py-0 shrink-0">
-                                Défaut
+                                {t("card.defaultBadge")}
                               </Badge>
                             )}
                           </div>
@@ -379,7 +381,7 @@ const Categories = () => {
                               style={{ backgroundColor: category.color || DEFAULT_CATEGORY_COLOR }}
                             />
                             <span className="text-xs text-muted-foreground">
-                              {productCount} produit{productCount !== 1 ? "s" : ""}
+                              {t("card.productCount", { count: productCount })}
                             </span>
                           </div>
                           {category.description && (
@@ -395,7 +397,7 @@ const Categories = () => {
                             variant="ghost"
                             size="icon"
                             onClick={() => handleOpenForm(category)}
-                            aria-label="Modifier la catégorie"
+                            aria-label={t("card.editAria")}
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
@@ -404,7 +406,7 @@ const Categories = () => {
                             size="icon"
                             onClick={() => setDeleteId(category.id)}
                             className="text-destructive hover:text-destructive"
-                            aria-label="Supprimer la catégorie"
+                            aria-label={t("card.deleteAria")}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -419,25 +421,25 @@ const Categories = () => {
         ) : categories && categories.length > 0 && filteredCategories?.length === 0 ? (
           <div className="text-center py-12 bg-card rounded-xl border">
             <Search className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-            <h3 className="text-lg font-medium mb-2">Aucun résultat</h3>
+            <h3 className="text-lg font-medium mb-2">{t("noResults.title")}</h3>
             <p className="text-muted-foreground mb-4">
-              Aucune catégorie ne correspond à votre recherche
+              {t("noResults.description")}
             </p>
             <Button onClick={() => setSearchInput("")} variant="outline">
-              Effacer la recherche
+              {t("noResults.clearSearch")}
             </Button>
           </div>
         ) : (
           <div className="text-center py-12 bg-card rounded-xl border">
             <FolderOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-            <h3 className="text-lg font-medium mb-2">Aucune catégorie</h3>
+            <h3 className="text-lg font-medium mb-2">{t("empty.title")}</h3>
             <p className="text-muted-foreground mb-4">
-              Créez des catégories pour organiser vos produits
+              {t("empty.description")}
             </p>
             {canModify && (
               <Button onClick={() => handleOpenForm()} variant="outline">
                 <Plus className="h-4 w-4 mr-2" />
-                Créer une catégorie
+                {t("empty.createFirst")}
               </Button>
             )}
           </div>
@@ -449,34 +451,34 @@ const Categories = () => {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Tag className="h-5 w-5" />
-                {selectedCategory ? "Modifier la catégorie" : "Nouvelle catégorie"}
+                {selectedCategory ? t("formDialog.editTitle") : t("formDialog.newTitle")}
               </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="name">Nom de la catégorie *</Label>
+                <Label htmlFor="name">{t("formDialog.nameLabel")}</Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Ex: Alimentaire, Boissons..."
+                  placeholder={t("formDialog.namePlaceholder")}
                   required
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
+                <Label htmlFor="description">{t("formDialog.descriptionLabel")}</Label>
                 <Textarea
                   id="description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Décrivez les produits de cette catégorie..."
+                  placeholder={t("formDialog.descriptionPlaceholder")}
                   rows={2}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label>Icône</Label>
+                <Label>{t("formDialog.iconLabel")}</Label>
                 <div className="flex flex-wrap gap-2">
                   {PRESET_ICONS.map((iconName) => (
                     <button
@@ -496,7 +498,7 @@ const Categories = () => {
               </div>
 
               <div className="space-y-2">
-                <Label>Couleur</Label>
+                <Label>{t("formDialog.colorLabel")}</Label>
                 <div className="flex flex-wrap gap-2">
                   {PRESET_COLORS.map((color) => (
                     <button
@@ -523,7 +525,7 @@ const Categories = () => {
 
               {/* Preview */}
               <div className="p-4 bg-muted rounded-xl">
-                <p className="text-sm text-muted-foreground mb-2">Aperçu</p>
+                <p className="text-sm text-muted-foreground mb-2">{t("formDialog.previewLabel")}</p>
                 <div className="flex items-center gap-3">
                   <div
                     className="w-12 h-12 rounded-xl flex items-center justify-center"
@@ -533,7 +535,7 @@ const Categories = () => {
                   </div>
                   <div>
                     <span className="font-medium block">
-                      {formData.name || "Nom de la catégorie"}
+                      {formData.name || t("formDialog.previewDefaultName")}
                     </span>
                     {formData.description && (
                       <span className="text-xs text-muted-foreground line-clamp-1">
@@ -545,7 +547,7 @@ const Categories = () => {
                         className="w-3 h-3 rounded-full"
                         style={{ backgroundColor: formData.color }}
                       />
-                      <span className="text-xs text-muted-foreground">0 produits</span>
+                      <span className="text-xs text-muted-foreground">{t("formDialog.previewProductCount")}</span>
                     </div>
                   </div>
                 </div>
@@ -555,12 +557,12 @@ const Categories = () => {
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Enregistrement...
+                    {t("formDialog.submitSaving")}
                   </>
                 ) : selectedCategory ? (
-                  "Enregistrer les modifications"
+                  t("formDialog.submitUpdate")
                 ) : (
-                  "Créer la catégorie"
+                  t("formDialog.submitCreate")
                 )}
               </Button>
             </form>
@@ -571,14 +573,13 @@ const Categories = () => {
         <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Supprimer cette catégorie ?</AlertDialogTitle>
+              <AlertDialogTitle>{t("deleteDialog.title")}</AlertDialogTitle>
               <AlertDialogDescription>
-                Cette action est irréversible. Les produits associés ne seront pas supprimés
-                mais n'auront plus de catégorie.
+                {t("deleteDialog.description")}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Annuler</AlertDialogCancel>
+              <AlertDialogCancel>{t("deleteDialog.cancel")}</AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => {
                   if (deleteId) {
@@ -588,7 +589,7 @@ const Categories = () => {
                 }}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
-                Supprimer
+                {t("deleteDialog.confirm")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

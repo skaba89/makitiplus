@@ -1,0 +1,66 @@
+{
+  "title": "Categories",
+  "subtitle": "Organize your products by category",
+  "categoryCount_one": "{{count}} category",
+  "categoryCount_other": "{{count}} categories",
+  "newCategory": "New category",
+  "search": {
+    "placeholder": "Search for a category..."
+  },
+  "sort": {
+    "byName": "Name A-Z",
+    "byProducts": "By products",
+    "byDefault": "Default"
+  },
+  "card": {
+    "defaultBadge": "Default",
+    "productCount_one": "{{count}} product",
+    "productCount_other": "{{count}} products",
+    "editAria": "Edit category",
+    "deleteAria": "Delete category"
+  },
+  "noResults": {
+    "title": "No results",
+    "description": "No category matches your search",
+    "clearSearch": "Clear search"
+  },
+  "empty": {
+    "title": "No categories",
+    "description": "Create categories to organize your products",
+    "createFirst": "Create a category"
+  },
+  "formDialog": {
+    "editTitle": "Edit category",
+    "newTitle": "New category",
+    "nameLabel": "Category name *",
+    "namePlaceholder": "E.g.: Groceries, Drinks...",
+    "descriptionLabel": "Description",
+    "descriptionPlaceholder": "Describe the products in this category...",
+    "iconLabel": "Icon",
+    "colorLabel": "Color",
+    "previewLabel": "Preview",
+    "previewDefaultName": "Category name",
+    "previewProductCount": "0 products",
+    "submitSaving": "Saving...",
+    "submitUpdate": "Save changes",
+    "submitCreate": "Create category"
+  },
+  "deleteDialog": {
+    "title": "Delete this category?",
+    "description": "This action is irreversible. Associated products will not be deleted but will no longer have a category.",
+    "cancel": "Cancel",
+    "confirm": "Delete"
+  },
+  "toasts": {
+    "genericErrorTitle": "Error",
+    "createSuccess": "Category created successfully",
+    "createRlsDescription": "Insufficient permission. Only admins and managers can create categories.",
+    "createErrorDescription": "Unable to create category",
+    "updateSuccess": "Category updated",
+    "updateRlsDescription": "Insufficient permission to edit this category.",
+    "updateErrorDescription": "Unable to edit category",
+    "deleteSuccess": "Category deleted",
+    "deleteRlsDescription": "Insufficient permission to delete this category.",
+    "deleteErrorDescription": "Unable to delete category (it may still contain products)"
+  }
+}

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -64,6 +65,7 @@ import { FeatureGate } from "@/components/saas/PlanLimitGuard";
 const PAGE_SIZE = 20;
 
 const Customers = () => {
+  const { t } = useTranslation("customers");
   const { user, userRole } = useAuth();
   const { toast } = useToast();
   const { blockMutation } = useDemo();
@@ -130,13 +132,13 @@ const Customers = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["customers"] });
-      toast({ title: "Client ajouté" });
+      toast({ title: t("toasts.createSuccess") });
       setIsFormOpen(false);
       resetForm();
     },
     onError: (error) => {
       reportError(error);
-      toast({ variant: "destructive", title: "Erreur", description: "Impossible d'ajouter le client" });
+      toast({ variant: "destructive", title: t("toasts.genericErrorTitle"), description: t("toasts.createErrorDescription") });
     },
   });
 
@@ -147,14 +149,14 @@ const Customers = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["customers"] });
-      toast({ title: "Client mis à jour" });
+      toast({ title: t("toasts.updateSuccess") });
       setIsFormOpen(false);
       setSelectedCustomer(null);
       resetForm();
     },
     onError: (error) => {
       reportError(error);
-      toast({ variant: "destructive", title: "Erreur", description: "Impossible de modifier le client" });
+      toast({ variant: "destructive", title: t("toasts.genericErrorTitle"), description: t("toasts.updateErrorDescription") });
     },
   });
 
@@ -165,11 +167,11 @@ const Customers = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["customers"] });
-      toast({ title: "Client supprimé" });
+      toast({ title: t("toasts.deleteSuccess") });
     },
     onError: (error) => {
       reportError(error);
-      toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer le client" });
+      toast({ variant: "destructive", title: t("toasts.genericErrorTitle"), description: t("toasts.deleteErrorDescription") });
     },
   });
 
@@ -199,7 +201,7 @@ const Customers = () => {
     if (!validation.success) {
       toast({
         variant: "destructive",
-        title: "Données invalides",
+        title: t("toasts.invalidDataTitle"),
         description: formatErrors(validation.errors),
       });
       return;
@@ -233,8 +235,8 @@ const Customers = () => {
       <div className="space-y-4 sm:space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">Clients</h1>
-            <p className="text-muted-foreground mt-1">Gérez vos clients et suivez les crédits</p>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">{t("title")}</h1>
+            <p className="text-muted-foreground mt-1">{t("subtitle")}</p>
           </div>
           <div className="flex gap-2">
             <FeatureGate feature="exports">
@@ -262,34 +264,34 @@ const Customers = () => {
                       currency.displaySymbol || currency.symbol
                     );
                     toast({
-                      title: "Export réussi",
-                      description: `${allCustomers.length} clients exportés`,
+                      title: t("toasts.exportSuccessTitle"),
+                      description: t("toasts.exportSuccessDescription", { count: allCustomers.length }),
                     });
                   } else {
                     toast({
                       variant: "destructive",
-                      title: "Aucun client",
-                      description: "Pas de clients à exporter",
+                      title: t("toasts.exportEmptyTitle"),
+                      description: t("toasts.exportEmptyDescription"),
                     });
                   }
                 } catch (err) {
                   reportError(err instanceof Error ? err : new Error(String(err)));
                   toast({
                     variant: "destructive",
-                    title: "Erreur d'export",
-                    description: "Impossible d'exporter les clients",
+                    title: t("toasts.exportErrorTitle"),
+                    description: t("toasts.exportErrorDescription"),
                   });
                 }
               }}
             >
               <Download className="mr-2 h-4 w-4" />
-              Exporter
+              {t("actions.export")}
             </Button>
             </FeatureGate>
             {canModify && (
               <Button onClick={() => { setSelectedCustomer(null); resetForm(); setIsFormOpen(true); }} className="gap-2">
                 <Plus className="h-4 w-4" />
-                Ajouter un client
+                {t("actions.addCustomer")}
               </Button>
             )}
           </div>
@@ -302,7 +304,7 @@ const Customers = () => {
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-primary/10"><Users className="h-5 w-5 text-primary" /></div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Total clients</p>
+                  <p className="text-sm text-muted-foreground">{t("stats.totalCustomers")}</p>
                   <p className="text-lg sm:text-2xl font-bold">{totalCount}</p>
                 </div>
               </div>
@@ -313,7 +315,7 @@ const Customers = () => {
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-destructive/10"><Wallet className="h-5 w-5 text-destructive" /></div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Crédits en cours</p>
+                  <p className="text-sm text-muted-foreground">{t("stats.creditsInProgress")}</p>
                   <p className="text-lg sm:text-2xl font-bold text-destructive">{formatDisplayPrice(totalCredit, { showOriginal: isConverted })}</p>
                 </div>
               </div>
@@ -324,7 +326,7 @@ const Customers = () => {
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-success/10"><CreditCard className="h-5 w-5 text-success" /></div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Clients avec crédit</p>
+                  <p className="text-sm text-muted-foreground">{t("stats.customersWithCredit")}</p>
                   <p className="text-lg sm:text-2xl font-bold">{customersWithCredit}</p>
                 </div>
               </div>
@@ -337,7 +339,7 @@ const Customers = () => {
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Rechercher par nom ou téléphone..."
+              placeholder={t("search.placeholder")}
               value={searchInput}
               onChange={(e) => handleSearchChange(e.target.value)}
               className="pl-10"
@@ -348,11 +350,11 @@ const Customers = () => {
               id="filter-credit-only"
               checked={showCreditOnly}
               onCheckedChange={handleToggleCreditOnly}
-              aria-label="Filtrer les clients à crédit"
+              aria-label={t("filter.creditOnlyAria")}
             />
             <label htmlFor="filter-credit-only" className="text-sm cursor-pointer flex items-center gap-1">
               <Wallet className="h-3.5 w-3.5 text-destructive" />
-              Crédit uniquement
+              {t("filter.creditOnlyLabel")}
             </label>
           </div>
         </div>
@@ -365,18 +367,18 @@ const Customers = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Nom</TableHead>
-                    <TableHead className="hidden sm:table-cell">Téléphone</TableHead>
-                    <TableHead className="hidden md:table-cell">Achats totaux</TableHead>
-                    <TableHead>Crédit</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>{t("table.columnName")}</TableHead>
+                    <TableHead className="hidden sm:table-cell">{t("table.columnPhone")}</TableHead>
+                    <TableHead className="hidden md:table-cell">{t("table.columnTotalPurchases")}</TableHead>
+                    <TableHead>{t("table.columnCredit")}</TableHead>
+                    <TableHead className="text-right">{t("table.columnActions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {customers.map((customer) => (
                     <TableRow key={customer.id}>
                       <TableCell className="font-medium">{customer.name}</TableCell>
-                      <TableCell className="hidden sm:table-cell">{customer.phone || "-"}</TableCell>
+                      <TableCell className="hidden sm:table-cell">{customer.phone || t("table.noPhone")}</TableCell>
                       <TableCell className="hidden md:table-cell">{formatDisplayPrice(Number(customer.total_purchases), { showOriginal: isConverted })}</TableCell>
                       <TableCell>
                         {Number(customer.total_credit) > 0 ? (
@@ -387,18 +389,18 @@ const Customers = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="icon" className="hidden sm:inline-flex" onClick={() => { setSelectedCustomer(customer); setIsDetailOpen(true); }} aria-label="Voir les détails">
+                          <Button variant="ghost" size="icon" className="hidden sm:inline-flex" onClick={() => { setSelectedCustomer(customer); setIsDetailOpen(true); }} aria-label={t("table.viewDetailsAria")}>
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="hidden sm:inline-flex" onClick={() => { setSelectedCustomer(customer); setIsCreditOpen(true); }} aria-label="Crédit client">
+                          <Button variant="ghost" size="icon" className="hidden sm:inline-flex" onClick={() => { setSelectedCustomer(customer); setIsCreditOpen(true); }} aria-label={t("table.customerCreditAria")}>
                             <Wallet className="h-4 w-4" />
                           </Button>
                           {canModify && (
                             <>
-                              <Button variant="ghost" size="icon" onClick={() => handleEdit(customer)} aria-label="Modifier le client">
+                              <Button variant="ghost" size="icon" onClick={() => handleEdit(customer)} aria-label={t("table.editCustomerAria")}>
                                 <Edit className="h-4 w-4" />
                               </Button>
-                              <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(customer)} aria-label="Supprimer le client">
+                              <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(customer)} aria-label={t("table.deleteCustomerAria")}>
                                 <Trash2 className="h-4 w-4 text-destructive" />
                               </Button>
                             </>
@@ -418,7 +420,7 @@ const Customers = () => {
         {totalPages > 1 && (
           <div className="flex items-center justify-between pt-4 border-t">
             <p className="text-sm text-muted-foreground">
-              {((currentPage - 1) * PAGE_SIZE) + 1}–{Math.min(currentPage * PAGE_SIZE, totalCount)} sur {totalCount}
+              {t("pagination.showing", { from: ((currentPage - 1) * PAGE_SIZE) + 1, to: Math.min(currentPage * PAGE_SIZE, totalCount), total: totalCount })}
             </p>
             <div className="flex gap-2">
               <Button
@@ -426,9 +428,9 @@ const Customers = () => {
                 size="sm"
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage <= 1}
-                aria-label="Page précédente"
+                aria-label={t("pagination.previousAria")}
               >
-                Précédent
+                {t("pagination.previous")}
               </Button>
               <div className="flex items-center gap-1">
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -449,7 +451,7 @@ const Customers = () => {
                       size="sm"
                       className="w-8 h-8 p-0"
                       onClick={() => setCurrentPage(page)}
-                      aria-label={`Page ${page}`}
+                      aria-label={t("pagination.pageAria", { page })}
                     >
                       {page}
                     </Button>
@@ -461,9 +463,9 @@ const Customers = () => {
                 size="sm"
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 disabled={currentPage >= totalPages}
-                aria-label="Page suivante"
+                aria-label={t("pagination.nextAria")}
               >
-                Suivant
+                {t("pagination.next")}
               </Button>
             </div>
           </div>
@@ -472,12 +474,12 @@ const Customers = () => {
         {!(customers && customers.length > 0) && !isLoading && (
           <div className="text-center py-12 bg-card rounded-xl border">
             <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-            <h3 className="text-lg font-medium mb-2">Aucun client</h3>
-            <p className="text-muted-foreground mb-4">Ajoutez vos premiers clients</p>
+            <h3 className="text-lg font-medium mb-2">{t("empty.title")}</h3>
+            <p className="text-muted-foreground mb-4">{t("empty.description")}</p>
             {canModify && (
               <Button onClick={() => setIsFormOpen(true)} variant="outline">
                 <Plus className="h-4 w-4 mr-2" />
-                Ajouter un client
+                {t("empty.addFirst")}
               </Button>
             )}
           </div>
@@ -487,33 +489,33 @@ const Customers = () => {
         <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
           <DialogContent aria-describedby={undefined}>
             <DialogHeader>
-              <DialogTitle>{selectedCustomer ? "Modifier le client" : "Nouveau client"}</DialogTitle>
+              <DialogTitle>{selectedCustomer ? t("formDialog.editTitle") : t("formDialog.newTitle")}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="customer-name">Nom *</Label>
+                <Label htmlFor="customer-name">{t("formDialog.nameLabel")}</Label>
                 <Input id="customer-name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="customer-phone">Téléphone</Label>
+                  <Label htmlFor="customer-phone">{t("formDialog.phoneLabel")}</Label>
                   <Input id="customer-phone" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} pattern="[0-9+\-\s]{8,15}" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="customer-email">Email</Label>
+                  <Label htmlFor="customer-email">{t("formDialog.emailLabel")}</Label>
                   <Input id="customer-email" type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="customer-address">Adresse</Label>
+                <Label htmlFor="customer-address">{t("formDialog.addressLabel")}</Label>
                 <Input id="customer-address" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="customer-notes">Notes</Label>
+                <Label htmlFor="customer-notes">{t("formDialog.notesLabel")}</Label>
                 <Input id="customer-notes" value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} />
               </div>
               <Button type="submit" className="w-full" disabled={createMutation.isPending || updateMutation.isPending}>
-                {selectedCustomer ? "Enregistrer" : "Ajouter"}
+                {selectedCustomer ? t("formDialog.submitSave") : t("formDialog.submitAdd")}
               </Button>
             </form>
           </DialogContent>
@@ -541,13 +543,13 @@ const Customers = () => {
         <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Supprimer ce client?</AlertDialogTitle>
+              <AlertDialogTitle>{t("deleteDialog.title")}</AlertDialogTitle>
               <AlertDialogDescription>
-                Cette action est irréversible. Les crédits associés seront conservés.
+                {t("deleteDialog.description")}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setDeleteTarget(null)}>Annuler</AlertDialogCancel>
+              <AlertDialogCancel onClick={() => setDeleteTarget(null)}>{t("deleteDialog.cancel")}</AlertDialogCancel>
               <AlertDialogAction
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 onClick={() => {
@@ -558,7 +560,7 @@ const Customers = () => {
                   }
                 }}
               >
-                Supprimer
+                {t("deleteDialog.confirm")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

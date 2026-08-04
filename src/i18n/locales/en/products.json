@@ -1,0 +1,69 @@
+{
+  "title": "Products",
+  "subtitle": "Manage your product inventory",
+  "actions": {
+    "importCsv": "Import CSV",
+    "export": "Export",
+    "addProduct": "Add a product"
+  },
+  "stockAlerts": {
+    "outOfStock_one": "{{count}} product out of stock",
+    "outOfStock_other": "{{count}} products out of stock",
+    "lowStock_one": "{{count}} product low on stock",
+    "lowStock_other": "{{count}} products low on stock"
+  },
+  "search": {
+    "placeholder": "Search for a product..."
+  },
+  "storeFilter": {
+    "allStoresPlaceholder": "All stores",
+    "allStores": "All stores",
+    "currentStore": "Current store ({{name}})"
+  },
+  "categoryFilter": {
+    "all": "All ({{count}})"
+  },
+  "empty": {
+    "title": "No products",
+    "description": "Start by adding your first product",
+    "addFirst": "Add a product"
+  },
+  "pagination": {
+    "showing": "{{from}}–{{to}} of {{total}}",
+    "previous": "Previous",
+    "next": "Next"
+  },
+  "form": {
+    "editTitle": "Edit product",
+    "newTitle": "New product"
+  },
+  "deleteDialog": {
+    "title": "Delete this product?",
+    "description": "This action is irreversible. Associated sales will be kept.",
+    "cancel": "Cancel",
+    "confirm": "Delete"
+  },
+  "toasts": {
+    "genericErrorTitle": "Error",
+    "createSuccess": "Product created successfully",
+    "createLimitTitle": "Limit reached",
+    "createLimitDescription": "Product limit reached for your plan. Upgrade your subscription.",
+    "createRlsDescription": "Insufficient permission. Only admins and managers can create products.",
+    "createErrorDescription": "Unable to create product: {{message}}",
+    "updateSuccess": "Product updated",
+    "updateRlsDescription": "Insufficient permission to edit this product.",
+    "updateErrorDescription": "Unable to edit product: {{message}}",
+    "deleteSuccess": "Product deleted",
+    "deleteRlsDescription": "Insufficient permission to delete this product.",
+    "deleteErrorDescription": "Unable to delete product: {{message}}",
+    "stockRestockSuccess": "Restock recorded",
+    "stockLossSuccess": "Loss recorded",
+    "stockAdjustedSuccess": "Stock adjusted",
+    "stockAdjustErrorDescription": "Unable to adjust stock",
+    "exportSuccessTitle": "Export successful",
+    "exportSuccessDescription": "{{count}} products exported",
+    "exportEmptyTitle": "No products",
+    "exportEmptyDescription": "No products to export",
+    "exportErrorDescription": "Unable to export products"
+  }
+}

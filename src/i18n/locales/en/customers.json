@@ -1,0 +1,78 @@
+{
+  "title": "Customers",
+  "subtitle": "Manage your customers and track credit",
+  "actions": {
+    "export": "Export",
+    "addCustomer": "Add a customer"
+  },
+  "stats": {
+    "totalCustomers": "Total customers",
+    "creditsInProgress": "Outstanding credit",
+    "customersWithCredit": "Customers with credit"
+  },
+  "search": {
+    "placeholder": "Search by name or phone..."
+  },
+  "filter": {
+    "creditOnlyAria": "Filter customers with credit",
+    "creditOnlyLabel": "Credit only"
+  },
+  "table": {
+    "columnName": "Name",
+    "columnPhone": "Phone",
+    "columnTotalPurchases": "Total purchases",
+    "columnCredit": "Credit",
+    "columnActions": "Actions",
+    "noPhone": "-",
+    "viewDetailsAria": "View details",
+    "customerCreditAria": "Customer credit",
+    "editCustomerAria": "Edit customer",
+    "deleteCustomerAria": "Delete customer"
+  },
+  "pagination": {
+    "showing": "{{from}}–{{to}} of {{total}}",
+    "previous": "Previous",
+    "next": "Next",
+    "previousAria": "Previous page",
+    "nextAria": "Next page",
+    "pageAria": "Page {{page}}"
+  },
+  "empty": {
+    "title": "No customers",
+    "description": "Add your first customers",
+    "addFirst": "Add a customer"
+  },
+  "formDialog": {
+    "editTitle": "Edit customer",
+    "newTitle": "New customer",
+    "nameLabel": "Name *",
+    "phoneLabel": "Phone",
+    "emailLabel": "Email",
+    "addressLabel": "Address",
+    "notesLabel": "Notes",
+    "submitSave": "Save",
+    "submitAdd": "Add"
+  },
+  "deleteDialog": {
+    "title": "Delete this customer?",
+    "description": "This action is irreversible. Associated credit will be kept.",
+    "cancel": "Cancel",
+    "confirm": "Delete"
+  },
+  "toasts": {
+    "genericErrorTitle": "Error",
+    "invalidDataTitle": "Invalid data",
+    "createSuccess": "Customer added",
+    "createErrorDescription": "Unable to add customer",
+    "updateSuccess": "Customer updated",
+    "updateErrorDescription": "Unable to edit customer",
+    "deleteSuccess": "Customer deleted",
+    "deleteErrorDescription": "Unable to delete customer",
+    "exportSuccessTitle": "Export successful",
+    "exportSuccessDescription": "{{count}} customers exported",
+    "exportEmptyTitle": "No customers",
+    "exportEmptyDescription": "No customers to export",
+    "exportErrorTitle": "Export error",
+    "exportErrorDescription": "Unable to export customers"
+  }
+}
