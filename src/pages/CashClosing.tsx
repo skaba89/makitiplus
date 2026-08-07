@@ -45,6 +45,7 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { CASH_CLOSING_REVIEW_ROLES } from "@/types";
 import { toCSV } from "@/utils/csvParser";
+import { downloadCashClosingPDF } from "@/utils/cashClosingPdfGenerator";
 
 const PAYMENT_ICONS: Record<string, string> = {
   cash: "💵", wave: "📱", orange_money: "🟠", mtn_money: "🟡",
@@ -87,6 +88,12 @@ type SessionRow = {
 export default function CashClosing() {
   const { t } = useTranslation("cashClosing");
   const getPaymentLabel = (method: string) => t(`paymentLabels.${method}`);
+  const getSessionStatusLabel = (status: string) =>
+    status === "open" ? t("history.statusOpen")
+    : status === "closed" ? t("history.statusClosed")
+    : status === "approved" ? t("history.statusApproved")
+    : status === "rejected" ? t("history.statusRejected")
+    : status;
   const { user, profile, userRole } = useAuth();
   const { formatPrice } = useCurrency();
   const { effectiveOrgId } = useOrgSelector();
@@ -391,6 +398,66 @@ export default function CashClosing() {
     if (w) { w.document.write(html); w.document.close(); w.print(); }
   };
 
+  const handleExportPDF = async () => {
+    if (!mySummary || !mySession) return;
+    const paymentBreakdown = [
+      { method: "cash", label: getPaymentLabel("cash"), amount: mySummary.cash_sales },
+      { method: "wave", label: getPaymentLabel("wave"), amount: mySummary.wave_sales },
+      { method: "orange_money", label: getPaymentLabel("orange_money"), amount: mySummary.orange_money_sales },
+      { method: "mtn_money", label: getPaymentLabel("mtn_money"), amount: mySummary.mtn_money_sales },
+      { method: "moov_money", label: getPaymentLabel("moov_money"), amount: mySummary.moov_money_sales },
+      { method: "mpesa", label: getPaymentLabel("mpesa"), amount: mySummary.mpesa_sales },
+      { method: "card", label: getPaymentLabel("card"), amount: mySummary.card_sales },
+      { method: "credit", label: getPaymentLabel("credit"), amount: mySummary.credit_sales },
+    ];
+    try {
+      await downloadCashClosingPDF(
+        {
+          businessName: profile?.business_name || "",
+          storeName: getStoreName(mySession.store_id),
+          sellerName: getSellerName(mySession.opened_by),
+          openedAt: mySummary.opened_at,
+          closedAt: mySummary.closed_at,
+          status: getSessionStatusLabel(mySummary.status),
+          paymentBreakdown,
+          totalSales: mySummary.total_sales,
+          totalExpenses: mySummary.total_expenses,
+          expectedCash: mySummary.expected_cash,
+          actualCash: mySummary.actual_cash,
+          cashDifference: mySummary.cash_difference,
+          notes: mySummary.notes,
+          formatPrice,
+          formatDate: (iso) => format(new Date(iso), "dd/MM/yyyy HH:mm", { locale: fr }),
+          labels: {
+            title: t("print.title"),
+            storeLabel: t("print.storeLabel"),
+            sellerLabel: t("print.sellerLabel"),
+            approverLabel: t("print.approverLabel"),
+            statusLabel: t("print.statusLabel"),
+            openingLabel: t("print.openingLabel"),
+            closingLabel: t("print.closingLabel"),
+            paymentMethodColumn: t("print.paymentMethodColumn"),
+            amountColumn: t("print.amountColumn"),
+            totalSalesLabel: t("print.totalSalesLabel"),
+            expensesLabel: t("print.expensesLabel"),
+            expectedCashLabel: t("print.expectedCashLabel"),
+            actualCashLabel: t("print.actualCashLabel"),
+            gapLabel: t("print.gapLabel"),
+            gapPerfect: t("print.gapPerfect"),
+            notesLabel: t("print.notesLabel"),
+            generatedAtLabel: t("print.generatedAtLabel"),
+            footerText: t("print.footerText"),
+          },
+        },
+        `${t("print.pdfFilenamePrefix")}-${format(new Date(mySummary.opened_at), "yyyy-MM-dd")}.pdf`
+      );
+    } catch (error) {
+      const msg = extractErrorMessage(error) || "Erreur lors de la génération du PDF";
+      toast({ variant: "destructive", title: t("genericErrorTitle"), description: msg });
+      reportError(error instanceof Error ? error : new Error(msg));
+    }
+  };
+
   const handleExportHistoryCSV = () => {
     if (!history || history.length === 0) return;
     const rows = [
@@ -656,6 +723,9 @@ ${mySummary.notes ? t("whatsapp.notesLine", { notes: mySummary.notes }) : ""}
                 <div className="ml-auto flex gap-2">
                   <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
                     <Printer className="h-4 w-4" /> {t("pendingApproval.printButton")}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleExportPDF} className="gap-2">
+                    <Download className="h-4 w-4" /> {t("pendingApproval.pdfButton")}
                   </Button>
                   <Button variant="outline" size="sm" onClick={handleShareWhatsApp} className="gap-2">
                     <MessageCircle className="h-4 w-4" /> {t("pendingApproval.whatsappButton")}
