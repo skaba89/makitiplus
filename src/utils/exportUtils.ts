@@ -6,6 +6,7 @@ interface SaleExportRow {
   created_at: string;
   customer_name: string | null;
   payment_method: string;
+  payment_reference?: string | null;
   subtotal: number;
   total_amount: number;
   discount_amount: number | null;
@@ -75,6 +76,7 @@ export const exportSalesToCSV = (sales: SaleExportRow[], currencySymbol: string 
     "Heure",
     "Client",
     "Mode de paiement",
+    "Référence transaction",
     `Sous-total (${sym})`,
     `Remise (${sym})`,
     `Total (${sym})`,
@@ -91,6 +93,7 @@ export const exportSalesToCSV = (sales: SaleExportRow[], currencySymbol: string 
       escapeCSV(format(date, "HH:mm", { locale: fr })),
       escapeCSV(sale.customer_name || "-"),
       escapeCSV(PAYMENT_LABELS[sale.payment_method] || sale.payment_method),
+      escapeCSV(sale.payment_reference || "-"),
       escapeCSV(sale.subtotal),
       escapeCSV(sale.discount_amount || 0),
       escapeCSV(sale.total_amount),

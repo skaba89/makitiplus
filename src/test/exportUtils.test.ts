@@ -111,6 +111,98 @@ describe("exportUtils", () => {
       expect(clickSpy).toHaveBeenCalled();
       spy.mockRestore();
     });
+
+    it("inclut la référence de paiement Mobile Money dans l'en-tête et les lignes du CSV (audit final hardening, 2e prompt, P1)", () => {
+      let capturedText: string | null = null;
+      const OriginalBlob = globalThis.Blob;
+      // jsdom's Blob n'implémente pas .text() dans cet environnement de test :
+      // on capture le contenu directement à la construction plutôt que de
+      // relire le Blob a posteriori.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (globalThis as any).Blob = vi.fn((parts: BlobPart[], options?: BlobPropertyBag) => {
+        capturedText = parts.join("");
+        return new OriginalBlob(parts, options);
+      });
+      const clickSpy = vi.fn();
+      const originalCreateElement = document.createElement.bind(document);
+      const spy = vi.spyOn(document, "createElement").mockImplementation((tag: string) => {
+        const el = originalCreateElement(tag);
+        if (tag === "a") {
+          el.click = clickSpy;
+        }
+        return el;
+      });
+
+      const sales = [
+        {
+          sale_number: "VTE-005",
+          created_at: "2025-07-01T11:00:00Z",
+          customer_name: "Mamadou",
+          payment_method: "orange_money",
+          payment_reference: "OM240705.1234.A56789",
+          subtotal: 10000,
+          discount_amount: 0,
+          total_amount: 10000,
+          amount_paid: 10000,
+          change_amount: 0,
+          seller_name: "Ali",
+        },
+      ];
+      exportSalesToCSV(sales, "GNF");
+
+      expect(capturedText).not.toBeNull();
+      expect(capturedText).toContain("Référence transaction");
+      expect(capturedText).toContain("OM240705.1234.A56789");
+
+      spy.mockRestore();
+      (globalThis as unknown as { Blob: typeof Blob }).Blob = OriginalBlob;
+    });
+
+    it("affiche '-' pour la référence de paiement quand elle est absente (espèces, carte)", () => {
+      let capturedText: string | null = null;
+      const OriginalBlob = globalThis.Blob;
+      // jsdom's Blob n'implémente pas .text() dans cet environnement de test :
+      // on capture le contenu directement à la construction plutôt que de
+      // relire le Blob a posteriori.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (globalThis as any).Blob = vi.fn((parts: BlobPart[], options?: BlobPropertyBag) => {
+        capturedText = parts.join("");
+        return new OriginalBlob(parts, options);
+      });
+      const clickSpy = vi.fn();
+      const originalCreateElement = document.createElement.bind(document);
+      const spy = vi.spyOn(document, "createElement").mockImplementation((tag: string) => {
+        const el = originalCreateElement(tag);
+        if (tag === "a") {
+          el.click = clickSpy;
+        }
+        return el;
+      });
+
+      const sales = [
+        {
+          sale_number: "VTE-006",
+          created_at: "2025-07-01T11:00:00Z",
+          customer_name: "Test",
+          payment_method: "cash",
+          payment_reference: null,
+          subtotal: 5000,
+          discount_amount: 0,
+          total_amount: 5000,
+          amount_paid: 5000,
+          change_amount: 0,
+          seller_name: "Test",
+        },
+      ];
+      exportSalesToCSV(sales, "GNF");
+
+      expect(capturedText).not.toBeNull();
+      const dataLine = (capturedText as string).split("\n")[1];
+      expect(dataLine).toMatch(/,Espèces,-,/); // colonne mode de paiement puis référence
+
+      spy.mockRestore();
+      (globalThis as unknown as { Blob: typeof Blob }).Blob = OriginalBlob;
+    });
   });
 
   describe("exportProductsToCSV", () => {
