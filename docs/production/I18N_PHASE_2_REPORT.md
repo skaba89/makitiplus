@@ -76,14 +76,34 @@ Le pays par défaut `"Guinée"` dans `formData` n'est volontairement **pas** tra
 
 Test : `src/test/i18nSuppliersTranslations.test.ts` (123 assertions).
 
-## 8. Restant (pas encore fait)
+## 8. CashClosing.tsx (fait)
 
-CashClosing, Billing — chacune sera traitée comme un incrément séparé (namespace + migration + tests + validation complète), suivant exactement la même méthode que ci-dessus. CashClosing en particulier demandera une attention accrue vu sa criticité (voir section P0.5 de l'audit du 2026-08-01) — traduction uniquement, aucune logique métier à toucher. `DemoContext.tsx` (blockMutation) reste également à traiter comme une tâche transversale séparée si on veut une couverture i18n complète.
+Septième incrément — la page la plus critique de la Phase 2 (870 lignes, système financier, déjà l'objet d'un fix de sécurité RLS le même jour, PR #59). **Traduction stricte, aucune logique métier touchée** : mutations, appels RPC, paramètres, et le fix `roleByUserId.get(p.user_id)` sans fallback "vendeur" vérifiés intacts par un test de non-régression dédié (`i18nCashClosingTranslations.test.ts`, describe "Non-régression P0.5").
 
-Toasts et messages d'erreur globaux (hors namespaces de page) et le test anti-chaînes-FR-codées-en-dur généralisé restent également à faire, une fois les 8 pages couvertes (le test générique n'a de sens qu'une fois qu'on sait exactement quelles pages sont "censées" être entièrement traduites vs. celles qui ne le sont pas encore).
+Couvre : en-tête + libellé de rôle, vue audit super_admin, erreurs de chargement RPC, ouverture de caisse, session en cours (avec libellés de paiement dynamiques via `getPaymentLabel()`, remplaçant l'ancienne constante module-level `PAYMENT_LABELS` qui ne pouvait pas appeler `t()`), comptage de caisse (avec avertissement offline pluralisé `_one`/`_other`), vue équipe (caisses ouvertes + approbations en attente), historique avec filtres, **et aussi** : le reçu HTML généré pour impression (`handlePrint`), le message WhatsApp partagé (`handleShareWhatsApp`), et les en-têtes de colonnes du CSV exporté (`handleExportHistoryCSV`) — ces trois derniers ne sont pas dans le JSX React mais des templates de chaînes générés dynamiquement dans le composant, donc capables d'appeler `t()`.
+
+Le composant `Trans` (déjà utilisé dans Reports.tsx) sert de nouveau pour "Magasin : **{{name}}**" (nom du magasin en gras).
+
+Test : `src/test/i18nCashClosingTranslations.test.ts` (234 assertions, incluant les vérifications de non-régression métier).
+
+## 9. Billing.tsx (fait)
+
+Huitième et dernier incrément — la page la plus complexe côté logique métier (Stripe checkout, gestion manuelle d'abonnement super_admin, RPC `admin_update_organization_subscription`). **Traduction stricte, aucune logique métier touchée** : le seul appel RPC de la page, ses paramètres (`p_organization_id`, `p_plan_id`, `p_duration`, `p_payment_reference`, `p_reason`), et les calculs de prix restent identiques — vérifiés par un test de non-régression dédié (`i18nBillingTranslations.test.ts`, describe "Non-régression").
+
+Couvre : en-tête, carte plan actuel (dates de renouvellement/essai, avertissements essai/grâce/lecture-seule/enterprise actif), carte utilisation (compteurs boutiques/utilisateurs/produits via le composant `UsageBar`, migré séparément car défini hors du composant principal), carte de paiement pour tenant admin (Mobile Money/espèces/virement), carte de gestion manuelle super_admin (sélecteur d'organisation cible, dialogue de changement de plan, extension d'abonnement), carte Stripe (portail, upgrade, erreurs de checkout), carte de contact non-admin, et le tableau de comparaison des plans (labels `PlanFeatureRow` désormais passés déjà traduits).
+
+Deux refactors module-level identiques au pattern déjà utilisé pour CashClosing (constantes ne pouvant pas appeler `t()` au niveau module) : `STATUS_LABELS` → `STATUS_VARIANTS` (const, non textuel) + `getStatusLabel()`/`getStatusVariant()` internes ; `DURATION_OPTIONS` → `DURATION_VALUES` (const de valeurs brutes) + `DURATION_OPTIONS` calculé dans le composant via `t()`. Un seul changement de sortie côté texte (documenté et testé) : le libellé de durée dans le toast d'extension d'abonnement utilise désormais `t(\`durationOptions.\${duration}\`)` au lieu d'un ternaire codé en dur — le français produit est strictement identique.
+
+Test : `src/test/i18nBillingTranslations.test.ts` (259 assertions, incluant les vérifications de non-régression métier).
+
+## 10. Restant (hors scope des 8 pages)
+
+`DemoContext.tsx` (blockMutation) reste à traiter comme une tâche transversale séparée si on veut une couverture i18n complète — les arguments passés à `blockMutation(...)` dans Billing.tsx (ex: "Gérer l'abonnement", "Souscrire au plan") restent en français, comme documenté pour les autres pages.
+
+Toasts et messages d'erreur globaux (hors namespaces de page) et le test anti-chaînes-FR-codées-en-dur généralisé restent également à faire, maintenant que les 8 pages sont couvertes (le test générique a désormais du sens : chaque page de la liste est "censée" être entièrement traduite).
 
 ## Critère d'acceptation de la section (rappel)
 
 > Le français reste intact. L'anglais devient exploitable sur les parcours principaux. Aucun texte critique non traduit dans Auth/Dashboard/POS/CashClosing.
 
-Auth/Dashboard/POS : déjà couverts (Phase 1). CashClosing : **pas encore fait** — reste le principal écart par rapport à ce critère à ce stade.
+Auth/Dashboard/POS/CashClosing : tous couverts. Les 8 pages de la Phase 2 (Pricing, Reports, Products, Categories, Customers, Suppliers, CashClosing, Billing) sont désormais toutes traduites — critère atteint pour l'ensemble du périmètre demandé.

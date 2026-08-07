@@ -9,6 +9,7 @@
  *   - Demo mode blocks all subscription mutations via blockMutation()
  */
 
+import { useTranslation } from "react-i18next";
 import { useSubscription, usePlanLimit, usePlans, formatLimit, type LimitType } from "@/hooks/useSubscription";
 import { useStripeCheckout } from "@/hooks/useStripeCheckout";
 import { useStripePortal } from "@/hooks/useStripePortal";
@@ -44,24 +45,23 @@ import { useToast } from "@/hooks/use-toast";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { useCurrency } from "@/hooks/useCurrency";
 
-const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  active: { label: "Actif", variant: "default" },
-  trialing: { label: "Essai gratuit", variant: "secondary" },
-  past_due: { label: "En retard", variant: "destructive" },
-  grace_period: { label: "Période de grâce", variant: "secondary" },
-  read_only: { label: "Lecture seule", variant: "destructive" },
-  cancelled: { label: "Annulé", variant: "outline" },
-  expired: { label: "Expiré", variant: "destructive" },
+const STATUS_VARIANTS: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+  active: "default",
+  trialing: "secondary",
+  past_due: "destructive",
+  grace_period: "secondary",
+  read_only: "destructive",
+  cancelled: "outline",
+  expired: "destructive",
 };
 
-const DURATION_OPTIONS = [
-  { value: "1_month", label: "1 mois" },
-  { value: "3_months", label: "3 mois" },
-  { value: "6_months", label: "6 mois" },
-  { value: "1_year", label: "1 an" },
-] as const;
+const DURATION_VALUES = ["1_month", "3_months", "6_months", "1_year"] as const;
 
 export default function Billing() {
+  const { t } = useTranslation("billing");
+  const getStatusLabel = (status: string) => t(`statusLabels.${status}`, { defaultValue: status });
+  const getStatusVariant = (status: string) => STATUS_VARIANTS[status] || "outline";
+  const DURATION_OPTIONS = DURATION_VALUES.map((value) => ({ value, label: t(`durationOptions.${value}`) }));
   const { data: subscription, isLoading: subLoading } = useSubscription();
   const { data: plans } = usePlans();
   const { userRole, user } = useAuth();
@@ -141,14 +141,14 @@ export default function Billing() {
   useEffect(() => {
     const checkoutStatus = searchParams.get("checkout");
     if (checkoutStatus === "success") {
-      toast({ title: "Paiement en cours de traitement", description: "Votre abonnement sera activé dans quelques instants." });
+      toast({ title: t("toasts.paymentProcessingTitle"), description: t("toasts.paymentProcessingDescription") });
       queryClient.invalidateQueries({ queryKey: ["subscription"] });
       setSearchParams({}, { replace: true });
     } else if (checkoutStatus === "cancelled") {
-      toast({ title: "Paiement annulé", description: "Vous n'avez pas été débité.", variant: "destructive" });
+      toast({ title: t("toasts.paymentCancelledTitle"), description: t("toasts.paymentCancelledDescription"), variant: "destructive" });
       setSearchParams({}, { replace: true });
     }
-  }, [searchParams, toast, queryClient, setSearchParams]);
+  }, [searchParams, toast, queryClient, setSearchParams, t]);
 
   /**
    * handleManualPlanChange — super_admin only
@@ -161,13 +161,13 @@ export default function Billing() {
     if (blockMutation("Modifier l'abonnement")) return;
 
     if (!selectedPlan) {
-      toast({ title: "Plan requis", description: "Sélectionnez un plan avant de continuer.", variant: "destructive" });
+      toast({ title: t("toasts.planRequiredTitle"), description: t("toasts.planRequiredDescription"), variant: "destructive" });
       return;
     }
 
     // Super_admin doit sélectionner une org cible
     if (isPlatformSuperAdmin && !effectiveTargetOrgId) {
-      toast({ title: "Organisation requise", description: "Sélectionnez une organisation à modifier.", variant: "destructive" });
+      toast({ title: t("toasts.orgRequiredTitle"), description: t("toasts.orgRequiredDescriptionChange"), variant: "destructive" });
       return;
     }
 
@@ -184,7 +184,7 @@ export default function Billing() {
           ).data?.organization_id;
 
       if (!orgIdToUse) {
-        toast({ title: "Erreur", description: "Impossible de déterminer l'organisation cible.", variant: "destructive" });
+        toast({ title: t("toasts.genericErrorTitle"), description: t("toasts.orgNotFoundError"), variant: "destructive" });
         return;
       }
 
@@ -197,16 +197,17 @@ export default function Billing() {
       });
 
       if (error) {
-        toast({ title: "Erreur", description: error.message, variant: "destructive" });
+        toast({ title: t("toasts.genericErrorTitle"), description: error.message, variant: "destructive" });
         return;
       }
 
       const result = (Array.isArray(data) ? data[0] : data) as unknown as { event_type?: string } | undefined;
-      const planLabel = selectedPlan === "croissance" ? "Croissance" : selectedPlan === "enterprise" ? "Enterprise" : selectedPlan === "pilot_national" ? "Pilote National" : "Starter";
+      const planLabel = selectedPlan === "croissance" ? t("superAdmin.planNameCroissance") : selectedPlan === "enterprise" ? t("superAdmin.planNameEnterprise") : selectedPlan === "pilot_national" ? t("superAdmin.planNamePilotNational") : t("superAdmin.planNameStarter");
       const targetOrgName = allOrgs.find((o) => o.id === orgIdToUse)?.name || "Organisation";
+      const eventLabel = result?.event_type === "upgraded" ? t("toasts.eventUpgraded") : result?.event_type === "downgraded" ? t("toasts.eventDowngraded") : t("toasts.eventRenewed");
       toast({
-        title: "Plan mis à jour",
-        description: `Organisation "${targetOrgName}" → Plan ${planLabel} (${selectedDuration}). ${result?.event_type === "upgraded" ? "Upgrade" : result?.event_type === "downgraded" ? "Downgrade" : "Renouvellement"} effectué.`,
+        title: t("toasts.planUpdatedTitle"),
+        description: t("toasts.planUpdatedDescription", { org: targetOrgName, plan: planLabel, duration: selectedDuration, eventType: eventLabel }),
       });
 
       queryClient.invalidateQueries({ queryKey: ["subscription"] });
@@ -220,14 +221,14 @@ export default function Billing() {
       setChangeReason("");
     } catch (err: unknown) {
       toast({
-        title: "Erreur",
-        description: (err instanceof Error ? err.message : String(err)) || "Impossible de modifier l'abonnement.",
+        title: t("toasts.genericErrorTitle"),
+        description: (err instanceof Error ? err.message : String(err)) || t("toasts.planUpdateErrorFallback"),
         variant: "destructive",
       });
     } finally {
       setIsChangingPlan(false);
     }
-  }, [blockMutation, selectedPlan, selectedDuration, paymentRef, changeReason, user, queryClient, toast, isPlatformSuperAdmin, effectiveTargetOrgId, allOrgs]);
+  }, [blockMutation, selectedPlan, selectedDuration, paymentRef, changeReason, user, queryClient, toast, isPlatformSuperAdmin, effectiveTargetOrgId, allOrgs, t]);
 
   /**
    * handleExtendSubscription — super_admin only
@@ -245,14 +246,14 @@ export default function Billing() {
 
     if (isPlatformSuperAdmin) {
       if (!effectiveTargetOrgId) {
-        toast({ title: "Organisation requise", description: "Sélectionnez une organisation à prolonger.", variant: "destructive" });
+        toast({ title: t("toasts.orgRequiredTitle"), description: t("toasts.orgRequiredDescriptionExtend"), variant: "destructive" });
         return;
       }
       orgIdToUse = effectiveTargetOrgId;
       planId = allOrgs.find((o) => o.id === effectiveTargetOrgId)?.plan_id;
     } else {
       if (!subscription?.plan_id) {
-        toast({ title: "Aucun plan actif", description: "Aucun abonnement à prolonger.", variant: "destructive" });
+        toast({ title: t("toasts.noActivePlanTitle"), description: t("toasts.noActivePlanDescription"), variant: "destructive" });
         return;
       }
       planId = subscription.plan_id;
@@ -265,7 +266,7 @@ export default function Billing() {
     }
 
     if (!planId || !orgIdToUse) {
-      toast({ title: "Erreur", description: "Plan ou organisation introuvable.", variant: "destructive" });
+      toast({ title: t("toasts.genericErrorTitle"), description: t("toasts.planOrOrgNotFoundError"), variant: "destructive" });
       return;
     }
 
@@ -276,11 +277,11 @@ export default function Billing() {
         p_plan_id: planId,
         p_duration: duration,
         p_payment_reference: paymentRef || undefined,
-        p_reason: changeReason || "Prolongation manuelle",
+        p_reason: changeReason || t("toasts.manualPlanChangeReason"),
       });
 
       if (error) {
-        toast({ title: "Erreur", description: error.message, variant: "destructive" });
+        toast({ title: t("toasts.genericErrorTitle"), description: error.message, variant: "destructive" });
         return;
       }
 
@@ -288,8 +289,12 @@ export default function Billing() {
         ? allOrgs.find((o) => o.id === orgIdToUse)?.name || "Organisation"
         : "";
       toast({
-        title: "Abonnement prolongé",
-        description: `${isPlatformSuperAdmin ? `"${targetOrgName}" — ` : ""}Plan ${planId} prolongé de ${duration === "1_year" ? "1 an" : duration === "6_months" ? "6 mois" : duration === "3_months" ? "3 mois" : "1 mois"}.`,
+        title: t("toasts.subscriptionExtendedTitle"),
+        description: t("toasts.subscriptionExtendedDescription", {
+          orgPrefix: isPlatformSuperAdmin ? `"${targetOrgName}" — ` : "",
+          plan: planId,
+          duration: t(`durationOptions.${duration}`, { defaultValue: duration }),
+        }),
       });
 
       queryClient.invalidateQueries({ queryKey: ["subscription"] });
@@ -297,14 +302,14 @@ export default function Billing() {
       queryClient.invalidateQueries({ queryKey: ["all-orgs-with-subs"] });
     } catch (err: unknown) {
       toast({
-        title: "Erreur",
-        description: (err instanceof Error ? err.message : String(err)) || "Impossible de prolonger l'abonnement.",
+        title: t("toasts.genericErrorTitle"),
+        description: (err instanceof Error ? err.message : String(err)) || t("toasts.subscriptionExtendErrorFallback"),
         variant: "destructive",
       });
     } finally {
       setIsChangingPlan(false);
     }
-  }, [blockMutation, subscription, paymentRef, changeReason, user, queryClient, toast, isPlatformSuperAdmin, effectiveTargetOrgId, allOrgs]);
+  }, [blockMutation, subscription, paymentRef, changeReason, user, queryClient, toast, isPlatformSuperAdmin, effectiveTargetOrgId, allOrgs, t]);
 
   // Copy contact info
   const handleCopy = (text: string) => {
@@ -324,8 +329,8 @@ export default function Billing() {
   }
 
   const statusInfo = subscription
-    ? STATUS_LABELS[subscription.status] || { label: subscription.status, variant: "outline" as const }
-    : { label: "Aucun plan actif", variant: "destructive" as const };
+    ? { label: getStatusLabel(subscription.status), variant: getStatusVariant(subscription.status) }
+    : { label: t("statusLabels.noActivePlan"), variant: "destructive" as const };
 
   const planId = subscription?.plan_id || "";
 
@@ -334,8 +339,8 @@ export default function Billing() {
     <div className="space-y-6 max-w-4xl mx-auto">
       <div className="flex flex-wrap items-center justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold">Abonnement & Facturation</h1>
-          <p className="text-muted-foreground">Gérez votre plan et suivez votre utilisation</p>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold">{t("title")}</h1>
+          <p className="text-muted-foreground">{t("subtitle")}</p>
         </div>
         <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
       </div>
@@ -345,7 +350,7 @@ export default function Billing() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CreditCard className="h-5 w-5" />
-            Plan actuel : {subscription?.plan_name || "Aucun"}
+            {t("currentPlan.cardTitle", { planName: subscription?.plan_name || t("currentPlan.noneLabel") })}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -353,12 +358,12 @@ export default function Billing() {
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span>Renouvellement : {new Date(subscription.current_period_end).toLocaleDateString("fr-FR")}</span>
+                <span>{t("currentPlan.renewalDate", { date: new Date(subscription.current_period_end).toLocaleDateString("fr-FR") })}</span>
               </div>
               {subscription.trial_ends_at && (
                 <div className="flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                  <span>Fin d'essai : {new Date(subscription.trial_ends_at).toLocaleDateString("fr-FR")}</span>
+                  <span>{t("currentPlan.trialEndsAt", { date: new Date(subscription.trial_ends_at).toLocaleDateString("fr-FR") })}</span>
                 </div>
               )}
             </div>
@@ -369,15 +374,15 @@ export default function Billing() {
             <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200">
               <Clock className="h-5 w-5 text-blue-500 shrink-0" />
               <div className="text-sm">
-                <p className="font-medium">Période d'essai en cours</p>
+                <p className="font-medium">{t("currentPlan.trialWarningTitle")}</p>
                 <p className="text-muted-foreground">
-                  Votre essai gratuit se termine le{" "}
-                  {subscription.trial_ends_at
-                    ? new Date(subscription.trial_ends_at).toLocaleDateString("fr-FR")
-                    : subscription.current_period_end
-                    ? new Date(subscription.current_period_end).toLocaleDateString("fr-FR")
-                    : "bientôt"}{" "}
-                  . Choisissez un plan pour continuer à utiliser MakitiPlus.
+                  {t("currentPlan.trialWarningDescription", {
+                    date: subscription.trial_ends_at
+                      ? new Date(subscription.trial_ends_at).toLocaleDateString("fr-FR")
+                      : subscription.current_period_end
+                      ? new Date(subscription.current_period_end).toLocaleDateString("fr-FR")
+                      : t("currentPlan.soon"),
+                  })}
                 </p>
               </div>
             </div>
@@ -387,13 +392,13 @@ export default function Billing() {
             <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200">
               <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />
               <div className="text-sm">
-                <p className="font-medium">Période de grâce en cours</p>
+                <p className="font-medium">{t("currentPlan.graceWarningTitle")}</p>
                 <p className="text-muted-foreground">
-                  Votre abonnement a expiré. Mettez à jour votre paiement avant le{" "}
-                  {subscription.grace_period_ends_at
-                    ? new Date(subscription.grace_period_ends_at).toLocaleDateString("fr-FR")
-                    : "bientôt"}{" "}
-                  pour éviter le passage en lecture seule.
+                  {t("currentPlan.graceWarningDescription", {
+                    date: subscription.grace_period_ends_at
+                      ? new Date(subscription.grace_period_ends_at).toLocaleDateString("fr-FR")
+                      : t("currentPlan.soon"),
+                  })}
                 </p>
               </div>
             </div>
@@ -403,10 +408,9 @@ export default function Billing() {
             <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200">
               <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
               <div className="text-sm">
-                <p className="font-medium">Accès en lecture seule</p>
+                <p className="font-medium">{t("currentPlan.readOnlyWarningTitle")}</p>
                 <p className="text-muted-foreground">
-                  Votre abonnement a expiré. Vous pouvez consulter vos données mais pas créer de ventes.
-                  Mettez à jour votre paiement pour retrouver l'accès complet.
+                  {t("currentPlan.readOnlyWarningDescription")}
                 </p>
               </div>
             </div>
@@ -417,9 +421,9 @@ export default function Billing() {
             <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200">
               <CheckCircle className="h-5 w-5 text-green-500 shrink-0" />
               <div className="text-sm">
-                <p className="font-medium">Plan Enterprise actif</p>
+                <p className="font-medium">{t("currentPlan.enterpriseActiveTitle")}</p>
                 <p className="text-muted-foreground">
-                  Vous avez accès à toutes les fonctionnalités : boutiques illimitées, assistant IA, analytics multi-magasins, API et support prioritaire.
+                  {t("currentPlan.enterpriseActiveDescription")}
                 </p>
               </div>
             </div>
@@ -432,13 +436,13 @@ export default function Billing() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5" />
-            Utilisation
+            {t("usage.cardTitle")}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <UsageBar label="Boutiques" limitType="stores" />
-          <UsageBar label="Utilisateurs" limitType="users" />
-          <UsageBar label="Produits" limitType="products" />
+          <UsageBar label={t("usage.stores")} limitType="stores" />
+          <UsageBar label={t("usage.users")} limitType="users" />
+          <UsageBar label={t("usage.products")} limitType="products" />
         </CardContent>
       </Card>
 
@@ -449,10 +453,10 @@ export default function Billing() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-blue-700 dark:text-blue-400">
               <Phone className="h-5 w-5" />
-              Comment upgrader votre plan
+              {t("tenantAdminPayment.cardTitle")}
             </CardTitle>
             <CardDescription className="text-blue-600/70 dark:text-blue-400/70">
-              Pour passer à un plan supérieur, contactez l'équipe MakitiPlus.
+              {t("tenantAdminPayment.description")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
@@ -460,22 +464,22 @@ export default function Billing() {
               <div className="flex items-center gap-2 p-2 rounded bg-background">
                 <Phone className="h-4 w-4 text-green-600 shrink-0" />
                 <div>
-                  <span className="font-medium">Mobile Money (Orange Money / MTN)</span>
-                  <p className="text-xs text-muted-foreground">Envoyez le montant au numéro MakitiPlus et communiquez la référence.</p>
+                  <span className="font-medium">{t("tenantAdminPayment.mobileMoneyLabel")}</span>
+                  <p className="text-xs text-muted-foreground">{t("tenantAdminPayment.mobileMoneyDescription")}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2 p-2 rounded bg-background">
                 <Banknote className="h-4 w-4 text-amber-600 shrink-0" />
                 <div>
-                  <span className="font-medium">Paiement en espèces</span>
-                  <p className="text-xs text-muted-foreground">Rendez-vous au bureau MakitiPlus le plus proche avec votre référence organisation.</p>
+                  <span className="font-medium">{t("tenantAdminPayment.cashLabel")}</span>
+                  <p className="text-xs text-muted-foreground">{t("tenantAdminPayment.cashDescription")}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2 p-2 rounded bg-background">
                 <CreditCard className="h-4 w-4 text-blue-600 shrink-0" />
                 <div>
-                  <span className="font-medium">Virement bancaire</span>
-                  <p className="text-xs text-muted-foreground">Contactez support@makitiplus.com pour les coordonnées bancaires.</p>
+                  <span className="font-medium">{t("tenantAdminPayment.bankTransferLabel")}</span>
+                  <p className="text-xs text-muted-foreground">{t("tenantAdminPayment.bankTransferDescription")}</p>
                 </div>
               </div>
             </div>
@@ -494,7 +498,7 @@ export default function Billing() {
             </div>
             {isStripeConfigured && (
               <p className="text-xs text-muted-foreground pt-2 border-t">
-                Vous pouvez aussi payer en ligne via Stripe en utilisant les boutons ci-dessous.
+                {t("tenantAdminPayment.stripeNote")}
               </p>
             )}
           </CardContent>
@@ -508,10 +512,10 @@ export default function Billing() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-purple-700 dark:text-purple-400">
               <Shield className="h-5 w-5" />
-              Gestion manuelle des abonnements (Super Admin)
+              {t("superAdmin.cardTitle")}
             </CardTitle>
             <CardDescription className="text-purple-600/70 dark:text-purple-400/70">
-              Changez de plan ou prolongez un abonnement. Toute modification est enregistrée dans le journal d'audit.
+              {t("superAdmin.description")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -519,11 +523,11 @@ export default function Billing() {
             <div className="space-y-3 p-4 bg-background border-2 border-purple-200 rounded-lg">
               <div className="flex items-center gap-2">
                 <Building2 className="h-4 w-4 text-purple-600" />
-                <label className="text-sm font-medium">Organisation cible</label>
+                <label className="text-sm font-medium">{t("superAdmin.targetOrgLabel")}</label>
               </div>
               <Select value={effectiveTargetOrgId ?? undefined} onValueChange={setTargetOrgId}>
                 <SelectTrigger>
-                  <SelectValue placeholder={orgsLoading ? "Chargement..." : "Sélectionner une organisation"} />
+                  <SelectValue placeholder={orgsLoading ? t("superAdmin.orgSelectLoading") : t("superAdmin.orgSelectPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent className="max-h-80">
                   {allOrgs.map((org) => (
@@ -535,7 +539,7 @@ export default function Billing() {
                           {org.plan_id}
                         </Badge>
                         <span className="text-xs text-muted-foreground">
-                          ({org.stores_count} magasin{org.stores_count > 1 ? "s" : ""})
+                          {t("superAdmin.storeCount", { count: org.stores_count })}
                         </span>
                       </span>
                     </SelectItem>
@@ -551,13 +555,13 @@ export default function Billing() {
                     <div className="flex flex-wrap items-center gap-3 text-sm">
                       <span className="font-medium">{selectedOrg.name}</span>
                       <Badge variant="outline" className="capitalize">{selectedOrg.plan_id}</Badge>
-                      <Badge variant={STATUS_LABELS[selectedOrg.status]?.variant || "outline"}>
-                        {STATUS_LABELS[selectedOrg.status]?.label || selectedOrg.status}
+                      <Badge variant={getStatusVariant(selectedOrg.status)}>
+                        {getStatusLabel(selectedOrg.status)}
                       </Badge>
                       {selectedOrg.current_period_end && (
                         <span className="text-xs text-muted-foreground flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
-                          Expire le {new Date(selectedOrg.current_period_end).toLocaleDateString("fr-FR")}
+                          {t("superAdmin.expiresOn", { date: new Date(selectedOrg.current_period_end).toLocaleDateString("fr-FR") })}
                         </span>
                       )}
                     </div>
@@ -579,42 +583,42 @@ export default function Billing() {
             {/* Change Plan — with Dialog */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-muted/50 rounded-lg">
               <div className="flex-1">
-                <h4 className="font-medium">Changer le plan</h4>
+                <h4 className="font-medium">{t("superAdmin.changePlanTitle")}</h4>
                 <p className="text-sm text-muted-foreground">
-                  Sélectionnez un plan et une durée pour mettre à jour l'abonnement.
+                  {t("superAdmin.changePlanDescription")}
                 </p>
               </div>
               <Dialog open={changeDialogOpen} onOpenChange={setChangeDialogOpen}>
                 <DialogTrigger asChild>
                   <Button variant="outline" className="border-purple-300 hover:bg-purple-100">
                     <CreditCard className="h-4 w-4 mr-2" />
-                    Changer le plan
+                    {t("superAdmin.changePlanButton")}
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Changer le plan</DialogTitle>
+                    <DialogTitle>{t("superAdmin.dialogTitle")}</DialogTitle>
                     <DialogDescription>
-                      Sélectionnez le plan et la durée souhaités. L'abonnement sera mis à jour via le RPC sécurisé.
+                      {t("superAdmin.dialogDescription")}
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Plan</label>
+                      <label className="text-sm font-medium">{t("superAdmin.planLabel")}</label>
                       <Select value={selectedPlan} onValueChange={setSelectedPlan}>
                         <SelectTrigger>
-                          <SelectValue placeholder="Choisir un plan" />
+                          <SelectValue placeholder={t("superAdmin.planChoicePlaceholder")} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="starter">Starter — Gratuit</SelectItem>
-                          <SelectItem value="pilot_national">Pilote National — Gratuit (7 jours)</SelectItem>
-                          <SelectItem value="croissance">Croissance — 39,90 EUR/mois</SelectItem>
-                          <SelectItem value="enterprise">Enterprise — 99,90 EUR/mois</SelectItem>
+                          <SelectItem value="starter">{t("superAdmin.planStarter")}</SelectItem>
+                          <SelectItem value="pilot_national">{t("superAdmin.planPilotNational")}</SelectItem>
+                          <SelectItem value="croissance">{t("superAdmin.planCroissance")}</SelectItem>
+                          <SelectItem value="enterprise">{t("superAdmin.planEnterprise")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Durée</label>
+                      <label className="text-sm font-medium">{t("superAdmin.durationLabel")}</label>
                       <Select value={selectedDuration} onValueChange={setSelectedDuration}>
                         <SelectTrigger>
                           <SelectValue />
@@ -627,21 +631,21 @@ export default function Billing() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Référence paiement (optionnel)</label>
+                      <label className="text-sm font-medium">{t("superAdmin.paymentRefLabel")}</label>
                       <input
                         type="text"
                         className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                        placeholder="ex: MM-20260705-001"
+                        placeholder={t("superAdmin.paymentRefPlaceholder")}
                         value={paymentRef}
                         onChange={(e) => setPaymentRef(e.target.value)}
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Motif (optionnel)</label>
+                      <label className="text-sm font-medium">{t("superAdmin.reasonLabel")}</label>
                       <input
                         type="text"
                         className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                        placeholder="ex: Paiement Mobile Money reçu"
+                        placeholder={t("superAdmin.reasonPlaceholder")}
                         value={changeReason}
                         onChange={(e) => setChangeReason(e.target.value)}
                       />
@@ -649,21 +653,21 @@ export default function Billing() {
                     {selectedPlan && (
                       <div className="p-3 bg-muted rounded-lg text-sm">
                         <p className="font-medium">
-                          {selectedPlan === "starter" ? "Starter" : selectedPlan === "croissance" ? "Croissance" : "Enterprise"}
+                          {selectedPlan === "starter" ? t("superAdmin.planNameStarter") : selectedPlan === "croissance" ? t("superAdmin.planNameCroissance") : t("superAdmin.planNameEnterprise")}
                           {" — "}
                           {selectedDuration === "1_year"
-                            ? selectedPlan === "croissance" ? "399,00 EUR/an" : selectedPlan === "enterprise" ? "999,00 EUR/an" : "Gratuit"
-                            : selectedPlan === "croissance" ? "39,90 EUR/mois" : selectedPlan === "enterprise" ? "99,90 EUR/mois" : "Gratuit"
+                            ? selectedPlan === "croissance" ? t("superAdmin.priceSummaryCroissanceYear") : selectedPlan === "enterprise" ? t("superAdmin.priceSummaryEnterpriseYear") : t("superAdmin.priceSummaryFree")
+                            : selectedPlan === "croissance" ? t("superAdmin.priceSummaryCroissanceMonth") : selectedPlan === "enterprise" ? t("superAdmin.priceSummaryEnterpriseMonth") : t("superAdmin.priceSummaryFree")
                           }
                         </p>
                       </div>
                     )}
                   </div>
                   <DialogFooter>
-                    <Button variant="outline" onClick={() => setChangeDialogOpen(false)}>Annuler</Button>
+                    <Button variant="outline" onClick={() => setChangeDialogOpen(false)}>{t("superAdmin.cancelButton")}</Button>
                     <Button onClick={handleManualPlanChange} disabled={!selectedPlan || isChangingPlan} className="bg-purple-600 hover:bg-purple-700">
                       {isChangingPlan ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle className="h-4 w-4 mr-2" />}
-                      Confirmer le changement
+                      {t("superAdmin.confirmButton")}
                     </Button>
                   </DialogFooter>
                 </DialogContent>
@@ -673,27 +677,27 @@ export default function Billing() {
             {/* Extend Subscription */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-muted/50 rounded-lg">
               <div className="flex-1">
-                <h4 className="font-medium">Prolonger l'abonnement</h4>
+                <h4 className="font-medium">{t("superAdmin.extendTitle")}</h4>
                 <p className="text-sm text-muted-foreground">
-                  Prolongez l'abonnement actuel ({planId === "enterprise" ? "Enterprise" : planId === "croissance" ? "Croissance" : "Starter"}).
+                  {t("superAdmin.extendDescription", { plan: planId === "enterprise" ? t("superAdmin.planNameEnterprise") : planId === "croissance" ? t("superAdmin.planNameCroissance") : t("superAdmin.planNameStarter") })}
                 </p>
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => handleExtendSubscription("1_month")} disabled={isChangingPlan}>
                   {isChangingPlan ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
-                  +1 mois
+                  {t("superAdmin.extend1Month")}
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => handleExtendSubscription("3_months")} disabled={isChangingPlan}>
-                  +3 mois
+                  {t("superAdmin.extend3Months")}
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => handleExtendSubscription("1_year")} disabled={isChangingPlan}>
-                  +1 an
+                  {t("superAdmin.extend1Year")}
                 </Button>
               </div>
             </div>
 
             <p className="text-xs text-muted-foreground">
-              Toute modification est enregistrée dans le journal d'audit (subscription_events) et nécessite le rôle super_admin côté serveur.
+              {t("superAdmin.auditNote")}
             </p>
           </CardContent>
         </Card>
@@ -704,14 +708,14 @@ export default function Billing() {
         <Card>
           <CardContent className="flex flex-wrap items-center justify-between p-6">
             <div>
-              <h3 className="font-semibold text-lg">Gérer votre abonnement</h3>
+              <h3 className="font-semibold text-lg">{t("manageSub.title")}</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Modifiez votre moyen de paiement, consultez l'historique de facturation ou annulez votre abonnement.
+                {t("manageSub.description")}
               </p>
             </div>
             <Button variant="outline" onClick={() => { if (blockMutation("Gérer l'abonnement")) return; openPortal(); }} disabled={isPortalLoading}>
               {isPortalLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CreditCard className="h-4 w-4 mr-2" />}
-              Gérer mon abonnement
+              {t("manageSub.button")}
             </Button>
           </CardContent>
         </Card>
@@ -722,14 +726,14 @@ export default function Billing() {
         <Card className="border-primary/50 bg-primary/5">
           <CardContent className="flex flex-wrap items-center justify-between p-6">
             <div>
-              <h3 className="font-semibold text-lg">Améliorer votre plan</h3>
+              <h3 className="font-semibold text-lg">{t("contactUpgrade.title")}</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Contactez votre administrateur pour changer de plan ou activer des fonctionnalités supplémentaires.
+                {t("contactUpgrade.description")}
               </p>
             </div>
             <Button variant="outline" onClick={() => handleCopy("contact@makitiplus.com")}>
               <Mail className="h-4 w-4 mr-2" />
-              {copied ? "Copié !" : "Nous contacter"}
+              {copied ? t("contactUpgrade.copiedButton") : t("contactUpgrade.button")}
             </Button>
           </CardContent>
         </Card>
@@ -740,14 +744,14 @@ export default function Billing() {
         <Card className="border-primary/50 bg-primary/5">
           <CardContent className="flex flex-wrap items-center justify-between p-6">
             <div>
-              <h3 className="font-semibold text-lg">Choisissez un plan pour commencer</h3>
+              <h3 className="font-semibold text-lg">{t("stripeCheckout.chooseTitle")}</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                À partir de 39,90 EUR/mois — POS, gestion stock, clients à crédit
+                {t("stripeCheckout.chooseDescription")}
               </p>
             </div>
             <Button size="lg" onClick={() => { if (blockMutation("Souscrire au plan")) return; checkout("croissance"); }} disabled={isCheckingOut}>
               {isCheckingOut ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Commencer
+              {t("stripeCheckout.startButton")}
             </Button>
           </CardContent>
         </Card>
@@ -757,15 +761,15 @@ export default function Billing() {
           <CardContent className="flex flex-wrap items-center justify-between p-6">
             <div>
               <h3 className="font-semibold text-lg">
-                Passez à Enterprise pour boutiques illimitées, API et support prioritaire
+                {t("stripeCheckout.upgradeTitle")}
               </h3>
               <p className="text-sm text-muted-foreground mt-1">
-                99,90 EUR/mois — Boutiques et utilisateurs illimités, assistant IA, programme fidélité
+                {t("stripeCheckout.upgradeDescription")}
               </p>
             </div>
             <Button size="lg" onClick={() => { if (blockMutation("Souscrire au plan")) return; checkout("enterprise"); }} disabled={isCheckingOut}>
               {isCheckingOut ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Upgrader
+              {t("stripeCheckout.upgradeButton")}
             </Button>
           </CardContent>
         </Card>
@@ -784,38 +788,38 @@ export default function Billing() {
       {/* All Plans Comparison */}
       <Card>
         <CardHeader>
-          <CardTitle>Comparer les plans</CardTitle>
+          <CardTitle>{t("comparePlans.cardTitle")}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left py-2 pr-4">Fonctionnalité</th>
+                  <th className="text-left py-2 pr-4">{t("comparePlans.featureColumn")}</th>
                   {plans?.map((plan) => (
                     <th key={plan.id} className="text-center py-2 px-2">
                       <div className="font-semibold">{plan.name}</div>
                       <div className="text-muted-foreground text-xs">
-                        {plan.price_monthly === 0 ? "Gratuit" : `${plan.price_monthly.toFixed(2).replace('.00', '')} EUR/mois`}
+                        {plan.price_monthly === 0 ? t("comparePlans.freeLabel") : `${plan.price_monthly.toFixed(2).replace('.00', '')} EUR/mois`}
                       </div>
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                <PlanFeatureRow label="Boutiques" plans={plans} getValue={(p) => p.max_stores === null ? "Infini" : String(p.max_stores)} />
-                <PlanFeatureRow label="Utilisateurs" plans={plans} getValue={(p) => p.max_users === null ? "Infini" : String(p.max_users)} />
-                <PlanFeatureRow label="Produits" plans={plans} getValue={(p) => p.max_products === null ? "Infini" : String(p.max_products)} />
-                <PlanFeatureRow label="Rapports avancés" plans={plans} getValue={(p) => p.has_advanced_reports} />
-                <PlanFeatureRow label="Exports PDF/Excel" plans={plans} getValue={(p) => p.has_exports} />
-                <PlanFeatureRow label="Fournisseurs" plans={plans} getValue={(p) => p.has_supplier_management} />
-                <PlanFeatureRow label="Offline avancé" plans={plans} getValue={(p) => p.has_offline_advanced} />
-                <PlanFeatureRow label="Branding personnalisé" plans={plans} getValue={(p) => p.has_custom_branding} />
-                <PlanFeatureRow label="Multi-devises" plans={plans} getValue={(p) => p.has_multi_currency} />
-                <PlanFeatureRow label="API externe" plans={plans} getValue={(p) => p.has_api_access} />
-                <PlanFeatureRow label="Support prioritaire" plans={plans} getValue={(p) => p.has_priority_support} />
-                <PlanFeatureRow label="Assistant IA" plans={plans} getValue={(p) => p.has_ai_assistant} />
-                <PlanFeatureRow label="Programme fidélité" plans={plans} getValue={(p) => p.has_loyalty_program} />
+                <PlanFeatureRow label={t("comparePlans.features.stores")} plans={plans} getValue={(p) => p.max_stores === null ? t("comparePlans.unlimited") : String(p.max_stores)} />
+                <PlanFeatureRow label={t("comparePlans.features.users")} plans={plans} getValue={(p) => p.max_users === null ? t("comparePlans.unlimited") : String(p.max_users)} />
+                <PlanFeatureRow label={t("comparePlans.features.products")} plans={plans} getValue={(p) => p.max_products === null ? t("comparePlans.unlimited") : String(p.max_products)} />
+                <PlanFeatureRow label={t("comparePlans.features.advancedReports")} plans={plans} getValue={(p) => p.has_advanced_reports} />
+                <PlanFeatureRow label={t("comparePlans.features.exports")} plans={plans} getValue={(p) => p.has_exports} />
+                <PlanFeatureRow label={t("comparePlans.features.suppliers")} plans={plans} getValue={(p) => p.has_supplier_management} />
+                <PlanFeatureRow label={t("comparePlans.features.offlineAdvanced")} plans={plans} getValue={(p) => p.has_offline_advanced} />
+                <PlanFeatureRow label={t("comparePlans.features.customBranding")} plans={plans} getValue={(p) => p.has_custom_branding} />
+                <PlanFeatureRow label={t("comparePlans.features.multiCurrency")} plans={plans} getValue={(p) => p.has_multi_currency} />
+                <PlanFeatureRow label={t("comparePlans.features.apiAccess")} plans={plans} getValue={(p) => p.has_api_access} />
+                <PlanFeatureRow label={t("comparePlans.features.prioritySupport")} plans={plans} getValue={(p) => p.has_priority_support} />
+                <PlanFeatureRow label={t("comparePlans.features.aiAssistant")} plans={plans} getValue={(p) => p.has_ai_assistant} />
+                <PlanFeatureRow label={t("comparePlans.features.loyaltyProgram")} plans={plans} getValue={(p) => p.has_loyalty_program} />
               </tbody>
             </table>
           </div>
@@ -829,6 +833,7 @@ export default function Billing() {
 // ─── UsageBar Component ──────────────────────────────────────
 
 function UsageBar({ label, limitType }: { label: string; limitType: LimitType }) {
+  const { t } = useTranslation("billing");
   const { data: limitCheck, isLoading } = usePlanLimit(limitType);
 
   if (isLoading || !limitCheck) {
@@ -836,7 +841,7 @@ function UsageBar({ label, limitType }: { label: string; limitType: LimitType })
       <div className="space-y-1">
         <div className="flex justify-between text-sm">
           <span>{label}</span>
-          <span className="text-muted-foreground">Chargement...</span>
+          <span className="text-muted-foreground">{t("usage.loading")}</span>
         </div>
         <Progress value={0} className="h-2" />
       </div>

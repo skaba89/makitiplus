@@ -78,12 +78,22 @@ describe("Migration 20260801010000 — is_user_super_admin bypass RLS", () => {
 });
 
 describe("CashClosing.tsx — filtre Vendeur limité à POS_ROLES (admin/manager/vendeur)", () => {
-  it("récupère les rôles réels (user_roles) plutôt que de se fier uniquement à profiles", () => {
-    const queryBlock = cashClosingSrc.match(
-      /queryFn: async \(\): Promise<\{ user_id: string; owner_name: string \}\[\]> => \{[\s\S]*?\},\s*\n\s*enabled:/
-    )?.[0] ?? "";
-    expect(queryBlock).toMatch(/from\("user_roles"\)\.select\("user_id, role"\)/);
-    expect(queryBlock).toMatch(/role === "admin" \|\| role === "manager" \|\| role === "vendeur"/);
+  // MISE À JOUR audit final hardening (2e prompt, P1, 2026-08-07) : cette
+  // jointure profiles + user_roles côté client a été déplacée dans le RPC
+  // serveur get_cash_closing_operators (migration
+  // 20260807010000_add_get_cash_closing_operators_rpc.sql), couvert en
+  // détail par src/test/cashClosingOperatorsRpcRegression.test.ts. Ce test
+  // vérifie désormais que le frontend délègue bien au RPC et que le filtre
+  // de rôle admin/manager/vendeur existe côté serveur, sans plus dépendre
+  // de la présence du code client historique.
+  const operatorsRpcMigration = fs.readFileSync(
+    path.join(process.cwd(), "supabase/migrations/20260807010000_add_get_cash_closing_operators_rpc.sql"),
+    "utf-8"
+  );
+
+  it("délègue au RPC serveur get_cash_closing_operators plutôt que de reconstruire la liste via profiles + user_roles côté client", () => {
+    expect(cashClosingSrc).toMatch(/supabase\.rpc\(["']get_cash_closing_operators["']/);
+    expect(operatorsRpcMigration).toMatch(/ur\.role IN \('admin', 'manager', 'vendeur'\)/);
   });
 
   it("ne filtre plus uniquement sur un simple .select sans rôle", () => {

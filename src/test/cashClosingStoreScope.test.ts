@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import fs from "fs";
 import path from "path";
+import frCashClosing from "@/i18n/locales/fr/cashClosing.json";
 
 /**
  * P0.1/P0.2 du plan cash-closing-final-hardening : une session de caisse doit
@@ -22,7 +23,10 @@ describe("Store scope — session liée au magasin courant (P0.1)", () => {
 
   it("l'ouverture est bloquée si l'organisation a des magasins mais qu'aucun n'est sélectionné", () => {
     expect(cashClosingTsx).toMatch(/stores\.length > 0 && !currentStore\?\.id/);
-    expect(cashClosingTsx).toMatch(/Sélectionnez un magasin avant d'ouvrir la caisse/);
+    // i18n Phase 2 : le message est désormais dans fr/cashClosing.json
+    // (openSession.mustSelectStoreError) plutôt que codé en dur ici.
+    expect(cashClosingTsx).toMatch(/throw new Error\(t\("openSession\.mustSelectStoreError"\)\)/);
+    expect(frCashClosing.openSession.mustSelectStoreError).toMatch(/Sélectionnez un magasin avant d'ouvrir la caisse/);
   });
 
   it("ne bloque pas les organisations mono-magasin (stores.length === 0, ex. Diallo & Frères)", () => {

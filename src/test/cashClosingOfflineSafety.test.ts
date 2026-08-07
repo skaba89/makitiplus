@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import fs from "fs";
 import path from "path";
+import frCashClosing from "@/i18n/locales/fr/cashClosing.json";
 
 /**
  * P0.4 du plan cash-closing-final-hardening : une clôture calculée pendant
@@ -26,7 +27,13 @@ describe("Sécurité offline avant clôture (P0.4)", () => {
   });
 
   it("le message d'avertissement précise qu'IndexedDB/les ventes offline ne sont jamais supprimées", () => {
-    expect(cashClosingTsx).toMatch(/Vos ventes hors-ligne ne seront pas supprimées/);
+    // i18n Phase 2 : le texte est désormais dans fr/cashClosing.json
+    // (counting.offlineWarning_one/_other) plutôt que codé en dur ici --
+    // on vérifie que le code appelle bien la clé, et que le texte français
+    // réel contient toujours la garantie "jamais supprimées".
+    expect(cashClosingTsx).toMatch(/t\("counting\.offlineWarning", \{ count: offlinePendingCount \}\)/);
+    expect(frCashClosing.counting.offlineWarning_one).toMatch(/ne seront pas supprimées/);
+    expect(frCashClosing.counting.offlineWarning_other).toMatch(/ne seront pas supprimées/);
   });
 
   it("aucun appel à indexedDB.deleteDatabase, localStorage.clear ou 'Clear site data' dans le module", () => {

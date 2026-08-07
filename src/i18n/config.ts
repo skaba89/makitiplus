@@ -20,6 +20,10 @@ import frCustomers from "./locales/fr/customers.json";
 import enCustomers from "./locales/en/customers.json";
 import frSuppliers from "./locales/fr/suppliers.json";
 import enSuppliers from "./locales/en/suppliers.json";
+import frCashClosing from "./locales/fr/cashClosing.json";
+import enCashClosing from "./locales/en/cashClosing.json";
+import frBilling from "./locales/fr/billing.json";
+import enBilling from "./locales/en/billing.json";
 
 /**
  * Phase 1 (premier parcours traduit) — docs/production/I18N_MIGRATION_PLAN.md
@@ -32,8 +36,8 @@ import enSuppliers from "./locales/en/suppliers.json";
  */
 i18n.use(initReactI18next).init({
   resources: {
-    fr: { common: frCommon, auth: frAuth, dashboard: frDashboard, pos: frPos, pricing: frPricing, reports: frReports, products: frProducts, categories: frCategories, customers: frCustomers, suppliers: frSuppliers },
-    en: { common: enCommon, auth: enAuth, dashboard: enDashboard, pos: enPos, pricing: enPricing, reports: enReports, products: enProducts, categories: enCategories, customers: enCustomers, suppliers: enSuppliers },
+    fr: { common: frCommon, auth: frAuth, dashboard: frDashboard, pos: frPos, pricing: frPricing, reports: frReports, products: frProducts, categories: frCategories, customers: frCustomers, suppliers: frSuppliers, cashClosing: frCashClosing, billing: frBilling },
+    en: { common: enCommon, auth: enAuth, dashboard: enDashboard, pos: enPos, pricing: enPricing, reports: enReports, products: enProducts, categories: enCategories, customers: enCustomers, suppliers: enSuppliers, cashClosing: enCashClosing, billing: enBilling },
   },
   lng: "fr",
   fallbackLng: "fr",

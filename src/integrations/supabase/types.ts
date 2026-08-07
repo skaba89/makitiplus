@@ -2166,6 +2166,13 @@ export type Database = {
           vendeur_count: number
         }[]
       }
+      get_cash_closing_operators: {
+        Args: { p_organization_id: string }
+        Returns: {
+          owner_name: string
+          user_id: string
+        }[]
+      }
       get_cash_closing_summary: {
         Args: { p_session_id: string }
         Returns: Json
