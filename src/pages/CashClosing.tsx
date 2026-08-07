@@ -121,31 +121,28 @@ export default function CashClosing() {
   // audit (manager/admin/comptable/super_admin) ; un vendeur n'a besoin de
   // voir que le sien, déjà connu). ────
   //
-  // Filtré à POS_ROLES (admin/manager/vendeur) : seuls ces rôles peuvent
-  // ouvrir une session de caisse (CASH_CLOSING_CREATE_ROLES = POS_ROLES,
-  // src/types/index.ts) -- comptable/super_admin n'apparaissent donc jamais
-  // comme "opened_by" d'une vraie session, mais s'affichaient quand même
-  // dans le filtre "Vendeur" (aucun filtre de rôle n'existait avant),
-  // trouvé sur le compte réel Diallo & Frères (le super_admin de la
-  // plateforme y a un profil rattaché à l'organisation).
-  const { data: orgProfiles } = useQuery({
+  // Audit final hardening (2e prompt, P1) : construit désormais côté
+  // serveur via le RPC get_cash_closing_operators, scopé organisation et
+  // filtré à admin/manager/vendeur en SQL -- remplace l'ancienne jointure
+  // profiles + user_roles faite côté client. Le RPC lève une exception
+  // explicite en cas d'accès refusé, jamais un [] silencieux (P0.3) :
+  // toute erreur reste visible dans l'état error de React Query au lieu
+  // de ressembler à "aucun opérateur".
+  const { data: orgProfiles, error: orgProfilesError } = useQuery({
     queryKey: ["cash-org-profiles", effectiveOrgId],
     queryFn: async (): Promise<{ user_id: string; owner_name: string }[]> => {
-      const [profilesRes, rolesRes] = await Promise.all([
-        supabase.from("profiles").select("user_id, owner_name"),
-        supabase.from("user_roles").select("user_id, role"),
-      ]);
-      if (profilesRes.error || rolesRes.error) return [];
-      const roleByUserId = new Map((rolesRes.data ?? []).map((r) => [r.user_id, r.role]));
-      // Pas de fallback "vendeur" par défaut : un rôle introuvable (ex. une
-      // ligne super_admin masquée par la RLS de user_roles pour ce viewer)
-      // doit EXCLURE le profil, jamais le laisser passer par supposition.
-      return (profilesRes.data ?? []).filter((p) => {
-        const role = roleByUserId.get(p.user_id);
-        return role === "admin" || role === "manager" || role === "vendeur";
+      if (!effectiveOrgId) return [];
+      const { data, error } = await supabase.rpc("get_cash_closing_operators", {
+        p_organization_id: effectiveOrgId,
       });
+      if (error) {
+        const err = new Error(`RPC get_cash_closing_operators failed: ${error.message}`);
+        reportError(err);
+        throw err;
+      }
+      return (data ?? []) as { user_id: string; owner_name: string }[];
     },
-    enabled: !!user && (isReviewer || isReadOnlyAudit),
+    enabled: !!user && !!effectiveOrgId && (isReviewer || isReadOnlyAudit),
   });
   const userNameById = new Map((orgProfiles ?? []).map((p) => [p.user_id, p.owner_name]));
   const storeNameById = new Map(stores.map((s) => [s.id, s.name]));
@@ -469,7 +466,7 @@ ${mySummary.notes ? t("whatsapp.notesLine", { notes: mySummary.notes }) : ""}
         {/* P0.3 : une RPC en échec ne doit jamais ressembler à "aucune donnée" —
             on l'affiche explicitement plutôt que de laisser une liste vide
             se faire passer pour "pas de session". */}
-        {(mySessionsError || mySummaryError || teamOpenError || pendingApprovalsError || historyError) && (
+        {(mySessionsError || mySummaryError || teamOpenError || pendingApprovalsError || historyError || orgProfilesError) && (
           <div className="flex items-center gap-3 p-4 rounded-lg bg-destructive/10 border border-destructive/30">
             <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
             <div>

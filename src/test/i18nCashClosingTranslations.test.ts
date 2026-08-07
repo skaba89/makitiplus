@@ -50,8 +50,8 @@ describe("Non-régression P0.5 — aucune logique métier touchée par la traduc
     }
   });
 
-  it("le filtre Vendeur exclut toujours explicitement les rôles hors admin/manager/vendeur (fix PR #59 intact)", () => {
-    expect(cashClosingSrc).toMatch(/role === "admin" \|\| role === "manager" \|\| role === "vendeur"/);
+  it("le filtre Vendeur délègue au RPC serveur get_cash_closing_operators (fix PR #59 déplacé côté serveur le 2026-08-07, toujours intact)", () => {
+    expect(cashClosingSrc).toMatch(/supabase\.rpc\(["']get_cash_closing_operators["']/);
     expect(cashClosingSrc).not.toMatch(/roleByUserId\.get\([^)]*\)\s*\?\?\s*["']vendeur["']/);
   });
 
