@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import fs from "fs";
 import path from "path";
+import frCashClosing from "@/i18n/locales/fr/cashClosing.json";
 
 /**
  * P0.3 du plan cash-closing-final-hardening : une RPC de clôture de caisse en
@@ -53,8 +54,12 @@ describe("Erreurs RPC visibles — clôture de caisse (P0.3)", () => {
 
   it("un état d'erreur global est affiché à l'utilisateur (pas juste consolé)", () => {
     expect(cashClosingTsx).toMatch(/mySessionsError \|\| mySummaryError \|\| teamOpenError \|\| pendingApprovalsError \|\| historyError/);
-    expect(cashClosingTsx).toMatch(/Impossible de charger les sessions de caisse/);
-    expect(cashClosingTsx).toMatch(/Les données ne sont pas vides/);
+    // i18n Phase 2 : le texte est désormais dans fr/cashClosing.json
+    // (loadError.title/description) plutôt que codé en dur ici.
+    expect(cashClosingTsx).toMatch(/t\("loadError\.title"\)/);
+    expect(cashClosingTsx).toMatch(/t\("loadError\.description"\)/);
+    expect(frCashClosing.loadError.title).toMatch(/Impossible de charger les sessions de caisse/);
+    expect(frCashClosing.loadError.description).toMatch(/Les données ne sont pas vides/);
   });
 
   it("les 5 hooks useQuery exposent bien leur `error` (destructuré depuis useQuery)", () => {

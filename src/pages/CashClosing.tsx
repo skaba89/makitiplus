@@ -16,6 +16,7 @@
  */
 
 import { useState } from "react";
+import { useTranslation, Trans } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -44,12 +45,6 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { CASH_CLOSING_REVIEW_ROLES } from "@/types";
 import { toCSV } from "@/utils/csvParser";
-
-const PAYMENT_LABELS: Record<string, string> = {
-  cash: "Espèces", wave: "Wave", orange_money: "Orange Money",
-  mtn_money: "MTN Money", moov_money: "Moov Money", mpesa: "M-Pesa",
-  card: "Carte", credit: "Crédit",
-};
 
 const PAYMENT_ICONS: Record<string, string> = {
   cash: "💵", wave: "📱", orange_money: "🟠", mtn_money: "🟡",
@@ -90,6 +85,8 @@ type SessionRow = {
 };
 
 export default function CashClosing() {
+  const { t } = useTranslation("cashClosing");
+  const getPaymentLabel = (method: string) => t(`paymentLabels.${method}`);
   const { user, profile, userRole } = useAuth();
   const { formatPrice } = useCurrency();
   const { effectiveOrgId } = useOrgSelector();
@@ -153,7 +150,7 @@ export default function CashClosing() {
   const userNameById = new Map((orgProfiles ?? []).map((p) => [p.user_id, p.owner_name]));
   const storeNameById = new Map(stores.map((s) => [s.id, s.name]));
   const getSellerName = (userId: string) => userNameById.get(userId) || userId.slice(0, 8);
-  const getStoreName = (storeId: string | null) => (storeId ? storeNameById.get(storeId) || "Magasin inconnu" : "—");
+  const getStoreName = (storeId: string | null) => (storeId ? storeNameById.get(storeId) || t("currentSession.unknownStore") : "—");
 
   // ─── Ma session ouverte (si je peux opérer une caisse) ─────────
   // Erreurs RPC (P0.3) : jamais masquées en tableau vide/null — une RPC cassée,
@@ -269,7 +266,7 @@ export default function CashClosing() {
       // d'erreur) : on ne bloque que si l'organisation A des magasins définis
       // mais qu'aucun n'est actuellement sélectionné.
       if (!storeLoading && stores.length > 0 && !currentStore?.id) {
-        throw new Error("Sélectionnez un magasin avant d'ouvrir la caisse.");
+        throw new Error(t("openSession.mustSelectStoreError"));
       }
       const { error } = await supabase.rpc("open_cash_register_session", {
         p_store_id: currentStore?.id,
@@ -282,18 +279,18 @@ export default function CashClosing() {
       invalidateAll();
       setOpeningCash("");
       setNotes("");
-      toast({ title: "Caisse ouverte", description: "Session de caisse démarrée." });
+      toast({ title: t("openSession.successTitle"), description: t("openSession.successDescription") });
     },
     onError: (error: unknown) => {
       const msg = extractErrorMessage(error);
-      toast({ variant: "destructive", title: "Erreur", description: msg });
+      toast({ variant: "destructive", title: t("genericErrorTitle"), description: msg });
       reportError(error instanceof Error ? error : new Error(msg));
     },
   });
 
   const closeMutation = useMutation({
     mutationFn: async () => {
-      if (!mySession) throw new Error("Aucune session ouverte");
+      if (!mySession) throw new Error(t("teamView.noSessionOpen"));
       const { error } = await supabase.rpc("close_cash_register_session", {
         p_session_id: mySession.id,
         p_actual_cash: parseFloat(actualCash) || 0,
@@ -303,14 +300,14 @@ export default function CashClosing() {
     },
     onSuccess: () => {
       invalidateAll();
-      toast({ title: "Caisse clôturée", description: "En attente d'approbation si applicable." });
+      toast({ title: t("counting.successTitle"), description: t("counting.successDescription") });
       setActualCash("");
       setNotes("");
       setConfirmCloseWithPending(false);
     },
     onError: (error: unknown) => {
       const msg = extractErrorMessage(error);
-      toast({ variant: "destructive", title: "Erreur", description: msg });
+      toast({ variant: "destructive", title: t("genericErrorTitle"), description: msg });
       reportError(error instanceof Error ? error : new Error(msg));
     },
   });
@@ -329,11 +326,11 @@ export default function CashClosing() {
         return next;
       });
       invalidateAll();
-      toast({ title: "Clôture approuvée" });
+      toast({ title: t("teamView.approveSuccess") });
     },
     onError: (error: unknown) => {
       const msg = extractErrorMessage(error);
-      toast({ variant: "destructive", title: "Erreur", description: msg });
+      toast({ variant: "destructive", title: t("genericErrorTitle"), description: msg });
       reportError(error instanceof Error ? error : new Error(msg));
     },
   });
@@ -341,7 +338,7 @@ export default function CashClosing() {
   const rejectMutation = useMutation({
     mutationFn: async (sessionId: string) => {
       const reason = managerNotesBySession[sessionId] || "";
-      if (!reason.trim()) throw new Error("Une raison de rejet est obligatoire");
+      if (!reason.trim()) throw new Error(t("teamView.rejectReasonRequired"));
       const { error } = await supabase.rpc("reject_cash_register_session", {
         p_session_id: sessionId, p_rejection_reason: reason,
       });
@@ -354,11 +351,11 @@ export default function CashClosing() {
         return next;
       });
       invalidateAll();
-      toast({ title: "Clôture rejetée" });
+      toast({ title: t("teamView.rejectSuccess") });
     },
     onError: (error: unknown) => {
       const msg = extractErrorMessage(error);
-      toast({ variant: "destructive", title: "Erreur", description: msg });
+      toast({ variant: "destructive", title: t("genericErrorTitle"), description: msg });
       reportError(error instanceof Error ? error : new Error(msg));
     },
   });
@@ -372,26 +369,26 @@ export default function CashClosing() {
       ["card", mySummary.card_sales], ["credit", mySummary.credit_sales],
     ].filter(([, v]) => (v as number) > 0);
     const itemsHtml = rows.map(([m, v]) => `
-      <tr><td style="padding:8px;">${PAYMENT_ICONS[m as string] || ""} ${PAYMENT_LABELS[m as string] || m}</td>
+      <tr><td style="padding:8px;">${PAYMENT_ICONS[m as string] || ""} ${getPaymentLabel(m as string)}</td>
       <td style="padding:8px;text-align:right;">${formatPrice(v as number)}</td></tr>`).join("");
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-      <title>Clôture de caisse</title>
+      <title>${t("print.title")}</title>
       <style>body{font-family:Arial,sans-serif;margin:20px}h1{color:#F97316}
       table{width:100%;border-collapse:collapse;margin:15px 0}th{background:#F97316;color:#fff;padding:8px}
       td{border:1px solid #ddd}.total{font-size:18px;font-weight:bold;text-align:right;margin:8px 0}
       .ecart{font-size:16px;margin:10px 0;padding:10px;border-radius:5px}</style></head><body>
-      <h1>Clôture de Caisse</h1>
-      <p><strong>Boutique :</strong> ${profile?.business_name || ""}</p>
-      <p><strong>Ouverture :</strong> ${format(new Date(mySummary.opened_at), "dd/MM/yyyy HH:mm", { locale: fr })}</p>
-      <p><strong>Clôture :</strong> ${mySummary.closed_at ? format(new Date(mySummary.closed_at), "dd/MM/yyyy HH:mm", { locale: fr }) : "—"}</p>
-      <table><thead><tr><th>Mode de paiement</th><th>Montant</th></tr></thead><tbody>${itemsHtml}</tbody></table>
-      <div class="total">Total ventes : ${formatPrice(mySummary.total_sales)}</div>
-      <div class="total">Dépenses : ${formatPrice(mySummary.total_expenses)}</div>
-      <div class="total">Caisse attendue : ${formatPrice(mySummary.expected_cash)}</div>
-      ${mySummary.actual_cash !== null ? `<div class="total">Caisse réelle : ${formatPrice(mySummary.actual_cash)}</div>
+      <h1>${t("print.title")}</h1>
+      <p><strong>${t("print.storeLabel")} :</strong> ${profile?.business_name || ""}</p>
+      <p><strong>${t("print.openingLabel")} :</strong> ${format(new Date(mySummary.opened_at), "dd/MM/yyyy HH:mm", { locale: fr })}</p>
+      <p><strong>${t("print.closingLabel")} :</strong> ${mySummary.closed_at ? format(new Date(mySummary.closed_at), "dd/MM/yyyy HH:mm", { locale: fr }) : "—"}</p>
+      <table><thead><tr><th>${t("print.paymentMethodColumn")}</th><th>${t("print.amountColumn")}</th></tr></thead><tbody>${itemsHtml}</tbody></table>
+      <div class="total">${t("print.totalSalesLabel")} : ${formatPrice(mySummary.total_sales)}</div>
+      <div class="total">${t("print.expensesLabel")} : ${formatPrice(mySummary.total_expenses)}</div>
+      <div class="total">${t("print.expectedCashLabel")} : ${formatPrice(mySummary.expected_cash)}</div>
+      ${mySummary.actual_cash !== null ? `<div class="total">${t("print.actualCashLabel")} : ${formatPrice(mySummary.actual_cash)}</div>
       <div class="ecart" style="background:${mySummary.cash_difference === 0 ? "#d4edda" : (mySummary.cash_difference ?? 0) > 0 ? "#fff3cd" : "#f8d7da"};">
-        Écart : ${mySummary.cash_difference === 0 ? "0 (parfait)" : `${formatPrice(mySummary.cash_difference ?? 0)}`}</div>` : ""}
-      ${mySummary.notes ? `<p><strong>Notes :</strong> ${mySummary.notes}</p>` : ""}
+        ${t("print.gapLabel")} : ${mySummary.cash_difference === 0 ? t("print.gapPerfect") : `${formatPrice(mySummary.cash_difference ?? 0)}`}</div>` : ""}
+      ${mySummary.notes ? `<p><strong>${t("print.notesLabel")} :</strong> ${mySummary.notes}</p>` : ""}
       </body></html>`;
     const w = window.open("", "_blank");
     if (w) { w.document.write(html); w.document.close(); w.print(); }
@@ -400,7 +397,7 @@ export default function CashClosing() {
   const handleExportHistoryCSV = () => {
     if (!history || history.length === 0) return;
     const rows = [
-      ["vendeur", "magasin", "date_ouverture", "date_cloture", "statut", "total_ventes", "montant_reel", "ecart", "notes"],
+      [t("csvExport.seller"), t("csvExport.store"), t("csvExport.openedAt"), t("csvExport.closedAt"), t("csvExport.status"), t("csvExport.totalSales"), t("csvExport.actualCash"), t("csvExport.gap"), t("csvExport.notes")],
       ...history.map((s) => [
         getSellerName(s.opened_by),
         getStoreName(s.store_id),
@@ -417,31 +414,31 @@ export default function CashClosing() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `clotures-caisse-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    a.download = `${t("csvExport.filenamePrefix")}-${format(new Date(), "yyyy-MM-dd")}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
   const handleShareWhatsApp = () => {
     if (!mySummary) return;
-    const phone = prompt("Numéro WhatsApp du destinataire (ex: 224622000000):");
+    const phone = prompt(t("whatsapp.promptText"));
     if (!phone) return;
     const cleanPhone = phone.replace(/[\s+\-()]/g, "");
-    const msg = `📊 *Clôture de caisse — ${profile?.business_name || ""}*
+    const msg = `📊 *${t("whatsapp.titleLine", { business: profile?.business_name || "" })}*
 
-Ouverture : ${format(new Date(mySummary.opened_at), "dd/MM/yyyy HH:mm")}
-Total ventes : ${formatPrice(mySummary.total_sales)}
-Dépenses : ${formatPrice(mySummary.total_expenses)}
-Caisse attendue : ${formatPrice(mySummary.expected_cash)}
-${mySummary.actual_cash !== null ? `Caisse réelle : ${formatPrice(mySummary.actual_cash)}\nÉcart : ${formatPrice(mySummary.cash_difference ?? 0)}` : ""}
-${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
+${t("whatsapp.openingLine", { date: format(new Date(mySummary.opened_at), "dd/MM/yyyy HH:mm") })}
+${t("whatsapp.totalSalesLine", { amount: formatPrice(mySummary.total_sales) })}
+${t("whatsapp.expensesLine", { amount: formatPrice(mySummary.total_expenses) })}
+${t("whatsapp.expectedCashLine", { amount: formatPrice(mySummary.expected_cash) })}
+${mySummary.actual_cash !== null ? `${t("whatsapp.actualCashLine", { amount: formatPrice(mySummary.actual_cash) })}\n${t("whatsapp.gapLine", { amount: formatPrice(mySummary.cash_difference ?? 0) })}` : ""}
+${mySummary.notes ? t("whatsapp.notesLine", { notes: mySummary.notes }) : ""}
 
 — MakitiPlus`;
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
-  const roleLabel = userRole === "vendeur" ? "Vendeur" : userRole === "manager" ? "Manager"
-    : userRole === "admin" ? "Administrateur" : userRole === "comptable" ? "Comptable" : "Super admin";
+  const roleLabel = userRole === "vendeur" ? t("roles.vendeur") : userRole === "manager" ? t("roles.manager")
+    : userRole === "admin" ? t("roles.admin") : userRole === "comptable" ? t("roles.comptable") : t("roles.super_admin");
 
   return (
     <DashboardLayout>
@@ -449,7 +446,7 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Wallet className="h-6 w-6 text-primary" /> Clôture de Caisse
+              <Wallet className="h-6 w-6 text-primary" /> {t("title")}
             </h1>
             <p className="text-muted-foreground mt-1">{roleLabel}</p>
           </div>
@@ -464,7 +461,7 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
           <div className="flex items-center gap-3 p-4 rounded-lg bg-muted border">
             <Lock className="h-5 w-5 text-muted-foreground shrink-0" />
             <p className="text-sm text-muted-foreground">
-              Vue audit — un super_admin ne gère pas de caisse opérationnelle de magasin.
+              {t("readOnlyAudit")}
             </p>
           </div>
         )}
@@ -476,9 +473,9 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
           <div className="flex items-center gap-3 p-4 rounded-lg bg-destructive/10 border border-destructive/30">
             <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
             <div>
-              <p className="font-medium text-sm text-destructive">Impossible de charger les sessions de caisse.</p>
+              <p className="font-medium text-sm text-destructive">{t("loadError.title")}</p>
               <p className="text-xs text-muted-foreground">
-                Les données ne sont pas vides : le service de clôture caisse a échoué. Réessayez ou contactez le support.
+                {t("loadError.description")}
               </p>
             </div>
           </div>
@@ -489,7 +486,7 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
-                <Banknote className="h-5 w-5" /> Ouvrir ma caisse
+                <Banknote className="h-5 w-5" /> {t("openSession.cardTitle")}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -497,21 +494,21 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border text-sm">
                   <StoreIcon className="h-4 w-4 text-muted-foreground shrink-0" />
                   {currentStore ? (
-                    <span>Magasin : <strong>{currentStore.name}</strong></span>
+                    <span><Trans t={t} i18nKey="openSession.storeSelected" values={{ name: currentStore.name }} components={{ strong: <strong /> }} /></span>
                   ) : (
-                    <span className="text-warning">Aucun magasin sélectionné — sélectionnez un magasin avant d'ouvrir la caisse.</span>
+                    <span className="text-warning">{t("openSession.noStoreWarning")}</span>
                   )}
                 </div>
               )}
               <div className="space-y-2">
-                <Label htmlFor="opening-cash">Fond de caisse initial</Label>
+                <Label htmlFor="opening-cash">{t("openSession.openingCashLabel")}</Label>
                 <Input
-                  id="opening-cash" type="number" min="0" placeholder="Ex: 50000"
+                  id="opening-cash" type="number" min="0" placeholder={t("openSession.openingCashPlaceholder")}
                   value={openingCash} onChange={(e) => setOpeningCash(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="open-notes">Notes (optionnel)</Label>
+                <Label htmlFor="open-notes">{t("openSession.notesLabel")}</Label>
                 <Input id="open-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
               </div>
               <Button
@@ -520,7 +517,7 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
                 className="gap-2"
               >
                 <CheckCircle className="h-4 w-4" />
-                {openMutation.isPending ? "Ouverture…" : "Ouvrir la caisse"}
+                {openMutation.isPending ? t("openSession.openButtonLoading") : t("openSession.openButton")}
               </Button>
             </CardContent>
           </Card>
@@ -531,19 +528,19 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" /> Session en cours
+                  <TrendingUp className="h-5 w-5" /> {t("currentSession.cardTitle")}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {stores.length > 0 && (
                   <p className="text-sm font-medium flex items-center gap-1.5 mb-1">
                     <StoreIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                    {stores.find((s) => s.id === mySession?.store_id)?.name || currentStore?.name || "Magasin inconnu"}
+                    {stores.find((s) => s.id === mySession?.store_id)?.name || currentStore?.name || t("currentSession.unknownStore")}
                   </p>
                 )}
                 <p className="text-sm text-muted-foreground mb-3">
-                  Ouverte le {format(new Date(mySummary.opened_at), "EEEE dd MMMM yyyy 'à' HH:mm", { locale: fr })}
-                  {" · "}Fond initial : {formatDisplayPrice(mySummary.opening_cash, { showOriginal: isConverted })}
+                  {t("currentSession.openedOn", { date: format(new Date(mySummary.opened_at), "EEEE dd MMMM yyyy 'à' HH:mm", { locale: fr }) })}
+                  {" · "}{t("currentSession.openingFund", { amount: formatDisplayPrice(mySummary.opening_cash, { showOriginal: isConverted }) })}
                 </p>
                 <div className="space-y-2">
                   {(["cash", "wave", "orange_money", "mtn_money", "moov_money", "mpesa", "card", "credit"] as const)
@@ -553,7 +550,7 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
                       if (v <= 0 && mySummary.transaction_count === 0) return null;
                       return (
                         <div key={m} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg text-sm">
-                          <span>{PAYMENT_ICONS[m]} {PAYMENT_LABELS[m]}</span>
+                          <span>{PAYMENT_ICONS[m]} {getPaymentLabel(m)}</span>
                           <span className="font-medium">{formatDisplayPrice(v, { showOriginal: isConverted })}</span>
                         </div>
                       );
@@ -561,15 +558,15 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4">
                   <div>
-                    <p className="text-xs text-muted-foreground">Total ventes</p>
+                    <p className="text-xs text-muted-foreground">{t("currentSession.totalSales")}</p>
                     <p className="font-bold text-primary">{formatDisplayPrice(mySummary.total_sales, { showOriginal: isConverted })}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Transactions</p>
+                    <p className="text-xs text-muted-foreground">{t("currentSession.transactions")}</p>
                     <p className="font-bold">{mySummary.transaction_count}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Dépenses</p>
+                    <p className="text-xs text-muted-foreground">{t("currentSession.expenses")}</p>
                     <p className="font-bold text-destructive">{formatDisplayPrice(mySummary.total_expenses, { showOriginal: isConverted })}</p>
                   </div>
                 </div>
@@ -580,20 +577,20 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <Banknote className="h-5 w-5" /> Comptage de la caisse
+                    <Banknote className="h-5 w-5" /> {t("counting.cardTitle")}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
-                    <p className="text-sm text-muted-foreground">Caisse attendue (espèces)</p>
+                    <p className="text-sm text-muted-foreground">{t("counting.expectedCashLabel")}</p>
                     <p className="text-xl font-bold text-primary">
                       {formatDisplayPrice(mySummary.expected_cash, { showOriginal: isConverted })}
                     </p>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="actual-cash">Montant réel en caisse (espèces physiques)</Label>
+                    <Label htmlFor="actual-cash">{t("counting.actualCashLabel")}</Label>
                     <Input
-                      id="actual-cash" type="number" min="0" placeholder="Ex: 500000"
+                      id="actual-cash" type="number" min="0" placeholder={t("counting.actualCashPlaceholder")}
                       value={actualCash} onChange={(e) => setActualCash(e.target.value)}
                       className="text-lg font-bold"
                     />
@@ -607,12 +604,12 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
                         ? <CheckCircle className="h-6 w-6 text-success" />
                         : <AlertTriangle className="h-6 w-6 text-warning" />}
                       <p className="font-bold">
-                        Écart : {formatDisplayPrice(parseFloat(actualCash) - mySummary.expected_cash, { showOriginal: isConverted })}
+                        {t("counting.gap", { amount: formatDisplayPrice(parseFloat(actualCash) - mySummary.expected_cash, { showOriginal: isConverted }) })}
                       </p>
                     </div>
                   )}
                   <div className="space-y-2">
-                    <Label htmlFor="close-notes">Notes (optionnel)</Label>
+                    <Label htmlFor="close-notes">{t("counting.notesLabel")}</Label>
                     <Input id="close-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
                   </div>
 
@@ -627,10 +624,7 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
                       <div className="flex items-start gap-2">
                         <WifiOff className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
                         <p className="text-sm text-destructive">
-                          Attention : {offlinePendingCount} vente{offlinePendingCount > 1 ? "s" : ""} hors-ligne
-                          {offlinePendingCount > 1 ? " ne sont" : " n'est"} pas encore synchronisée{offlinePendingCount > 1 ? "s" : ""}.
-                          La clôture peut être incorrecte. Synchronisez les ventes avant de clôturer.
-                          Vos ventes hors-ligne ne seront pas supprimées.
+                          {t("counting.offlineWarning", { count: offlinePendingCount })}
                         </p>
                       </div>
                       <label className="flex items-center gap-2 text-sm cursor-pointer">
@@ -638,7 +632,7 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
                           checked={confirmCloseWithPending}
                           onCheckedChange={(v) => setConfirmCloseWithPending(v === true)}
                         />
-                        Je confirme vouloir clôturer malgré les ventes non synchronisées
+                        {t("counting.confirmCheckboxLabel")}
                       </label>
                     </div>
                   )}
@@ -649,7 +643,7 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
                     className="gap-2"
                   >
                     <CheckCircle className="h-4 w-4" />
-                    {closeMutation.isPending ? "Clôture…" : "Clôturer la caisse"}
+                    {closeMutation.isPending ? t("counting.closeButtonLoading") : t("counting.closeButton")}
                   </Button>
                 </CardContent>
               </Card>
@@ -657,17 +651,17 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
               <div className="flex items-center gap-3 p-4 rounded-lg bg-warning/10 border border-warning/30">
                 <AlertTriangle className="h-5 w-5 text-warning shrink-0" />
                 <div>
-                  <p className="font-medium text-sm">Clôturée, en attente d'approbation</p>
+                  <p className="font-medium text-sm">{t("pendingApproval.title")}</p>
                   <p className="text-xs text-muted-foreground">
-                    Écart : {formatDisplayPrice(mySummary.cash_difference ?? 0, { showOriginal: isConverted })}
+                    {t("pendingApproval.gap", { amount: formatDisplayPrice(mySummary.cash_difference ?? 0, { showOriginal: isConverted }) })}
                   </p>
                 </div>
                 <div className="ml-auto flex gap-2">
                   <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
-                    <Printer className="h-4 w-4" /> Imprimer
+                    <Printer className="h-4 w-4" /> {t("pendingApproval.printButton")}
                   </Button>
                   <Button variant="outline" size="sm" onClick={handleShareWhatsApp} className="gap-2">
-                    <MessageCircle className="h-4 w-4" /> WhatsApp
+                    <MessageCircle className="h-4 w-4" /> {t("pendingApproval.whatsappButton")}
                   </Button>
                 </div>
               </div>
@@ -675,7 +669,7 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
           </>
         )}
         {canOperate && mySession && summaryLoading && (
-          <p className="text-muted-foreground text-center py-4">Chargement de la session…</p>
+          <p className="text-muted-foreground text-center py-4">{t("currentSession.loadingSession")}</p>
         )}
 
         {/* ─── Vue équipe (manager/admin) ─────────────────────── */}
@@ -685,7 +679,7 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <Users className="h-5 w-5" /> Caisses ouvertes de l'équipe ({teamOpenSessions?.length})
+                    <Users className="h-5 w-5" /> {t("teamView.openSessionsTitle", { count: teamOpenSessions?.length ?? 0 })}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
@@ -694,10 +688,10 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
                       <div>
                         <p className="font-medium">{getSellerName(s.opened_by)}</p>
                         <p className="text-xs text-muted-foreground">
-                          {getStoreName(s.store_id)} · Ouverte le {format(new Date(s.opened_at), "dd/MM HH:mm", { locale: fr })}
+                          {getStoreName(s.store_id)} · {t("teamView.openedOn", { date: format(new Date(s.opened_at), "dd/MM HH:mm", { locale: fr }) })}
                         </p>
                       </div>
-                      <Badge variant="outline">Ouverte</Badge>
+                      <Badge variant="outline">{t("teamView.openedBadge")}</Badge>
                     </div>
                   ))}
                 </CardContent>
@@ -708,7 +702,7 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
               <Card className="border-warning/40">
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2 text-warning">
-                    <ThumbsUp className="h-5 w-5" /> Clôtures en attente d'approbation ({pendingApprovals?.length})
+                    <ThumbsUp className="h-5 w-5" /> {t("teamView.pendingApprovalsTitle", { count: pendingApprovals?.length ?? 0 })}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -721,11 +715,12 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
                           <div>
                             <p className="text-sm font-medium">{getSellerName(s.opened_by)}</p>
                             <p className="text-xs text-muted-foreground">
-                              {getStoreName(s.store_id)} · Clôturée le {s.closed_at ? format(new Date(s.closed_at), "dd/MM HH:mm", { locale: fr }) : "—"}
+                              {getStoreName(s.store_id)} · {t("teamView.closedOn", { date: s.closed_at ? format(new Date(s.closed_at), "dd/MM HH:mm", { locale: fr }) : "—" })}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              Ventes : {formatDisplayPrice(s.total_sales, { showOriginal: isConverted })}
-                              {hasGap ? ` · Écart : ${formatDisplayPrice(s.cash_difference as number, { showOriginal: isConverted })}` : ""}
+                              {hasGap
+                                ? t("teamView.salesWithGap", { amount: formatDisplayPrice(s.total_sales, { showOriginal: isConverted }), gap: formatDisplayPrice(s.cash_difference as number, { showOriginal: isConverted }) })
+                                : t("teamView.sales", { amount: formatDisplayPrice(s.total_sales, { showOriginal: isConverted }) })}
                             </p>
                           </div>
                           <div className="flex gap-2 shrink-0">
@@ -734,7 +729,7 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
                               onClick={() => approveMutation.mutate(s.id)}
                               disabled={approveMutation.isPending || rejectMutation.isPending || (hasGap && !managerNote.trim())}
                             >
-                              Approuver
+                              {t("teamView.approveButton")}
                             </Button>
                             <Button
                               size="sm"
@@ -743,19 +738,19 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
                               onClick={() => rejectMutation.mutate(s.id)}
                               disabled={approveMutation.isPending || rejectMutation.isPending || !managerNote.trim()}
                             >
-                              <ThumbsDown className="h-3.5 w-3.5" /> Rejeter
+                              <ThumbsDown className="h-3.5 w-3.5" /> {t("teamView.rejectButton")}
                             </Button>
                           </div>
                         </div>
                         <div className="space-y-1">
                           <Label htmlFor={`manager-note-${s.id}`} className="text-xs">
-                            Note manager {hasGap ? "(obligatoire pour approuver — écart non nul)" : "(obligatoire pour rejeter)"}
+                            {t("teamView.managerNoteLabel")} {hasGap ? t("teamView.managerNoteMandatoryApprove") : t("teamView.managerNoteMandatoryReject")}
                           </Label>
                           <Input
                             id={`manager-note-${s.id}`}
                             value={managerNote}
                             onChange={(e) => setManagerNotesBySession((prev) => ({ ...prev, [s.id]: e.target.value }))}
-                            placeholder="Ex : rendu de monnaie incorrect signalé par le vendeur"
+                            placeholder={t("teamView.managerNotePlaceholder")}
                           />
                         </div>
                       </div>
@@ -771,11 +766,11 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
         <Card>
           <CardHeader className="flex-row items-center justify-between space-y-0">
             <CardTitle className="text-lg flex items-center gap-2">
-              <History className="h-5 w-5" /> Historique des sessions
+              <History className="h-5 w-5" /> {t("history.cardTitle")}
             </CardTitle>
             {(history?.length ?? 0) > 0 && (
               <Button variant="outline" size="sm" onClick={handleExportHistoryCSV} className="gap-2">
-                <Download className="h-4 w-4" /> Exporter CSV
+                <Download className="h-4 w-4" /> {t("history.exportButton")}
               </Button>
             )}
           </CardHeader>
@@ -784,33 +779,33 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
                 store/user/status/date, aucune migration nécessaire ici. */}
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
               <div className="space-y-1">
-                <Label htmlFor="filter-from" className="text-xs">Du</Label>
+                <Label htmlFor="filter-from" className="text-xs">{t("history.filterFrom")}</Label>
                 <Input id="filter-from" type="date" value={filterFromDate} onChange={(e) => setFilterFromDate(e.target.value)} />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="filter-to" className="text-xs">Au</Label>
+                <Label htmlFor="filter-to" className="text-xs">{t("history.filterTo")}</Label>
                 <Input id="filter-to" type="date" value={filterToDate} onChange={(e) => setFilterToDate(e.target.value)} />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Statut</Label>
+                <Label className="text-xs">{t("history.filterStatus")}</Label>
                 <Select value={filterStatus || "all"} onValueChange={(v) => setFilterStatus(v === "all" ? "" : v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Tous statuts</SelectItem>
-                    <SelectItem value="open">Ouverte</SelectItem>
-                    <SelectItem value="closed">En attente</SelectItem>
-                    <SelectItem value="approved">Approuvée</SelectItem>
-                    <SelectItem value="rejected">Rejetée</SelectItem>
+                    <SelectItem value="all">{t("history.filterAllStatuses")}</SelectItem>
+                    <SelectItem value="open">{t("history.statusOpen")}</SelectItem>
+                    <SelectItem value="closed">{t("history.statusClosed")}</SelectItem>
+                    <SelectItem value="approved">{t("history.statusApproved")}</SelectItem>
+                    <SelectItem value="rejected">{t("history.statusRejected")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               {isReviewer && (orgProfiles?.length ?? 0) > 0 && (
                 <div className="space-y-1">
-                  <Label className="text-xs">Vendeur</Label>
+                  <Label className="text-xs">{t("history.filterSeller")}</Label>
                   <Select value={filterUserId || "all"} onValueChange={(v) => setFilterUserId(v === "all" ? "" : v)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Tous vendeurs</SelectItem>
+                      <SelectItem value="all">{t("history.filterAllSellers")}</SelectItem>
                       {orgProfiles?.map((p) => (
                         <SelectItem key={p.user_id} value={p.user_id}>{p.owner_name}</SelectItem>
                       ))}
@@ -820,11 +815,11 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
               )}
               {stores.length > 0 && (
                 <div className="space-y-1">
-                  <Label className="text-xs">Magasin</Label>
+                  <Label className="text-xs">{t("history.filterStore")}</Label>
                   <Select value={filterStoreId || "all"} onValueChange={(v) => setFilterStoreId(v === "all" ? "" : v)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Tous magasins</SelectItem>
+                      <SelectItem value="all">{t("history.filterAllStores")}</SelectItem>
                       {stores.map((st) => (
                         <SelectItem key={st.id} value={st.id}>{st.name}</SelectItem>
                       ))}
@@ -835,7 +830,7 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
             </div>
 
             {(history?.length ?? 0) === 0 ? (
-              <p className="text-muted-foreground text-center py-4">Aucune session enregistrée</p>
+              <p className="text-muted-foreground text-center py-4">{t("history.empty")}</p>
             ) : (
               <div className="space-y-2">
                 {history?.slice(0, 30).map((s) => (
@@ -847,16 +842,16 @@ ${mySummary.notes ? `Notes : ${mySummary.notes}` : ""}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {stores.length > 0 ? `${getStoreName(s.store_id)} · ` : ""}
-                        Ouverte {format(new Date(s.opened_at), "HH:mm", { locale: fr })}
-                        {s.closed_at ? ` · Clôturée ${format(new Date(s.closed_at), "HH:mm", { locale: fr })}` : ""}
-                        {" · "}Ventes : {formatDisplayPrice(s.total_sales, { showOriginal: isConverted })}
+                        {t("history.openedAt", { time: format(new Date(s.opened_at), "HH:mm", { locale: fr }) })}
+                        {s.closed_at ? ` · ${t("history.closedAt", { time: format(new Date(s.closed_at), "HH:mm", { locale: fr }) })}` : ""}
+                        {" · "}{t("teamView.sales", { amount: formatDisplayPrice(s.total_sales, { showOriginal: isConverted }) })}
                         {s.notes ? ` · ${s.notes}` : ""}
                       </p>
                     </div>
                     <Badge variant={
                       s.status === "approved" ? "default" : s.status === "closed" ? "outline" : "secondary"
                     }>
-                      {s.status === "open" ? "Ouverte" : s.status === "closed" ? "En attente" : s.status === "approved" ? "Approuvée" : s.status === "rejected" ? "Rejetée" : s.status}
+                      {s.status === "open" ? t("history.statusOpen") : s.status === "closed" ? t("history.statusClosed") : s.status === "approved" ? t("history.statusApproved") : s.status === "rejected" ? t("history.statusRejected") : s.status}
                     </Badge>
                   </div>
                 ))}
