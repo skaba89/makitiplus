@@ -64,7 +64,8 @@
     "title": "Clôturée, en attente d'approbation",
     "gap": "Écart : {{amount}}",
     "printButton": "Imprimer",
-    "whatsappButton": "WhatsApp"
+    "whatsappButton": "WhatsApp",
+    "pdfButton": "Export PDF"
   },
   "teamView": {
     "openSessionsTitle": "Caisses ouvertes de l'équipe ({{count}})",
@@ -108,6 +109,9 @@
   "print": {
     "title": "Clôture de Caisse",
     "storeLabel": "Boutique",
+    "sellerLabel": "Vendeur",
+    "approverLabel": "Approuvé par",
+    "statusLabel": "Statut",
     "openingLabel": "Ouverture",
     "closingLabel": "Clôture",
     "paymentMethodColumn": "Mode de paiement",
@@ -118,7 +122,10 @@
     "actualCashLabel": "Caisse réelle",
     "gapLabel": "Écart",
     "gapPerfect": "0 (parfait)",
-    "notesLabel": "Notes"
+    "notesLabel": "Notes",
+    "generatedAtLabel": "Généré le",
+    "footerText": "Document généré par MakitiPlus — clôture de caisse",
+    "pdfFilenamePrefix": "cloture-caisse"
   },
   "whatsapp": {
     "promptText": "Numéro WhatsApp du destinataire (ex: 224622000000):",
