@@ -40,6 +40,18 @@ const MOBILE_MONEY_LABELS: Partial<Record<PaymentMethod, string>> = {
   mpesa: "M-Pesa",
 };
 
+// Format de référence recommandé par opérateur -- indicatif uniquement
+// (aucune validation stricte, aucune intégration API réelle avec les
+// opérateurs), pour guider le vendeur vers le bon champ du SMS de
+// confirmation reçu par le client. Audit final hardening (2e prompt, P1).
+const MOBILE_MONEY_REFERENCE_HINTS: Partial<Record<PaymentMethod, string>> = {
+  wave: "Ex : ID de transaction Wave (ex. TVXXXXXXXXXX)",
+  orange_money: "Ex : référence SMS Orange Money (ex. MPXXXXXXXX)",
+  mtn_money: "Ex : ID de transaction MTN MoMo (ex. XXXXXXXXXX)",
+  moov_money: "Ex : référence SMS Moov Money",
+  mpesa: "Ex : code de confirmation M-Pesa (ex. QXXXXXXXXX)",
+};
+
 interface POSPaymentDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -206,8 +218,11 @@ export const POSPaymentDialog = ({
                         id="pos-payment-reference"
                         value={paymentReference}
                         onChange={(e) => setPaymentReference(e.target.value)}
-                        placeholder="Ex : numéro de confirmation reçu par SMS"
+                        placeholder={MOBILE_MONEY_REFERENCE_HINTS[method.value] || "Ex : numéro de confirmation reçu par SMS"}
                       />
+                      <p className="text-xs text-muted-foreground">
+                        Recopiez la référence du SMS de confirmation envoyé au client -- elle apparaîtra sur le reçu et dans les exports.
+                      </p>
                     </div>
                   </TabsContent>
                 ))}

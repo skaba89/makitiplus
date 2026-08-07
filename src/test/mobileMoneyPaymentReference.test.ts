@@ -123,6 +123,20 @@ describe("POSPaymentDialog.tsx — champ référence + méthodes mobile money ma
   it("réinitialise/trim la valeur saisie avant de la transmettre (pas de chaîne vide)", () => {
     expect(dialogSrc).toMatch(/paymentReference\.trim\(\)\s*\|\|\s*undefined/);
   });
+
+  // Audit final hardening (2e prompt, P1) : format de référence recommandé
+  // par opérateur, affiché en placeholder pour guider le vendeur -- purement
+  // indicatif, aucune validation stricte, aucune intégration API opérateur.
+  it("propose un format de référence recommandé pour chacune des 5 méthodes mobile money", () => {
+    for (const method of ["wave", "orange_money", "mtn_money", "moov_money", "mpesa"]) {
+      const hintBlock = dialogSrc.match(/MOBILE_MONEY_REFERENCE_HINTS[\s\S]*?\};/)?.[0] ?? "";
+      expect(hintBlock).toMatch(new RegExp(`${method}:\\s*["']`));
+    }
+  });
+
+  it("utilise le hint spécifique à la méthode sélectionnée comme placeholder du champ référence", () => {
+    expect(dialogSrc).toMatch(/placeholder=\{MOBILE_MONEY_REFERENCE_HINTS\[method\.value\]/);
+  });
 });
 
 describe("useOfflineSale.ts — paymentReference câblé en ligne ET hors-ligne", () => {
