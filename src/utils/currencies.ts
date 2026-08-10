@@ -249,6 +249,42 @@ export const getCountryByCode = (code: string): CountryConfig | undefined => {
   return COUNTRIES.find((c) => c.code === code);
 };
 
+/**
+ * Résout profile.country vers un CountryConfig, qu'il soit stocké en code
+ * ISO à 2 lettres ("NG") ou en nom complet ("Nigeria") -- profiles.country
+ * n'a jamais eu de contrainte de format stricte en base, les deux formes
+ * coexistent selon comment le profil a été créé (voir la même logique déjà
+ * dupliquée deux fois dans useCurrency.ts avant extraction ici). Retourne
+ * undefined si non résolu (appelant décide du repli, ex. Guinée par défaut).
+ */
+export const resolveCountry = (rawCountry: string | null | undefined): CountryConfig | undefined => {
+  if (!rawCountry) return undefined;
+  if (rawCountry.length > 2) {
+    return COUNTRIES.find((c) => c.name.toLowerCase() === rawCountry.toLowerCase());
+  }
+  return getCountryByCode(rawCountry);
+};
+
+/**
+ * Pays anglophones parmi COUNTRIES -- utilisé pour déduire une langue par
+ * défaut (fr sinon) quand aucun choix explicite n'a encore été fait par
+ * l'utilisateur (voir src/components/i18n/ProfileLanguageSync.tsx). Liste
+ * volontairement restreinte aux pays où l'anglais est la langue des
+ * affaires/administrative dominante parmi les pays déjà couverts par
+ * COUNTRIES -- ne pas étendre sans vérifier chaque pays individuellement
+ * (ex. le Rwanda est trilingue français/anglais/kinyarwanda, mais l'anglais
+ * y est langue officielle des affaires depuis 2008).
+ */
+export const ENGLISH_SPEAKING_COUNTRY_CODES = new Set([
+  "NG", // Nigeria
+  "GH", // Ghana
+  "KE", // Kenya
+  "TZ", // Tanzanie
+  "UG", // Ouganda
+  "RW", // Rwanda
+  "ZA", // Afrique du Sud
+]);
+
 export const getCurrencyByCode = (code: string): CurrencyConfig | undefined => {
   return COUNTRIES.find((c) => c.currency.code === code)?.currency;
 };
