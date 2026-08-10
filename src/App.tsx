@@ -63,6 +63,8 @@ function lazyWithRecovery<T extends React.ComponentType<unknown>>(
   );
 }
 
+const PrivacyPolicy = lazyWithRecovery(() => import("./pages/legal/PrivacyPolicy"));
+const TermsOfService = lazyWithRecovery(() => import("./pages/legal/TermsOfService"));
 const POS = lazyWithRecovery(() => import("./pages/POS"));
 const Reports = lazyWithRecovery(() => import("./pages/Reports"));
 const Categories = lazyWithRecovery(() => import("./pages/Categories"));
@@ -290,6 +292,8 @@ const App = () => {
             <Route path="/" element={<Index />} />
             <Route path="/index.html" element={<Navigate to="/auth" replace />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/legal/confidentialite" element={<PrivacyPolicy />} />
+            <Route path="/legal/cgu" element={<TermsOfService />} />
             <Route path="/diagnostic" element={<Diagnostic />} />
             <Route
               path="/diagnostic-stores"

@@ -21,9 +21,8 @@ export const Footer = () => {
       { name: "Contact", href: "#" },
     ],
     legal: [
-      { name: "Confidentialité", href: "#" },
-      { name: "CGU", href: "#" },
-      { name: "Cookies", href: "#" },
+      { name: "Confidentialité", href: "/legal/confidentialite" },
+      { name: "CGU", href: "/legal/cgu" },
     ],
   };
 
@@ -108,9 +107,9 @@ export const Footer = () => {
             <ul className="space-y-2">
               {footerLinks.legal.map((link) => (
                 <li key={link.name}>
-                  <a href={link.href} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                  <Link to={link.href} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                     {link.name}
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -120,7 +119,7 @@ export const Footer = () => {
         {/* Bottom */}
         <div className="border-t border-border mt-12 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
           <p className="text-sm text-muted-foreground">
-            © 2025 MakitiPlus. Tous droits réservés.
+            © {new Date().getFullYear()} MakitiPlus. Tous droits réservés.
           </p>
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground">Paiements sécurisés par</span>
