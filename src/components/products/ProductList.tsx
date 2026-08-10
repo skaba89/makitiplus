@@ -37,15 +37,27 @@ interface ProductListProps {
  * Calcule le nombre de jours avant péremption.
  * Retourne null si pas de date de péremption.
  * Retourne un nombre négatif si déjà périmé.
+ *
+ * Fix timezone (audit produit du 2026-08-10, bug déjà documenté dans
+ * STRATEGIC_AUDIT_AFRICA_WORLD_LEADER.md §2.6 : "impact nul en UTC+0 mais à
+ * nettoyer") : `new Date("YYYY-MM-DD")` parse la chaîne comme minuit UTC, puis
+ * `.setHours(0,0,0,0)` opère en heure LOCALE -- pour un fuseau à l'ouest de
+ * UTC (Amériques), ça fait glisser la date d'un jour en arrière. product.
+ * expiry_date est une colonne DATE (sans heure) : on découpe manuellement
+ * "YYYY-MM-DD" en composants locaux plutôt que de passer par un parsing
+ * UTC/local ambigu, ce qui rend la fonction correcte quel que soit le
+ * fuseau horaire du navigateur.
  */
 const daysUntilExpiry = (expiryDate: string | null): number | null => {
   if (!expiryDate) return null;
   const now = new Date();
   now.setHours(0, 0, 0, 0);
-  const expiry = new Date(expiryDate);
+  const [year, month, day] = expiryDate.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  const expiry = new Date(year, month - 1, day);
   expiry.setHours(0, 0, 0, 0);
   const diffMs = expiry.getTime() - now.getTime();
-  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  return Math.round(diffMs / (1000 * 60 * 60 * 24));
 };
 
 export const ProductList = memo(({ products, onEdit, onDelete, onStockAdjust, onStockHistory }: ProductListProps) => {

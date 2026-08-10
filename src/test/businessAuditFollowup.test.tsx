@@ -13,6 +13,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { type ReactNode } from "react";
+import fs from "fs";
+import path from "path";
 
 // ─── Mocks ──────────────────────────────────────────────────
 vi.mock("@/lib/sentry", () => ({
@@ -245,14 +247,31 @@ describe("POSCartContext — remise (discount) sur panier", () => {
 // ─────────────────────────────────────────────────────────────
 describe("ProductList — logique de péremption", () => {
   // Helper : recopie de la fonction daysUntilExpiry de ProductList.tsx
+  // (fix timezone du 2026-08-10 -- voir le commentaire dans ProductList.tsx :
+  // parsing manuel "YYYY-MM-DD" en composants locaux plutôt que new Date()
+  // sur une chaîne date-only, ambigu UTC/local).
   const daysUntilExpiry = (expiryDate: string | null): number | null => {
     if (!expiryDate) return null;
     const now = new Date();
     now.setHours(0, 0, 0, 0);
-    const expiry = new Date(expiryDate);
+    const [year, month, day] = expiryDate.split("-").map(Number);
+    if (!year || !month || !day) return null;
+    const expiry = new Date(year, month - 1, day);
     expiry.setHours(0, 0, 0, 0);
     const diffMs = expiry.getTime() - now.getTime();
-    return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    return Math.round(diffMs / (1000 * 60 * 60 * 24));
+  };
+
+  // Helper de test : formate une date en "YYYY-MM-DD" à partir de ses
+  // composants LOCAUX -- délibérément différent de toISOString().split("T")[0],
+  // qui convertit d'abord en UTC et peut donc décaler d'un jour selon
+  // l'heure locale au moment du test (piège identique à celui corrigé
+  // dans daysUntilExpiry lui-même).
+  const toLocalDateString = (d: Date): string => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
   };
 
   it("retourne null si pas de date de péremption", () => {
@@ -261,28 +280,28 @@ describe("ProductList — logique de péremption", () => {
   });
 
   it("retourne 0 pour une péremption aujourd'hui", () => {
-    const today = new Date().toISOString().split("T")[0];
+    const today = toLocalDateString(new Date());
     expect(daysUntilExpiry(today)).toBe(0);
   });
 
   it("retourne un nombre positif pour une péremption future", () => {
     const future = new Date();
     future.setDate(future.getDate() + 30);
-    const futureStr = future.toISOString().split("T")[0];
+    const futureStr = toLocalDateString(future);
     expect(daysUntilExpiry(futureStr)).toBe(30);
   });
 
   it("retourne un nombre négatif pour une péremption passée", () => {
     const past = new Date();
     past.setDate(past.getDate() - 5);
-    const pastStr = past.toISOString().split("T")[0];
+    const pastStr = toLocalDateString(past);
     expect(daysUntilExpiry(pastStr)).toBe(-5);
   });
 
   it("détecte les produits proches de la péremption (≤ 7 jours)", () => {
     const inThreeDays = new Date();
     inThreeDays.setDate(inThreeDays.getDate() + 3);
-    const days = daysUntilExpiry(inThreeDays.toISOString().split("T")[0]);
+    const days = daysUntilExpiry(toLocalDateString(inThreeDays));
     expect(days).toBe(3);
     expect(days !== null && days <= 7 && days >= 0).toBe(true);
   });
@@ -290,9 +309,32 @@ describe("ProductList — logique de péremption", () => {
   it("détecte les produits déjà périmés", () => {
     const twoDaysAgo = new Date();
     twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
-    const days = daysUntilExpiry(twoDaysAgo.toISOString().split("T")[0]);
+    const days = daysUntilExpiry(toLocalDateString(twoDaysAgo));
     expect(days).toBe(-2);
     expect(days !== null && days < 0).toBe(true);
+  });
+
+  it("n'utilise jamais new Date(chaîne) directement sur la date de péremption (parsing UTC/local ambigu)", () => {
+    // Régression : avant le fix, new Date("YYYY-MM-DD") + setHours(0,0,0,0)
+    // en fuseau négatif (à l'ouest de UTC, ex. Amériques) faisait glisser la
+    // date d'un jour en arrière -- new Date("2026-09-10") = minuit UTC, qui
+    // en UTC-5 s'affiche "2026-09-09 19:00 local", et setHours(0,0,0,0) la
+    // ramenait au 9 au lieu du 10. Le parsing manuel en composants locaux
+    // (split "-" + new Date(year, month-1, day)) élimine cette ambiguïté
+    // par construction, quel que soit le fuseau horaire du navigateur.
+    const helperSrc = daysUntilExpiry.toString();
+    expect(helperSrc).toMatch(/expiryDate\.split\("-"\)\.map\(Number\)/);
+    expect(helperSrc).not.toMatch(/new Date\(expiryDate\)/);
+  });
+
+  it("reste synchronisée avec la vraie fonction de src/components/products/ProductList.tsx (pas de dérive de copie)", () => {
+    const productListSrc = fs.readFileSync(
+      path.join(process.cwd(), "src/components/products/ProductList.tsx"),
+      "utf-8"
+    );
+    expect(productListSrc).toMatch(/const \[year, month, day\] = expiryDate\.split\("-"\)\.map\(Number\);/);
+    expect(productListSrc).toMatch(/const expiry = new Date\(year, month - 1, day\);/);
+    expect(productListSrc).not.toMatch(/const expiry = new Date\(expiryDate\);/);
   });
 });
 
