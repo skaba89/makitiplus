@@ -30,6 +30,16 @@ export default tseslint.config(
       "jsx-a11y/role-has-required-aria-props": "warn",
       "jsx-a11y/click-events-have-key-events": "warn",
       "jsx-a11y/no-static-element-interactions": "off",
+      // Ajoutées audit produit 2026-08-10 — durcissement a11y permanent.
+      // jsx-a11y/heading-has-content délibérément exclue : bruit systématique
+      // sur les primitives shadcn/ui génériques (AlertTitle, CardTitle...) où
+      // le contenu vient de {...props}/children injectés dynamiquement, pas
+      // visible statiquement par le linter -- faux positif structurel, pas un
+      // vrai gap d'accessibilité (ces composants ne sont jamais rendus sans
+      // contenu en pratique).
+      "jsx-a11y/label-has-associated-control": "warn",
+      "jsx-a11y/tabindex-no-positive": "warn",
+      "jsx-a11y/aria-role": "warn",
     },
   },
 );
