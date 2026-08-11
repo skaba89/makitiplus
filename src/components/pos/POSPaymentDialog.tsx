@@ -153,10 +153,11 @@ export const POSPaymentDialog = ({
 
           {/* Payment Method */}
           <div className="space-y-2">
-            <Label>Mode de paiement</Label>
+            <Label id="pos-payment-method-label">Mode de paiement</Label>
             <Tabs
               value={paymentMethod}
               onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}
+              aria-labelledby="pos-payment-method-label"
             >
               <TabsList className="flex flex-wrap h-auto gap-1">
                 {paymentMethods.map((method) => (
@@ -196,7 +197,7 @@ export const POSPaymentDialog = ({
                   ))}
                 </div>
                 {change > 0 && (
-                  <div className="p-3 bg-success/10 rounded-lg">
+                  <div className="p-3 bg-success/10 rounded-lg" aria-live="polite">
                     <p className="text-sm text-muted-foreground">Monnaie à rendre</p>
                     <p className="text-xl font-bold text-success">{formatPrice(change)}</p>
                   </div>
@@ -245,7 +246,15 @@ export const POSPaymentDialog = ({
                     onChange={(e) => setCustomerName(e.target.value)}
                     placeholder="Nom du client"
                     required
+                    aria-required="true"
+                    aria-invalid={paymentMethod === "credit" && !customerName.trim()}
+                    aria-describedby={paymentMethod === "credit" && !customerName.trim() ? "pos-customer-name-error" : undefined}
                   />
+                  {paymentMethod === "credit" && !customerName.trim() && (
+                    <p id="pos-customer-name-error" role="alert" className="text-xs text-destructive">
+                      Le nom du client est obligatoire pour une vente à crédit.
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="pos-customer-phone">Téléphone du client</Label>
