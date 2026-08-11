@@ -90,12 +90,15 @@ export const CurrencySelector = ({
   // Full variant
   return (
     <div className={`space-y-2 ${className}`}>
-      <label className="text-sm font-medium flex items-center gap-2">
+      {/* eslint-disable-next-line jsx-a11y/label-has-associated-control -- associé via
+          aria-labelledby sur SelectTrigger ci-dessous (bouton Radix, pas un <select>
+          natif reconnu par htmlFor) : forme valide non détectée par cette règle statique */}
+      <label id="currency-selector-label" className="text-sm font-medium flex items-center gap-2">
         <Coins className="h-4 w-4 text-primary" />
         Devise
       </label>
       <Select value={currentCode} onValueChange={handleChange} disabled={isSaving}>
-        <SelectTrigger className="w-full">
+        <SelectTrigger className="w-full" aria-labelledby="currency-selector-label">
           <SelectValue />
         </SelectTrigger>
         <SelectContent className="max-h-64">

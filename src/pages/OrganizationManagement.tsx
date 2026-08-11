@@ -457,9 +457,12 @@ export default function OrganizationManagement() {
 
               {/* New Plan */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">Nouveau plan</label>
+                {/* eslint-disable-next-line jsx-a11y/label-has-associated-control -- associé via
+                    aria-labelledby sur SelectTrigger (bouton Radix, pas un <select> natif reconnu
+                    par htmlFor) : forme valide non détectée par cette règle statique */}
+                <label id="org-new-plan-label" className="text-sm font-medium">Nouveau plan</label>
                 <Select value={selectedPlan} onValueChange={setSelectedPlan}>
-                  <SelectTrigger>
+                  <SelectTrigger aria-labelledby="org-new-plan-label">
                     <SelectValue placeholder="Choisir un plan" />
                   </SelectTrigger>
                   <SelectContent>
@@ -474,9 +477,12 @@ export default function OrganizationManagement() {
 
               {/* Duration */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">Durée</label>
+                {/* eslint-disable-next-line jsx-a11y/label-has-associated-control -- associé via
+                    aria-labelledby sur SelectTrigger (bouton Radix, pas un <select> natif reconnu
+                    par htmlFor) : forme valide non détectée par cette règle statique */}
+                <label id="org-duration-label" className="text-sm font-medium">Durée</label>
                 <Select value={selectedDuration} onValueChange={(v) => setSelectedDuration(v as "1month" | "1year")}>
-                  <SelectTrigger>
+                  <SelectTrigger aria-labelledby="org-duration-label">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -487,8 +493,9 @@ export default function OrganizationManagement() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Référence paiement (optionnel)</label>
+                <label htmlFor="org-payment-reference" className="text-sm font-medium">Référence paiement (optionnel)</label>
                 <Input
+                  id="org-payment-reference"
                   value={paymentReference}
                   onChange={(e) => setPaymentReference(e.target.value)}
                   placeholder="ex: MM-20260706-001"
@@ -496,8 +503,9 @@ export default function OrganizationManagement() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Raison (optionnel)</label>
+                <label htmlFor="org-change-reason" className="text-sm font-medium">Raison (optionnel)</label>
                 <Input
+                  id="org-change-reason"
                   value={changeReason}
                   onChange={(e) => setChangeReason(e.target.value)}
                   placeholder="ex: Paiement Mobile Money reçu"
