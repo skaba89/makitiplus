@@ -63,7 +63,14 @@ export const POSCart = memo(({
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
   const handleApplyDiscount = () => {
-    const val = parseFloat(discountInput) || 0;
+    const raw = parseFloat(discountInput) || 0;
+    // Plafonner une remise en pourcentage à 100 : sans ce garde-fou, une
+    // erreur de frappe (ex. "150" au lieu de "15") vendait l'article
+    // gratuitement (le total final restait correctement bloqué à 0 côté
+    // useCartTotal, mais sans aucun avertissement -- le vendeur ne s'en
+    // rendait compte qu'après coup). Une remise en montant reste bornée
+    // par le sous-total via useCartTotal (Math.min), pas ici.
+    const val = discountType === "percent" ? Math.min(raw, 100) : raw;
     if (val > 0) {
       onSetDiscount(discountType, val);
     }
@@ -217,6 +224,8 @@ export const POSCart = memo(({
             </div>
             <Input
               type="number"
+              min="0"
+              max={discountType === "percent" ? "100" : undefined}
               value={discountInput}
               onChange={(e) => setDiscountInput(e.target.value)}
               placeholder={discountType === "percent" ? "Ex: 10" : "Ex: 5000"}

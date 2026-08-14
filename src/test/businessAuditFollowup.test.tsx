@@ -240,6 +240,42 @@ describe("POSCartContext — remise (discount) sur panier", () => {
     expect(state.discountType).toBe("percent");
     expect(state.discountValue).toBe(15);
   });
+
+  it("plafonne une remise en pourcentage à 100 (audit produit 2026-08-14 : faute de frappe '150' au lieu de '15' vendait gratuitement sans avertissement)", () => {
+    const p1 = makeProduct({ price: 10000 });
+
+    act(() => {
+      usePOSCartStore.getState().addToCart(p1, 2); // 20000
+      usePOSCartStore.getState().setDiscount("percent", 150); // faute de frappe : 150% au lieu de 15%
+    });
+
+    const state = usePOSCartStore.getState();
+    // La valeur stockée est plafonnée à 100, pas laissée à 150
+    expect(state.discountValue).toBe(100);
+
+    const { result: totalResult } = renderHook(() => useCartTotal(), {
+      wrapper: ({ children }: { children: ReactNode }) => <>{children}</>,
+    });
+    const { result: discountResult } = renderHook(() => useCartDiscount(), {
+      wrapper: ({ children }: { children: ReactNode }) => <>{children}</>,
+    });
+
+    // Remise plafonnée = sous-total exact (20000), jamais plus
+    expect(discountResult.current).toBe(20000);
+    expect(totalResult.current).toBe(0);
+  });
+
+  it("rejette une remise en pourcentage négative (clamp bas à 0)", () => {
+    const p1 = makeProduct({ price: 10000 });
+
+    act(() => {
+      usePOSCartStore.getState().addToCart(p1, 1); // 10000
+      usePOSCartStore.getState().setDiscount("percent", -20);
+    });
+
+    const state = usePOSCartStore.getState();
+    expect(state.discountValue).toBe(0);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────

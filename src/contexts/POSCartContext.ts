@@ -277,11 +277,19 @@ export const usePOSCartStore = create<POSCartState>((set, get) => ({
   },
 
   setDiscount: (type, value) => {
-    set({ discountType: type, discountValue: value });
+    // Défense en profondeur : une remise en pourcentage > 100 ne peut
+    // jamais entrer dans le store, quel que soit l'appelant (UI, cart
+    // persisté depuis avant ce garde-fou, ou un futur appel direct).
+    // useCartTotal restait déjà correctement bloqué à 0 sans ce clamp
+    // (Math.max(0, ...)), mais useCartDiscount affichait un montant de
+    // remise supérieur au sous-total sans avertissement -- typiquement une
+    // faute de frappe (150 au lieu de 15) qui vendait l'article gratuitement.
+    const clampedValue = type === "percent" ? Math.max(0, Math.min(value, 100)) : Math.max(0, value);
+    set({ discountType: type, discountValue: clampedValue });
     // P0 fix: persist the new discount immediately so it survives a refresh
     const state = get();
     const orgId = (state.items[0]?.product as { organization_id?: string })?.organization_id || "default";
-    saveCartWithFallback(state.items, orgId, { type, value });
+    saveCartWithFallback(state.items, orgId, { type, value: clampedValue });
   },
 
   clearDiscount: () => {
