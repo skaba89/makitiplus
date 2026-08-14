@@ -1,8 +1,8 @@
 import { useAuth } from "@/contexts/AuthContext";
 import {
   COUNTRIES,
-  getCountryByCode,
   getCurrencyByCode,
+  resolveCountry,
   formatPrice as formatPriceUtil,
   CurrencyConfig,
   CountryConfig,
@@ -16,37 +16,15 @@ export const useCurrency = () => {
   // 1. Try direct currency selection from profile.currency (ISO code like "GNF", "XOF")
   // 2. Fall back to country-derived currency
   // 3. Default to Guinea / GNF
-  let currency: CurrencyConfig;
+  // resolveCountry() gère profile.country stocké en code ISO ("GN") ou en
+  // nom complet ("Guinée") -- même logique partagée avec
+  // ProfileLanguageSync.tsx (voir src/utils/currencies.ts).
+  const country: CountryConfig =
+    resolveCountry(profile?.country) || COUNTRIES.find((c) => c.code === "GN")!;
 
   const profileCurrencyCode = profile?.currency || null;
   const directCurrency = profileCurrencyCode ? getCurrencyByCode(profileCurrencyCode) : null;
-
-  if (directCurrency) {
-    currency = directCurrency;
-  } else {
-    // Derive from country
-    let countryCode = profile?.country || "GN";
-    if (countryCode.length > 2) {
-      const found = COUNTRIES.find(
-        (c) => c.name.toLowerCase() === countryCode.toLowerCase()
-      );
-      countryCode = found?.code || "GN";
-    }
-    const country =
-      getCountryByCode(countryCode) || COUNTRIES.find((c) => c.code === "GN")!;
-    currency = country.currency;
-  }
-
-  // Also resolve the country for phone code and payment methods
-  let countryCode = profile?.country || "GN";
-  if (countryCode.length > 2) {
-    const found = COUNTRIES.find(
-      (c) => c.name.toLowerCase() === countryCode.toLowerCase()
-    );
-    countryCode = found?.code || "GN";
-  }
-  const country: CountryConfig =
-    getCountryByCode(countryCode) || COUNTRIES.find((c) => c.code === "GN")!;
+  const currency: CurrencyConfig = directCurrency || country.currency;
 
   const formatPrice = (amount: number): string => {
     return formatPriceUtil(amount, currency);
