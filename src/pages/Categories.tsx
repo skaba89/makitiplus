@@ -238,7 +238,7 @@ const Categories = () => {
     if (!formData.name.trim()) return;
 
     if (selectedCategory) {
-      if (blockMutation('Modifier une cat\u00e9gorie')) return;
+      if (blockMutation(t("demo.actions.editCategory", { ns: "common" }))) return;
       updateMutation.mutate({
         id: selectedCategory.id,
         name: formData.name,
@@ -247,7 +247,7 @@ const Categories = () => {
         description: formData.description || null,
       });
     } else {
-      if (blockMutation('Cr\u00e9er une cat\u00e9gorie')) return;
+      if (blockMutation(t("demo.actions.createCategory", { ns: "common" }))) return;
       createMutation.mutate({
         name: formData.name,
         icon: formData.icon,
@@ -583,7 +583,7 @@ const Categories = () => {
               <AlertDialogAction
                 onClick={() => {
                   if (deleteId) {
-                    if (blockMutation('Supprimer une cat\u00e9gorie')) return;
+                    if (blockMutation(t("demo.actions.deleteCategory", { ns: "common" }))) return;
                     deleteMutation.mutate(deleteId);
                   }
                 }}

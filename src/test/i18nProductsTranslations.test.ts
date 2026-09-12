@@ -10,11 +10,10 @@ import enProducts from "@/i18n/locales/en/products.json";
  * ProductForm, StockAdjustDialog, ProductImportDialog, StockMovementHistory)
  * hors périmètre, même principe que POS.tsx/Phase 1.5.
  *
- * Note : blockMutation() (mode démo, src/contexts/DemoContext.tsx) affiche
- * aussi un toast en français ("Mode démo", "n'est pas disponible en mode
- * démo"...) mais c'est un fichier PARTAGÉ par toutes les pages de l'app,
- * pas propre à Products.tsx -- traité hors périmètre volontairement, comme
- * documenté dans docs/production/I18N_PHASE_2_REPORT.md.
+ * Note : blockMutation() (mode démo, src/contexts/DemoContext.tsx), fichier
+ * PARTAGÉ par toutes les pages de l'app, a depuis été traité comme tâche
+ * transversale séparée (feat/i18n-demo-mode-cross-cutting) -- voir
+ * docs/production/I18N_PHASE_2_REPORT.md pour l'historique.
  */
 
 function flattenKeys(obj: Record<string, unknown>, prefix = ""): string[] {
@@ -43,7 +42,7 @@ describe("i18n Phase 2 — clés t() de Products.tsx résolues en fr et en", () 
   const PLURALIZED_KEYS = new Set(["stockAlerts.outOfStock", "stockAlerts.lowStock"]);
   const usedKeys = Array.from(
     productsSrc.matchAll(/\bt\(["'`]([a-zA-Z0-9_.]+)["'`]/g)
-  ).map((m) => m[1]).filter((k) => !PLURALIZED_KEYS.has(k));
+  ).map((m) => m[1]).filter((k) => !PLURALIZED_KEYS.has(k) && !k.startsWith("demo."));
 
   it("au moins 20 clés littérales sont utilisées", () => {
     expect(usedKeys.length).toBeGreaterThan(20);

@@ -40,7 +40,7 @@ const posSrc = fs.readFileSync(path.join(process.cwd(), "src/pages/POS.tsx"), "u
 describe("i18n Phase 1 — clés t() de POS.tsx résolues en fr et en", () => {
   const usedKeys = Array.from(
     posSrc.matchAll(/\bt\(["']([a-zA-Z0-9_.]+)["']/g)
-  ).map((m) => m[1]);
+  ).map((m) => m[1]).filter((k) => !k.startsWith("demo."));
 
   it("au moins une clé t() est utilisée (la migration a bien eu lieu)", () => {
     expect(usedKeys.length).toBeGreaterThan(15);

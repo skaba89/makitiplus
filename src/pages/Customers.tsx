@@ -208,10 +208,10 @@ const Customers = () => {
     }
 
     if (selectedCustomer) {
-      if (blockMutation('Modifier un client')) return;
+      if (blockMutation(t("demo.actions.editCustomer", { ns: "common" }))) return;
       updateMutation.mutate({ id: selectedCustomer.id, ...validation.data });
     } else {
-      if (blockMutation('Ajouter un client')) return;
+      if (blockMutation(t("demo.actions.addCustomer", { ns: "common" }))) return;
       createMutation.mutate(validation.data);
     }
   };
@@ -554,7 +554,7 @@ const Customers = () => {
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 onClick={() => {
                   if (deleteTarget) {
-                    if (blockMutation('Supprimer un client')) return;
+                    if (blockMutation(t("demo.actions.deleteCustomer", { ns: "common" }))) return;
                     deleteMutation.mutate(deleteTarget.id);
                     setDeleteTarget(null);
                   }

@@ -48,7 +48,7 @@ Troisième incrément (743 lignes) : en-tête, actions (import CSV/export/ajoute
 
 **Toasts et messages d'erreur** (demandés explicitement par la section 7) : toutes les mutations (créer/modifier/supprimer un produit, ajuster le stock, exporter) sont couvertes — succès, erreur RLS, erreur générique avec message d'origine interpolé, limite de plan atteinte.
 
-**Écart connu, documenté et volontairement hors périmètre** : `blockMutation()` (`src/contexts/DemoContext.tsx`) affiche un toast "Mode démo" en français codé en dur, mais c'est un fichier **partagé par toutes les pages de l'app** (pas seulement Products.tsx) — le traiter correctement demanderait de le migrer une seule fois pour toutes les pages qui l'utilisent, une tâche à part, pas un sous-produit de la migration d'une page individuelle.
+**Écart connu à l'époque, depuis traité** : `blockMutation()` (`src/contexts/DemoContext.tsx`) affichait un toast "Mode démo" en français codé en dur — fichier **partagé par toutes les pages de l'app** (pas seulement Products.tsx), donc traité une seule fois, transversalement, plutôt qu'en sous-produit de la migration d'une page individuelle. Voir `feat/i18n-demo-mode-cross-cutting` : `DemoContext.tsx`, `useDemoMutation.ts` et les 43 appels `blockMutation(...)` répartis sur 18 fichiers utilisent désormais `useTranslation("common")` (namespace `demo.*`), verrouillé par `src/test/i18nDemoModeCrossCutting.test.ts`.
 
 Test : `src/test/i18nProductsTranslations.test.ts` (93 assertions). Au passage, correction d'un bug de regex dans le test anti-chaîne-codée-en-dur (aussi corrigé rétroactivement dans `i18nReportsTranslations.test.ts`) : le pattern `[^<{]` traversait les retours à la ligne, donc un générique TypeScript comme `useState<Product | null>` fournissait un `>` qui faisait dériver le match jusqu'au prochain `<` bien plus loin dans le fichier, engloutissant du code et des commentaires sans rapport. Corrigé en `[^<{\n]` (borné à une seule ligne).
 
@@ -98,7 +98,7 @@ Test : `src/test/i18nBillingTranslations.test.ts` (259 assertions, incluant les 
 
 ## 10. Restant (hors scope des 8 pages)
 
-`DemoContext.tsx` (blockMutation) reste à traiter comme une tâche transversale séparée si on veut une couverture i18n complète — les arguments passés à `blockMutation(...)` dans Billing.tsx (ex: "Gérer l'abonnement", "Souscrire au plan") restent en français, comme documenté pour les autres pages.
+~~`DemoContext.tsx` (blockMutation) reste à traiter comme une tâche transversale séparée~~ — **fait** dans `feat/i18n-demo-mode-cross-cutting` : les arguments passés à `blockMutation(...)` (ex: "Gérer l'abonnement", "Souscrire au plan" dans Billing.tsx) résolvent désormais via `t("demo.actions.*", { ns: "common" })`.
 
 Toasts et messages d'erreur globaux (hors namespaces de page) et le test anti-chaînes-FR-codées-en-dur généralisé restent également à faire, maintenant que les 8 pages sont couvertes (le test générique a désormais du sens : chaque page de la liste est "censée" être entièrement traduite).
 

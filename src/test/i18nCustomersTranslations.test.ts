@@ -36,7 +36,7 @@ const customersSrc = readNormalized(path.join(process.cwd(), "src/pages/Customer
 describe("i18n Phase 2 — clés t() de Customers.tsx résolues en fr et en", () => {
   const usedKeys = Array.from(
     customersSrc.matchAll(/\bt\(["'`]([a-zA-Z0-9_.]+)["'`]/g)
-  ).map((m) => m[1]);
+  ).map((m) => m[1]).filter((k) => !k.startsWith("demo."));
 
   it("au moins 25 clés littérales sont utilisées", () => {
     expect(usedKeys.length).toBeGreaterThan(25);

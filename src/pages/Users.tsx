@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -153,6 +154,7 @@ const Users = () => {
   const { effectiveOrgId } = useOrgSelector();
   const { user, userRole } = useAuth();
   const { blockMutation } = useDemo();
+  const { t } = useTranslation("common");
   const [users, setUsers] = useState<UserRow[]>([]);
   const [, setAudit] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -304,7 +306,7 @@ const Users = () => {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (blockMutation('Créer un utilisateur')) return;
+    if (blockMutation(t("demo.actions.createUser"))) return;
     const pwdCheck = checkPassword(password);
     if (!pwdCheck.ok) {
       toast({
@@ -419,7 +421,7 @@ const Users = () => {
 
   const handleDeactivate = async () => {
     if (!deactivateTarget) return;
-    if (blockMutation('Désactiver un utilisateur')) return;
+    if (blockMutation(t("demo.actions.deactivateUser"))) return;
     await callManage(deactivateTarget, "deactivate", deactivationReason || undefined);
     setDeactivateTarget(null);
     setDeactivationReason("");
@@ -427,14 +429,14 @@ const Users = () => {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    if (blockMutation('Supprimer un utilisateur')) return;
+    if (blockMutation(t("demo.actions.deleteUser"))) return;
     await callManage(deleteTarget, "delete");
     setDeleteTarget(null);
   };
 
   const handleResetPassword = async () => {
     if (!resetTarget) return;
-    if (blockMutation('Réinitialiser le mot de passe')) return;
+    if (blockMutation(t("demo.actions.resetPassword"))) return;
 
     // Magic link mode (email or SMS)
     if (resetMode === "email" || resetMode === "sms") {

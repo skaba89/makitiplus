@@ -10,6 +10,7 @@
  */
 
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,6 +43,7 @@ export function WhatsAppSettingsCard() {
   const saveConfig = useSaveWhatsAppConfig();
   const sendMessage = useSendWhatsApp();
   const { blockMutation } = useDemo();
+  const { t } = useTranslation("common");
 
   const [formData, setFormData] = useState({
     phone_number_id: "",
@@ -80,7 +82,7 @@ export function WhatsAppSettingsCard() {
       });
       return;
     }
-    if (blockMutation("Sauvegarder la configuration WhatsApp")) return;
+    if (blockMutation(t("demo.actions.saveWhatsAppConfig"))) return;
     saveConfig.mutate(formData, {
       onSuccess: () => {
         toast({ title: "Configuration WhatsApp enregistrée" });
@@ -101,7 +103,7 @@ export function WhatsAppSettingsCard() {
       toast({ variant: "destructive", title: "Numéro requis", description: "Entrez un numéro pour le test." });
       return;
     }
-    if (blockMutation("Envoyer un message WhatsApp")) return;
+    if (blockMutation(t("demo.actions.sendWhatsAppMessage"))) return;
     sendMessage.mutate(
       {
         phone: testPhone,

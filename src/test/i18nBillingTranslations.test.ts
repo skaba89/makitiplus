@@ -59,7 +59,7 @@ describe("Non-régression — aucune logique métier/RPC touchée par la traduct
 describe("i18n Phase 2 — clés t() littérales de Billing.tsx résolues en fr et en", () => {
   // Ces clés sont construites dynamiquement (jamais passées littéralement à
   // t()) — vérifiées séparément ci-dessous plutôt que via le scan générique.
-  const DYNAMIC_KEY_PREFIXES = ["statusLabels.", "durationOptions."];
+  const DYNAMIC_KEY_PREFIXES = ["statusLabels.", "durationOptions.", "demo."];
   // superAdmin.storeCount est pluralisé (_one/_other résolus via {count})
   // et n'existe donc pas en tant que clé littérale dans le JSON.
   const PLURALIZED_KEYS = new Set(["superAdmin.storeCount"]);

@@ -10,6 +10,7 @@
  */
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -138,6 +139,7 @@ const PurchaseOrders = () => {
   const storeId = useStoreId();
   const { toast } = useToast();
   const { blockMutation } = useDemo();
+  const { t } = useTranslation("common");
   const { formatPrice } = useCurrency();
   const { effectiveOrgId } = useOrgSelector();
   const {
@@ -839,7 +841,7 @@ ${profile?.business_name || "MakitiPlus"}`;
                                     variant="ghost"
                                     size="icon"
                                     onClick={() => {
-                                      if (blockMutation('Modifier le statut d\'une commande')) return;
+                                      if (blockMutation(t("demo.actions.editOrderStatus"))) return;
                                       updateStatusMutation.mutate({ id: order.id, status: "sent" });
                                     }}
                                     aria-label="Envoyer la commande"
@@ -1082,7 +1084,7 @@ ${profile?.business_name || "MakitiPlus"}`;
               <DialogFooter>
                 <Button
                   onClick={() => {
-                    if (blockMutation('Cr\u00e9er une commande')) return;
+                    if (blockMutation(t("demo.actions.createOrder"))) return;
                     createMutation.mutate();
                   }}
                   disabled={createMutation.isPending || !formSupplier}
@@ -1188,7 +1190,7 @@ ${profile?.business_name || "MakitiPlus"}`;
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                   onClick={() => {
                     if (selectedOrder) {
-                      if (blockMutation('Supprimer une commande')) return;
+                      if (blockMutation(t("demo.actions.deleteOrder"))) return;
                       deleteMutation.mutate(selectedOrder.id);
                     }
                   }}

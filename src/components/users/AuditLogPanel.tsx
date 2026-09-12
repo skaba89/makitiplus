@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -71,6 +72,7 @@ const CATEGORY_MAP: Record<string, string[]> = {
 
 export const AuditLogPanel = ({ users }: { users: UserOption[] }) => {
   const { blockMutation } = useDemo();
+  const { t } = useTranslation("common");
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -132,7 +134,7 @@ export const AuditLogPanel = ({ users }: { users: UserOption[] }) => {
   };
 
   const exportCsv = async () => {
-    if (blockMutation("Exporter l'historique d'audit")) return;
+    if (blockMutation(t("demo.actions.exportAuditLog"))) return;
     const esc = (v: unknown) => {
       const s = v == null ? "" : String(v);
       return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;

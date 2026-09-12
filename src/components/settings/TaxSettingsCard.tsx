@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -16,6 +17,7 @@ export const TaxSettingsCard = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { blockMutation } = useDemo();
+  const { t } = useTranslation("common");
   const orgId = profile?.organization_id ?? null;
   const [rate, setRate] = useState<string>("0");
 
@@ -76,7 +78,7 @@ export const TaxSettingsCard = () => {
       });
       return;
     }
-    if (blockMutation("Modifier la TVA")) return;
+    if (blockMutation(t("demo.actions.editTax"))) return;
     mutation.mutate(num);
   };
 

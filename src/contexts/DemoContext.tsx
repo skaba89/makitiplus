@@ -1,5 +1,6 @@
 import { createContext, useContext, ReactNode, useMemo } from "react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { reportError } from "@/lib/sentry";
 
 /**
@@ -55,16 +56,17 @@ function detectDemoMode(): boolean {
 
 export const DemoProvider = ({ children }: { children: ReactNode }) => {
   const isDemo = useMemo(() => detectDemoMode(), []);
+  const { t } = useTranslation("common");
 
   const blockMutation = (action?: string): boolean => {
     if (!isDemo) return false;
 
-    const actionLabel = action || "cette action";
-    toast.warning("Mode démo", {
-      description: `${actionLabel} n'est pas disponible en mode démo. Créez votre compte pour accéder à toutes les fonctionnalités.`,
+    const actionLabel = action || t("demo.genericAction");
+    toast.warning(t("demo.toastTitle"), {
+      description: t("demo.toastDescription", { action: actionLabel }),
       duration: 4000,
       action: {
-        label: "Créer mon compte",
+        label: t("demo.ctaCreateAccount"),
         onClick: () => window.open("/auth", "_self"),
       },
     });

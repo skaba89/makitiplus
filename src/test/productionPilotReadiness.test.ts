@@ -131,7 +131,7 @@ describe("Pilot Readiness: POS/Offline invariants", () => {
 
   it("useOfflineSale checks demo mode before any sale", () => {
     expect(offlineSale).toContain("blockMutation");
-    expect(offlineSale).toMatch(/Mode démo/);
+    expect(offlineSale).toMatch(/demo\.actions\.recordSale/);
   });
 
   it("useOfflineSale uses create_sale_with_limit RPC online", () => {

@@ -10,8 +10,9 @@ import enCategories from "@/i18n/locales/en/categories.json";
  * total de produits dans l'en-tête (évite une clé dupliquée pour le même
  * texte pluralisé "N produit(s)").
  *
- * Écart connu, hors périmètre (fichier partagé, voir I18N_PHASE_2_REPORT.md) :
- * blockMutation() reste en français codé en dur.
+ * blockMutation() (fichier partagé, DemoContext.tsx) était en français codé
+ * en dur — traité comme tâche transversale séparée, voir
+ * I18N_PHASE_2_REPORT.md et feat/i18n-demo-mode-cross-cutting.
  */
 
 function flattenKeys(obj: Record<string, unknown>, prefix = ""): string[] {
@@ -38,7 +39,7 @@ describe("i18n Phase 2 — clés t() de Categories.tsx résolues en fr et en", (
   const PLURALIZED_KEYS = new Set(["categoryCount", "card.productCount"]);
   const usedKeys = Array.from(
     categoriesSrc.matchAll(/\bt\(["'`]([a-zA-Z0-9_.]+)["'`]/g)
-  ).map((m) => m[1]).filter((k) => !PLURALIZED_KEYS.has(k));
+  ).map((m) => m[1]).filter((k) => !PLURALIZED_KEYS.has(k) && !k.startsWith("demo."));
 
   it("au moins 20 clés littérales sont utilisées", () => {
     expect(usedKeys.length).toBeGreaterThan(20);

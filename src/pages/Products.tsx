@@ -317,10 +317,10 @@ const Products = () => {
 
   const handleSubmit = (productData: Omit<ProductInsert, "user_id">) => {
     if (selectedProduct) {
-      if (blockMutation('Modifier un produit')) return;
+      if (blockMutation(t("demo.actions.editProduct", { ns: "common" }))) return;
       updateProductMutation.mutate({ id: selectedProduct.id, ...productData });
     } else {
-      if (blockMutation('Créer un produit')) return;
+      if (blockMutation(t("demo.actions.createProduct", { ns: "common" }))) return;
       createProductMutation.mutate(productData);
     }
   };
@@ -694,7 +694,7 @@ const Products = () => {
             setStockAdjustProduct(null);
           }}
           onConfirm={(data) => {
-            if (blockMutation('Ajuster le stock')) return;
+            if (blockMutation(t("demo.actions.adjustStock", { ns: "common" }))) return;
             stockAdjustMutation.mutate(data);
           }}
           isLoading={stockAdjustMutation.isPending}
@@ -726,7 +726,7 @@ const Products = () => {
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 onClick={() => {
                   if (deleteTarget) {
-                    if (blockMutation('Supprimer un produit')) return;
+                    if (blockMutation(t("demo.actions.deleteProduct", { ns: "common" }))) return;
                     deleteProductMutation.mutate(deleteTarget.id);
                     setDeleteTarget(null);
                   }
