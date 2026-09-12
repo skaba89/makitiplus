@@ -1,4 +1,5 @@
  import { useState } from "react";
+import { useTranslation } from "react-i18next";
  import { useMutation, useQueryClient } from "@tanstack/react-query";
  import { supabase } from "@/integrations/supabase/client";
  import { useAuth } from "@/contexts/AuthContext";
@@ -96,6 +97,7 @@ const Expenses = () => {
   const { user, userRole } = useAuth();
   const { toast } = useToast();
   const { blockMutation } = useDemo();
+  const { t } = useTranslation("common");
   useCurrency();
   const { effectiveOrgId } = useOrgSelector();
   const {
@@ -281,10 +283,10 @@ const Expenses = () => {
      e.preventDefault();
      if (!amount || !category) return;
      if (editingExpense) {
-       if (blockMutation('Modifier une dépense')) return;
+       if (blockMutation(t("demo.actions.editExpense"))) return;
        updateExpenseMutation.mutate();
      } else {
-       if (blockMutation('Ajouter une dépense')) return;
+       if (blockMutation(t("demo.actions.addExpense"))) return;
        createExpenseMutation.mutate();
      }
    };
@@ -646,7 +648,7 @@ const Expenses = () => {
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 onClick={() => {
                   if (deleteTarget) {
-                    if (blockMutation('Supprimer une dépense')) return;
+                    if (blockMutation(t("demo.actions.deleteExpense"))) return;
                     deleteExpenseMutation.mutate(deleteTarget.id);
                     setDeleteTarget(null);
                   }

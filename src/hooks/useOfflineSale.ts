@@ -22,6 +22,7 @@ import { useOrgSelector } from "@/hooks/useOrgSelector";
  */
 
 import { useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -69,6 +70,7 @@ export function useOfflineSale(options?: {
   const { user, profile } = useAuth();
   const { effectiveOrgId } = useOrgSelector();
   const { blockMutation } = useDemo();
+  const { t } = useTranslation("common");
   const { isOnline } = useOnlineStatus();
   const { toast } = useToast();
   const orgTaxRate = useOrgTaxRate();
@@ -98,7 +100,7 @@ export function useOfflineSale(options?: {
       customerPhone?: string;
       paymentReference?: string;
     }): Promise<OfflineSaleResult> => {
-      if (blockMutation("Enregistrer une vente")) {
+      if (blockMutation(t("demo.actions.recordSale"))) {
         throw new Error("Mode démo — les ventes sont désactivées");
       }
 

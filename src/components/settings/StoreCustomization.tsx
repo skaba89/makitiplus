@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBranding } from "@/contexts/BrandingContext";
@@ -113,6 +114,7 @@ const StoreCustomization = () => {
   const { branding, updateBranding } = useBranding();
   const { toast } = useToast();
   const { blockMutation } = useDemo();
+  const { t } = useTranslation("common");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -169,7 +171,7 @@ const StoreCustomization = () => {
   // Update color and apply in real-time
   const handleColorChange = useCallback(
     async (colorName: "primary_color" | "secondary_color" | "accent_color" | "success_color", hexValue: string) => {
-      if (blockMutation('Modifier les couleurs')) return;
+      if (blockMutation(t("demo.actions.editColors"))) return;
       const hslValue = hexToHslString(hexValue);
       if (colorName === "primary_color") setPrimaryHex(hexValue);
       if (colorName === "secondary_color") setSecondaryHex(hexValue);
@@ -190,7 +192,7 @@ const StoreCustomization = () => {
   // Apply template preset
   const applyTemplate = useCallback(
     async (templateName: TemplateName) => {
-      if (blockMutation('Appliquer un template')) return;
+      if (blockMutation(t("demo.actions.applyTemplate"))) return;
       const preset = TEMPLATE_PRESETS[templateName];
       setSelectedTemplate(templateName);
       setPrimaryHex(hslStringToHex(preset.primary));
@@ -215,7 +217,7 @@ const StoreCustomization = () => {
   // Logo upload
   const handleLogoUpload = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (blockMutation('Télécharger un logo')) return;
+      if (blockMutation(t("demo.actions.uploadLogo"))) return;
       const file = e.target.files?.[0];
       if (!file) return;
 
@@ -246,13 +248,13 @@ const StoreCustomization = () => {
   );
 
   const handleSaveStoreName = useCallback(async () => {
-    if (blockMutation('Modifier le nom du magasin')) return;
+    if (blockMutation(t("demo.actions.editStoreName"))) return;
     await updateSettings({ store_name: storeName });
     toast({ title: "Nom du magasin enregistré" });
   }, [storeName, updateSettings, toast]);
 
   const handleSaveReceiptSettings = useCallback(async () => {
-    if (blockMutation('Modifier les paramètres de ticket')) return;
+    if (blockMutation(t("demo.actions.editReceiptSettings"))) return;
     await updateSettings({
       receipt_footer: receiptFooter,
       receipt_show_logo: receiptShowLogo,
@@ -263,7 +265,7 @@ const StoreCustomization = () => {
   }, [receiptFooter, receiptShowLogo, receiptShowTax, receiptPaperSize, settings?.extra_settings, updateSettings, toast]);
 
   const handleReset = useCallback(async () => {
-    if (blockMutation('Réinitialiser le thème')) return;
+    if (blockMutation(t("demo.actions.resetTheme"))) return;
     resetTheme();
     await updateSettings({
       primary_color: DEFAULT_COLORS.primary,
@@ -282,7 +284,7 @@ const StoreCustomization = () => {
 
   // Branding (theme mode, font, language)
   const handleSaveBranding = useCallback(async (updates: Record<string, string>) => {
-    if (blockMutation('Modifier la marque')) return;
+    if (blockMutation(t("demo.actions.editBranding"))) return;
     await updateBranding(updates);
     toast({ title: "Paramètres enregistrés" });
   }, [updateBranding, toast]);

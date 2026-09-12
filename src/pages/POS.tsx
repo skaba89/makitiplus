@@ -436,7 +436,7 @@ const POS = () => {
           onClose={() => setIsPaymentOpen(false)}
           total={cartTotal}
           onConfirm={(paymentMethod, amountPaid, customerName, customerPhone, paymentReference) => {
-            if (blockMutation('Enregistrer une vente')) return;
+            if (blockMutation(t("demo.actions.recordSale", { ns: "common" }))) return;
             createSaleMutation.mutate({
               paymentMethod,
               amountPaid,

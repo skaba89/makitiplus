@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
@@ -164,6 +165,7 @@ const Stores = () => {
   const { userRole, profile } = useAuth();
   const { toast } = useToast();
   const { blockMutation } = useDemo();
+  const { t } = useTranslation("common");
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [adminDialogOpen, setAdminDialogOpen] = useState(false);
@@ -297,7 +299,7 @@ const Stores = () => {
 
   const handleCreateStore = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (blockMutation('Gérer les boutiques')) return;
+    if (blockMutation(t("demo.actions.manageStores"))) return;
     setCreating(true);
     try {
       const slug = storeName
@@ -519,7 +521,7 @@ const Stores = () => {
 
   const confirmDeleteStore = async () => {
     if (!storeToDelete) return;
-    if (blockMutation('Gérer les boutiques')) return;
+    if (blockMutation(t("demo.actions.manageStores"))) return;
     try {
       // Si c'est une organisation (storeToDelete.real_stores existe), supprimer l'org
       // Si c'est un magasin spécifique (storeToDelete.storeToDeleteId existe), supprimer le store

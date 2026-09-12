@@ -7,9 +7,9 @@ import enSuppliers from "@/i18n/locales/en/suppliers.json";
 /**
  * i18n Phase 2 (docs/production/I18N_MIGRATION_PLAN.md) — Suppliers.tsx,
  * sixième incrément de la Phase 2. Composant enfant (SupplierDetailDialog)
- * hors périmètre. blockMutation() (DemoContext.tsx, toast "Mode démo")
- * reste également hors périmètre -- fichier partagé, voir
- * I18N_PHASE_2_REPORT.md.
+ * hors périmètre. blockMutation() (DemoContext.tsx, toast "Mode démo"),
+ * fichier partagé, a depuis été traité comme tâche transversale séparée
+ * (feat/i18n-demo-mode-cross-cutting) -- voir I18N_PHASE_2_REPORT.md.
  *
  * Le placeholder par défaut "Guinée"/"country: 'Guinée'" dans formData
  * n'est volontairement PAS traduit : c'est une valeur de donnée métier
@@ -42,7 +42,7 @@ const suppliersSrc = readNormalized(path.join(process.cwd(), "src/pages/Supplier
 describe("i18n Phase 2 — clés t() de Suppliers.tsx résolues en fr et en", () => {
   const usedKeys = Array.from(
     suppliersSrc.matchAll(/\bt\(["'`]([a-zA-Z0-9_.]+)["'`]/g)
-  ).map((m) => m[1]);
+  ).map((m) => m[1]).filter((k) => !k.startsWith("demo."));
 
   it("au moins 30 clés littérales sont utilisées", () => {
     expect(usedKeys.length).toBeGreaterThan(30);

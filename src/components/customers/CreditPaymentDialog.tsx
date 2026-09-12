@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -104,6 +105,7 @@ export const CreditPaymentDialog = ({ customer, isOpen, onClose, onViewHistory }
   });
 
   const { blockMutation } = useDemo();
+  const { t } = useTranslation("common");
 
   if (!customer) return null;
 
@@ -166,7 +168,7 @@ export const CreditPaymentDialog = ({ customer, isOpen, onClose, onViewHistory }
             />
           </div>
           <Button
-            onClick={() => { if (blockMutation("Enregistrer un paiement de crédit")) return; paymentMutation.mutate(); }}
+            onClick={() => { if (blockMutation(t("demo.actions.recordCreditPayment"))) return; paymentMutation.mutate(); }}
             className="w-full"
             disabled={paymentMutation.isPending || !amount}
           >

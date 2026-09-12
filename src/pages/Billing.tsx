@@ -158,7 +158,7 @@ export default function Billing() {
    */
   const handleManualPlanChange = useCallback(async () => {
     // Demo mode: block ALL subscription mutations
-    if (blockMutation("Modifier l'abonnement")) return;
+    if (blockMutation(t("demo.actions.editSubscription", { ns: "common" }))) return;
 
     if (!selectedPlan) {
       toast({ title: t("toasts.planRequiredTitle"), description: t("toasts.planRequiredDescription"), variant: "destructive" });
@@ -237,7 +237,7 @@ export default function Billing() {
    */
   const handleExtendSubscription = useCallback(async (duration: string) => {
     // Demo mode: block ALL subscription mutations
-    if (blockMutation("Prolonger l'abonnement")) return;
+    if (blockMutation(t("demo.actions.extendSubscription", { ns: "common" }))) return;
 
     // Pour super_admin : utiliser le plan de l'org sélectionnée.
     // Pour admin : utiliser son propre plan.
@@ -713,7 +713,7 @@ export default function Billing() {
                 {t("manageSub.description")}
               </p>
             </div>
-            <Button variant="outline" onClick={() => { if (blockMutation("Gérer l'abonnement")) return; openPortal(); }} disabled={isPortalLoading}>
+            <Button variant="outline" onClick={() => { if (blockMutation(t("demo.actions.manageSubscription", { ns: "common" }))) return; openPortal(); }} disabled={isPortalLoading}>
               {isPortalLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CreditCard className="h-4 w-4 mr-2" />}
               {t("manageSub.button")}
             </Button>
@@ -749,7 +749,7 @@ export default function Billing() {
                 {t("stripeCheckout.chooseDescription")}
               </p>
             </div>
-            <Button size="lg" onClick={() => { if (blockMutation("Souscrire au plan")) return; checkout("croissance"); }} disabled={isCheckingOut}>
+            <Button size="lg" onClick={() => { if (blockMutation(t("demo.actions.subscribeToPlan", { ns: "common" }))) return; checkout("croissance"); }} disabled={isCheckingOut}>
               {isCheckingOut ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               {t("stripeCheckout.startButton")}
             </Button>
@@ -767,7 +767,7 @@ export default function Billing() {
                 {t("stripeCheckout.upgradeDescription")}
               </p>
             </div>
-            <Button size="lg" onClick={() => { if (blockMutation("Souscrire au plan")) return; checkout("enterprise"); }} disabled={isCheckingOut}>
+            <Button size="lg" onClick={() => { if (blockMutation(t("demo.actions.subscribeToPlan", { ns: "common" }))) return; checkout("enterprise"); }} disabled={isCheckingOut}>
               {isCheckingOut ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               {t("stripeCheckout.upgradeButton")}
             </Button>

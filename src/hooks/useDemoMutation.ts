@@ -1,4 +1,5 @@
 import { useMutation, UseMutationOptions, UseMutationResult } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { useDemo } from "@/contexts/DemoContext";
 
 /**
@@ -35,6 +36,7 @@ export function useDemoMutation<TData = unknown, TError = unknown, TVariables = 
   options: DemoMutationOptions<TData, TError, TVariables>
 ): UseMutationResult<TData, TError, TVariables> {
   const { blockMutation } = useDemo();
+  const { t } = useTranslation("common");
   const { demoAction, ...mutationOptions } = options;
 
   return useMutation<TData, TError, TVariables>({
@@ -44,8 +46,8 @@ export function useDemoMutation<TData = unknown, TError = unknown, TVariables = 
       if (blockMutation(demoAction)) {
         throw new Error(
           demoAction
-            ? `Mode démo : ${demoAction} n'est pas disponible`
-            : "Mode démo : les modifications ne sont pas autorisées"
+            ? t("demo.mutationBlockedWithAction", { action: demoAction })
+            : t("demo.mutationBlockedGeneric")
         );
       }
 

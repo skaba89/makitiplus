@@ -274,10 +274,10 @@ const Suppliers = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedSupplier) {
-      if (blockMutation('Modifier un fournisseur')) return;
+      if (blockMutation(t("demo.actions.editSupplier", { ns: "common" }))) return;
       updateMutation.mutate({ id: selectedSupplier.id, ...formData });
     } else {
-      if (blockMutation('Ajouter un fournisseur')) return;
+      if (blockMutation(t("demo.actions.addSupplier", { ns: "common" }))) return;
       createMutation.mutate(formData);
     }
   };
@@ -497,7 +497,7 @@ const Suppliers = () => {
                                   variant="ghost"
                                   size="icon"
                                   onClick={() => {
-                                    if (blockMutation('Activer/d\u00e9sactiver un fournisseur')) return;
+                                    if (blockMutation(t("demo.actions.toggleSupplier", { ns: "common" }))) return;
                                     toggleActiveMutation.mutate({
                                       id: supplier.id,
                                       is_active: !supplier.is_active,
@@ -687,7 +687,7 @@ const Suppliers = () => {
               <AlertDialogAction
                 onClick={() => {
                   if (selectedSupplier) {
-                    if (blockMutation('Supprimer un fournisseur')) return;
+                    if (blockMutation(t("demo.actions.deleteSupplier", { ns: "common" }))) return;
                     deleteMutation.mutate(selectedSupplier.id);
                   }
                 }}

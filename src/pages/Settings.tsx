@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -34,6 +35,7 @@ const Settings = () => {
   const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
   const { blockMutation } = useDemo();
+  const { t } = useTranslation("common");
   const queryClient = useQueryClient();
   const { currency } = useCurrency();
 
@@ -111,7 +113,7 @@ const Settings = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (blockMutation('Modifier les paramètres')) return;
+    if (blockMutation(t("demo.actions.editSettings"))) return;
     updateProfileMutation.mutate(formData);
   };
 
