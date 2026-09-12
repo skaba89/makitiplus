@@ -1,0 +1,22 @@
+-- Supprime la policy RLS "profiles_select_simple", redondante avec
+-- "profiles_select_scoped" (audits 2026-08-15 et 2026-08-22 : point mineur
+-- noté, non bloquant, nettoyage recommandé).
+--
+-- Constat (vérifié en direct via `npx supabase db query --linked` avant ce
+-- correctif) :
+--   profiles_select_simple : USING (user_id = auth.uid() OR is_super_admin())
+--   profiles_select_scoped : USING (user_id = auth.uid() OR is_super_admin()
+--     OR (admin de l'organisation ET pas un autre super_admin)
+--     OR (même organisation ET pas un autre super_admin))
+--
+-- profiles_select_scoped couvre STRICTEMENT tout ce que profiles_select_simple
+-- autorise (même deux premières conditions, plus des conditions
+-- supplémentaires qui n'apparaissent QUE dans scoped). Les policies RLS pour
+-- une même commande (SELECT) sont combinées en OR : supprimer la policy
+-- strictement plus restrictive ne retire donc aucun accès à personne.
+--
+-- Note : cette policy n'apparaît dans aucune migration précédente sous ce nom
+-- exact (dérive probable créée hors du flux de migrations, ex. dashboard
+-- Supabase) -- ce correctif la fait rentrer dans le suivi de version.
+
+DROP POLICY IF EXISTS "profiles_select_simple" ON public.profiles;
