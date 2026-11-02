@@ -42,6 +42,9 @@ export interface QueuedMutation {
   retryCount: number;
   status: "pending" | "syncing" | "failed";
   error?: string;
+  /** Set when the mutation enters "syncing" — used to recover entries left
+   *  in "syncing" by a tab/app that was killed mid-request. */
+  syncStartedAt?: string;
 }
 
 // H3: Allowlist of permitted tables for offline mutations — prevents arbitrary table writes
@@ -62,6 +65,31 @@ const ALLOWED_RPCS = new Set([
   "increment_customer_credit",
   "increment_customer_credit_by_phone",
 ]);
+
+/**
+ * RPCs that carry money or a completed customer transaction. A sale made
+ * offline has physically happened (goods left, cash taken): its queued
+ * mutation must NEVER be silently dropped. These entries are:
+ *   - never deleted by cleanupExpiredMutations()
+ *   - never expired by the 7-day staleness rule
+ *   - always re-armable by retryFailedMutations()
+ * Replaying them is safe because the server RPCs are idempotent on
+ * (organization_id, sale_number) — see 20260723130000_fix_sale_idempotency.sql
+ * and 20261102100000_credit_by_phone_idempotent.sql.
+ */
+export const CRITICAL_RPC_NAMES: ReadonlySet<string> = new Set([
+  "create_sale_with_limit",
+  "increment_customer_credit_by_phone",
+]);
+
+export function isCriticalMutation(m: Pick<QueuedMutation, "operation" | "rpcName">): boolean {
+  return m.operation === "RPC" && !!m.rpcName && CRITICAL_RPC_NAMES.has(m.rpcName);
+}
+
+/** A "syncing" entry older than this is assumed orphaned (app killed mid-sync). */
+export const SYNCING_STALE_MS = 2 * 60 * 1000;
+
+const MAX_AUTO_RETRIES = 5;
 
 // ---------------------------------------------------------------------------
 // Mutation Queue (generic table-level operations)
@@ -121,7 +149,20 @@ export async function getPendingMutations(): Promise<QueuedMutation[]> {
       const request = index.getAll();
       request.onsuccess = () => {
         const all = request.result as QueuedMutation[];
-        resolve(all.filter((m) => m.status === "pending" || m.status === "failed"));
+        const now = Date.now();
+        resolve(
+          all.filter((m) => {
+            if (m.status === "pending" || m.status === "failed") return true;
+            // Recover entries orphaned in "syncing" (tab closed / app killed
+            // while the request was in flight). Server-side idempotency makes
+            // the replay safe for sales.
+            if (m.status === "syncing") {
+              const startedAt = new Date(m.syncStartedAt ?? m.createdAt).getTime();
+              return now - startedAt > SYNCING_STALE_MS;
+            }
+            return false;
+          })
+        );
       };
       request.onerror = () => reject(request.error);
     });
@@ -180,7 +221,11 @@ async function updateMutationStatus(
       const entry = getReq.result as QueuedMutation | undefined;
       if (!entry) { resolve(); return; }
       entry.status = status;
-      entry.retryCount += 1;
+      // Count only real failures. Previously "syncing" also incremented the
+      // counter, so each failed attempt consumed 2 retries and a sale was
+      // abandoned after ~3 attempts.
+      if (status === "failed") entry.retryCount += 1;
+      if (status === "syncing") entry.syncStartedAt = new Date().toISOString();
       if (error) entry.error = error;
       store.put(entry);
     };
@@ -324,15 +369,23 @@ async function flushRPCQueue(
   const rpcMutations = pending.filter((m) => m.operation === "RPC");
 
   for (const mutation of rpcMutations) {
-    if (mutation.retryCount >= 5) {
+    const critical = isCriticalMutation(mutation);
+    if (mutation.retryCount >= MAX_AUTO_RETRIES) {
+      if (critical) {
+        // Keep it as-is (status "failed", counter untouched): it stays
+        // visible in the failed count and is re-armed by retryFailedMutations().
+        failed++;
+        continue;
+      }
       await updateMutationStatus(mutation.id, "failed", "Max retries exceeded", true);
       failed++;
       continue;
     }
 
-    // H4 fix: Skip RPC mutations that are too old (stale)
+    // H4 fix: Skip RPC mutations that are too old (stale) — except sales and
+    // credits, which record something that already happened in the shop.
     const mutationAge = Date.now() - new Date(mutation.createdAt).getTime();
-    if (mutationAge > MUTATION_MAX_AGE_MS) {
+    if (!critical && mutationAge > MUTATION_MAX_AGE_MS) {
       await updateMutationStatus(mutation.id, "failed", `RPC expirée (${Math.floor(mutationAge / (24 * 60 * 60 * 1000))}j) — trop ancienne pour être rejouée`, true);
       failed++;
       continue;
@@ -672,6 +725,10 @@ export async function flushQueueWithMutex(): Promise<{ synced: number; failed: n
  *
  * Also removes mutations that have exceeded the retry limit (retryCount >= 5)
  * regardless of age — these are permanently stuck and should not persist.
+ *
+ * EXCEPTION: critical RPCs (offline sales and credit entries, see
+ * CRITICAL_RPC_NAMES) are never removed — deleting them would silently lose
+ * a sale that physically happened.
  */
 export async function cleanupExpiredMutations(): Promise<{ removed: number }> {
   const db = await getDB();
@@ -688,7 +745,7 @@ export async function cleanupExpiredMutations(): Promise<{ removed: number }> {
       getAllReq.onsuccess = () => {
         const mutations = getAllReq.result as QueuedMutation[];
         for (const m of mutations) {
-          if (m.status === "failed") {
+          if (m.status === "failed" && !isCriticalMutation(m)) {
             const age = now - new Date(m.createdAt).getTime();
             // Remove if older than retention period OR permanently stuck
             if (age > FAILED_RETENTION_MS || m.retryCount >= MAX_RETRIES) {
@@ -718,7 +775,8 @@ export async function cleanupExpiredMutations(): Promise<{ removed: number }> {
  * Reset failed mutations back to "pending" status so they can be retried
  * on the next flush cycle.
  *
- * Only resets mutations that haven't exceeded the max retry count.
+ * Only resets mutations that haven't exceeded the max retry count, except
+ * critical RPCs (sales/credits) which are always re-armed with a fresh counter.
  * Returns the count of mutations that were reset.
  */
 export async function retryFailedMutations(): Promise<{ retried: number }> {
@@ -734,9 +792,13 @@ export async function retryFailedMutations(): Promise<{ retried: number }> {
       getAllReq.onsuccess = () => {
         const mutations = getAllReq.result as QueuedMutation[];
         for (const m of mutations) {
-          if (m.status === "failed" && m.retryCount < MAX_RETRIES) {
+          const critical = isCriticalMutation(m);
+          if (m.status === "failed" && (critical || m.retryCount < MAX_RETRIES)) {
             m.status = "pending";
             m.error = undefined;
+            // Re-arm critical entries (sales/credits) for a fresh round of
+            // automatic attempts — they must never be abandoned.
+            if (critical) m.retryCount = 0;
             store.put(m);
             retried++;
           }

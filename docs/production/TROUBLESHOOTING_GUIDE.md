@@ -186,9 +186,12 @@ WHERE s.organization_id = o.id
 3. Console → erreurs de sync ?
 
 **Fix** :
-1. Recharger la page (F5) — déclenche la sync
-2. Si échec : DevTools → Application → IndexedDB → supprimer la DB locale → recharger
-3. Vérifier que l'Edge Function `create_sale_with_limit` fonctionne
+1. Attendre 1 minute en ligne : la synchronisation se relance automatiquement au démarrage de l'application puis toutes les 60 secondes tant qu'il reste des éléments en file (depuis MKP-001). Recharger la page (F5) relance aussi la synchronisation.
+2. Si l'indicateur affiche des opérations « en échec » : cliquer **Réessayer**. Les ventes et crédits en échec ne sont **jamais supprimés automatiquement** ; ils restent en file jusqu'à leur synchronisation, même après plusieurs jours.
+3. Lire le message d'erreur (DevTools → Application → IndexedDB → `malikiplus_offline` → `offline_rpc_queue`, champ `error`). Un message métier comme « Stock insuffisant pour … » signifie que le serveur refuse la vente : régulariser le stock du produit, puis cliquer **Réessayer**.
+4. Vérifier que la RPC `create_sale_with_limit` répond (page `/diagnostic`).
+
+⚠️ **Ne jamais supprimer la base IndexedDB locale** (`malikiplus_offline`) d'un appareil qui a des opérations en attente : cela efface définitivement les ventes non synchronisées. En dernier recours, exporter d’abord le contenu de `offline_rpc_queue` (clic droit → copier) et le transmettre au support.
 
 ---
 

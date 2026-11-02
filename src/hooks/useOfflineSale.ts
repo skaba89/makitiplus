@@ -37,6 +37,7 @@ import { useThemeSettings } from "@/contexts/ThemeContext";
 import { usePOSCartStore, useCartTotal, useCartSubtotal, useCartDiscount } from "@/contexts/POSCartContext";
 import { useStore } from "@/contexts/StoreContext";
 import { reportError } from "@/lib/sentry";
+import { isAmbiguousNetworkFailure } from "@/lib/networkError";
 import { logger } from "@/lib/logger";
 import { ReceiptData } from "@/utils/receiptGenerator";
 import { useToast } from "@/hooks/use-toast";
@@ -156,30 +157,56 @@ export function useOfflineSale(options?: {
       const orgId = effectiveOrgId || profile?.organization_id || null;
 
       // ─── ONLINE PATH: Atomic RPC ─────────────────────────
+      // A network-level failure here is AMBIGUOUS: the RPC may have committed
+      // and only the response was lost (unstable 3G/4G). Throwing would make
+      // the cashier retry with a NEW sale number → duplicate sale; giving up
+      // would lose it. Instead we fall through to the offline queue with the
+      // SAME sale number: create_full_sale is idempotent on
+      // (organization_id, sale_number), so the replay is a no-op if the first
+      // attempt actually committed.
+      let queuedAfterNetworkFailure = false;
+      let rpcSaleId: string | null = null;
       if (isOnline) {
-        const { data: rpcSaleId, error: rpcError } = await supabase.rpc("create_sale_with_limit", {
-          p_sale_number: finalSaleNumber,
-          p_subtotal: htAmount,
-          p_tax_amount: taxAmount,
-          p_total_amount: totalAmount,
-          p_payment_method: paymentMethod,
-          p_amount_paid: amountPaid,
-          p_change_amount: changeAmount > 0 ? changeAmount : 0,
-          p_customer_name: customerName || undefined,
-          p_customer_phone: customerPhone || undefined,
-          p_seller_name: profile?.owner_name || undefined,
-          p_items: saleItems,
-          p_discount_amount: discountAmount,
-          p_store_id: currentStore?.id ?? undefined,
-          p_payment_reference: paymentReference || undefined,
-        });
+        let rpcError: { message?: string } | null = null;
+        try {
+          const res = await supabase.rpc("create_sale_with_limit", {
+            p_sale_number: finalSaleNumber,
+            p_subtotal: htAmount,
+            p_tax_amount: taxAmount,
+            p_total_amount: totalAmount,
+            p_payment_method: paymentMethod,
+            p_amount_paid: amountPaid,
+            p_change_amount: changeAmount > 0 ? changeAmount : 0,
+            p_customer_name: customerName || undefined,
+            p_customer_phone: customerPhone || undefined,
+            p_seller_name: profile?.owner_name || undefined,
+            p_items: saleItems,
+            p_discount_amount: discountAmount,
+            p_store_id: currentStore?.id ?? undefined,
+            p_payment_reference: paymentReference || undefined,
+          });
+          rpcSaleId = (res.data as string | null) ?? null;
+          rpcError = res.error;
+        } catch (err) {
+          if (!isAmbiguousNetworkFailure(err)) throw err;
+          queuedAfterNetworkFailure = true;
+        }
+        if (rpcError && isAmbiguousNetworkFailure(rpcError)) {
+          queuedAfterNetworkFailure = true;
+        }
 
-        if (rpcError || !rpcSaleId) {
+        if (queuedAfterNetworkFailure) {
+          logger.warn(
+            `[OfflineSale] Network failure on create_sale_with_limit for ${finalSaleNumber} — queued for idempotent replay`
+          );
+        } else if (rpcError || !rpcSaleId) {
           throw new Error(
             `Impossible de créer la vente (RPC create_sale_with_limit) : ${rpcError?.message || "Réponse vide"}. Veuillez réessayer.`
           );
         }
+      }
 
+      if (isOnline && !queuedAfterNetworkFailure && rpcSaleId) {
         // Fetch sale record for receipt
         const { data: sale } = await supabase
           .from("sales")
