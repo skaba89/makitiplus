@@ -123,7 +123,7 @@ export type CustomerFormData = z.infer<typeof customerFormSchema>;
 export const stockAdjustmentSchema = z.object({
   productId: z.string().uuid("Produit invalide"),
   type: z.enum(["restock", "adjustment", "loss"], {
-    errorMap: () => ({ message: "Type d'ajustement invalide" }),
+    error: "Type d'ajustement invalide",
   }),
   quantity: z
     .number()
