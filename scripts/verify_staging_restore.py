@@ -69,7 +69,9 @@ def validate(metrics: dict) -> dict:
 def compare(before: dict, after: dict) -> list[str]:
     a, b = validate(before), validate(after)
     return [f"{key}: expected {a[key]}, restored {b[key]}"
-            for key in FIELDS if a[key] != b[key]]
+            for key in FIELDS
+            if (Decimal(a[key]) != Decimal(b[key])
+                if key in AMOUNTS else a[key] != b[key])]
 
 
 def query_staging() -> dict:
