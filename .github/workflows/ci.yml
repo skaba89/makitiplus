@@ -13,6 +13,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # MKP-007: needed to diff against origin/main
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -41,6 +43,12 @@ jobs:
 
       - name: Validate SQL migrations
         run: python3 scripts/validate_sql_migrations.py
+
+      - name: Test tenant RPC guard (MKP-007)
+        run: python3 -m unittest discover -s scripts -p 'test_tenant_rpc_guard.py' -v
+
+      - name: Reject changed unguarded tenant RPCs (MKP-007)
+        run: python3 scripts/check_tenant_rpc_guard.py --base-ref origin/main
 
       - name: Check for undefined function references (AUDIT-2026-007 HIGH-4 prevention)
         run: python3 scripts/check_undefined_functions.py
