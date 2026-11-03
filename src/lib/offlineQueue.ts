@@ -62,6 +62,7 @@ const ALLOWED_TABLES = new Set([
 // Allowlist of permitted RPC names for offline RPC queue
 const ALLOWED_RPCS = new Set([
   "create_sale_with_limit",
+  "create_credit_sale_atomic",
   "increment_customer_credit",
   "increment_customer_credit_by_phone",
 ]);
@@ -79,6 +80,7 @@ const ALLOWED_RPCS = new Set([
  */
 export const CRITICAL_RPC_NAMES: ReadonlySet<string> = new Set([
   "create_sale_with_limit",
+  "create_credit_sale_atomic",
   "increment_customer_credit_by_phone",
 ]);
 
