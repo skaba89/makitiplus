@@ -3,7 +3,7 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrgSelector } from "@/hooks/useOrgSelector";
 import { useOnlineStatus } from "@/contexts/OfflineContext";
-import { getPendingMutations, rearmOneFailedMutation, type QueuedMutation } from "@/lib/offlineQueue";
+import { getPendingMutations, rearmOneFailedMutation, isStockConflict, type QueuedMutation } from "@/lib/offlineQueue";
 import { formatQueuedAmount, getQueuedSaleNumber, makeQueueCsv } from "@/lib/offlineQueueView";
 import { MANAGEMENT_ROLES } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -51,10 +51,17 @@ export default function OfflineSalesQueue() {
 
   const retryOne = async (row: QueuedMutation) => {
     if (!user?.id || !orgId || !isOnline || busy || isSyncing) return;
+    const stockReview = isStockConflict(row);
+    if (stockReview && !window.confirm(en
+      ? "Stock conflict: confirm you have checked the physical inventory and corrected the stock. Retrying never permits negative stock. Continue?"
+      : "Conflit de stock : confirmez avoir vérifié l'inventaire physique et corrigé le stock. La relance n'autorise pas le stock négatif. Continuer ?"
+    )) return;
     setBusy(true);
     try {
-      // Identity and organization checked again in the IndexedDB write.
-      await rearmOneFailedMutation(row.id, user.id, orgId);
+      // Identity and organization checked again in IndexedDB. Only a manager
+      // who explicitly confirms review may retry a stock-conflicted sale.
+      const rearmed = await rearmOneFailedMutation(row.id, user.id, orgId, stockReview);
+      if (!rearmed) throw new Error("Unable to rearm local entry");
       await triggerSync();
       await refresh();
     } catch {
@@ -72,6 +79,10 @@ export default function OfflineSalesQueue() {
     URL.revokeObjectURL(url);
   };
   const overdue = rows.filter(m => Date.now() - new Date(m.createdAt).getTime() > 86_400_000);
+  const stockConflicts = rows.filter(isStockConflict);
+  const overdueStockConflicts = stockConflicts.filter(m =>
+    Date.now() - new Date(m.createdAt).getTime() > 86_400_000
+  );
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -84,6 +95,17 @@ export default function OfflineSalesQueue() {
         {overdue.length > 0 && <div role="alert" className="border border-orange-500 rounded p-3">
           <AlertTriangle className="inline h-4 w-4 mr-2" />
           {en ? `${overdue.length} entries are older than 24 hours.` : `${overdue.length} opération(s) en attente depuis plus de 24 h.`}
+        </div>}
+        {stockConflicts.length > 0 && <div role="alert" className="rounded border border-orange-500 p-3 space-y-1">
+          <p className="font-semibold">{en
+            ? `${stockConflicts.length} offline stock conflict(s) require manager review`
+            : `${stockConflicts.length} conflit(s) de stock à arbitrer par le responsable`}</p>
+          <p className="text-sm">{en
+            ? "These sales are preserved on this device, but have NOT been confirmed on the server. Check physical inventory, reconcile stock through the normal inventory workflow, then retry individually. Do not clear browser data."
+            : "Ces ventes sont conservées sur cet appareil, mais NON confirmées sur le serveur. Vérifiez l'inventaire physique, régularisez le stock via la procédure habituelle, puis relancez individuellement. Ne videz pas les données du navigateur."}</p>
+          {overdueStockConflicts.length > 0 && <p className="font-medium text-destructive">{en
+            ? `${overdueStockConflicts.length} unresolved for more than 24 hours on this device`
+            : `${overdueStockConflicts.length} conflit(s) non résolus depuis plus de 24 h sur cet appareil`}</p>}
         </div>}
         {error && <div role="alert" className="text-destructive">{error}</div>}
         <Card>
@@ -114,13 +136,17 @@ export default function OfflineSalesQueue() {
                   <td className="p-2">{getQueuedSaleNumber(row) || row.rpcName}</td>
                   <td className="p-2">{formatQueuedAmount(row)}</td>
                   <td className="p-2 whitespace-nowrap">{new Date(row.createdAt).toLocaleString(en ? "en-GB" : "fr-FR")}</td>
-                  <td className="p-2">{row.status}</td>
-                  <td className="p-2">{row.retryCount}</td>
+                  <td className="p-2">{isStockConflict(row)
+                    ? (en ? "Stock conflict — review required" : "Conflit stock — arbitrage requis")
+                    : row.status}</td>
+                  <td className="p-2">{row.totalRetryCount ?? row.retryCount}</td>
                   <td className="p-2 max-w-xs break-words">{row.error || "—"}</td>
                   <td className="p-2">
                     <Button variant="outline" size="sm" onClick={() => void retryOne(row)}
                       disabled={row.status !== "failed" || !isOnline || busy || isSyncing}>
-                      {en ? "Retry" : "Réessayer"}
+                      {isStockConflict(row)
+                        ? (en ? "Review and retry" : "Vérifier et relancer")
+                        : (en ? "Retry" : "Réessayer")}
                     </Button>
                   </td>
                 </tr>)}</tbody>

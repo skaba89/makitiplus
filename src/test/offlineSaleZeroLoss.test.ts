@@ -156,7 +156,7 @@ describe("Zéro perte — rejeu et compteur d'essais", () => {
     expect(entry?.retryCount).toBe(1);
   });
 
-  it("une vente bloquée 5 fois reste en file et n'est pas rejouée automatiquement", async () => {
+  it("un conflit de stock est conservé et isolé après la première tentative", async () => {
     rpcMock.mockResolvedValue({ data: null, error: { message: "Stock insuffisant pour Riz 25kg" } });
     const { flushQueue, getFailedCount } = await import("@/lib/offlineQueue");
     const { STORES } = await import("@/lib/indexedDBStorage");
@@ -164,10 +164,11 @@ describe("Zéro perte — rejeu et compteur d'essais", () => {
     await put(STORES.RPC_QUEUE, saleMutation());
     for (let i = 0; i < 7; i++) await flushQueue();
 
-    expect(rpcMock).toHaveBeenCalledTimes(5);
+    expect(rpcMock).toHaveBeenCalledTimes(1);
     const entry = await get(STORES.RPC_QUEUE, "sale-1");
     expect(entry).toBeDefined();
-    expect(entry?.retryCount).toBe(5);
+    expect(entry?.retryCount).toBe(1);
+    expect(entry?.reviewReason).toBe("stock_insufficient");
     expect((await getFailedCount()).count).toBe(1);
   });
 
