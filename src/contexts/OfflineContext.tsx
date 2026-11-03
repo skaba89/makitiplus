@@ -31,6 +31,18 @@ export const useOnlineStatus = () => {
  */
 const ONLINE_STABILITY_MS = 5000;
 
+/**
+ * While online, pending mutations are also flushed at startup and on this
+ * interval — not only on offline→online transitions. Covers:
+ *  - offline sales queued in a previous session (app closed while offline,
+ *    reopened online: no transition event ever fires);
+ *  - sales queued after an ambiguous network failure while navigator.onLine
+ *    stayed true (see useOfflineSale / isAmbiguousNetworkFailure).
+ * Safe because flushes are mutex-protected and sale replays are idempotent.
+ */
+export const AUTO_SYNC_INTERVAL_MS = 60_000;
+const AUTO_SYNC_STARTUP_DELAY_MS = 3_000;
+
 export const OfflineProvider = ({ children }: { children: ReactNode }) => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -186,6 +198,28 @@ export const OfflineProvider = ({ children }: { children: ReactNode }) => {
     if (isOnline && wasOfflineRef.current) {
       triggerSyncRef.current();
     }
+  }, [isOnline]);
+
+  // Auto-sync while online: at startup and periodically, if anything is queued.
+  useEffect(() => {
+    if (!isOnline) return;
+    const tick = async () => {
+      try {
+        const { getPendingMutations } = await import("@/lib/offlineQueue");
+        const pending = await getPendingMutations();
+        if (pending.length > 0) {
+          await triggerSyncRef.current();
+        }
+      } catch {
+        // IndexedDB may not be available — best-effort
+      }
+    };
+    const startup = setTimeout(tick, AUTO_SYNC_STARTUP_DELAY_MS);
+    const interval = setInterval(tick, AUTO_SYNC_INTERVAL_MS);
+    return () => {
+      clearTimeout(startup);
+      clearInterval(interval);
+    };
   }, [isOnline]);
 
   return (
