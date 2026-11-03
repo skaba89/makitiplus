@@ -141,13 +141,17 @@ describe("POSPaymentDialog.tsx — champ référence + méthodes mobile money ma
 
 describe("useOfflineSale.ts — paymentReference câblé en ligne ET hors-ligne", () => {
   it("le chemin en ligne transmet p_payment_reference à create_sale_with_limit", () => {
-    const onlineRpcCall = hookSrc.match(/supabase\.rpc\("create_sale_with_limit",\s*\{([\s\S]*?)\}\);/)?.[1] ?? "";
-    expect(onlineRpcCall).toMatch(/p_payment_reference:\s*paymentReference/);
+    const onlineArgs = hookSrc.match(/const rpcArgs\s*=\s*\{([\s\S]*?)\};/)?.[1] ?? "";
+    expect(onlineArgs).toMatch(/p_payment_reference:\s*paymentReference/);
+    expect(hookSrc).toContain('supabase.rpc("create_sale_with_limit", rpcArgs)');
+    expect(hookSrc).toContain('supabase.rpc("create_credit_sale_atomic"');
   });
 
   it("le chemin hors-ligne inclut p_payment_reference dans la mutation mise en file", () => {
-    const offlineEnqueue = hookSrc.match(/enqueueRPCMutation\(\{\s*rpcName:\s*"create_sale_with_limit",\s*data:\s*\{([\s\S]*?)\},\s*\n\s*userId/)?.[1] ?? "";
-    expect(offlineEnqueue).toMatch(/p_payment_reference:\s*paymentReference/);
+    const offlineArgs = hookSrc.match(/const queueData\s*=\s*\{([\s\S]*?)\};/)?.[1] ?? "";
+    expect(offlineArgs).toMatch(/p_payment_reference:\s*paymentReference/);
+    expect(hookSrc).toMatch(/rpcName:\s*"create_sale_with_limit"[\s\S]*?\.\.\.queueData/);
+    expect(hookSrc).toMatch(/rpcName:\s*"create_credit_sale_atomic"[\s\S]*?\.\.\.queueData/);
   });
 
   it("le select() de la vente en ligne inclut payment_reference (pour le reçu)", () => {

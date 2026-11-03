@@ -30,7 +30,7 @@ export default function OfflineSalesQueue() {
       // account's local entries after sign-out or organization switching.
       setRows(all.filter((m) =>
         m.operation === "RPC" &&
-        (m.rpcName === "create_sale_with_limit" || m.rpcName === "increment_customer_credit_by_phone") &&
+        (m.rpcName === "create_sale_with_limit" || m.rpcName === "create_credit_sale_atomic" || m.rpcName === "increment_customer_credit_by_phone") &&
         m.userId === user.id && m.organizationId === orgId
       ));
       setError(null);

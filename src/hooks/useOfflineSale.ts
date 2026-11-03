@@ -156,35 +156,37 @@ export function useOfflineSale(options?: {
 
       const orgId = effectiveOrgId || profile?.organization_id || null;
 
-      // ─── ONLINE PATH: Atomic RPC ─────────────────────────
-      // A network-level failure here is AMBIGUOUS: the RPC may have committed
-      // and only the response was lost (unstable 3G/4G). Throwing would make
-      // the cashier retry with a NEW sale number → duplicate sale; giving up
-      // would lose it. Instead we fall through to the offline queue with the
-      // SAME sale number: create_full_sale is idempotent on
-      // (organization_id, sale_number), so the replay is a no-op if the first
-      // attempt actually committed.
+      // ─── ONLINE PATH: Atomic sale (and credit, in one SQL transaction) ───
+      // For credit payments, the new RPC writes sale, stock and customer debt
+      // together. The same sale_number is reused on ambiguous network failure.
+      const isCreditSale = paymentMethod === "credit";
+      if (isCreditSale && (totalAmount <= 0 || !(customerPhone?.trim() || customerName?.trim()))) {
+        throw new Error("Un client identifié et un montant positif sont requis pour une vente à crédit");
+      }
+      const rpcArgs = {
+        p_sale_number: finalSaleNumber,
+        p_subtotal: htAmount,
+        p_tax_amount: taxAmount,
+        p_total_amount: totalAmount,
+        p_payment_method: paymentMethod,
+        p_amount_paid: amountPaid,
+        p_change_amount: changeAmount > 0 ? changeAmount : 0,
+        p_customer_name: customerName || undefined,
+        p_customer_phone: customerPhone || undefined,
+        p_seller_name: profile?.owner_name || undefined,
+        p_items: saleItems,
+        p_discount_amount: discountAmount,
+        p_store_id: currentStore?.id ?? undefined,
+        p_payment_reference: paymentReference || undefined,
+      };
       let queuedAfterNetworkFailure = false;
       let rpcSaleId: string | null = null;
       if (isOnline) {
         let rpcError: { message?: string } | null = null;
         try {
-          const res = await supabase.rpc("create_sale_with_limit", {
-            p_sale_number: finalSaleNumber,
-            p_subtotal: htAmount,
-            p_tax_amount: taxAmount,
-            p_total_amount: totalAmount,
-            p_payment_method: paymentMethod,
-            p_amount_paid: amountPaid,
-            p_change_amount: changeAmount > 0 ? changeAmount : 0,
-            p_customer_name: customerName || undefined,
-            p_customer_phone: customerPhone || undefined,
-            p_seller_name: profile?.owner_name || undefined,
-            p_items: saleItems,
-            p_discount_amount: discountAmount,
-            p_store_id: currentStore?.id ?? undefined,
-            p_payment_reference: paymentReference || undefined,
-          });
+          const res = isCreditSale
+            ? await supabase.rpc("create_credit_sale_atomic" as never, rpcArgs as never)
+            : await supabase.rpc("create_sale_with_limit", rpcArgs);
           rpcSaleId = (res.data as string | null) ?? null;
           rpcError = res.error;
         } catch (err) {
@@ -197,17 +199,16 @@ export function useOfflineSale(options?: {
 
         if (queuedAfterNetworkFailure) {
           logger.warn(
-            `[OfflineSale] Network failure on create_sale_with_limit for ${finalSaleNumber} — queued for idempotent replay`
+            `[OfflineSale] Network failure on atomic sale for ${finalSaleNumber} — queued for idempotent replay`
           );
         } else if (rpcError || !rpcSaleId) {
           throw new Error(
-            `Impossible de créer la vente (RPC create_sale_with_limit) : ${rpcError?.message || "Réponse vide"}. Veuillez réessayer.`
+            `Impossible de créer la vente : ${rpcError?.message || "Réponse vide"}. Veuillez réessayer.`
           );
         }
       }
 
       if (isOnline && !queuedAfterNetworkFailure && rpcSaleId) {
-        // Fetch sale record for receipt
         const { data: sale } = await supabase
           .from("sales")
           .select("id, sale_number, payment_method, amount_paid, customer_name, customer_phone, payment_reference")
@@ -217,108 +218,39 @@ export function useOfflineSale(options?: {
         if (!sale) {
           throw new Error("Vente créée mais introuvable. Veuillez réessayer.");
         }
-
-        // Handle credit sales
-        // Client identifié par téléphone : passe par increment_customer_credit_by_phone,
-        // une RPC atomique (find-or-create client + incrément crédit + trace
-        // customer_credits) qui remplace l'ancien enchaînement en 3 appels
-        // (upsert client + insert customer_credits + increment_customer_credit).
-        // L'ancien upsert client utilisait onConflict: "phone,organization_id" sans
-        // qu'aucune contrainte UNIQUE matching n'existe en base (42P10 systématique,
-        // avalé silencieusement par `if (!custErr && ...)`) : un client à crédit payant
-        // pour la première fois par téléphone ne voyait jamais son crédit enregistré,
-        // même en ligne. Voir 20260723120000_fix_customer_credit_upsert_by_phone.sql.
-        let creditUpdateFailed = false;
-        if (paymentMethod === "credit" && totalAmount > 0) {
-          if (customerPhone && orgId) {
-            const { error: creditError } = await supabase.rpc("increment_customer_credit_by_phone", {
-              p_customer_phone: customerPhone,
-              p_customer_name: customerName || customerPhone,
-              p_amount: totalAmount,
-              p_organization_id: orgId,
-              p_sale_number: finalSaleNumber,
-            });
-            if (creditError) {
-              reportError(new Error(`increment_customer_credit_by_phone RPC failed: ${creditError.message}`));
-              creditUpdateFailed = true;
-            }
-          } else if (customerName) {
-            const { data: existingCustomer } = await supabase
-              .from("customers")
-              .select("id")
-              .eq("name", customerName)
-              .eq("organization_id", orgId ?? "")
-              .maybeSingle();
-            if (existingCustomer) {
-              const creditInsert: Record<string, unknown> = {
-                user_id: user?.id ?? "",
-                customer_id: existingCustomer.id,
-                sale_id: sale.id,
-                amount: totalAmount,
-                type: "credit",
-                description: `Vente crédit ${finalSaleNumber}`,
-              };
-              if (orgId) creditInsert.organization_id = orgId;
-              await supabase.from("customer_credits").insert(creditInsert as never);
-              const { error: creditUpdateError } = await supabase.rpc("increment_customer_credit", {
-                p_customer_id: existingCustomer.id,
-                p_amount: totalAmount,
-              });
-              if (creditUpdateError) {
-                reportError(new Error(`increment_customer_credit RPC failed: ${creditUpdateError.message}`));
-                creditUpdateFailed = true;
-              }
-            }
-          }
-        }
-
-        return { sale, changeAmount, creditUpdateFailed, offline: false };
+        // No second credit call: if the RPC returned successfully, the customer
+        // debt is committed as part of the very same PostgreSQL transaction.
+        return { sale, changeAmount, creditUpdateFailed: false, offline: false };
       }
 
-      // ─── OFFLINE PATH: Enqueue RPC mutation for atomic sync ───
-      // Uses enqueueRPCMutation to replay create_sale_with_limit atomically
-      // at reconnection. This ensures plan quota check + atomic stock decrement.
+      // ─── OFFLINE PATH: one queued RPC per sale, never two for credit ───
       logger.info(`[OfflineSale] Enqueueing sale ${finalSaleNumber} as RPC for later sync`);
-
-      await enqueueRPCMutation({
-        rpcName: "create_sale_with_limit",
-        data: {
-          p_sale_number: finalSaleNumber,
-          p_subtotal: htAmount,
-          p_tax_amount: taxAmount,
-          p_total_amount: totalAmount,
-          p_payment_method: paymentMethod,
-          p_amount_paid: amountPaid,
-          p_change_amount: changeAmount > 0 ? changeAmount : 0,
-          p_customer_name: customerName || null,
-          p_customer_phone: customerPhone || null,
-          p_seller_name: profile?.owner_name || null,
-          p_items: saleItems,
-          p_discount_amount: discountAmount,
-          p_store_id: currentStore?.id ?? null,
-          p_payment_reference: paymentReference || null,
-        },
-        userId: user?.id,
-        organizationId: orgId ?? undefined,
-      });
-
-      // Vente à crédit hors-ligne : une seule RPC atomique (find-or-create
-      // client + incrément crédit), rejouée à la synchronisation. Remplace
-      // l'ancien enchaînement upsert client + increment_customer_credit, dont
-      // les paramètres (p_customer_phone, p_customer_name, ...) ne
-      // correspondaient à aucune fonction déployée (increment_customer_credit
-      // attend p_customer_id + p_amount) — échec garanti à chaque
-      // synchronisation. Voir 20260723120000_fix_customer_credit_upsert_by_phone.sql.
-      if (paymentMethod === "credit" && totalAmount > 0 && customerPhone) {
+      const queueData = {
+        p_subtotal: htAmount,
+        p_tax_amount: taxAmount,
+        p_total_amount: totalAmount,
+        p_payment_method: paymentMethod,
+        p_amount_paid: amountPaid,
+        p_change_amount: changeAmount > 0 ? changeAmount : 0,
+        p_customer_name: customerName || null,
+        p_customer_phone: customerPhone || null,
+        p_seller_name: profile?.owner_name || null,
+        p_items: saleItems,
+        p_discount_amount: discountAmount,
+        p_store_id: currentStore?.id ?? null,
+        p_payment_reference: paymentReference || null,
+      };
+      if (isCreditSale) {
         await enqueueRPCMutation({
-          rpcName: "increment_customer_credit_by_phone",
-          data: {
-            p_customer_phone: customerPhone,
-            p_customer_name: customerName || customerPhone,
-            p_amount: totalAmount,
-            p_organization_id: orgId,
-            p_sale_number: finalSaleNumber,
-          },
+          rpcName: "create_credit_sale_atomic",
+          data: { p_sale_number: finalSaleNumber, ...queueData },
+          userId: user?.id,
+          organizationId: orgId ?? undefined,
+        });
+      } else {
+        await enqueueRPCMutation({
+          rpcName: "create_sale_with_limit",
+          data: { p_sale_number: finalSaleNumber, ...queueData },
           userId: user?.id,
           organizationId: orgId ?? undefined,
         });
