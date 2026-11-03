@@ -1,30 +1,12 @@
--- ============================================================
--- Script : Nettoyer les données transactionnelles (garde users + magasins)
--- Date: 2026-07-13
--- ============================================================
--- Garde : users, profiles, user_roles, organizations, stores, subscriptions, categories, store_settings
--- Supprime : sales, sale_items, products, customers, suppliers, expenses, stock_movements, purchase_orders
--- ============================================================
-
-DO $$
-DECLARE
-  v_count INTEGER;
-BEGIN
-  -- Supprimer dans le bon ordre (enfants d'abord, parents ensuite)
-  DELETE FROM public.sale_items;
-  DELETE FROM public.sales;
-  DELETE FROM public.customer_credits;
-  DELETE FROM public.customers;
-  DELETE FROM public.stock_movements;
-  DELETE FROM public.purchase_order_items;
-  DELETE FROM public.purchase_orders;
-  DELETE FROM public.supplier_products;
-  DELETE FROM public.suppliers;
-  DELETE FROM public.expenses;
-  DELETE FROM public.products;
-
-  RAISE NOTICE 'NETTOYAGE TERMINE';
-  RAISE NOTICE 'Conserve : % users', (SELECT COUNT(*) FROM auth.users);
-  RAISE NOTICE 'Conserve : % magasins', (SELECT COUNT(*) FROM public.stores);
-  RAISE NOTICE 'Conserve : % categories', (SELECT COUNT(*) FROM public.categories);
-END $$;
+-- MKP-025 (2026-11-03) : migration NEUTRALISÉE — intentionnellement vide.
+--
+-- Ce fichier contenait un script ponctuel (DELETE sans WHERE des ventes, clients, crédits, produits de TOUTES les organisations) et non une
+-- évolution de schéma. Tout fichier de ce dossier est appliqué par
+-- `supabase db push` à un projet dont l'historique ne le connaît pas
+-- (nouveau projet, restauration, dérive d'historique) : il aurait pu
+-- s'exécuter sur des données réelles de commerçants.
+--
+-- Le numéro de version est conservé pour que l'historique distant reste
+-- cohérent. Là où il a déjà été appliqué, ce changement n'a aucun effet.
+-- Script manuel : scripts/admin/clean_transactional_data.sql.example
+SELECT 1;

@@ -344,11 +344,10 @@ def main() -> None:
     for filepath in sorted(MIGRATIONS_DIR.glob("*.sql")):
         # Exclure les scripts utilitaires (nettoyage, récupération, test users, features)
         if any(x in filepath.name for x in [
-            "CLEANUP_RESET_PROJECT", "RECOVERY_CREATE_ORG",
-            "delete_user_manual", "clean_transactional",
+            "delete_user_manual",
             "PILOT_LAUNCH", "FINAL_CONSOLIDATED",
             "enable_all_features", "add_missing_suppliers",
-            "fix_rls_policies", "create_test_users",
+            "fix_rls_policies",
             "ZZ_validate", "ZZ_VERIFY",
         ]):
             continue
