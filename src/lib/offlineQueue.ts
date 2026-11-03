@@ -42,6 +42,11 @@ export interface QueuedMutation {
   retryCount: number;
   status: "pending" | "syncing" | "failed";
   error?: string;
+  /** MKP-002: persisted reason for manual stock-conflict review. */
+  reviewReason?: "stock_insufficient";
+  reviewAt?: string;
+  /** Historical attempts remain visible after a manager-authorized retry. */
+  totalRetryCount?: number;
   /** Set when the mutation enters "syncing" — used to recover entries left
    *  in "syncing" by a tab/app that was killed mid-request. */
   syncStartedAt?: string;
@@ -86,6 +91,17 @@ export const CRITICAL_RPC_NAMES: ReadonlySet<string> = new Set([
 
 export function isCriticalMutation(m: Pick<QueuedMutation, "operation" | "rpcName">): boolean {
   return m.operation === "RPC" && !!m.rpcName && CRITICAL_RPC_NAMES.has(m.rpcName);
+}
+
+/** Stock errors are business conflicts, not transient connectivity failures.
+ * A legacy failed entry may predate the persisted reviewReason marker.
+ */
+export function isStockConflict(m: Pick<QueuedMutation, "operation" | "rpcName" | "status" | "error" | "reviewReason">): boolean {
+  return m.status === "failed" &&
+    m.operation === "RPC" &&
+    (m.rpcName === "create_sale_with_limit" || m.rpcName === "create_credit_sale_atomic") &&
+    (m.reviewReason === "stock_insufficient" ||
+      /stock insuffisant|insufficient stock|stock insufficient|quantit[ée] insuffisante/i.test(m.error ?? ""));
 }
 
 /** A "syncing" entry older than this is assumed orphaned (app killed mid-sync). */
@@ -226,9 +242,16 @@ async function updateMutationStatus(
       // Count only real failures. Previously "syncing" also incremented the
       // counter, so each failed attempt consumed 2 retries and a sale was
       // abandoned after ~3 attempts.
-      if (status === "failed") entry.retryCount += 1;
+      if (status === "failed") {
+        entry.retryCount += 1;
+        entry.totalRetryCount = (entry.totalRetryCount ?? entry.retryCount - 1) + 1;
+      }
       if (status === "syncing") entry.syncStartedAt = new Date().toISOString();
       if (error) entry.error = error;
+      if (status === "failed" && isStockConflict(entry)) {
+        entry.reviewReason = "stock_insufficient";
+        entry.reviewAt ??= new Date().toISOString();
+      }
       store.put(entry);
     };
     tx.oncomplete = () => resolve();
@@ -371,6 +394,12 @@ async function flushRPCQueue(
   const rpcMutations = pending.filter((m) => m.operation === "RPC");
 
   for (const mutation of rpcMutations) {
+    // A physically completed offline sale may conflict with newer server
+    // stock. Do not burn retries every minute: human reconciliation first.
+    if (isStockConflict(mutation)) {
+      failed++;
+      continue;
+    }
     const critical = isCriticalMutation(mutation);
     if (mutation.retryCount >= MAX_AUTO_RETRIES) {
       if (critical) {
@@ -795,7 +824,7 @@ export async function retryFailedMutations(): Promise<{ retried: number }> {
         const mutations = getAllReq.result as QueuedMutation[];
         for (const m of mutations) {
           const critical = isCriticalMutation(m);
-          if (m.status === "failed" && (critical || m.retryCount < MAX_RETRIES)) {
+          if (m.status === "failed" && !isStockConflict(m) && (critical || m.retryCount < MAX_RETRIES)) {
             m.status = "pending";
             m.error = undefined;
             // Re-arm critical entries (sales/credits) for a fresh round of
@@ -854,7 +883,8 @@ export async function getFailedCount(): Promise<{ count: number }> {
  * Never delete or rewrite the payment payload when retrying a sale.
  */
 export async function rearmOneFailedMutation(
-  id: string, userId: string, organizationId: string
+  id: string, userId: string, organizationId: string,
+  allowStockConflictRetry = false
 ): Promise<boolean> {
   const db = await getDB();
   return new Promise((resolve, reject) => {
@@ -868,9 +898,13 @@ export async function rearmOneFailedMutation(
           mutation.userId !== userId ||
           mutation.organizationId !== organizationId ||
           mutation.status !== "failed") return;
+      if (isStockConflict(mutation) && !allowStockConflictRetry) return;
       mutation.status = "pending";
       mutation.error = undefined;
-      // Keep original retryCount for auditability; critical RPCs have no hard cap.
+      mutation.reviewReason = undefined;
+      // History is preserved while a fresh attempt budget is granted.
+      mutation.totalRetryCount ??= mutation.retryCount;
+      mutation.retryCount = 0;
       store.put(mutation);
       changed = true;
     };
