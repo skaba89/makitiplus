@@ -188,11 +188,13 @@ describe("offlineQueue — cleanupExpiredMutations", () => {
       status: "failed",
     });
 
+    // NB: RPC non critique — les ventes (create_sale_with_limit) ne sont
+    // plus jamais supprimées, voir offlineSaleZeroLoss.test.ts.
     await insertRecord(STORES.RPC_QUEUE, {
       id: "old-rpc-1",
       table: "__rpc__",
       operation: "RPC",
-      rpcName: "create_sale_with_limit",
+      rpcName: "increment_customer_credit",
       data: {},
       createdAt: new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString(),
       retryCount: 2,
