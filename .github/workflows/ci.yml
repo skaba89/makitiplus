@@ -44,6 +44,12 @@ jobs:
       - name: Validate SQL migrations
         run: python3 scripts/validate_sql_migrations.py
 
+      - name: Test migration safety gate (MKP-025)
+        run: python3 -m unittest discover -s scripts -p 'test_migration_safety.py' -v
+
+      - name: Block destructive data scripts and credentials in migrations (MKP-025)
+        run: python3 scripts/check_migration_safety.py
+
       - name: Test tenant RPC guard (MKP-007)
         run: python3 -m unittest discover -s scripts -p 'test_tenant_rpc_guard.py' -v
 

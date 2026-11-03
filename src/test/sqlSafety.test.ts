@@ -7,9 +7,8 @@ const migrationsDir = path.join(root, "supabase", "migrations");
 const migrationFiles = fs
   .readdirSync(migrationsDir)
   .filter((file) => file.endsWith(".sql"))
-  // Exclure les scripts de nettoyage/récupération qui font des DELETE globaux
-  // intentionnels (vidage complet de tables pour reset)
-  .filter((file) => !file.includes("CLEANUP_RESET_PROJECT") && !file.includes("clean_transactional"))
+  // MKP-025 : plus aucune exemption — les scripts de nettoyage ont été
+  // neutralisés et déplacés vers scripts/admin/*.sql.example.
   .sort();
 
 const read = (relativePath: string) => fs.readFileSync(path.join(root, relativePath), "utf-8");
