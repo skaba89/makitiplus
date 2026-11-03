@@ -845,3 +845,35 @@ export async function getFailedCount(): Promise<{ count: number }> {
   return { count: regular + rpc };
 }
 
+
+/**
+ * MKP-004: re-arm exactly one failed entry from the CURRENT signed-in user's
+ * organization. The server RPC still enforces tenant membership on replay.
+ * Never delete or rewrite the payment payload when retrying a sale.
+ */
+export async function rearmOneFailedMutation(
+  id: string, userId: string, organizationId: string
+): Promise<boolean> {
+  const db = await getDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORES.RPC_QUEUE, "readwrite");
+    const store = tx.objectStore(STORES.RPC_QUEUE);
+    const request = store.get(id);
+    let changed = false;
+    request.onsuccess = () => {
+      const mutation = request.result as QueuedMutation | undefined;
+      if (!mutation || !isCriticalMutation(mutation) ||
+          mutation.userId !== userId ||
+          mutation.organizationId !== organizationId ||
+          mutation.status !== "failed") return;
+      mutation.status = "pending";
+      mutation.error = undefined;
+      // Keep original retryCount for auditability; critical RPCs have no hard cap.
+      store.put(mutation);
+      changed = true;
+    };
+    tx.oncomplete = () => resolve(changed);
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+}

@@ -73,6 +73,7 @@ const Customers = lazyWithRecovery(() => import("./pages/Customers"));
 const Suppliers = lazyWithRecovery(() => import("./pages/Suppliers"));
 const Users = lazyWithRecovery(() => import("./pages/Users"));
 const SyncConflicts = lazyWithRecovery(() => import("./pages/SyncConflicts"));
+const OfflineSalesQueue = lazyWithRecovery(() => import("./pages/OfflineSalesQueue"));
 const Stores = lazyWithRecovery(() => import("./pages/Stores"));
 const AdminAnalytics = lazyWithRecovery(() => import("./pages/AdminAnalytics"));
 const Settings = lazyWithRecovery(() => import("./pages/Settings"));
@@ -404,6 +405,14 @@ const App = () => {
               element={
                 <ProtectedRoute allowedRoles={STORE_ROLES}>
                   <SafePage><OrganizationManagement /></SafePage>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/offline-sales"
+              element={
+                <ProtectedRoute allowedRoles={MANAGEMENT_ROLES}>
+                  <SafePage><OfflineSalesQueue /></SafePage>
                 </ProtectedRoute>
               }
             />
