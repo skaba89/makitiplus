@@ -191,6 +191,12 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       roles: MANAGEMENT_ROLES,
     },
     {
+      name: "Ventes offline",
+      href: "/dashboard/offline-sales",
+      icon: GitMerge,
+      roles: MANAGEMENT_ROLES,
+    },
+    {
       name: "Conflits sync",
       href: "/dashboard/sync-conflicts",
       icon: GitMerge,
