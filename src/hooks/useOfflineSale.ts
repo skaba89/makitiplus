@@ -226,7 +226,6 @@ export function useOfflineSale(options?: {
       // ─── OFFLINE PATH: one queued RPC per sale, never two for credit ───
       logger.info(`[OfflineSale] Enqueueing sale ${finalSaleNumber} as RPC for later sync`);
       const queueData = {
-        p_sale_number: finalSaleNumber,
         p_subtotal: htAmount,
         p_tax_amount: taxAmount,
         p_total_amount: totalAmount,
@@ -244,7 +243,7 @@ export function useOfflineSale(options?: {
       if (isCreditSale) {
         await enqueueRPCMutation({
           rpcName: "create_credit_sale_atomic",
-          data: queueData,
+          data: { p_sale_number: finalSaleNumber, ...queueData },
           userId: user?.id,
           organizationId: orgId ?? undefined,
         });
