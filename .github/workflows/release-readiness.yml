@@ -65,6 +65,8 @@ jobs:
           python-version: "3.11"
       - name: Validate SQL migrations
         run: python3 scripts/validate_sql_migrations.py
+      - name: Migration safety gate (MKP-025)
+        run: python3 scripts/check_migration_safety.py
       - name: Check for undefined function references
         run: python3 scripts/check_undefined_functions.py
 
