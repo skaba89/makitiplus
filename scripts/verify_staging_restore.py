@@ -78,9 +78,9 @@ def query_staging() -> dict:
         raise ValueError("RESTORE_TEST_DATABASE_URL must be set for an isolated staging DB")
     # Two explicit safeguards: operator confirmation + a read-only transaction.
     # Users must also provision a read-only DB role and verify the URL themselves.
-    env = dict(os.environ, PGOPTIONS="-c default_transaction_read_only=on")
+    env = dict(os.environ, PGOPTIONS="-c default_transaction_read_only=on", PGDATABASE=url)
     proc = subprocess.run(
-        ["psql", "-X", "-q", "-A", "-t", "-v", "ON_ERROR_STOP=1", url,
+        ["psql", "-X", "-q", "-A", "-t", "-v", "ON_ERROR_STOP=1",
          "-c", METRICS_SQL],
         env=env, capture_output=True, text=True, check=False, timeout=45
     )
