@@ -15,7 +15,7 @@ export function formatQueuedAmount(row: QueuedMutation): string {
 // CSV cells must be quoted and protected against spreadsheet-formula injection.
 function cell(value: unknown): string {
   const text = String(value ?? "");
-  const safe = /^[\s]*[=+@\-]/.test(text) ? "'" + text : text;
+  const safe = /^[\s]*[=+@-]/.test(text) ? "'" + text : text;
   return '"' + safe.replace(/"/g, '""') + '"';
 }
 export function makeQueueCsv(rows: QueuedMutation[]): string {
