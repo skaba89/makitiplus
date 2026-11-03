@@ -119,3 +119,29 @@
 - Les tarifs tiers divergent (Lightspeed, Odoo) : seules les pages officielles font foi.
 - Kivo n'a pas pu être identifié ; Plazza n'est documenté que par sa propre communication.
 - Les articles Kolonell sont des contenus commerciaux d'un prestataire concurrent, cités uniquement à titre d'indice.
+
+
+---
+
+## Vérification additionnelle — 2026-11-03 (sources primaires)
+
+Cette section complète la collecte du 2 novembre. **Les prix ci-dessous dépendent du pays, de la devise et de la périodicité affichée** et ne constituent pas un devis pour un commerçant guinéen.
+
+| Acteur | Constat vérifié sur le site officiel le 2026-11-03 | Source | Conséquence produit |
+|---|---|---|---|
+| Loyverse | POS, fidélité, multi-magasins et stock essentiel gratuits ; personnel et stock avancé à 25 USD/mois/magasin chacun sur la page française ; historique illimité à 5 USD/mois/magasin sur cette page | https://loyverse.com/fr/pricing | MakitiPlus doit différencier sa fidélité autrement que par sa simple présence ; comparer le coût total de 3 magasins |
+| Odoo | Offre « One App Free » avec utilisateurs illimités ; Standard affiché à partir de 24,90 USD/utilisateur/mois et Custom 49 USD/utilisateur/mois dans le contexte consulté, avec remise initiale et autres affichages possibles | https://www.odoo.com/pricing | Éviter la comparaison « Odoo toujours payant » ; confronter coût de configuration et périmètre réellement utile |
+| Odoo POS offline | L'éditeur précise que les commandes hors-ligne restent dans le cache navigateur ; il déconseille fermeture/rechargement et effacement du cache avant synchronisation. Certaines fonctions restent indisponibles hors ligne | https://www.odoo.com/documentation/19.0/applications/sales/point_of_sale/use.html | Tester explicitement fermeture, redémarrage, purge du cache, mise à jour de PWA et reprise du rejet serveur pour MakitiPlus |
+| Shopify POS | Page US : forfait Basic à partir de 39 USD/mois en mensuel et option POS Pro de 89 USD/mois **par emplacement** | https://www.shopify.com/pos/pricing | Tester le coût total omnicanal (abonnement, points de vente, transaction, matériel), pas seulement le prix POS |
+| Square | Page US : plan gratuit, frais de traitement ; Square prévient que les paiements offline peuvent expirer si la reconnexion n'a pas lieu sous 24 h et que le commerçant supporte les refus | https://squareup.com/us/en/point-of-sale/software/pricing | Distinguer **vente offline enregistrée** et **paiement effectivement garanti** : ne jamais promettre la garantie de paiement sans vérification fournisseur |
+| Lightspeed Retail | Page officielle consultée en contexte AUD : Basic 129 AUD/mois, Core 229 AUD/mois, Plus 329 AUD/mois ; tarifs variables par pays | https://www.lightspeedhq.com/pos/retail/pricing/ | Ne pas recycler des prix US/AUD sans préciser la région, la devise et la date |
+| Bumpa | Site officiel : Starter 15 000 NGN/trimestre et Pro 30 000 NGN/trimestre ; offre orientée vente en ligne, commandes, clients et collaborateurs | https://www.getbumpa.com/pricing | Tester une expérience catalogue WhatsApp + commande et conversion vers la caisse, pas simplement la parité POS |
+| Plazza POS | L'éditeur **annonce** un POS mobile, multi-boutiques, comptabilité OHADA et fonctionnement offline sur sa page d'accueil ; son comparatif/landing peut contenir des indications différentes | https://plazzapos.app/ ; https://plazzapos.app/landing | Le statut offline doit être classé **contradictoire / non validé en essai**, et non « indisponible » de manière certaine |
+
+### Corrections méthodologiques et points de vigilance
+
+1. Ne pas affirmer qu'un concurrent « n'a pas » une fonctionnalité à partir de son absence dans une page marketing. Classer **non confirmé** tant qu'une documentation ou un essai ne l'établit pas.
+2. **Paiement ≠ vente** : une vente conservée en IndexedDB et un paiement mobile money/card validé sont deux garanties distinctes. Le marketing « zéro perte » exige preuves d'encaissement, file persistante, sauvegarde, reprise et rapprochement.
+3. Les écarts sur les prix Odoo, Loyverse et Lightspeed dans les sections historiques restent des captures/contextes différents. **Cette section n'efface pas les anciennes observations**, elle les précise.
+4. Prochaine expérience comparative : 2 appareils, 2 vendeurs, 1 dernier article, déconnexion de 48 h, même vente rejouée 5 fois, redémarrage, mise à jour PWA, client crédité, export complet, restauration sur instance isolée. Publier les résultats et incidents, pas uniquement « test passé ».
+5. **Kivo** reste non identifié avec certitude ; aucune comparaison chiffrée ne lui est attribuée.
