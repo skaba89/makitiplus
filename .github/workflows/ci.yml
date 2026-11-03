@@ -50,6 +50,9 @@ jobs:
       - name: Reject changed unguarded tenant RPCs (MKP-007)
         run: python3 scripts/check_tenant_rpc_guard.py --base-ref origin/main
 
+      - name: Test restore evidence comparator (MKP-005)
+        run: python3 -m unittest discover -s scripts -p 'test_verify_staging_restore.py' -v
+
       - name: Check for undefined function references (AUDIT-2026-007 HIGH-4 prevention)
         run: python3 scripts/check_undefined_functions.py
 
