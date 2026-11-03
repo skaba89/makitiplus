@@ -25,7 +25,7 @@ function findRpcParams(source: string, rpcName: string): string | null {
 describe("P0 Security: Write RPCs don't send client identity params", () => {
   it("create_sale_with_limit does NOT include p_user_id or p_organization_id", () => {
     const source = readSrc("hooks/useOfflineSale.ts");
-    const params = source.match(/const rpcArgs\\s*=\\s*\\{([\\s\\S]*?)\\};/)?.[1] ?? null;
+    const params = source.match(/const rpcArgs\s*=\s*\{([\s\S]*?)\};/)?.[1] ?? null;
     expect(source).toContain('supabase.rpc("create_sale_with_limit", rpcArgs)');
     expect(source).toContain('supabase.rpc("create_credit_sale_atomic"');
     expect(params).not.toBeNull();
@@ -59,7 +59,7 @@ describe("P0 Security: Write RPCs don't send client identity params", () => {
 
   it("atomic credit sale uses only business params, never a client identity", () => {
     const source = readSrc("hooks/useOfflineSale.ts");
-    const params = source.match(/const rpcArgs\\s*=\\s*\\{([\\s\\S]*?)\\};/)?.[1] ?? null;
+    const params = source.match(/const rpcArgs\s*=\s*\{([\s\S]*?)\};/)?.[1] ?? null;
     expect(params).not.toBeNull();
     expect(params).not.toContain("p_user_id");
     expect(params).not.toContain("p_organization_id");
