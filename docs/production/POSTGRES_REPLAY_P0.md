@@ -53,6 +53,14 @@ These results concern a PostgreSQL compatibility reconstruction, not a full nati
 - Real authenticated SQL tests confirm own-role access, two-tenant profile/role isolation, same-tenant team access for administrators, accountant self-role access, and explicit platform administrator access. Existing transaction and support/backup tests pass.
 - Historical consolidated migration also contains owner-to-platform role promotion. Existing explicit super_admin assignments may have originated there: production role provenance and owner-approved review remain necessary. Do not automatically revoke or grant any real account role. Native Supabase login and strict replay remain unvalidated.
 
+## 2026-11-21 — Foreign key and tenant policy reconstruction
+
+- PostgreSQL 16.16: 166 numbered migrations, 152 unmodified successes, 8 explicit compatibility repairs, 6 unresolved failures. Both original June migration failures remain checksum/SQLSTATE-bound; no production SQL or migration history is changed.
+- Foreign-key repair parses all eleven original declarations and checks existing constraints against the PostgreSQL catalogs: type, validated status, exact source/target relation and column, matching semantics, update/delete actions and deferrability. A conflicting same-name constraint aborts rather than being silently ignored. Remaining original DDL, including the index, executes.
+- Tenant-policy repair reinstalls the six exact original policies atomically, retaining the original organization backfill and obsolete policy removals. No broad replacement condition or bypass is introduced.
+- Real PostgreSQL tests show orphan stock-movement sale references and customer organization references fail (23503), and authenticated tenants can insert/read their own sync conflicts but cannot impersonate another user or organization (42501). Existing financial, identity, backup and support tests pass.
+- Referential existence alone does not prove cross-tenant relationship integrity for every table. Strict replay, native Supabase reset and the recovery drill remain outstanding.
+
 ## Follow-up sequence
 
 1. Add real two-tenant fixtures and RPC tests with forced rollback, replay, simultaneous sessions and cross-tenant writes; investigate missing organization predicate on the latest `create_full_sale` stock update before production rollout.
