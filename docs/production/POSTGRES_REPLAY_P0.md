@@ -39,6 +39,13 @@ These results concern a PostgreSQL compatibility reconstruction, not a full nati
 - Real PostgreSQL tests exercise ticket creation, messages, listing, statistics, two-organization RLS and RPC isolation, anonymous access and accountant role restrictions. Sale, credit and seller reporting tests continue to pass. No production access or deployment.
 - The backup migration also depends on the missing admin predicate, but adding that prerequisite exposes a second PL/pgSQL syntax error in its legacy restore function. Its destructive restore operations require separate review; the migration remains unresolved. Strict mode remains blocked.
 
+## 2026-11-21 — Backup storage recovery and unsafe RPC retirement
+
+- PostgreSQL 16.16: 166 numbered migrations, 152 unmodified successes, 4 explicit reconstruction repairs, 10 unresolved failures. The backup reconstruction now creates the original storage objects and exact missing admin predicate, without compiling unsafe legacy backup RPCs. Support and FORCE RLS migrations consequently run unchanged; their stale exception entries were removed.
+- The historical restore routine contains a syntax error and a delete-before-insert pattern that can skip failed rows while reporting success. The old JSON snapshot is not a complete disaster-recovery backup. No runtime callers of the seven backup RPCs were found in the frontend or Edge Functions. The forward migration preserves the backup table and payloads, forces RLS, removes direct client grants, and retires the seven exact legacy function signatures without CASCADE. External integrations must be checked before rollout.
+- Real PostgreSQL tests seed two organizations' backup records, reapply the forward migration, compare complete rows and payloads, and verify both authenticated administrators cannot read snapshots or invoke the retired mutating endpoints; anon has no SELECT privilege. Existing sale, credit, reporting and support regression tests pass.
+- This is a safety containment change, **not a validated backup/restore solution**. Use the approved infrastructure backup and isolated recovery process; an actual Supabase staging restoration and measured RTO/RPO remain outstanding. No production data or migration history was changed. Strict replay remains blocked.
+
 ## Follow-up sequence
 
 1. Add real two-tenant fixtures and RPC tests with forced rollback, replay, simultaneous sessions and cross-tenant writes; investigate missing organization predicate on the latest `create_full_sale` stock update before production rollout.

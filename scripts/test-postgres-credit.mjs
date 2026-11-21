@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 // Called only after the disposable replay succeeds. Uses actual migrated RPCs.
 export async function testCreditTransactions(db, connect) {
@@ -37,6 +38,20 @@ export async function testCreditTransactions(db, connect) {
     return r;
   }
   try {
+    // Existing backup payloads survive forward migration reapplication.
+    await db.query("INSERT INTO public.backups(organization_id,backup_number,status,backup_data) VALUES ($1,'FIXTURE-A','completed','{\"products\":[{\"name\":\"fixture\"}]}'),($2,'FIXTURE-B','completed','{}')",[oa,ob]);
+    const beforeBackup = (await db.query('SELECT * FROM public.backups ORDER BY backup_number')).rows;
+    await db.query(readFileSync(new URL('../supabase/migrations/20261121214326_retire_unsafe_backup_rpc.sql',import.meta.url),'utf8'));
+    assert.deepEqual((await db.query('SELECT * FROM public.backups ORDER BY backup_number')).rows,beforeBackup);
+    for (const c of [c1,cB]) {
+      await assert.rejects(c.query('SELECT * FROM public.backups'),{code:'42501'});
+      await assert.rejects(c.query("SELECT public.restore_backup(NULL::uuid,NULL::text[])"),{code:'42883'});
+      await assert.rejects(c.query("SELECT public.create_backup(NULL::text,'manual')"),{code:'42883'});
+      await assert.rejects(c.query("SELECT public.delete_backup(NULL::uuid)"),{code:'42883'});
+    }
+    const backupAcl = (await db.query("SELECT relrowsecurity,relforcerowsecurity,has_table_privilege('anon','public.backups','SELECT') AS anon_read FROM pg_class WHERE oid='public.backups'::regclass")).rows[0];
+    assert.deepEqual(backupAcl,{relrowsecurity:true,relforcerowsecurity:true,anon_read:false});
+    console.log('Backup: payload preservation, forced RLS and unsafe RPC retirement passed');
     // Neither tenant may self-upgrade through retired billing RPCs.
     await assert.rejects(c1.query("SELECT public.select_plan('enterprise')"), {code:'42883'});
     await assert.rejects(c1.query("SELECT public.update_organization_subscription('enterprise','active','1 year')"), {code:'42883'});
