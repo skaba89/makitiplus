@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 // These are not production migrations. Never edit the historical SQL or accept
 // a new error: require both the original SHA-256 and original SQLSTATE.
 export const repairNames = new Set([
+  '20260614020000_add_missing_foreign_keys.sql',
+  '20260614030000_tighten_rls_policies.sql',
   '20260702190000_backup_restore.sql',
   '20260703030000_p1_grant_execute_fixes.sql',
   '20260706180000_remove_unsafe_update_organization_subscription.sql',
@@ -18,6 +20,40 @@ function replaceExactlyOnce(sql, before, after) {
 }
 
 export async function repairHistoricalMigration(client, name, sql) {
+  if (name === '20260614020000_add_missing_foreign_keys.sql') {
+    const matches = [...sql.matchAll(/ALTER TABLE public\.(\w+)\s+ADD CONSTRAINT (\w+)\s+FOREIGN KEY \((\w+)\) REFERENCES public\.(\w+)\((\w+)\);/g)];
+    if (matches.length !== 11) throw new Error('Unexpected FK migration contract');
+    let repaired = sql;
+    for (const [statement, table, constraint, column, parent, parentColumn] of matches) {
+      const {rows} = await client.query(`SELECT c.contype='f' AND c.convalidated
+        AND c.confrelid=to_regclass($3)
+        AND c.conkey=ARRAY[(SELECT attnum FROM pg_attribute WHERE attrelid=to_regclass($1) AND attname=$4)]
+        AND c.confkey=ARRAY[(SELECT attnum FROM pg_attribute WHERE attrelid=to_regclass($3) AND attname=$5)]
+        AND c.confupdtype='a' AND c.confdeltype='a' AND c.confmatchtype='s'
+        AND NOT c.condeferrable AND NOT c.condeferred AS equivalent
+        FROM pg_constraint c WHERE c.conrelid=to_regclass($1) AND c.conname=$2`,
+        ['public.'+table,constraint,'public.'+parent,column,parentColumn]);
+      if (rows.length) {
+        if (rows.length!==1 || !rows[0].equivalent) throw new Error('Conflicting existing foreign key: '+constraint);
+        repaired = replaceExactlyOnce(repaired,statement,'');
+      }
+    }
+    await client.query(repaired);
+    return 'Verified existing foreign keys by catalog definition and validation; applied remaining DDL';
+  }
+  if (name === '20260614030000_tighten_rls_policies.sql') {
+    const policies = [...sql.matchAll(/CREATE POLICY "([^"]+)"\s+ON public\.(\w+)/g)];
+    if (policies.length !== 6) throw new Error('Unexpected RLS migration contract');
+    // Replace only the six exact named policies in the original migration.
+    // The remaining original statements, including legacy policy removals
+    // and the organization backfill, still execute atomically.
+    let repaired = sql;
+    for (const [statement,policy,table] of policies) {
+      repaired = replaceExactlyOnce(repaired,statement,`DROP POLICY IF EXISTS "${policy}" ON public.${table};\n${statement}`);
+    }
+    await client.query(repaired);
+    return 'Reapplied exact historical tenant policies atomically without duplicate names';
+  }
   if (name === '20260702190000_backup_restore.sql') {
     const {rows:[state]} = await client.query("SELECT to_regprocedure('public.is_org_admin()') IS NULL AS helper_absent");
     if (!state.helper_absent) throw new Error('Unexpected backup prerequisite');

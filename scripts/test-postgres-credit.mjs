@@ -39,6 +39,20 @@ export async function testCreditTransactions(db, connect) {
     return r;
   }
   try {
+    // A missing sale or organization must fail referential integrity checks.
+    const missing = '99999999-9999-4999-8999-999999999999';
+    await assert.rejects(db.query("INSERT INTO public.stock_movements(user_id,product_id,type,quantity,previous_quantity,new_quantity,reference_id,organization_id) VALUES ($1,$2,'sale',1,20,19,$3,$4)",[a,pa,missing,oa]), {code:'23503'});
+    await assert.rejects(db.query("INSERT INTO public.customers(user_id,organization_id,name) VALUES ($1,$2,'Orphan')",[a,missing]), {code:'23503'});
+    // Mirror Data API grants only for this compatibility database, then test RLS.
+    await db.query('GRANT SELECT, INSERT ON public.sync_conflicts TO authenticated');
+    const conflict = (c,user,org) => c.query("INSERT INTO public.sync_conflicts(user_id,organization_id,entity_type,resolution_strategy) VALUES ($1,$2,'stock','manual')",[user,org]);
+    await conflict(c1,a,oa);
+    await conflict(cB,b,ob);
+    await assert.rejects(conflict(c1,a,ob),{code:'42501'});
+    await assert.rejects(conflict(c1,b,oa),{code:'42501'});
+    assert.deepEqual((await c1.query('SELECT organization_id FROM public.sync_conflicts')).rows,[{organization_id:oa}]);
+    assert.deepEqual((await cB.query('SELECT organization_id FROM public.sync_conflicts')).rows,[{organization_id:ob}]);
+    console.log('Foreign keys and sync conflicts: orphan denial, scoped inserts and reads passed');
     // Never apply compatibility-only identity repairs to an existing dataset.
     for (const name of ['20260715050000_fix_super_admin_visibility.sql','20260715120000_emergency_login_fix.sql']) {
       await assert.rejects(repairHistoricalMigration(db,name,''), /requires empty identity data/);
