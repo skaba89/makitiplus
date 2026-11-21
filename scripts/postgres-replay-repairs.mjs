@@ -4,6 +4,7 @@
 export const repairNames = new Set([
   '20260703030000_p1_grant_execute_fixes.sql',
   '20260706180000_remove_unsafe_update_organization_subscription.sql',
+  '20260709010000_fix_seller_activity_production.sql',
 ]);
 
 function replaceExactlyOnce(sql, before, after) {
@@ -35,6 +36,17 @@ export async function repairHistoricalMigration(client, name, sql) {
       'REVOKE EXECUTE ON FUNCTION public.update_organization_subscription(TEXT, TEXT, TEXT) FROM anon;', '');
     await client.query(repaired);
     return 'Obsolete REVOKEs unnecessary: unsafe signature already absent';
+  }
+  if (name === '20260709010000_fix_seller_activity_production.sql') {
+    const {rows:[state]} = await client.query(`SELECT
+      pg_get_function_result('public.get_seller_performance(timestamptz,timestamptz)'::regprocedure) = 'jsonb' AS performance,
+      pg_get_function_result('public.get_seller_activities(uuid,integer)'::regprocedure) = 'jsonb' AS activities`);
+    if (!state.performance || !state.activities) throw new Error('Unexpected historical seller return types');
+    // PostgreSQL cannot CREATE OR REPLACE a function with a different return type.
+    // Atomic, restricted to the disposable reconstruction; no CASCADE.
+    await client.query(`DROP FUNCTION public.get_seller_performance(timestamptz,timestamptz);
+      DROP FUNCTION public.get_seller_activities(uuid,integer);\n${sql}`);
+    return 'Replaced obsolete JSONB signatures with historical table contracts';
   }
   throw new Error(`Unknown replay repair: ${name}`);
 }

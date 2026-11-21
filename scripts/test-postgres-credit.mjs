@@ -96,6 +96,28 @@ export async function testCreditTransactions(db, connect) {
     assert.ok(cashId);
     assert.equal(await cash(c1,'SQL-CASH',[item(pa)]),cashId);
     assert.deepEqual(await state(oa,'SQL-CASH',pa),{sales:1,items:1,credits:0,stock:17});
+    // Reporting must execute the frontend's tabular contract and remain tenant-scoped.
+    const accountant = '10000000-0000-4000-8000-000000000004';
+    await db.query('INSERT INTO auth.users(id) VALUES ($1)',[accountant]);
+    await db.query("INSERT INTO public.profiles(user_id,organization_id,business_name,owner_name) VALUES ($1,$2,'Fixture','Accountant')",[accountant,oa]);
+    await db.query("INSERT INTO public.user_roles(user_id,role) VALUES ($1,'comptable')",[accountant]);
+    await db.query("INSERT INTO public.user_activity_logs(user_id,organization_id,action) VALUES ($1,$2,'login'),($3,$4,'login')",[a,oa,b,ob]);
+    for (const [c, user, org, count] of [[c1,a,oa,3],[cB,b,ob,1]]) {
+      const perf = await c.query('SELECT user_id,total_sales::int FROM public.get_seller_performance()');
+      assert.deepEqual(perf.rows,[{user_id:user,total_sales:count}]);
+      const kpis = await c.query("SELECT seller_id,total_sales::int FROM public.get_seller_kpis_detailed('month',$1)",[org]);
+      assert.deepEqual(kpis.rows,[{seller_id:user,total_sales:count}]);
+      await assert.rejects(c.query("SELECT * FROM public.get_seller_kpis_detailed('month',$1)",[org===oa?ob:oa]),{code:'42501'});
+      assert.deepEqual((await c.query('SELECT user_id,action FROM public.get_seller_activities($1,100)',[user])).rows,[{user_id:user,action:'login'}]);
+      assert.deepEqual((await c.query('SELECT * FROM public.get_seller_activities($1,100)',[org===oa?b:a])).rows,[]);
+    }
+    const unassigned = await session('10000000-0000-4000-8000-000000000099');
+    try { await assert.rejects(unassigned.query('SELECT * FROM public.get_seller_kpis_detailed()'),{code:'42501'}); }
+    finally { await unassigned.end(); }
+    for (const signature of ['public.get_seller_performance(timestamptz,timestamptz)','public.get_seller_activities(uuid,integer)','public.get_seller_kpis_detailed(text,uuid)']) {
+      assert.equal((await db.query("SELECT has_function_privilege('anon',$1,'EXECUTE') AS allowed",[signature])).rows[0].allowed,false);
+    }
+    console.log('Seller reporting: tabular results, totals, tenant scope, unassigned/anonymous denial passed');
     console.log('Sale write isolation: foreign products, mixed basket rollback, negative quantity, direct RPC denial and cash replay passed');
     // Explicit platform administrator retains the previously intended access.
     const platformUser = '10000000-0000-4000-8000-000000000003';
@@ -105,6 +127,8 @@ export async function testCreditTransactions(db, connect) {
     try {
       assert.equal((await platform.query('SELECT public.is_super_admin() AS allowed')).rows[0].allowed,true);
       assert.equal((await platform.query('SELECT count(DISTINCT organization_id)::int AS count FROM public.sales')).rows[0].count,2);
+      assert.deepEqual((await platform.query('SELECT seller_id FROM public.get_seller_kpis_detailed() ORDER BY seller_id')).rows,[{seller_id:a},{seller_id:b}]);
+      assert.deepEqual((await platform.query("SELECT seller_id FROM public.get_seller_kpis_detailed('month',$1)",[ob])).rows,[{seller_id:b}]);
     } finally { await platform.end(); }
     assert.equal((await db.query("SELECT has_function_privilege('anon','public.create_credit_sale_atomic(text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text,numeric,uuid,text)','EXECUTE') AS allowed")).rows[0].allowed,false);
     console.log('Credit transaction tests: atomicity, replay, conflict, rollback, concurrency, tenant-specific keys, balances, RLS reads, anonymous denial passed');
