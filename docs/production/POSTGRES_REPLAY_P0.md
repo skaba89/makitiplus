@@ -25,6 +25,13 @@ On PostgreSQL 16.16: 163 numbered migrations, 145 unmodified successes, two succ
 
 These results concern a PostgreSQL compatibility reconstruction, not a full native Supabase `db reset` or a production deployment. The 16 remaining failures and two compatibility repairs must still be addressed in an approved reconstruction strategy.
 
+## 2026-11-21 — Seller reporting return types and isolation
+
+- PostgreSQL 16.16, 164 numbered migrations: 148 unmodified successes, 3 explicit reconstruction repairs, 13 unresolved failures. The original 09 July seller migration requires replacement of two JSONB return contracts; the harness verifies both types, then executes the restricted drops and original DDL atomically (no CASCADE). The 11 and 31 July migrations now execute unchanged, so their two baseline entries are removed.
+- A forward migration handles environments still on the JSONB contract, preserves the frontend's table signatures, and retains the selling-role filter. The detailed seller KPI no longer interprets a missing tenant as global access unless the authenticated caller has the explicit platform role. Anonymous execution is revoked on all three reporting RPCs.
+- Real SQL tests execute all three RPCs: sales totals for each of two organizations, positive activity records, cross-tenant denial, exclusion of an accountant from seller performance, no-profile denial, anonymous privileges and global/targeted access for an explicit platform administrator. Existing sale/credit and RLS tests pass unchanged.
+- No data or production migration history modified. Strict replay still cannot pass while the 13 unresolved failures and 3 historical compatibility repairs remain; native Supabase reset and production checks are still outstanding.
+
 ## Follow-up sequence
 
 1. Add real two-tenant fixtures and RPC tests with forced rollback, replay, simultaneous sessions and cross-tenant writes; investigate missing organization predicate on the latest `create_full_sale` stock update before production rollout.

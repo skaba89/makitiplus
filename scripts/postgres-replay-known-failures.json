@@ -13,8 +13,6 @@
   "20260705060000_force_row_level_security.sql": ["42P01", "6eac6972e73efecdddcf8aadb4c4d2447f1c4309d14f80ef7a00ed95036b8f00", "Missing support_tickets after prerequisite failure"],
   "20260706180000_remove_unsafe_update_organization_subscription.sql": ["42883", "3977aa039c83ed33af269df8a464446929bcb2ccab2f10e4b29bc3bab1397521", "Missing historical subscription RPC signature"],
   "20260709010000_fix_seller_activity_production.sql": ["42P13", "788d85abe0131dad42616c97d9d53b23771442ada150e193d48349543b9a31c9", "Changed function return type"],
-  "20260711060000_fix_seller_performance_exclude_super_admin.sql": ["42P13", "ab90baadcef0fb263724c5fc3b961baf500885c0fdf6fc2c39797f71f67875c5", "Changed function return type"],
   "20260715050000_fix_super_admin_visibility.sql": ["42804", "62d8b4256a858a48c2fa473a25c81e27176f582d20a9364578acb0246177b794", "Text incompatible with app_role enum"],
-  "20260715120000_emergency_login_fix.sql": ["42804", "b6eec7a71d79cad7948a23625cd0a7ae4d1e5dcd201674d034a9c218b360923f", "Text incompatible with app_role enum"],
-  "20260731030000_seller_lists_exclude_non_selling_roles.sql": ["42P13", "6109a76c6fc2825cc3ca5e9444ecf9d1455ccd849a31e92000a9bbff9ce3ced2", "Changed function return type"]
+  "20260715120000_emergency_login_fix.sql": ["42804", "b6eec7a71d79cad7948a23625cd0a7ae4d1e5dcd201674d034a9c218b360923f", "Text incompatible with app_role enum"]
 }
