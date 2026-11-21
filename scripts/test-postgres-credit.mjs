@@ -37,6 +37,10 @@ export async function testCreditTransactions(db, connect) {
     return r;
   }
   try {
+    // Neither tenant may self-upgrade through retired billing RPCs.
+    await assert.rejects(c1.query("SELECT public.select_plan('enterprise')"), {code:'42883'});
+    await assert.rejects(c1.query("SELECT public.update_organization_subscription('enterprise','active','1 year')"), {code:'42883'});
+    await assert.rejects(c1.query("SELECT public.admin_update_organization_subscription($1,'enterprise','1_month',NULL,NULL)",[ob]), /Accès refusé/);
     const first = await sale(c1,'SQL-CREDIT-1');
     assert.ok(first);
     assert.equal(await sale(c1,'SQL-CREDIT-1'),first);
