@@ -2,6 +2,7 @@
 // These are not production migrations. Never edit the historical SQL or accept
 // a new error: require both the original SHA-256 and original SQLSTATE.
 export const repairNames = new Set([
+  '20260702200000_support_tickets.sql',
   '20260703030000_p1_grant_execute_fixes.sql',
   '20260706180000_remove_unsafe_update_organization_subscription.sql',
   '20260709010000_fix_seller_activity_production.sql',
@@ -13,6 +14,17 @@ function replaceExactlyOnce(sql, before, after) {
 }
 
 export async function repairHistoricalMigration(client, name, sql) {
+  if (name === '20260702200000_support_tickets.sql') {
+    const {rows:[state]} = await client.query("SELECT to_regprocedure('public.is_org_admin()') IS NULL AS helper_absent");
+    if (!state.helper_absent) throw new Error('Unexpected support prerequisite');
+    // Same authorization helper introduced later in 20260708000000; no new
+    // privileges or permissive stub. The old SQL and prerequisite run atomically.
+    await client.query(`CREATE FUNCTION public.is_org_admin() RETURNS boolean
+      LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+        SELECT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role IN ('admin','super_admin'));
+      $$;\n${sql}`);
+    return 'Restored prerequisite organization admin predicate before support DDL';
+  }
   if (name === '20260703030000_p1_grant_execute_fixes.sql') {
     const { rows: [signature] } = await client.query(`SELECT
       to_regprocedure('public.is_user_active()') IS NULL AS old_absent,

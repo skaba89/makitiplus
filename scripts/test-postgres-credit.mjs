@@ -118,6 +118,27 @@ export async function testCreditTransactions(db, connect) {
       assert.equal((await db.query("SELECT has_function_privilege('anon',$1,'EXECUTE') AS allowed",[signature])).rows[0].allowed,false);
     }
     console.log('Seller reporting: tabular results, totals, tenant scope, unassigned/anonymous denial passed');
+    const ticket = (await c1.query("SELECT public.create_support_ticket('Fixture','First message') AS result")).rows[0].result.id;
+    assert.ok(ticket);
+    assert.equal((await c1.query('SELECT * FROM public.get_ticket_messages($1)',[ticket])).rowCount,1);
+    await c1.query("SELECT public.add_ticket_message($1,'Reply')",[ticket]);
+    assert.equal((await c1.query('SELECT * FROM public.get_ticket_messages($1)',[ticket])).rowCount,2);
+    assert.equal((await c1.query('SELECT id FROM public.get_support_tickets()')).rows[0].id,ticket);
+    assert.equal((await cB.query('SELECT * FROM public.get_support_tickets()')).rowCount,0);
+    assert.equal((await cB.query('SELECT * FROM public.support_ticket_messages')).rowCount,0);
+    await assert.rejects(cB.query('SELECT * FROM public.get_ticket_messages($1)',[ticket]), /access denied/i);
+    await assert.rejects(cB.query("SELECT public.add_ticket_message($1,'Foreign')",[ticket]), /access denied/i);
+    await assert.rejects(c1.query("SELECT public.add_ticket_message($1,'Fake','admin')",[ticket]), {code:'42501'});
+    await assert.rejects(c1.query('DELETE FROM public.support_tickets WHERE id=$1',[ticket]), {code:'42501'});
+    assert.equal((await cB.query("SELECT public.update_ticket_status($1,'closed') AS result",[ticket])).rows[0].result,false);
+    const supportAccountant = await session(accountant);
+    try {
+      await assert.rejects(supportAccountant.query("SELECT public.update_ticket_status($1,'closed')",[ticket]), {code:'42501'});
+      await assert.rejects(supportAccountant.query('SELECT public.delete_support_ticket($1)',[ticket]), {code:'42501'});
+    } finally { await supportAccountant.end(); }
+    assert.equal((await c1.query('SELECT total_tickets FROM public.get_support_stats()')).rows[0].total_tickets,1);
+    assert.equal((await db.query("SELECT has_function_privilege('anon','public.get_support_stats()','EXECUTE') AS allowed")).rows[0].allowed,false);
+    console.log('Support: ticket/message RPCs, two-tenant isolation, role and sender restrictions passed');
     console.log('Sale write isolation: foreign products, mixed basket rollback, negative quantity, direct RPC denial and cash replay passed');
     // Explicit platform administrator retains the previously intended access.
     const platformUser = '10000000-0000-4000-8000-000000000003';
