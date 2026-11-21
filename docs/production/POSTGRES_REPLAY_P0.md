@@ -46,6 +46,13 @@ These results concern a PostgreSQL compatibility reconstruction, not a full nati
 - Real PostgreSQL tests seed two organizations' backup records, reapply the forward migration, compare complete rows and payloads, and verify both authenticated administrators cannot read snapshots or invoke the retired mutating endpoints; anon has no SELECT privilege. Existing sale, credit, reporting and support regression tests pass.
 - This is a safety containment change, **not a validated backup/restore solution**. Use the approved infrastructure backup and isolated recovery process; an actual Supabase staging restoration and measured RTO/RPO remain outstanding. No production data or migration history was changed. Strict replay remains blocked.
 
+## 2026-11-21 — Identity migration reconstruction
+
+- PostgreSQL 16.16: 166 numbered migrations, 152 unmodified successes, 6 explicit compatibility repairs, 8 unresolved failures. No new migration or production SQL is introduced. Both original failed identity scripts remain checksum/SQLSTATE-bound in the baseline.
+- Casting their role expressions to the enum would make unsafe automatic platform-role promotion, identity-specific account reassignment and broad policies executable. The replay repairs instead require empty profiles, roles, organizations and auth users, then install the existing explicit-role helper and conservative self-login policies. Later historical migrations restore the scoped team policies. They refuse to run on populated identity data.
+- Real authenticated SQL tests confirm own-role access, two-tenant profile/role isolation, same-tenant team access for administrators, accountant self-role access, and explicit platform administrator access. Existing transaction and support/backup tests pass.
+- Historical consolidated migration also contains owner-to-platform role promotion. Existing explicit super_admin assignments may have originated there: production role provenance and owner-approved review remain necessary. Do not automatically revoke or grant any real account role. Native Supabase login and strict replay remain unvalidated.
+
 ## Follow-up sequence
 
 1. Add real two-tenant fixtures and RPC tests with forced rollback, replay, simultaneous sessions and cross-tenant writes; investigate missing organization predicate on the latest `create_full_sale` stock update before production rollout.

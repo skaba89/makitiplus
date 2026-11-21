@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { repairHistoricalMigration } from './postgres-replay-repairs.mjs';
 
 // Called only after the disposable replay succeeds. Uses actual migrated RPCs.
 export async function testCreditTransactions(db, connect) {
@@ -38,6 +39,10 @@ export async function testCreditTransactions(db, connect) {
     return r;
   }
   try {
+    // Never apply compatibility-only identity repairs to an existing dataset.
+    for (const name of ['20260715050000_fix_super_admin_visibility.sql','20260715120000_emergency_login_fix.sql']) {
+      await assert.rejects(repairHistoricalMigration(db,name,''), /requires empty identity data/);
+    }
     // Existing backup payloads survive forward migration reapplication.
     await db.query("INSERT INTO public.backups(organization_id,backup_number,status,backup_data) VALUES ($1,'FIXTURE-A','completed','{\"products\":[{\"name\":\"fixture\"}]}'),($2,'FIXTURE-B','completed','{}')",[oa,ob]);
     const beforeBackup = (await db.query('SELECT * FROM public.backups ORDER BY backup_number')).rows;
@@ -80,7 +85,7 @@ export async function testCreditTransactions(db, connect) {
     assert.deepEqual(balances.rows,[{organization_id:oa,total_credit:200},{organization_id:ob,total_credit:100}]);
     // Mirror the Data API read grants for the local compatibility schema only;
     // RLS remains enabled and no BYPASSRLS role is used for the assertions.
-    await db.query('GRANT SELECT ON public.sales, public.customer_credits, public.products, public.customers, public.profiles TO authenticated');
+    await db.query('GRANT SELECT ON public.sales, public.customer_credits, public.products, public.customers, public.profiles, public.user_roles TO authenticated');
     for (const [c, org] of [[c1,oa],[cB,ob]]) {
       assert.equal((await c.query('SELECT public.is_super_admin() AS allowed')).rows[0].allowed,false,'organization owner must not be platform admin');
       for (const table of ['sales','customer_credits','products','customers']) {
@@ -161,6 +166,19 @@ export async function testCreditTransactions(db, connect) {
     await db.query("INSERT INTO public.user_roles(user_id,role) VALUES ($1,'super_admin')", [platformUser]);
     const platform = await session(platformUser);
     try {
+      // Test the same SELECT contracts used by login and team management.
+      for (const [c, own, visible] of [[c1,a,[a,accountant]],[cB,b,[b]]]) {
+        assert.deepEqual((await c.query('SELECT user_id FROM public.profiles ORDER BY user_id')).rows.map(r=>r.user_id),visible);
+        assert.deepEqual((await c.query('SELECT user_id FROM public.user_roles ORDER BY user_id')).rows.map(r=>r.user_id),visible);
+        assert.deepEqual((await c.query('SELECT role FROM public.user_roles WHERE user_id=$1',[own])).rows,[{role:'admin'}]);
+      }
+      assert.deepEqual((await platform.query('SELECT user_id FROM public.user_roles ORDER BY user_id')).rows.map(r=>r.user_id),[a,b,platformUser,accountant]);
+      const cashier = await session(accountant);
+      try {
+        assert.deepEqual((await cashier.query('SELECT user_id,role FROM public.user_roles')).rows,[{user_id:accountant,role:'comptable'}]);
+        assert.deepEqual((await cashier.query('SELECT user_id FROM public.profiles ORDER BY user_id')).rows.map(r=>r.user_id),[a,accountant]);
+      } finally { await cashier.end(); }
+      console.log('Login roles: self-read, scoped team visibility, platform isolation and explicit super-admin passed');
       assert.equal((await platform.query('SELECT public.is_super_admin() AS allowed')).rows[0].allowed,true);
       assert.equal((await platform.query('SELECT count(DISTINCT organization_id)::int AS count FROM public.sales')).rows[0].count,2);
       assert.deepEqual((await platform.query('SELECT seller_id FROM public.get_seller_kpis_detailed() ORDER BY seller_id')).rows,[{seller_id:a},{seller_id:b}]);
