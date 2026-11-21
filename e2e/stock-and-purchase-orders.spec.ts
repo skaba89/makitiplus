@@ -12,12 +12,15 @@
  * These tests require the app to be running with a test Supabase instance.
  */
 import { test, expect } from "@playwright/test";
+import { openAdminPage } from "./fixtures/admin-ui";
+
+test.use({ serviceWorkers: "block" });
 
 // ─── Stock Management ──────────────────────────────────────────────
 
 test.describe("Stock — Product inventory", () => {
   test("products page shows stock alerts when low stock exists", async ({ page }) => {
-    await page.goto("/dashboard/products");
+    await openAdminPage(page, "/dashboard/products");
 
     // Wait for page to load
     await page.waitForTimeout(2000);
@@ -33,7 +36,7 @@ test.describe("Stock — Product inventory", () => {
   });
 
   test("product card shows stock quantity", async ({ page }) => {
-    await page.goto("/dashboard/products");
+    await openAdminPage(page, "/dashboard/products");
     await page.waitForTimeout(2000);
 
     // Find first product and check stock display
@@ -49,7 +52,7 @@ test.describe("Stock — Product inventory", () => {
   });
 
   test("stock adjust button opens dialog", async ({ page }) => {
-    await page.goto("/dashboard/products");
+    await openAdminPage(page, "/dashboard/products");
     await page.waitForTimeout(2000);
 
     // Find a product row with stock adjust action
@@ -66,7 +69,7 @@ test.describe("Stock — Product inventory", () => {
   });
 
   test("stock adjust dialog has type selector (restock/loss/adjustment)", async ({ page }) => {
-    await page.goto("/dashboard/products");
+    await openAdminPage(page, "/dashboard/products");
     await page.waitForTimeout(2000);
 
     const adjustBtn = page.getByLabel(/ajuster le stock/i).first();
@@ -91,7 +94,7 @@ test.describe("Stock — Product inventory", () => {
   });
 
   test("stock movement history dialog opens", async ({ page }) => {
-    await page.goto("/dashboard/products");
+    await openAdminPage(page, "/dashboard/products");
     await page.waitForTimeout(2000);
 
     const historyBtn = page.getByLabel(/historique.*mouvement|mouvements de stock/i).first();
@@ -110,7 +113,7 @@ test.describe("Stock — Product inventory", () => {
 
 test.describe("Purchase Orders — Order management", () => {
   test("purchase orders page loads", async ({ page }) => {
-    await page.goto("/dashboard/purchase-orders");
+    await openAdminPage(page, "/dashboard/purchase-orders");
 
     // Page should render without errors
     await page.waitForTimeout(2000);
@@ -121,18 +124,15 @@ test.describe("Purchase Orders — Order management", () => {
   });
 
   test("purchase orders shows empty state or existing orders", async ({ page }) => {
-    await page.goto("/dashboard/purchase-orders");
+    await openAdminPage(page, "/dashboard/purchase-orders");
     await page.waitForTimeout(2000);
 
     // Either orders exist or empty state is shown
-    const hasOrders = (await page.locator("[data-testid^='po-row-'], [data-testid^='purchase-order-']").count()) > 0;
-    const hasEmptyState = await page.getByText(/aucune commande|no purchase order/i).isVisible().catch(() => false);
-
-    expect(hasOrders || hasEmptyState).toBe(true);
+    await expect(page.getByRole("heading", { name: /aucune commande|no purchase order/i }).or(page.locator("table tbody tr").first())).toBeVisible();
   });
 
   test("create purchase order button is available for admins", async ({ page }) => {
-    await page.goto("/dashboard/purchase-orders");
+    await openAdminPage(page, "/dashboard/purchase-orders");
     await page.waitForTimeout(2000);
 
     // Look for create button
@@ -149,7 +149,7 @@ test.describe("Purchase Orders — Order management", () => {
   });
 
   test("purchase order status badges are visible", async ({ page }) => {
-    await page.goto("/dashboard/purchase-orders");
+    await openAdminPage(page, "/dashboard/purchase-orders");
     await page.waitForTimeout(2000);
 
     // If there are orders, check that status badges exist
@@ -167,7 +167,7 @@ test.describe("Purchase Orders — Order management", () => {
 
 test.describe("Plan limits — enforcement", () => {
   test("products page shows plan limit guard", async ({ page }) => {
-    await page.goto("/dashboard/products");
+    await openAdminPage(page, "/dashboard/products");
     await page.waitForTimeout(2000);
 
     // The "Ajouter un produit" button should be wrapped in PlanLimitGuard
@@ -183,7 +183,7 @@ test.describe("Plan limits — enforcement", () => {
   });
 
   test("stores page shows plan limit guard", async ({ page }) => {
-    await page.goto("/dashboard/stores");
+    await openAdminPage(page, "/dashboard/stores");
     await page.waitForTimeout(2000);
 
     // Page should load without crash
@@ -196,64 +196,19 @@ test.describe("Plan limits — enforcement", () => {
 
 test.describe("Demo mode — mutation blocking", () => {
   test("demo badge is visible when in demo mode", async ({ page }) => {
-    // Set demo mode
-    await page.goto("/dashboard");
-    await page.evaluate(() => {
-      localStorage.setItem("makitiplus_demo_mode", "true");
-    });
-    await page.reload();
-    await page.waitForTimeout(2000);
-
-    // Look for demo badge
-    const demoBadge = page.getByText(/démo/i);
-    const hasDemoBadge = await demoBadge.isVisible().catch(() => false);
-
-    if (hasDemoBadge) {
-      await expect(demoBadge.first()).toBeVisible();
-    }
-
-    // Clean up
-    await page.evaluate(() => {
-      localStorage.removeItem("makitiplus_demo_mode");
-    });
+    await openAdminPage(page, "/dashboard", true);
+    await expect(page.getByText(/mode démo — les modifications ne sont pas enregistrées/i)).toBeVisible();
   });
 
   test("demo mode blocks product creation with toast", async ({ page }) => {
-    // Set demo mode
-    await page.evaluate(() => {
-      localStorage.setItem("makitiplus_demo_mode", "true");
-    });
-    await page.goto("/dashboard/products");
-    await page.waitForTimeout(2000);
-
-    // Try to create a product
-    const addBtn = page.getByRole("button", { name: /ajouter un produit/i });
-    if (await addBtn.isVisible().catch(() => false)) {
-      await addBtn.click();
-
-      // Fill form and submit (if form opens)
-      const form = page.getByRole("dialog");
-      if (await form.isVisible().catch(() => false)) {
-        // Try to submit
-        const submitBtn = page.getByRole("button", { name: /créer|enregistrer|ajouter/i });
-        if (await submitBtn.isVisible().catch(() => false)) {
-          await submitBtn.click();
-
-          // Should see demo toast
-          await page.waitForTimeout(1000);
-          const toast = page.getByText(/mode démo|pas disponible/i);
-          const hasToast = await toast.isVisible().catch(() => false);
-          // Toast should appear in demo mode
-          if (hasToast) {
-            expect(hasToast).toBe(true);
-          }
-        }
-      }
-    }
-
-    // Clean up
-    await page.evaluate(() => {
-      localStorage.removeItem("makitiplus_demo_mode");
-    });
+    const writes = await openAdminPage(page, "/dashboard/products", true);
+    await page.getByRole("button", { name: /ajouter un produit/i }).click();
+    const form = page.getByRole("dialog");
+    await expect(form).toBeVisible();
+    await form.getByLabel(/nom du produit/i).fill("E2E produit");
+    await form.getByLabel(/prix de vente/i).fill("10000");
+    await form.getByRole("button", { name: /créer le produit/i }).click();
+    await expect(page.getByText(/n'est pas disponible en mode démo/i)).toBeVisible();
+    expect(writes).toEqual([]);
   });
 });

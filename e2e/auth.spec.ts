@@ -27,6 +27,12 @@ test.describe("Authentication", () => {
   });
 
   test("invalid login shows error message", async ({ page }) => {
+    // Exercise the real login UI with a deterministic rejected Auth response.
+    await page.route("**/auth/v1/token*", route => route.fulfill({
+      status: 400,
+      json: { code: "invalid_credentials", error_code: "invalid_credentials", msg: "Invalid login credentials" },
+    }));
+    await page.route("**/rest/v1/rpc/admin_exists", route => route.fulfill({ json: true }));
     await page.goto("/auth");
 
     await page.getByLabel(/email/i).fill("invalid@test.com");
@@ -37,7 +43,7 @@ test.describe("Authentication", () => {
 
     // Should show error message
     await expect(
-      page.getByText(/identifiants|invalid|incorrect|erreur/i)
+      page.getByText(/email ou mot de passe incorrect|incorrect email or password/i)
     ).toBeVisible({ timeout: 10_000 });
   });
 
