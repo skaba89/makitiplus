@@ -1,0 +1,20 @@
+{
+  "20260202072852_917790af-3d14-44e9-bcdd-d88776ced82b.sql": ["42710", "0718e0ba1086a3720da1bc6bd1840e695f0ba25354361a098ea331bc3e166f4a", "Duplicate role policy in initial snapshot"],
+  "20260207065000_da463d93-5048-43ec-bb39-482bb0ea3ab9.sql": ["42P07", "255a0b760a15091fe42996511b7bd1def2efb110155a2f846a8303d4db85f891", "Customers already in initial snapshot"],
+  "20260424042936_db7e40cf-c001-4513-9126-a0596e12f542.sql": ["42P07", "9dedd4c7befd8eb1f1c4b13f026daba928ad7b611ee48671dc74cb46680c3149", "Sync conflicts already in initial snapshot"],
+  "20260424045251_3195f18f-7faa-4f1f-9d47-323cb8b7fac7.sql": ["42710", "3fb671516569685a263f7237bfbdfea768baa3a8e5aac512c6598dde69ed6499", "Duplicate product policy"],
+  "20260426042420_f2188ae3-aeea-4b23-9b02-04b4b9938345.sql": ["42710", "566a1a762a949822a2d8d1c32bed738ce81adff7fadcebfbaf19804017cbd15f", "Duplicate password reset policy"],
+  "20260426042625_fac2f592-7105-47f9-b6d5-63e8c4135346.sql": ["3F000", "1a843e3558ae11b55529f2d44c3a57d66432f20d127f7ba95227955104d4ddbc", "Cron integration not provisioned; never schedule remote calls in CI"],
+  "20260614020000_add_missing_foreign_keys.sql": ["42710", "5def3711cd78411e400d12c9f4f21f9fdf10e4a5788d8c6af98e3066841e3433", "Duplicate stock movement constraint"],
+  "20260614030000_tighten_rls_policies.sql": ["42710", "4054f1b5d9d04090ef110c28deb6f49e884245cc56e01506780470233347656f", "Duplicate sync conflict policy"],
+  "20260702190000_backup_restore.sql": ["42883", "03144e8c751ff8054075fa31a66b9f8660f6b897b5ebc27a15ae9ab45b33493a", "Missing is_org_admin prerequisite"],
+  "20260702200000_support_tickets.sql": ["42883", "de63a4a495c900e19c17eb13df0420126d33f9a0a76d7e34be9a29ea01d8af85", "Missing is_org_admin prerequisite"],
+  "20260703030000_p1_grant_execute_fixes.sql": ["42883", "4fc88792977094d27b30f94b76ec50c6f473e64be13a55067bafc2fd6f8e5635", "Missing is_user_active prerequisite"],
+  "20260705060000_force_row_level_security.sql": ["42P01", "6eac6972e73efecdddcf8aadb4c4d2447f1c4309d14f80ef7a00ed95036b8f00", "Missing support_tickets after prerequisite failure"],
+  "20260706180000_remove_unsafe_update_organization_subscription.sql": ["42883", "3977aa039c83ed33af269df8a464446929bcb2ccab2f10e4b29bc3bab1397521", "Missing historical subscription RPC signature"],
+  "20260709010000_fix_seller_activity_production.sql": ["42P13", "788d85abe0131dad42616c97d9d53b23771442ada150e193d48349543b9a31c9", "Changed function return type"],
+  "20260711060000_fix_seller_performance_exclude_super_admin.sql": ["42P13", "ab90baadcef0fb263724c5fc3b961baf500885c0fdf6fc2c39797f71f67875c5", "Changed function return type"],
+  "20260715050000_fix_super_admin_visibility.sql": ["42804", "62d8b4256a858a48c2fa473a25c81e27176f582d20a9364578acb0246177b794", "Text incompatible with app_role enum"],
+  "20260715120000_emergency_login_fix.sql": ["42804", "b6eec7a71d79cad7948a23625cd0a7ae4d1e5dcd201674d034a9c218b360923f", "Text incompatible with app_role enum"],
+  "20260731030000_seller_lists_exclude_non_selling_roles.sql": ["42P13", "6109a76c6fc2825cc3ca5e9444ecf9d1455ccd849a31e92000a9bbff9ce3ced2", "Changed function return type"]
+}

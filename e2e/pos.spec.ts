@@ -16,10 +16,13 @@
  * falling back to visible UI checks when auth is required.
  */
 import { test, expect } from "@playwright/test";
+import { openAdminPage } from "./fixtures/admin-ui";
+
+test.use({ serviceWorkers: "block" });
 
 test.describe("POS — Product browsing", () => {
   test("POS page shows product search bar", async ({ page }) => {
-    await page.goto("/dashboard/pos");
+    await openAdminPage(page, "/dashboard/pos");
 
     // Should show search input
     const searchInput = page.getByLabel(/rechercher/i);
@@ -27,19 +30,14 @@ test.describe("POS — Product browsing", () => {
   });
 
   test("POS page shows product grid or empty state", async ({ page }) => {
-    await page.goto("/dashboard/pos");
+    await openAdminPage(page, "/dashboard/pos");
 
     // Either products are shown or an empty/loading state
-    const hasProducts = (await page.locator("[data-testid^='product-card-']").count()) > 0;
-    const hasEmptyState = await page.getByText(/aucun produit|no products/i).isVisible().catch(() => false);
-    const hasLoading = await page.getByTestId("product-grid-skeleton").isVisible().catch(() => false);
-
-    // One of these states should be visible
-    expect(hasProducts || hasEmptyState || hasLoading).toBe(true);
+    await expect(page.locator("[data-testid^='product-card-']").first().or(page.getByText(/aucun produit|no products/i).first())).toBeVisible();
   });
 
   test("search input filters products", async ({ page }) => {
-    await page.goto("/dashboard/pos");
+    await openAdminPage(page, "/dashboard/pos");
 
     const searchInput = page.getByLabel(/rechercher/i);
     await expect(searchInput).toBeVisible({ timeout: 10_000 });
@@ -53,7 +51,7 @@ test.describe("POS — Product browsing", () => {
   });
 
   test("category filter buttons are visible", async ({ page }) => {
-    await page.goto("/dashboard/pos");
+    await openAdminPage(page, "/dashboard/pos");
 
     // Should show "Tous" (All) category button
     const allCategoryBtn = page.getByRole("button", { name: /tous/i });
@@ -63,7 +61,7 @@ test.describe("POS — Product browsing", () => {
   });
 
   test("view mode toggle switches between grid and list", async ({ page }) => {
-    await page.goto("/dashboard/pos");
+    await openAdminPage(page, "/dashboard/pos");
 
     // Grid view button
     const gridBtn = page.getByLabel(/vue grille/i);
@@ -80,7 +78,7 @@ test.describe("POS — Product browsing", () => {
 
 test.describe("POS — Cart interactions", () => {
   test("cart shows empty state initially", async ({ page }) => {
-    await page.goto("/dashboard/pos");
+    await openAdminPage(page, "/dashboard/pos");
 
     // Cart empty state
     const emptyCart = page.getByTestId("cart-empty");
@@ -96,7 +94,7 @@ test.describe("POS — Cart interactions", () => {
   });
 
   test("clicking a product adds it to cart", async ({ page }) => {
-    await page.goto("/dashboard/pos");
+    await openAdminPage(page, "/dashboard/pos");
 
     // Wait for products to load
     await page.waitForTimeout(2000);
@@ -118,7 +116,7 @@ test.describe("POS — Cart interactions", () => {
   });
 
   test("cart quantity controls work", async ({ page }) => {
-    await page.goto("/dashboard/pos");
+    await openAdminPage(page, "/dashboard/pos");
     await page.waitForTimeout(2000);
 
     const firstProduct = page.locator("[data-testid^='product-card-']").first();
@@ -144,7 +142,7 @@ test.describe("POS — Cart interactions", () => {
   });
 
   test("remove item from cart", async ({ page }) => {
-    await page.goto("/dashboard/pos");
+    await openAdminPage(page, "/dashboard/pos");
     await page.waitForTimeout(2000);
 
     const firstProduct = page.locator("[data-testid^='product-card-']").first();
@@ -165,7 +163,7 @@ test.describe("POS — Cart interactions", () => {
   });
 
   test("clear cart button shows confirmation", async ({ page }) => {
-    await page.goto("/dashboard/pos");
+    await openAdminPage(page, "/dashboard/pos");
     await page.waitForTimeout(2000);
 
     const firstProduct = page.locator("[data-testid^='product-card-']").first();
@@ -194,7 +192,7 @@ test.describe("POS — Cart interactions", () => {
 
 test.describe("POS — Payment flow", () => {
   test("payment dialog opens when clicking checkout", async ({ page }) => {
-    await page.goto("/dashboard/pos");
+    await openAdminPage(page, "/dashboard/pos");
     await page.waitForTimeout(2000);
 
     const firstProduct = page.locator("[data-testid^='product-card-']").first();
@@ -215,7 +213,7 @@ test.describe("POS — Payment flow", () => {
   });
 
   test("payment dialog shows payment method tabs", async ({ page }) => {
-    await page.goto("/dashboard/pos");
+    await openAdminPage(page, "/dashboard/pos");
     await page.waitForTimeout(2000);
 
     const firstProduct = page.locator("[data-testid^='product-card-']").first();
@@ -243,7 +241,7 @@ test.describe("POS — Payment flow", () => {
   });
 
   test("confirm sale button is clickable for cash payment", async ({ page }) => {
-    await page.goto("/dashboard/pos");
+    await openAdminPage(page, "/dashboard/pos");
     await page.waitForTimeout(2000);
 
     const firstProduct = page.locator("[data-testid^='product-card-']").first();
@@ -265,7 +263,7 @@ test.describe("POS — Payment flow", () => {
 
 test.describe("POS — Keyboard shortcuts", () => {
   test("F2 opens payment dialog", async ({ page }) => {
-    await page.goto("/dashboard/pos");
+    await openAdminPage(page, "/dashboard/pos");
     await page.waitForTimeout(2000);
 
     const firstProduct = page.locator("[data-testid^='product-card-']").first();
@@ -288,10 +286,12 @@ test.describe("POS — Mobile responsive", () => {
   test("mobile view shows floating cart button", async ({ browser }) => {
     const context = await browser.newContext({
       ...{ viewport: { width: 375, height: 812 } },
+      serviceWorkers: "block",
+      baseURL: process.env.E2E_BASE_URL || "http://localhost:8080",
     });
     const page = await context.newPage();
 
-    await page.goto("/dashboard/pos");
+    await openAdminPage(page, "/dashboard/pos");
     await page.waitForTimeout(2000);
 
     const firstProduct = page.locator("[data-testid^='product-card-']").first();

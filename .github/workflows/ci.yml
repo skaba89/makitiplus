@@ -10,6 +10,18 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
 
     steps:
       - uses: actions/checkout@v4
@@ -49,6 +61,9 @@ jobs:
 
       - name: Block destructive data scripts and credentials in migrations (MKP-025)
         run: python3 scripts/check_migration_safety.py
+
+      - name: Execute migrations on disposable PostgreSQL 16 (P0 regression gate)
+        run: node scripts/test-postgres-replay.mjs
 
       - name: Test tenant RPC guard (MKP-007)
         run: python3 -m unittest discover -s scripts -p 'test_tenant_rpc_guard.py' -v
