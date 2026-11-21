@@ -109,6 +109,7 @@ describe("Régression : pattern check_plan_limit JSONB cassé", () => {
 
     expect(latest).not.toBeNull();
     const validNames = [
+      "20261121201546_harden_sale_write_tenant_scope.sql",
       "20260731020000_add_mobile_money_payment_reference.sql",
       "20260713200000_FINAL_CONSOLIDATED_ALL_FIXES.sql",
       "20260712195000_harden_sales_store_scope.sql",

@@ -69,6 +69,30 @@ export async function testCreditTransactions(db, connect) {
         assert.deepEqual(rows,[{organization_id:org}],`RLS ${table} for ${org}`);
       }
     }
+    // Real write isolation, including a mixed basket that must roll back entirely.
+    const item = (product_id, quantity = 1) => ({product_id,product_name:'Fixture',quantity,unit_price:100,total_price:100*quantity});
+    const cash = async (c, number, items) => (await c.query(
+      'SELECT public.create_sale_with_limit($1,100,100,$2::jsonb) AS id',
+      [number,JSON.stringify(items)]
+    )).rows[0].id;
+    await assert.rejects(cash(c1,'SQL-FOREIGN',[item(pb)]), {code:'42501'});
+    await assert.rejects(cash(cB,'SQL-FOREIGN',[item(pa)]), {code:'42501'});
+    await assert.rejects(cash(c1,'SQL-MIXED',[item(pa),item(pb)]), {code:'42501'});
+    await assert.rejects(cash(c1,'SQL-NEGATIVE',[item(pa,-1)]), {code:'22023'});
+    await assert.rejects(sale(c1,'SQL-CREDIT-FOREIGN',pb), {code:'42501'});
+    for (const [org, number, product, stock] of [[oa,'SQL-FOREIGN',pa,18],[ob,'SQL-FOREIGN',pb,19],[oa,'SQL-MIXED',pa,18],[oa,'SQL-NEGATIVE',pa,18],[oa,'SQL-CREDIT-FOREIGN',pa,18]]) {
+      assert.deepEqual(await state(org,number,product),{sales:0,items:0,credits:0,stock});
+    }
+    const signature = 'public.create_full_sale(uuid,uuid,text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text,numeric,uuid,text)';
+    for (const role of ['anon','authenticated']) {
+      assert.equal((await db.query('SELECT has_function_privilege($1,$2,\'EXECUTE\') AS allowed',[role,signature])).rows[0].allowed,false);
+    }
+    await assert.rejects(c1.query('SELECT public.create_full_sale($1,$2,$3,100,100,$4::jsonb)',[b,ob,'SQL-CREDIT-1',JSON.stringify([item(pb)])]), {code:'42501'});
+    const cashId = await cash(c1,'SQL-CASH',[item(pa)]);
+    assert.ok(cashId);
+    assert.equal(await cash(c1,'SQL-CASH',[item(pa)]),cashId);
+    assert.deepEqual(await state(oa,'SQL-CASH',pa),{sales:1,items:1,credits:0,stock:17});
+    console.log('Sale write isolation: foreign products, mixed basket rollback, negative quantity, direct RPC denial and cash replay passed');
     // Explicit platform administrator retains the previously intended access.
     const platformUser = '10000000-0000-4000-8000-000000000003';
     await db.query('INSERT INTO auth.users(id) VALUES ($1)', [platformUser]);
