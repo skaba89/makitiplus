@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 // These are not production migrations. Never edit the historical SQL or accept
 // a new error: require both the original SHA-256 and original SQLSTATE.
 export const repairNames = new Set([
+  '20260202072852_917790af-3d14-44e9-bcdd-d88776ced82b.sql',
+  '20260426042420_f2188ae3-aeea-4b23-9b02-04b4b9938345.sql',
   '20260614020000_add_missing_foreign_keys.sql',
   '20260614030000_tighten_rls_policies.sql',
   '20260702190000_backup_restore.sql',
@@ -20,6 +22,36 @@ function replaceExactlyOnce(sql, before, after) {
 }
 
 export async function repairHistoricalMigration(client, name, sql) {
+  if (name === '20260202072852_917790af-3d14-44e9-bcdd-d88776ced82b.sql') {
+    const {rows:[state]} = await client.query(`SELECT EXISTS (SELECT 1 FROM pg_policy
+      WHERE polrelid='public.user_roles'::regclass AND polname='Users can create their own role' AND polcmd='a') AS present`);
+    if (!state.present) throw new Error('Unexpected duplicate role policy');
+    // Do not recreate the historical self-role escalation path. The later
+    // security migrations replace it with the intended role policies.
+    await client.query('DROP POLICY "Users can create their own role" ON public.user_roles');
+    return 'Removed obsolete self-role assignment policy instead of recreating it';
+  }
+  if (name === '20260426042420_f2188ae3-aeea-4b23-9b02-04b4b9938345.sql') {
+    // The snapshot already has these policies. Keep its stronger SELECT scope
+    // and execute the remaining profile/table/index/backfill DDL. Platform
+    // extensions are explicitly excluded from this compatibility repair.
+    let repaired = replaceExactlyOnce(sql, `CREATE POLICY "admins_view_reset_tokens"
+  ON public.password_reset_tokens FOR SELECT
+  TO authenticated
+  USING (has_role(auth.uid(), 'admin'::app_role));`, '');
+    repaired = replaceExactlyOnce(repaired, `CREATE POLICY "admins_insert_reset_tokens"
+  ON public.password_reset_tokens FOR INSERT
+  TO authenticated
+  WITH CHECK (has_role(auth.uid(), 'admin'::app_role));`, '');
+    repaired = replaceExactlyOnce(repaired,'CREATE EXTENSION IF NOT EXISTS pg_cron;','');
+    repaired = replaceExactlyOnce(repaired,'CREATE EXTENSION IF NOT EXISTS pg_net;','');
+    const {rows:[state]} = await client.query(`SELECT count(*)::int=2 AS present FROM pg_policy
+      WHERE polrelid='public.password_reset_tokens'::regclass
+        AND ((polname='admins_view_reset_tokens' AND polcmd='r') OR (polname='admins_insert_reset_tokens' AND polcmd='a'))`);
+    if (!state.present) throw new Error('Unexpected reset token policies');
+    await client.query(repaired);
+    return 'Preserved snapshot token policies, applied schema DDL; cron/net remain unvalidated';
+  }
   if (name === '20260614020000_add_missing_foreign_keys.sql') {
     const matches = [...sql.matchAll(/ALTER TABLE public\.(\w+)\s+ADD CONSTRAINT (\w+)\s+FOREIGN KEY \((\w+)\) REFERENCES public\.(\w+)\((\w+)\);/g)];
     if (matches.length !== 11) throw new Error('Unexpected FK migration contract');
