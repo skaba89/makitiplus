@@ -1,10 +1,12 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { Client } from 'pg';
+import { testCreditTransactions } from './test-postgres-credit.mjs';
 
 // Intentionally no DATABASE_URL, PGHOST, or production credentials accepted.
 const port = Number(process.env.MKP_TEST_PG_PORT || 55432);
-const client = new Client({ host: '127.0.0.1', port, user: 'postgres', password: 'postgres', database: 'postgres', ssl: false });
+const settings = { host: '127.0.0.1', port, user: 'postgres', password: 'postgres', database: 'postgres', ssl: false };
+const client = new Client(settings);
 const fromRoot = path => new URL(`../${path}`, import.meta.url);
 const read = path => readFileSync(fromRoot(path), 'utf8');
 await client.connect();
@@ -36,6 +38,7 @@ try {
   if (!Object.values(contracts).every(Boolean)) throw new Error(`Missing critical schema contracts: ${JSON.stringify(contracts)}`);
   console.log(JSON.stringify({ total: files.length, passed: files.length - failures.length, failures, unexpected, resolved }, null, 2));
   if (unexpected.length || resolved.length || (process.argv.includes('--strict') && failures.length)) process.exitCode = 1;
+  else await testCreditTransactions(client, async () => { const c = new Client(settings); await c.connect(); return c; });
 } finally {
   await client.end();
 }
