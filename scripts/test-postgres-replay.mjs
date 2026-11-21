@@ -2,6 +2,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { Client } from 'pg';
 import { testCreditTransactions } from './test-postgres-credit.mjs';
+import { repairNames, repairHistoricalMigration } from './postgres-replay-repairs.mjs';
 
 // Intentionally no DATABASE_URL, PGHOST, or production credentials accepted.
 const port = Number(process.env.MKP_TEST_PG_PORT || 55432);
@@ -17,27 +18,36 @@ try {
   await client.query(read('supabase/00000_initial_schema.sql'));
   const files = readdirSync(fromRoot('supabase/migrations')).filter(n => /^\d{14}_.+\.sql$/.test(n)).sort();
   const failures = [];
+  const repaired = [];
+  const baseline = JSON.parse(read('scripts/postgres-replay-known-failures.json'));
   for (const name of files) {
     const sql = read(`supabase/migrations/${name}`);
     try {
       await client.query(sql);
     } catch (err) {
       await client.query('ROLLBACK');
-      failures.push({ name, code: err.code, sha256: createHash('sha256').update(sql).digest('hex'), reason: err.message });
+      const failure = { name, code: err.code, sha256: createHash('sha256').update(sql).digest('hex'), reason: err.message };
+      if (repairNames.has(name) && baseline[name]?.[0] === failure.code && baseline[name]?.[1] === failure.sha256) {
+        const repair = await repairHistoricalMigration(client, name, sql);
+        repaired.push({ ...failure, repair });
+      } else failures.push(failure);
     }
   }
-  const baseline = JSON.parse(read('scripts/postgres-replay-known-failures.json'));
   const unexpected = failures.filter(f => !baseline[f.name] || baseline[f.name][0] !== f.code || baseline[f.name][1] !== f.sha256);
-  const resolved = Object.keys(baseline).filter(name => !failures.some(f => f.name === name));
+  const resolved = Object.keys(baseline).filter(name => ![...failures,...repaired].some(f => f.name === name));
+  const missingRepairs = [...repairNames].filter(name => !repaired.some(f => f.name === name));
   // A successful CREATE FUNCTION is not proof that its body executes.
   // These checks only establish the presence of the critical schema objects.
   const { rows: [contracts] } = await client.query(`SELECT
     to_regprocedure('public.create_credit_sale_atomic(text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text,numeric,uuid,text)') IS NOT NULL AS credit_rpc,
     to_regclass('public.sales_org_sale_number_unique') IS NOT NULL AS sale_idempotency,
-    to_regclass('public.customer_credits') IS NOT NULL AS credit_ledger`);
+    to_regclass('public.customer_credits') IS NOT NULL AS credit_ledger,
+    to_regprocedure('public.update_organization_subscription(text,text,text)') IS NULL AS unsafe_subscription_absent,
+    to_regprocedure('public.select_plan(text)') IS NULL AS unsafe_select_plan_absent,
+    to_regprocedure('public.admin_update_organization_subscription(uuid,text,text,text,text)') IS NOT NULL AS guarded_subscription_rpc`);
   if (!Object.values(contracts).every(Boolean)) throw new Error(`Missing critical schema contracts: ${JSON.stringify(contracts)}`);
-  console.log(JSON.stringify({ total: files.length, passed: files.length - failures.length, failures, unexpected, resolved }, null, 2));
-  if (unexpected.length || resolved.length || (process.argv.includes('--strict') && failures.length)) process.exitCode = 1;
+  console.log(JSON.stringify({ total: files.length, passed: files.length - failures.length - repaired.length, repaired, failures, unexpected, resolved, missingRepairs }, null, 2));
+  if (unexpected.length || resolved.length || missingRepairs.length || (process.argv.includes('--strict') && (failures.length || repaired.length))) process.exitCode = 1;
   else await testCreditTransactions(client, async () => { const c = new Client(settings); await c.connect(); return c; });
 } finally {
   await client.end();

@@ -483,7 +483,7 @@ const Products = () => {
             </FeatureGate>
             {canModify && (
               <PlanLimitGuard limitType="products" showUpgrade={true}>
-                <Button onClick={handleOpenForm} className="gap-2">
+                <Button data-testid="products-add-header" onClick={handleOpenForm} className="gap-2">
                   <Plus className="h-4 w-4" />
                   {t("actions.addProduct")}
                 </Button>
@@ -601,7 +601,7 @@ const Products = () => {
               {t("empty.description")}
             </p>
             {canModify && (
-              <Button onClick={handleOpenForm} variant="outline">
+              <Button data-testid="products-add-empty" onClick={handleOpenForm} variant="outline">
                 <Plus className="h-4 w-4 mr-2" />
                 {t("empty.addFirst")}
               </Button>

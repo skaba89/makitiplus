@@ -2545,7 +2545,6 @@ export type Database = {
         }
         Returns: boolean
       }
-      select_plan: { Args: { p_plan_id: string }; Returns: string }
       set_current_store: { Args: { p_store_id: string }; Returns: undefined }
       setup_onboarding_store: {
         Args: {
@@ -2586,10 +2585,6 @@ export type Database = {
           p_current_step?: string
           p_onboarding_complete?: boolean
         }
-        Returns: Json
-      }
-      update_organization_subscription: {
-        Args: { p_duration?: string; p_plan_id: string; p_status?: string }
         Returns: Json
       }
     }

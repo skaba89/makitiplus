@@ -200,15 +200,20 @@ test.describe("Demo mode — mutation blocking", () => {
     await expect(page.getByText(/mode démo — les modifications ne sont pas enregistrées/i)).toBeVisible();
   });
 
-  test("demo mode blocks product creation with toast", async ({ page }) => {
-    const writes = await openAdminPage(page, "/dashboard/products", true);
-    await page.getByRole("button", { name: /ajouter un produit/i }).click();
-    const form = page.getByRole("dialog");
-    await expect(form).toBeVisible();
-    await form.getByLabel(/nom du produit/i).fill("E2E produit");
-    await form.getByLabel(/prix de vente/i).fill("10000");
-    await form.getByRole("button", { name: /créer le produit/i }).click();
-    await expect(page.getByText(/n'est pas disponible en mode démo/i)).toBeVisible();
-    expect(writes).toEqual([]);
-  });
+  for (const entry of ["products-add-header", "products-add-empty"]) {
+    test(`demo mode blocks product creation with toast (${entry})`, async ({ page }) => {
+      const writes = await openAdminPage(page, "/dashboard/products", true);
+      const button = page.getByTestId(entry);
+      await expect(button).toBeVisible();
+      await expect(button).toHaveAccessibleName(/ajouter un produit/i);
+      await button.click();
+      const form = page.getByRole("dialog");
+      await expect(form).toBeVisible();
+      await form.getByLabel(/nom du produit/i).fill("E2E produit");
+      await form.getByLabel(/prix de vente/i).fill("10000");
+      await form.getByRole("button", { name: /créer le produit/i }).click();
+      await expect(page.getByText(/n'est pas disponible en mode démo/i)).toBeVisible();
+      expect(writes).toEqual([]);
+    });
+  }
 });

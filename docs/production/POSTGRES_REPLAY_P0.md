@@ -14,6 +14,17 @@ Baseline: main `56619a4`, 21 November 2026. First incremental PR; no application
 
 Start a fresh PostgreSQL 16 instance on loopback port 55432 with the disposable `postgres` user/password (CI configuration). Never point the harness at a forwarded production database. Run `npm ci`, `python3 scripts/check_migration_safety.py`, then `node scripts/test-postgres-replay.mjs`. Use `--strict` to measure release readiness; it is expected to fail until all historical exceptions are resolved.
 
+## 2026-11-21 — Historical permissions and billing isolation
+
+On PostgreSQL 16.16: 163 numbered migrations, 145 unmodified successes, two successful reconstruction repairs and 16 unresolved failures. The original 18 failed statements are still accounted for in the baseline. Never interpret a reconstruction repair as an unmodified migration success; strict mode still fails on either category.
+
+- `20260703030000`: correct the stale `is_user_active()` grant to the existing UUID signature only after checking it already has the intended privilege; the other statements are executed unchanged.
+- `20260706180000`: the obsolete subscription writer was already absent at that point. Remove only the two impossible REVOKEs, retaining the original DROP IF EXISTS and schema notification.
+- The harness first attempts the original migration, checks both its original checksum and SQLSTATE, and fails on any unexpected condition or missing repair. The repaired SQL is applied only to the disposable reconstruction; no historical migration or production migration history has been edited.
+- A subsequent drift-capture migration had restored two unsafe subscription writers. The new forward migration removes only those two unused functions, without CASCADE or any data deletion. The current Stripe onboarding and guarded administrative billing RPC are retained; generated client types no longer advertise the removed functions. Real authenticated SQL tests verify both old entry points are absent and ordinary organization administrators cannot use the guarded billing RPC to change another organization's subscription.
+
+These results concern a PostgreSQL compatibility reconstruction, not a full native Supabase `db reset` or a production deployment. The 16 remaining failures and two compatibility repairs must still be addressed in an approved reconstruction strategy.
+
 ## Follow-up sequence
 
 1. Add real two-tenant fixtures and RPC tests with forced rollback, replay, simultaneous sessions and cross-tenant writes; investigate missing organization predicate on the latest `create_full_sale` stock update before production rollout.
