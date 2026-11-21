@@ -32,6 +32,13 @@ These results concern a PostgreSQL compatibility reconstruction, not a full nati
 - Real SQL tests execute all three RPCs: sales totals for each of two organizations, positive activity records, cross-tenant denial, exclusion of an accountant from seller performance, no-profile denial, anonymous privileges and global/targeted access for an explicit platform administrator. Existing sale/credit and RLS tests pass unchanged.
 - No data or production migration history modified. Strict replay still cannot pass while the 13 unresolved failures and 3 historical compatibility repairs remain; native Supabase reset and production checks are still outstanding.
 
+## 2026-11-21 — Support schema reconstruction and access control
+
+- PostgreSQL 16.16: 165 numbered migrations, 149 unmodified successes, 4 explicit reconstruction repairs, 12 unresolved failures. The historical support migration is replayed with the exact organization-admin predicate introduced later; its original checksum and failure remain recorded.
+- The forward migration recreates absent support objects without deleting existing data, pins RPC search paths, scopes message reads and updates to the tenant, serializes ticket numbering, denies direct authenticated DML and anonymous RPC execution, and prevents sender impersonation and unauthorized status changes/deletion.
+- Real PostgreSQL tests exercise ticket creation, messages, listing, statistics, two-organization RLS and RPC isolation, anonymous access and accountant role restrictions. Sale, credit and seller reporting tests continue to pass. No production access or deployment.
+- The backup migration also depends on the missing admin predicate, but adding that prerequisite exposes a second PL/pgSQL syntax error in its legacy restore function. Its destructive restore operations require separate review; the migration remains unresolved. Strict mode remains blocked.
+
 ## Follow-up sequence
 
 1. Add real two-tenant fixtures and RPC tests with forced rollback, replay, simultaneous sessions and cross-tenant writes; investigate missing organization predicate on the latest `create_full_sale` stock update before production rollout.
