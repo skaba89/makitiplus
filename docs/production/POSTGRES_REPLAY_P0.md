@@ -90,6 +90,12 @@ These results concern a PostgreSQL compatibility reconstruction, not a full nati
 - The old cron failure is removed from the failure baseline, but the registration is separately classified as isolated validation, not an unmodified applied migration. Expected compatibility totals: 167 migrations, 153 unmodified successes, 13 repairs, one isolated registration, zero unresolved failures; confirmation requires blocking CI. Any unresolved failure now fails the gate, and strict mode still rejects repairs/isolated registration.
 - The pg_net payload execution, Edge Function behavior and native Supabase reconstruction remain unvalidated. Do not enable or invoke the historical rotation in production based on this check.
 
+## 2026-11-22 — Synthetic logical backup/restore drill (MKP-005)
+
+- PR #128 succeeded in both CI and Release Readiness. The new blocking drill runs only after the synthetic transaction suite, checks the four exact synthetic auth identities, captures a custom-format dump and restores it into a separate PostgreSQL 16 cluster with its own data directory and Unix socket, no TCP listener, pg_cron disabled and no pg_net.
+- Compare order-independent row counts and fingerprints for every ordinary/partitioned table in public/auth/storage, plus policies, constraints, indexes, RLS flags, ACLs, function definitions and sequence values. Recheck two authenticated tenants after restoration and require the original latest-sale watermark and zero cron jobs/runs. The dump stays in the disposable service container; no backup artifact or data is published.
+- The CI log records actual elapsed backup and restore-plus-verification seconds and zero lost fixture rows/zero latest-sale watermark gap only if all checks pass. This is a synthetic logical restore rehearsal, not a production RPO/RTO measurement, native Supabase reset, storage-object restore or PITR proof.
+
 ## Follow-up sequence
 
 1. Add real two-tenant fixtures and RPC tests with forced rollback, replay, simultaneous sessions and cross-tenant writes; investigate missing organization predicate on the latest `create_full_sale` stock update before production rollout.
