@@ -159,6 +159,9 @@ try {
     ['20260712180000_CONSOLIDATED_all_critical_fixes.sql','5db1c7d526bc237c8ba571d4b49d3c84b6b285739cce79869250fe8abe0ae566','outer-transaction'],
     ['20260712190000_fix_payment_method_enum_cast.sql','b27bc1a1cc34bec554982e6ee8c83475d59fc261f3275ab304367d7a69721c81','outer-transaction'],
     ['20260712195000_harden_sales_store_scope.sql','1ed8fbc0ff0ab540b70dcfdce1308d1540d57d592638002ab673a5901b21237f','outer-transaction'],
+    ['20260713100000_CLEANUP_RESET_PROJECT.sql','8c1dd99015ce1316853e5600e4ba970c12b1601285a2ef2ad7661017105f25ae','neutralized'],
+    ['20260713110000_RECOVERY_CREATE_ORG.sql','f0c7a4652aa53d4992b47db93d0e080dddd211cbc864b9857f4974434b57a976','neutralized'],
+    ['20260713120000_fix_create_first_organization_conflict.sql','54dc0ea277913743f1a487b0f5fbd7e0f65d05518c8a92cb300b7b5363dc4a3f'],
   ];
   assert.deepEqual(numbered.slice(prefix.length,prefix.length+next.length),next.map(([name])=>name));
   const policyState=async()=> (await db.query(`SELECT p.polname, c.relname, p.polcmd, p.polroles,
@@ -194,6 +197,11 @@ try {
       }
       // Do not admit historical files that could close the enclosing rollback.
       assert.doesNotMatch(historical,/^[\t ]*(?:COMMIT|ROLLBACK)\s*;/im,`Explicit transaction boundary in ${name}`);
+      if (code==='neutralized') {
+        assert.equal(historical.replace(/^\s*--[^\n]*$/gm,'').trim(),'SELECT 1;',`Neutralized migration changed: ${name}`);
+        await db.query(historical);
+        continue;
+      }
       if (code==='skip-cron') {
         // The exact registration has a real external HTTP target. Never run
         // it on the native stack, even in a rolled-back transaction.
@@ -254,7 +262,7 @@ try {
       to_regprocedure('public.admin_update_organization_subscription(uuid,text,text,text,text)') IS NOT NULL AS manual_subscription_rpc,
       to_regprocedure('public.check_feature_access(text)') IS NOT NULL AND to_regprocedure('public.check_plan_limit(text)') IS NOT NULL AS plan_checks,
       to_regprocedure('public.update_organization_subscription(text,text,text)') IS NULL AS unsafe_subscription_absent,
-      to_regprocedure('public.create_first_organization(text,text,text,public.store_category,text,text)') IS NOT NULL AS onboarding_rpc,
+      to_regprocedure('public.create_first_organization(text,text,text,public.store_category,text,text)') IS NULL AS obsolete_onboarding_rpc_absent,
       (SELECT relrowsecurity FROM pg_class WHERE oid='public.user_activity_logs'::regclass) AS activity_rls,
       (SELECT count(*)=2 AND bool_and(confdeltype='n' AND convalidated) FROM pg_constraint
         WHERE conrelid='public.stock_transfers'::regclass AND conname IN ('stock_transfers_from_store_id_fkey','stock_transfers_to_store_id_fkey')) AS transfer_fk,
@@ -279,7 +287,9 @@ try {
       pg_get_function_result('public.create_full_sale(uuid,uuid,text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text,numeric,uuid)'::regprocedure)='uuid' AS full_store_sale_contract,
       pg_get_function_result('public.get_reports_stats(uuid,timestamptz,timestamptz)'::regprocedure)='jsonb' AS reports_contract,
       pg_get_function_result('public.create_product(text,numeric,uuid,text,text,integer,integer,numeric,uuid,uuid,text,text,boolean)'::regprocedure)='uuid' AS product_contract,
-      pg_get_function_result('public.create_first_organization(text,text,text,text,text,text)'::regprocedure)='uuid' AS onboarding_text_contract,
+      pg_get_function_result('public.create_first_organization(text,text,text,text,text,text)'::regprocedure)='uuid' AND
+        (SELECT count(*)=1 FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname='create_first_organization') AND
+        has_function_privilege('authenticated','public.create_first_organization(text,text,text,text,text,text)','EXECUTE') AS onboarding_text_contract,
       (SELECT count(*)=3 FROM pg_attribute WHERE attrelid='public.products'::regclass AND NOT attisdropped AND
         ((attname='description' AND atttypid='text'::regtype) OR (attname='expiry_date' AND atttypid='date'::regtype) OR
          (attname='is_active' AND atttypid='boolean'::regtype))) AS product_columns`);
@@ -288,7 +298,7 @@ try {
   assert.deepEqual(await policyState(),before,'Historical prefix leaked policy changes');
   const {rows:[rolledBack]}=await db.query("SELECT to_regclass('public.idx_single_admin') IS NULL AS clean");
   assert.ok(rolledBack.clean,'Historical constraint escaped transaction');
-  console.log('Native historical prefix PASS: 96 migrations accounted for, 2 reconciled persistently in local snapshot, 93 exercised and rolled back (3 transaction wrappers adapted), 1 cron registration not executed');
+  console.log('Native historical prefix PASS: 99 migrations accounted for, 2 reconciled persistently in local snapshot, 96 exercised and rolled back (3 transaction wrappers adapted, 2 verified no-ops), 1 cron registration not executed');
 
   const fixtures=[];
   for (const suffix of ['a','b']) {
