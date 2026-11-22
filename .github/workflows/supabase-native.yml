@@ -1,0 +1,47 @@
+name: Supabase Native Snapshot
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  native-snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Start fresh unlinked local Supabase and verify snapshot
+        env:
+          SUPABASE_TELEMETRY_DISABLED: 'true'
+        run: |
+          set -euo pipefail
+          umask 077
+          repo="$PWD"
+          native_dir=$(mktemp -d "$RUNNER_TEMP/mkp-native-XXXXXXXX")
+          cd "$native_dir"
+          trap 'supabase stop --no-backup >/dev/null 2>&1 || true' EXIT
+          supabase init
+          mkdir -p supabase/migrations
+          cp "$repo/supabase/00000_initial_schema.sql" supabase/migrations/20260101000000_initial_snapshot.sql
+          # Never copy the real config, credentials, Edge Functions or later
+          # historical migrations; no link, push, remote reset or cron calls.
+          if ! supabase start >start.log 2>&1; then
+            echo 'Native local stack startup failed; logs withheld to protect ephemeral credentials' >&2
+            docker ps -a --format '{{.Names}} {{.Status}}'
+            exit 1
+          fi
+          supabase status -o json >local-status.json
+          node "$repo/scripts/test-supabase-native-snapshot.mjs" "$native_dir/local-status.json"

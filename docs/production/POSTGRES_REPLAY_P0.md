@@ -98,6 +98,13 @@ These results concern a PostgreSQL compatibility reconstruction, not a full nati
 
 ## Follow-up sequence
 
+### Native snapshot gate (next incremental step)
+
+- PR #129's blocking CI confirmed the synthetic restore: `backup_seconds=0`, `rto_seconds=1`, zero lost fixture rows and zero latest-sale watermark gap. These measurements apply only to the small disposable fixture, not production.
+- The dedicated Supabase Native Snapshot workflow starts an unlinked CLI project in a fresh runner directory, copies only the original initial snapshot as a local migration, and never loads the production config, secrets, Edge Functions or the historical cron migration.
+- The regression test verifies real Auth and Storage catalog objects, creates two synthetic users via local Auth, signs them in, seeds separate organizations/products, checks real PostgREST tenant isolation and anonymous denial. It also reproduces the first SHA-bound strict replay collision (42710) inside a rolled-back transaction.
+- This is a native initial-snapshot gate only, not complete native migration reconstruction, and the result is pending CI. The PostgreSQL compatibility replay and restoration gates remain independent and blocking. Next: extend native replay with a reviewed, non-destructive historical-baseline strategy and verify complete schema/API equivalence.
+
 1. Add real two-tenant fixtures and RPC tests with forced rollback, replay, simultaneous sessions and cross-tenant writes; investigate missing organization predicate on the latest `create_full_sale` stock update before production rollout.
 2. Resolve historical prerequisites, duplicate definitions and return-type changes without altering deployed migration history; shrink the baseline with evidence.
 3. Validate full platform extensions and complete schema reconstruction on local Supabase, then remove the baseline and enforce strict mode.
