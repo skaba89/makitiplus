@@ -164,7 +164,10 @@ These results concern a PostgreSQL compatibility reconstruction, not a full nati
 - PR #156 passed all three workflows (native run 45065775277), confirming the 161-entry prefix.
 - Extend through all 167 numbered migrations: verify the forward-only sale tenant/identity guard before lookup, organization-scoped stock mutation and private helper ACL; retirement of unsafe subscription/backup RPCs; seller KPI fail-closed tenant guard and reporting ACL; support schema/ACL and reset-token column-only history access. New numbered migrations now require explicit native replay review. Pending CI: 167 accounted for, 166 exercised (2 reconciled locally, 164 rolled back including 7 wrapper adaptations and 4 verified no-ops), one external cron registration skipped. This is complete *coverage*, not strict unmodified reconstruction: baseline repairs, wrapper adaptations and skipped external cron remain, and actual Auth/Data API tests still operate on the rolled-back initial snapshot. No historical SQL or production changes.
 
-1. Add real two-tenant fixtures and RPC tests with forced rollback, replay, simultaneous sessions and cross-tenant writes on the reconstructed schema; tenant predicate is now present in the forward sale repair, but store-level product scope and replay payload validation remain open.
+- PR #157 passed all three workflows (native run 45066748407), confirming coverage of all 167 numbered migrations.
+- Add final-schema SQL runtime checks inside the existing outer rollback: two synthetic tenants, authenticated role and claim, credit replay, changed amount rejection, ledger failure rollback, foreign product denial and RLS reads. No extra grants or committed fixtures. Pending native CI; this does not test concurrent sessions or real PostgREST on the final schema.
+
+1. Extend final-schema tests to simultaneous sessions and cash/mixed baskets in an isolated committed reconstruction; store-level product scope and cash replay payload validation remain open.
 2. Resolve historical prerequisites, duplicate definitions and return-type changes without altering deployed migration history; shrink the baseline with evidence.
 3. Validate full platform extensions and complete schema reconstruction on local Supabase, then remove the baseline and enforce strict mode.
 4. Perform the isolated staging backup/restore drill and record RTO/RPO.

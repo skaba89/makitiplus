@@ -5,6 +5,81 @@ import { Client } from 'pg';
 import { createClient } from '@supabase/supabase-js';
 import { repairHistoricalMigration } from './postgres-replay-repairs.mjs';
 
+// Execute on the final reconstructed schema, inside the existing outer
+// transaction. No service API, grants or committed fixture data are needed.
+async function testFinalTransactions(db) {
+  const tenants=[];
+  for (const suffix of ['a','b']) {
+    const user=randomUUID(), org=randomUUID(), product=randomUUID();
+    await db.query('INSERT INTO auth.users(id,email) VALUES ($1,$2)',[user,`replay-${suffix}-${user}@example.test`]);
+    // Match the existing compatibility fixture onboarding sequence.
+    await db.query('ALTER TABLE public.organizations DISABLE TRIGGER trigger_auto_create_store_settings');
+    await db.query("INSERT INTO public.organizations(id,name,owner_user_id,subscription_plan) VALUES ($1,'Replay fixture',$2,'enterprise')",[org,user]);
+    await db.query('ALTER TABLE public.organizations ENABLE TRIGGER trigger_auto_create_store_settings');
+    await db.query("INSERT INTO public.profiles(user_id,organization_id,business_name,owner_name) VALUES ($1,$2,'Replay fixture','Replay fixture')",[user,org]);
+    await db.query("INSERT INTO public.user_roles(user_id,role) VALUES ($1,'admin')",[user]);
+    await db.query("INSERT INTO public.products(id,user_id,organization_id,name,price,stock_quantity) VALUES ($1,$2,$3,'Replay fixture',100,20)",[product,user,org]);
+    tenants.push({user,org,product});
+  }
+  // Savepoints allow expected SQL errors without aborting the schema replay.
+  async function asTenant(tenant, action, expected) {
+    await db.query('SAVEPOINT native_actor');
+    try {
+      await db.query('SET LOCAL ROLE authenticated');
+      await db.query("SELECT set_config('request.jwt.claim.sub',$1,true)",[tenant.user]);
+      assert.equal((await db.query('SELECT auth.uid() AS id')).rows[0].id,tenant.user);
+      if (expected) {
+        await assert.rejects(action(),expected);
+        await db.query('ROLLBACK TO SAVEPOINT native_actor');
+      } else {
+        return await action();
+      }
+    } catch (error) {
+      await db.query('ROLLBACK TO SAVEPOINT native_actor');
+      throw error;
+    } finally {
+      // RESET ROLE is only valid after recovery from a SQL error.
+      await db.query('RESET ROLE');
+      await db.query("SELECT set_config('request.jwt.claim.sub','',true)");
+      await db.query('RELEASE SAVEPOINT native_actor');
+    }
+  }
+  const [a,b]=tenants;
+  const sale=(number,product,amount=100,name='Replay customer',phone='00000001')=>async ()=>
+    (await db.query('SELECT public.create_credit_sale_atomic($1,$2,$2,$3::jsonb,p_customer_name=>$4,p_customer_phone=>$5) AS id',
+      [number,amount,JSON.stringify([{product_id:product,product_name:'Replay fixture',quantity:1,unit_price:amount,total_price:amount}]),name,phone])).rows[0].id;
+  async function state(tenant,number) {
+    return (await db.query(`SELECT
+      (SELECT count(*)::int FROM public.sales WHERE organization_id=$1 AND sale_number=$2) AS sales,
+      (SELECT count(*)::int FROM public.sale_items i JOIN public.sales s ON s.id=i.sale_id WHERE s.organization_id=$1 AND s.sale_number=$2) AS items,
+      (SELECT count(*)::int FROM public.customer_credits WHERE organization_id=$1 AND sale_number=$2) AS credits,
+      (SELECT stock_quantity FROM public.products WHERE id=$3) AS stock`,[tenant.org,number,tenant.product])).rows[0];
+  }
+  const first=await asTenant(a,sale('NATIVE-CREDIT-1',a.product));
+  assert.ok(first);
+  assert.equal(await asTenant(a,sale('NATIVE-CREDIT-1',a.product)),first);
+  assert.deepEqual(await state(a,'NATIVE-CREDIT-1'),{sales:1,items:1,credits:1,stock:19});
+  await asTenant(a,sale('NATIVE-CREDIT-1',a.product,200),{code:'23505'});
+  await db.query("INSERT INTO public.customers(user_id,organization_id,name) VALUES ($1,$2,'Ambiguous'),($1,$2,'Ambiguous')",[a.user,a.org]);
+  await asTenant(a,sale('NATIVE-ROLLBACK',a.product,100,'Ambiguous',null),/Plusieurs clients/);
+  assert.deepEqual(await state(a,'NATIVE-ROLLBACK'),{sales:0,items:0,credits:0,stock:19});
+  await asTenant(a,sale('NATIVE-FOREIGN',b.product),{code:'42501'});
+  assert.deepEqual(await state(a,'NATIVE-FOREIGN'),{sales:0,items:0,credits:0,stock:19});
+  assert.deepEqual(await state(b,'NATIVE-FOREIGN'),{sales:0,items:0,credits:0,stock:20});
+  const other=await asTenant(b,sale('NATIVE-CREDIT-1',b.product));
+  assert.notEqual(other,first);
+  assert.deepEqual(await state(b,'NATIVE-CREDIT-1'),{sales:1,items:1,credits:1,stock:19});
+  assert.deepEqual(await state(a,'NATIVE-CREDIT-1'),{sales:1,items:1,credits:1,stock:19});
+  for (const tenant of tenants) {
+    await asTenant(tenant,async ()=>{
+      for (const table of ['sales','customer_credits','products','customers']) {
+        assert.deepEqual((await db.query(`SELECT DISTINCT organization_id FROM public.${table}`)).rows,[{organization_id:tenant.org}],`Final RLS: ${table}`);
+      }
+    });
+  }
+  console.log('Final native schema credit PASS: replay, changed payload denial, ledger failure rollback, foreign product denial, two-tenant RLS');
+}
+
 // Only a freshly initialized, unlinked local CLI stack is supported.
 const status = JSON.parse(readFileSync(process.argv[2], 'utf8'));
 const api = new URL(status.API_URL);
@@ -558,10 +633,12 @@ try {
       (SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid='public.password_reset_tokens'::regclass) AS reset_rls`);
     for (const [name,passed] of Object.entries(finalAcl)) assert.equal(passed,true,`Final ACL contract: ${name}`);
     console.log('Unsafe subscription and backup RPCs retired; receipt replay and numbering concurrency remain open P0 findings.');
+    await testFinalTransactions(db);
   } finally { await db.query('ROLLBACK'); }
   assert.deepEqual(await policyState(),before,'Historical prefix leaked policy changes');
   const {rows:[rolledBack]}=await db.query("SELECT to_regclass('public.idx_single_admin') IS NULL AS clean");
   assert.ok(rolledBack.clean,'Historical constraint escaped transaction');
+  assert.equal((await db.query('SELECT count(*)::int AS count FROM auth.users')).rows[0].count,0,'Final transaction fixtures escaped rollback');
   console.log('Native historical coverage PASS: 167 migrations accounted for, 2 reconciled persistently in local snapshot, 164 exercised and rolled back (7 transaction wrappers adapted, 4 verified no-ops), 1 cron registration not executed');
 
   const fixtures=[];
