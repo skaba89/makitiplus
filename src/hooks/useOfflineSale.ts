@@ -209,14 +209,27 @@ export function useOfflineSale(options?: {
       }
 
       if (isOnline && !queuedAfterNetworkFailure && rpcSaleId) {
-        const { data: sale } = await supabase
-          .from("sales")
-          .select("id, sale_number, payment_method, amount_paid, customer_name, customer_phone, payment_reference")
-          .eq("id", rpcSaleId)
-          .single();
-
-        if (!sale) {
-          throw new Error("Vente créée mais introuvable. Veuillez réessayer.");
+        // The RPC already committed. A failed receipt read must never invite
+        // another payment with a fresh sale number (double sale/stock/debt).
+        let sale: OfflineSaleResult["sale"] = {
+          id: rpcSaleId,
+          sale_number: finalSaleNumber,
+          payment_method: paymentMethod,
+          amount_paid: amountPaid,
+          customer_name: customerName || null,
+          customer_phone: customerPhone || null,
+          payment_reference: paymentReference?.trim() || null,
+        };
+        try {
+          const { data, error } = await supabase
+            .from("sales")
+            .select("id, sale_number, payment_method, amount_paid, customer_name, customer_phone, payment_reference")
+            .eq("id", rpcSaleId)
+            .single();
+          if (!error && data) sale = data;
+          else logger.warn("[OfflineSale] Committed sale receipt unavailable; using submitted details");
+        } catch {
+          logger.warn("[OfflineSale] Committed sale receipt unavailable; using submitted details");
         }
         // No second credit call: if the RPC returned successfully, the customer
         // debt is committed as part of the very same PostgreSQL transaction.
