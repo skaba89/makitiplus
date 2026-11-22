@@ -156,6 +156,9 @@ try {
     ['20260712150000_add_missing_rpc_stubs.sql','9d049357b95734481390861d215e13db9b7081305523b5be98c5fc5bf810088c'],
     ['20260712160000_fix_check_plan_limit_jsonb_pattern.sql','53cf7a996296a737314d8503e62806e6d9c665ba2d61a6b7df356bb0ea63df0c'],
     ['20260712170000_add_description_expiry_isactive_to_products.sql','c59fc589a6de95e8962b9ea3271360aadd3bc09c20c1452e60fc81a075b1ff00'],
+    ['20260712180000_CONSOLIDATED_all_critical_fixes.sql','5db1c7d526bc237c8ba571d4b49d3c84b6b285739cce79869250fe8abe0ae566','outer-transaction'],
+    ['20260712190000_fix_payment_method_enum_cast.sql','b27bc1a1cc34bec554982e6ee8c83475d59fc261f3275ab304367d7a69721c81','outer-transaction'],
+    ['20260712195000_harden_sales_store_scope.sql','1ed8fbc0ff0ab540b70dcfdce1308d1540d57d592638002ab673a5901b21237f','outer-transaction'],
   ];
   assert.deepEqual(numbered.slice(prefix.length,prefix.length+next.length),next.map(([name])=>name));
   const policyState=async()=> (await db.query(`SELECT p.polname, c.relname, p.polcmd, p.polroles,
@@ -168,6 +171,27 @@ try {
     for (const [name,hash,code] of next) {
       const historical=readFileSync(new URL(name,directory),'utf8');
       assert.equal(createHash('sha256').update(historical).digest('hex'),hash);
+      if (code==='outer-transaction') {
+        // Exact, digest-pinned wrappers only: preserve all SQL between them,
+        // while the existing outer transaction provides atomic execution.
+        const boundaries={
+          '20260712180000_CONSOLIDATED_all_critical_fixes.sql':[21,593],
+          '20260712190000_fix_payment_method_enum_cast.sql':[17,176],
+          '20260712195000_harden_sales_store_scope.sql':[32,269],
+        }[name];
+        assert.ok(boundaries,`Unreviewed transaction wrapper: ${name}`);
+        const lines=historical.split('\n');
+        const [start,end]=boundaries.map(n=>n-1);
+        assert.match(lines[start],/^BEGIN;\s*(?:--.*)?$/);
+        assert.equal(lines[end].trim(),'COMMIT;');
+        lines[start]=''; lines[end]='';
+        const body=lines.join('\n');
+        assert.doesNotMatch(body,/^[\t ]*(?:BEGIN|COMMIT|ROLLBACK)\s*;/im);
+        await db.query('SAVEPOINT historical_wrapper');
+        await db.query(body);
+        await db.query('RELEASE SAVEPOINT historical_wrapper');
+        continue;
+      }
       // Do not admit historical files that could close the enclosing rollback.
       assert.doesNotMatch(historical,/^[\t ]*(?:COMMIT|ROLLBACK)\s*;/im,`Explicit transaction boundary in ${name}`);
       if (code==='skip-cron') {
@@ -249,8 +273,10 @@ try {
       pg_get_function_result('public.get_organization_subscription()'::regprocedure)='jsonb' AND
         pg_get_function_result('public.check_feature_access(text)'::regprocedure)='jsonb' AND
         pg_get_function_result('public.check_plan_limit(text)'::regprocedure)='jsonb' AS subscription_json_contract,
-      pg_get_function_result('public.create_sale_with_limit(text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text,numeric)'::regprocedure)='uuid' AND
-        to_regprocedure('public.create_sale_with_limit(text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text)') IS NULL AS discount_sale_contract,
+      pg_get_function_result('public.create_sale_with_limit(text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text,numeric,uuid)'::regprocedure)='uuid' AND
+        to_regprocedure('public.create_sale_with_limit(text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text,numeric)') IS NULL AND
+        to_regprocedure('public.create_sale_with_limit(text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text)') IS NULL AS store_sale_contract,
+      pg_get_function_result('public.create_full_sale(uuid,uuid,text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text,numeric,uuid)'::regprocedure)='uuid' AS full_store_sale_contract,
       pg_get_function_result('public.get_reports_stats(uuid,timestamptz,timestamptz)'::regprocedure)='jsonb' AS reports_contract,
       pg_get_function_result('public.create_product(text,numeric,uuid,text,text,integer,integer,numeric,uuid,uuid,text,text,boolean)'::regprocedure)='uuid' AS product_contract,
       pg_get_function_result('public.create_first_organization(text,text,text,text,text,text)'::regprocedure)='uuid' AS onboarding_text_contract,
@@ -262,7 +288,7 @@ try {
   assert.deepEqual(await policyState(),before,'Historical prefix leaked policy changes');
   const {rows:[rolledBack]}=await db.query("SELECT to_regclass('public.idx_single_admin') IS NULL AS clean");
   assert.ok(rolledBack.clean,'Historical constraint escaped transaction');
-  console.log('Native historical prefix PASS: 93 migrations accounted for, 2 reconciled persistently in local snapshot, 90 exercised and rolled back, 1 cron registration not executed');
+  console.log('Native historical prefix PASS: 96 migrations accounted for, 2 reconciled persistently in local snapshot, 93 exercised and rolled back (3 transaction wrappers adapted), 1 cron registration not executed');
 
   const fixtures=[];
   for (const suffix of ['a','b']) {
