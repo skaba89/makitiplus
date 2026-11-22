@@ -122,35 +122,56 @@ async function testNativeConcurrency(db, dbUrl, tenants) {
     }
     const pid1=(await c1.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
     const pid2=(await c2.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
-    const sale=async c=>(await c.query(
-      "SELECT public.create_credit_sale_atomic('NATIVE-CONCURRENT',100,100,$1::jsonb,p_customer_name=>'Replay customer',p_customer_phone=>'00000001') AS id",
-      [JSON.stringify([{product_id:a.product,product_name:'Replay fixture',quantity:1,unit_price:100,total_price:100}])])).rows[0].id;
-    await c1.query('BEGIN');
-    const winner=await sale(c1);
-    assert.ok(winner);
-    retry=sale(c2).then(id=>({id}),error=>({error}));
-    const deadline=Date.now()+5000;
-    let blocked=false;
-    while (Date.now()<deadline) {
-      const {rows:[lock]}=await db.query('SELECT $1::int = ANY(pg_blocking_pids($2::int)) AS blocked',[pid1,pid2]);
-      if (lock.blocked) { blocked=true; break; }
-      await new Promise(resolve=>setTimeout(resolve,25));
+    const sale=async (c,number,amount=100)=>(await c.query(
+      "SELECT public.create_credit_sale_atomic($1,$2,$2,$3::jsonb,p_customer_name=>'Replay customer',p_customer_phone=>'00000001') AS id",
+      [number,amount,JSON.stringify([{product_id:a.product,product_name:'Replay fixture',quantity:1,unit_price:amount,total_price:amount}])])).rows[0].id;
+    async function race(number,amount=100,rollback=false) {
+      await c1.query('BEGIN');
+      const winner=await sale(c1,number);
+      assert.ok(winner);
+      retry=sale(c2,number,amount).then(id=>({id}),error=>({error}));
+      const deadline=Date.now()+5000;
+      let blocked=false;
+      while (Date.now()<deadline) {
+        const {rows:[lock]}=await db.query('SELECT $1::int = ANY(pg_blocking_pids($2::int)) AS blocked',[pid1,pid2]);
+        if (lock.blocked) { blocked=true; break; }
+        await new Promise(resolve=>setTimeout(resolve,25));
+      }
+      assert.equal(blocked,true,`Native retry must wait: ${number}`);
+      await c1.query(rollback?'ROLLBACK':'COMMIT');
+      const result=await retry;
+      retry=undefined;
+      return {winner,result};
     }
-    assert.equal(blocked,true,'Native retry must wait for the winning transaction');
-    await c1.query('COMMIT');
-    const result=await retry;
-    if (result.error) throw result.error;
-    assert.equal(result.id,winner);
-    const {rows:[state]}=await db.query(`SELECT
-      (SELECT count(*)::int FROM public.sales WHERE sale_number='NATIVE-CONCURRENT') AS sales,
-      (SELECT count(*)::int FROM public.sale_items WHERE sale_id=$1) AS items,
-      (SELECT count(*)::int FROM public.customer_credits WHERE organization_id=$2 AND sale_number='NATIVE-CONCURRENT') AS credits,
+    async function check(number,id,stock,balance) {
+      const {rows:[state]}=await db.query(`SELECT
+      (SELECT count(*)::int FROM public.sales WHERE sale_number=$5) AS sales,
+      (SELECT count(*)::int FROM public.sale_items i JOIN public.sales s ON s.id=i.sale_id WHERE s.sale_number=$5) AS items,
+      (SELECT count(*)::int FROM public.customer_credits WHERE organization_id=$2 AND sale_number=$5) AS credits,
       (SELECT stock_quantity FROM public.products WHERE id=$3) AS stock,
       (SELECT stock_quantity FROM public.products WHERE id=$4) AS foreign_stock,
-      (SELECT total_credit::int FROM public.customers WHERE organization_id=$2 AND phone='00000001') AS balance`,
-      [winner,a.org,a.product,b.product]);
-    assert.deepEqual(state,{sales:1,items:1,credits:1,stock:17,foreign_stock:19,balance:200});
+      (SELECT total_credit::int FROM public.customers WHERE organization_id=$2 AND phone='00000001') AS balance,
+      (SELECT total_amount::int FROM public.sales WHERE id=$1 AND organization_id=$2 AND sale_number=$5) AS amount`,
+      [id,a.org,a.product,b.product,number]);
+      assert.deepEqual(state,{sales:1,items:1,credits:1,stock,foreign_stock:19,balance,amount:100});
+    }
+    const first=await race('NATIVE-CONCURRENT');
+    if (first.result.error) throw first.result.error;
+    assert.equal(first.result.id,first.winner);
+    await check('NATIVE-CONCURRENT',first.winner,17,200);
     console.log('Final committed native schema concurrency PASS: observed lock, one sale, one ledger entry, one stock decrement, scoped balance');
+    // A different amount under the same key must fail after the winner commits.
+    const conflict=await race('NATIVE-CONCURRENT-CONFLICT',200);
+    assert.equal(conflict.result.error?.code,'23505');
+    await check('NATIVE-CONCURRENT-CONFLICT',conflict.winner,16,300);
+    // If the initial writer aborts, the blocked retry must create the sale.
+    const aborted=await race('NATIVE-CONCURRENT-ABORT',100,true);
+    if (aborted.result.error) throw aborted.result.error;
+    assert.ok(aborted.result.id);
+    assert.notEqual(aborted.result.id,aborted.winner);
+    assert.equal((await db.query('SELECT id FROM public.sales WHERE id=$1',[aborted.winner])).rowCount,0);
+    await check('NATIVE-CONCURRENT-ABORT',aborted.result.id,15,400);
+    console.log('Final native conflict and abort PASS: changed amount denied, blocked retry succeeds after rollback, no duplicate ledger or stock movement');
   } finally {
     // End the winner first, releasing its locks before draining the retry.
     await c1.end();
