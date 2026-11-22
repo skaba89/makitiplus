@@ -218,6 +218,12 @@ try {
     ['20260731030000_seller_lists_exclude_non_selling_roles.sql','6109a76c6fc2825cc3ca5e9444ecf9d1455ccd849a31e92000a9bbff9ce3ced2'],
     ['20260801010000_fix_rls_super_admin_hiding_self_defeating_subquery.sql','2a8f304dc99db2c2a5f184ff677c5797220040966fb8ca45564773003fb24265'],
     ['20260801020000_fix_get_categories_missing_icon_color.sql','54bb47af45b0b4868c2e6d39e7345c54f6d71de7c7a8bef2b3afb9d4186819b8'],
+    ['20260807010000_add_get_cash_closing_operators_rpc.sql','a6873ec357a271a2309de5a01c600f04d4238ddaa63e9266e93e8cab44ab67be'],
+    ['20260814010000_add_financial_nonneg_constraints.sql','95a16d30760a033c528feca8a741b6ce0ce79d72791993d3d848e8477a3e78ca'],
+    ['20260912000000_drop_redundant_profiles_select_simple.sql','9d4a941966c654a258a1f25ecfdf38007b98ceed7b78762d82c5d24fe881322f'],
+    ['20261102100000_credit_by_phone_idempotent.sql','c0a6ff76595107fd41d8818be79d5c055845cbc6183cbdbf84a1758432d459cf','outer-transaction'],
+    ['20261103160000_atomic_credit_sale.sql','ee6e24802886ca0001cefd578296afca204a14dd9639edf8a6d0e8988cc12267','outer-transaction'],
+    ['20261121200439_restrict_super_admin_to_explicit_role.sql','111959f0f1fec8e687f59169fee725d3a5625096b0f5808e46f1a684f473281b'],
   ];
   assert.deepEqual(numbered.slice(prefix.length,prefix.length+next.length),next.map(([name])=>name));
   const policyState=async()=> (await db.query(`SELECT p.polname, c.relname, p.polcmd, p.polroles,
@@ -258,6 +264,8 @@ try {
           '20260712195000_harden_sales_store_scope.sql':[32,269],
           '20260713200000_FINAL_CONSOLIDATED_ALL_FIXES.sql':[19,371],
           '20260715200000_CONSOLIDATED_ALL_FIXES.sql':[20,323],
+          '20261102100000_credit_by_phone_idempotent.sql':[35,123],
+          '20261103160000_atomic_credit_sale.sql':[7,173],
         }[name];
         assert.ok(boundaries,`Unreviewed transaction wrapper: ${name}`);
         const lines=historical.split('\n');
@@ -446,8 +454,30 @@ try {
     const {rows:[phoneCredit]}=await db.query(`SELECT prosecdef,prosrc FROM pg_proc WHERE oid='public.increment_customer_credit_by_phone(text,text,numeric,uuid,text)'::regprocedure`);
     assert.ok(phoneCredit.prosecdef);
     assert.match(phoneCredit.prosrc,/ON CONFLICT \(organization_id, phone\)/i);
-    assert.doesNotMatch(phoneCredit.prosrc,/get_user_organization_id|is_member_of_organization/i);
-    console.log('Historical phone credit trusts caller tenant and lacks replay protection; later migrations must remediate. Sale replay guard does not establish caller authorization.');
+    assert.match(phoneCredit.prosrc,/is_member_of_organization\(p_organization_id\)/i);
+    assert.match(phoneCredit.prosrc,/RETURN v_existing_customer_id;/i);
+    assert.match(phoneCredit.prosrc,/EXCEPTION WHEN unique_violation THEN/i);
+    assert.ok(phoneCredit.prosrc.indexOf('INSERT INTO public.customer_credits') < phoneCredit.prosrc.indexOf('UPDATE public.customers'));
+    const {rows:[creditContracts]}=await db.query(`SELECT
+      EXISTS (SELECT 1 FROM pg_index WHERE indexrelid=to_regclass('public.customer_credits_org_sale_number_credit_unique') AND indisunique AND indisvalid AND indpred IS NOT NULL AND indrelid='public.customer_credits'::regclass) AS ledger_unique,
+      NOT has_function_privilege('anon','public.create_credit_sale_atomic(text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text,numeric,uuid,text)','EXECUTE') AND has_function_privilege('authenticated','public.create_credit_sale_atomic(text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text,numeric,uuid,text)','EXECUTE') AS atomic_acl,
+      NOT EXISTS (SELECT 1 FROM pg_policy WHERE polrelid='public.profiles'::regclass AND polname='profiles_select_simple') AS redundant_policy_removed`);
+    for (const [name,passed] of Object.entries(creditContracts)) assert.equal(passed,true,`Credit/security contract: ${name}`);
+    const {rows:[atomicCredit]}=await db.query(`SELECT prosrc,pg_get_function_result(oid) AS result FROM pg_proc WHERE oid='public.create_credit_sale_atomic(text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text,numeric,uuid,text)'::regprocedure`);
+    assert.equal(atomicCredit.result,'uuid');
+    assert.match(atomicCredit.prosrc,/v_user_id IS NULL OR v_org_id IS NULL/i);
+    assert.match(atomicCredit.prosrc,/FOR UPDATE/i);
+    assert.match(atomicCredit.prosrc,/p_payment_method IS DISTINCT FROM 'credit'/i);
+    assert.match(atomicCredit.prosrc,/public\.create_sale_with_limit\(/i);
+    assert.match(atomicCredit.prosrc,/INSERT INTO public\.customer_credits/i);
+    assert.match(atomicCredit.prosrc,/UPDATE public\.customers/i);
+    const {rows:[financial]}=await db.query(`SELECT count(*)::int AS count FROM pg_constraint WHERE contype='c' AND convalidated AND ((conrelid='public.sales'::regclass AND conname IN ('sales_total_amount_nonneg','sales_subtotal_nonneg','sales_amount_paid_nonneg','sales_discount_amount_nonneg','sales_change_amount_nonneg','sales_tax_amount_nonneg')) OR (conrelid='public.sale_items'::regclass AND conname IN ('sale_items_quantity_positive','sale_items_unit_price_nonneg','sale_items_total_price_nonneg','sale_items_cost_price_nonneg')) OR (conrelid='public.expenses'::regclass AND conname='expenses_amount_positive') OR (conrelid='public.products'::regclass AND conname IN ('products_price_nonneg','products_cost_price_nonneg')))`);
+    assert.equal(financial.count,13);
+    const {rows:[operators]}=await db.query(`SELECT prosrc,pg_get_function_result(oid) AS result FROM pg_proc WHERE oid='public.get_cash_closing_operators(uuid)'::regprocedure`);
+    assert.equal(operators.result,'TABLE(user_id uuid, owner_name text)');
+    assert.match(operators.prosrc,/ur\.role IN \('admin', 'manager', 'vendeur'\)/i);
+    assert.match(operators.prosrc,/public\.get_user_organization_id\(\) = p_organization_id/i);
+    console.log('Historical atomic credit and phone-ledger replay guards present; cash operator NULL membership, underlying sale tenant scope and legacy replay payload mismatch remain open findings.');
     const {rows:costFunctions}=await db.query(`SELECT proname, prosecdef, prosrc FROM pg_proc WHERE oid IN (
       'public.get_product_kpis_by_period(text,uuid)'::regprocedure,
       'public.get_seller_kpis_detailed(text,uuid)'::regprocedure,
@@ -518,7 +548,7 @@ try {
   assert.deepEqual(await policyState(),before,'Historical prefix leaked policy changes');
   const {rows:[rolledBack]}=await db.query("SELECT to_regclass('public.idx_single_admin') IS NULL AS clean");
   assert.ok(rolledBack.clean,'Historical constraint escaped transaction');
-  console.log('Native historical prefix PASS: 155 migrations accounted for, 2 reconciled persistently in local snapshot, 152 exercised and rolled back (5 transaction wrappers adapted, 4 verified no-ops), 1 cron registration not executed');
+  console.log('Native historical prefix PASS: 161 migrations accounted for, 2 reconciled persistently in local snapshot, 158 exercised and rolled back (7 transaction wrappers adapted, 4 verified no-ops), 1 cron registration not executed');
 
   const fixtures=[];
   for (const suffix of ['a','b']) {
