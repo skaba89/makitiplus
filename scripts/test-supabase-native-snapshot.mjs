@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { randomUUID, randomBytes, createHash } from 'node:crypto';
 import { Client } from 'pg';
 import { createClient } from '@supabase/supabase-js';
+import { repairHistoricalMigration } from './postgres-replay-repairs.mjs';
 
 // Only a freshly initialized, unlinked local CLI stack is supported.
 const status = JSON.parse(readFileSync(process.argv[2], 'utf8'));
@@ -28,13 +29,38 @@ try {
     (SELECT count(*)=0 FROM auth.users) AS empty,
     (SELECT relrowsecurity FROM pg_class WHERE oid='public.products'::regclass) AS product_rls`);
   assert.ok(Object.values(state).every(Boolean),'Unexpected native snapshot');
-  // Demonstrate the first strict-replay blocker on native SQL, rolling back
-  // regardless of outcome; never execute beyond this known historical boundary.
-  const historical = readFileSync(new URL('../supabase/migrations/20260202072852_917790af-3d14-44e9-bcdd-d88776ced82b.sql',import.meta.url),'utf8');
-  assert.equal(createHash('sha256').update(historical).digest('hex'),'0718e0ba1086a3720da1bc6bd1840e695f0ba25354361a098ea331bc3e166f4a');
-  await db.query('BEGIN');
-  try { await assert.rejects(db.query(historical), {code:'42710'}); }
-  finally { await db.query('ROLLBACK'); }
+  // Reconcile precisely the first two numbered migrations on real Supabase,
+  // using the already-reviewed compatibility repairs. No historical source
+  // edits, migration ledger entries, scheduler or later migration execution.
+  const prefix=[
+    '20260202072852_917790af-3d14-44e9-bcdd-d88776ced82b.sql',
+    '20260207065000_da463d93-5048-43ec-bb39-482bb0ea3ab9.sql',
+  ];
+  const directory=new URL('../supabase/migrations/',import.meta.url);
+  const numbered=readdirSync(directory).filter(n=>/^\d{14}_.+\.sql$/.test(n)).sort();
+  assert.deepEqual(numbered.slice(0,prefix.length),prefix,'Historical prefix changed');
+  const baseline=JSON.parse(readFileSync(new URL('./postgres-replay-known-failures.json',import.meta.url),'utf8'));
+  for (const name of prefix) {
+    const historical=readFileSync(new URL(name,directory),'utf8');
+    const [code,hash]=baseline[name];
+    assert.equal(createHash('sha256').update(historical).digest('hex'),hash);
+    await db.query('BEGIN');
+    try {
+      await db.query('SAVEPOINT original');
+      await assert.rejects(db.query(historical),{code});
+      await db.query('ROLLBACK TO SAVEPOINT original');
+      await repairHistoricalMigration(db,name,historical);
+      await db.query('COMMIT');
+    } catch (error) {
+      await db.query('ROLLBACK');
+      throw error;
+    }
+  }
+  const {rows:[reconciled]}=await db.query(`SELECT NOT EXISTS (SELECT 1 FROM pg_policy
+    WHERE polrelid='public.user_roles'::regclass AND polcmd IN ('a','*')) AS no_role_insert,
+    (SELECT relrowsecurity FROM pg_class WHERE oid='public.customers'::regclass) AS customer_rls,
+    (SELECT relrowsecurity FROM pg_class WHERE oid='public.customer_credits'::regclass) AS credit_rls`);
+  assert.ok(Object.values(reconciled).every(Boolean),'First native repairs did not preserve expected security');
 
   const fixtures=[];
   for (const suffix of ['a','b']) {
@@ -56,7 +82,11 @@ try {
     const result=await fixture.client.from('products').select('id,organization_id');
     assert.ok(!result.error,'Native authenticated Data API query failed');
     assert.deepEqual(result.data,[{id:fixture.product,organization_id:fixture.org}]);
+    const escalate=await fixture.client.from('user_roles').insert({user_id:fixture.user,role:'super_admin'});
+    assert.equal(escalate.error?.code,'42501','Self-role escalation must be denied after reconciliation');
   }
+  const {rows:[roles]}=await db.query("SELECT count(*)::int AS count FROM public.user_roles WHERE role='super_admin'");
+  assert.equal(roles.count,0);
   const denied=await anonymous.from('products').select('id');
   assert.ok((!denied.error && denied.data.length===0) || [401,403].includes(denied.status),'Anonymous product access was not denied');
   // Positive controls plus direct cross-tenant attacks over the real Data API.
@@ -94,5 +124,5 @@ try {
   const {rows:finalRows}=await db.query('SELECT id FROM public.products ORDER BY id');
   assert.deepEqual(finalRows.map(row=>row.id),fixtures.map(f=>f.product).sort());
   console.log('Native Supabase write isolation PASS: positive CRUD, cross-tenant insert/update/delete and reassignment denial, anonymous write denial, SQL state verified');
-  console.log('Native Supabase snapshot PASS: real Auth, PostgREST, two-tenant RLS, anonymous denial; first historical strict-replay blocker reproduced');
+  console.log('Native Supabase snapshot PASS: real Auth, PostgREST, two-tenant RLS, anonymous denial; first two historical collisions reconciled, self-role escalation denied');
 } finally { await db.end(); }
