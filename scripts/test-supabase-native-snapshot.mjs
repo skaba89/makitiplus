@@ -135,6 +135,14 @@ try {
     ['20260706060000_user_activity_tracking.sql','7b9d38795420d73c3e918a459031fb258c6a744d44a213a87947be620dfd5b00'],
     ['20260706100000_create_first_organization_rpc.sql','6518267107dfb5bf7fbe758c454b5fa795dba09afad5ebb4a0058856acdeebc1'],
     ['20260706180000_remove_unsafe_update_organization_subscription.sql','3977aa039c83ed33af269df8a464446929bcb2ccab2f10e4b29bc3bab1397521','42883'],
+    ['20260706190000_enforce_store_limit_in_first_org_rpc.sql','951cb04a17c1979f0ffd9012f5baaca4d9f3eee21ae0b00b79549b444c319052'],
+    ['20260706200000_fix_auth_profile_role_rls.sql','d6a3b3bf06db9a9f1a0794485850d605d6b1141acd3b5d4be1c4aaf1f38c5330'],
+    ['20260707070000_auth_role_profile_bootstrap_safety.sql','b033577d77f47b8c4bea1e211f52e01d6f198157c2e36b0925b4ed7eebff933a'],
+    ['20260708000000_p1_security_fixes.sql','84e8445294088612cf7b4f9b282fdce8c086be4db719aacd9add18c3a4412f4d'],
+    ['20260708010000_p2_security_fixes.sql','344904a26c4675a2ec5dbd1ec702ee177d3206ffb7b65effaaa40958797685db'],
+    ['20260708020000_p3_security_fixes.sql','a973fc203333fd0c9034cf91c2910ccd94eb4ee553177163bccd258b7baa58e3'],
+    ['20260708030000_p3_1_create_update_updated_at_column.sql','33d10cd83ef1c1de9461266ba599035cf5a6e4f3f1a0c04c4cd740704fdbefd5'],
+    ['20260708040000_tenant_isolation_user_roles_profiles.sql','076ea9b899258b0aeb2b8aca5a51ad890efb1331ab65bb90d5898d19c556e3fc'],
   ];
   assert.deepEqual(numbered.slice(prefix.length,prefix.length+next.length),next.map(([name])=>name));
   const policyState=async()=> (await db.query(`SELECT p.polname, c.relname, p.polcmd, p.polroles,
@@ -162,6 +170,21 @@ try {
         await db.query('RELEASE SAVEPOINT original');
       } else await db.query(historical);
     }
+    // Native Supabase may grant EXECUTE directly to anon via default ACLs.
+    // The historical REVOKE FROM PUBLIC does not remove that direct grant.
+    const {rows:[bootstrap]}=await db.query(`SELECT
+      has_function_privilege('anon','public.auth_bootstrap_status()','EXECUTE') AS anon_execute,
+      NOT EXISTS (SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+        WHERE p.oid='public.auth_bootstrap_status()'::regprocedure AND a.grantee=0 AND a.privilege_type='EXECUTE') AS public_revoked`);
+    assert.ok(bootstrap.public_revoked,'Historical bootstrap PUBLIC grant was not revoked');
+    await db.query('SAVEPOINT bootstrap_anon');
+    await db.query('SET LOCAL ROLE anon');
+    await assert.rejects(db.query('SELECT * FROM public.auth_bootstrap_status()'),{code:bootstrap.anon_execute?'P0001':'42501'});
+    await db.query('ROLLBACK TO SAVEPOINT bootstrap_anon');
+    await db.query('RELEASE SAVEPOINT bootstrap_anon');
+    // Prove the explicit remediation in the disposable transaction only.
+    console.log(`Historical bootstrap direct anon EXECUTE: ${bootstrap.anon_execute}`);
+    await db.query('REVOKE EXECUTE ON FUNCTION public.auth_bootstrap_status() FROM anon');
     const {rows:[contracts]}=await db.query(`SELECT
       to_regclass('public.idx_single_admin') IS NULL AS legacy_index_removed,
       public.resolve_stock_conflict(10,7,8)=5 AND public.resolve_stock_conflict(10,0,2)=0 AS stock_delta,
@@ -195,13 +218,23 @@ try {
       to_regprocedure('public.create_first_organization(text,text,text,public.store_category,text,text)') IS NOT NULL AS onboarding_rpc,
       (SELECT relrowsecurity FROM pg_class WHERE oid='public.user_activity_logs'::regclass) AS activity_rls,
       (SELECT count(*)=2 AND bool_and(confdeltype='n' AND convalidated) FROM pg_constraint
-        WHERE conrelid='public.stock_transfers'::regclass AND conname IN ('stock_transfers_from_store_id_fkey','stock_transfers_to_store_id_fkey')) AS transfer_fk`);
-    assert.ok(Object.values(contracts).every(Boolean),'Historical prefix contract mismatch');
+        WHERE conrelid='public.stock_transfers'::regclass AND conname IN ('stock_transfers_from_store_id_fkey','stock_transfers_to_store_id_fkey')) AS transfer_fk,
+      NOT has_function_privilege('anon','public.auth_bootstrap_status()','EXECUTE') AND
+        has_function_privilege('authenticated','public.auth_bootstrap_status()','EXECUTE') AS bootstrap_acl,
+      EXISTS (SELECT 1 FROM pg_policy WHERE polrelid='public.stripe_events'::regclass AND polname='stripe_events_service_role'
+        AND polroles=ARRAY['service_role'::regrole::oid]) AS stripe_service_policy,
+      (SELECT count(*)=2 AND bool_and(relrowsecurity AND relforcerowsecurity) FROM pg_class WHERE oid IN
+        ('public.whatsapp_config'::regclass,'public.whatsapp_message_logs'::regclass)) AS whatsapp_rls,
+      EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='public.user_activity_logs'::regclass AND attname='action' AND atttypid='public.app_activity_action'::regtype AND NOT attisdropped)
+        AND to_regprocedure('public.log_user_activity(text,text,jsonb)') IS NULL AS activity_enum,
+      EXISTS (SELECT 1 FROM pg_policy WHERE polrelid='public.profiles'::regclass AND polname='profiles_select_scoped') AND
+        EXISTS (SELECT 1 FROM pg_policy WHERE polrelid='public.user_roles'::regclass AND polname='user_roles_select_scoped') AS scoped_policies`);
+    for (const [name,passed] of Object.entries(contracts)) assert.equal(passed,true,`Historical prefix contract mismatch: ${name}`);
   } finally { await db.query('ROLLBACK'); }
   assert.deepEqual(await policyState(),before,'Historical prefix leaked policy changes');
   const {rows:[rolledBack]}=await db.query("SELECT to_regclass('public.idx_single_admin') IS NULL AS clean");
   assert.ok(rolledBack.clean,'Historical constraint escaped transaction');
-  console.log('Native historical prefix PASS: 72 migrations accounted for, 2 reconciled persistently in local snapshot, 69 exercised and rolled back, 1 cron registration not executed');
+  console.log('Native historical prefix PASS: 80 migrations accounted for, 2 reconciled persistently in local snapshot, 77 exercised and rolled back, 1 cron registration not executed');
 
   const fixtures=[];
   for (const suffix of ['a','b']) {
