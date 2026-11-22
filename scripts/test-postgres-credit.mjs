@@ -114,11 +114,36 @@ export async function testCreditTransactions(db, connect) {
     await assert.rejects(sale(c1,'SQL-ROLLBACK',pa,100,'Ambiguous',null), /Plusieurs clients/);
     assert.deepEqual(await state(oa,'SQL-ROLLBACK',pa),{sales:0,items:0,credits:0,stock:19});
     // Hold the winning transaction open while the second session submits the same number.
+    // Observe the actual lock dependency rather than assuming that dispatching
+    // an async query proves overlapping transactions.
+    const pid1=(await c1.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    const pid2=(await c2.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    await c2.query("SET statement_timeout = '15s'");
     await c1.query('BEGIN');
-    const winner = await sale(c1,'SQL-CONCURRENT');
-    const retry = sale(c2,'SQL-CONCURRENT');
-    await c1.query('COMMIT');
-    assert.equal(await retry,winner);
+    let retry;
+    try {
+      const winner = await sale(c1,'SQL-CONCURRENT');
+      // Attach rejection handling immediately, even while polling the lock.
+      retry = sale(c2,'SQL-CONCURRENT').then(id=>({id}),error=>({error}));
+      const deadline=Date.now()+5000;
+      let blocked=false;
+      while (Date.now()<deadline) {
+        const {rows:[lock]}=await db.query('SELECT $1::int = ANY(pg_blocking_pids($2::int)) AS blocked',[pid1,pid2]);
+        if (lock.blocked) { blocked=true; break; }
+        await new Promise(resolve=>setTimeout(resolve,25));
+      }
+      assert.equal(blocked,true,'Concurrent credit retry must wait for the winning transaction');
+      await c1.query('COMMIT');
+      const result=await retry;
+      if (result.error) throw result.error;
+      assert.equal(result.id,winner);
+      console.log('Credit concurrency: observed second backend blocked by first, then identical sale ID after commit');
+    } finally {
+      // Release the winner even on assertion failure and drain the pending query.
+      await c1.query('ROLLBACK');
+      if (retry) await retry;
+      await c2.query('RESET statement_timeout');
+    }
     assert.deepEqual(await state(oa,'SQL-CONCURRENT',pa),{sales:1,items:1,credits:1,stock:18});
     const other = await sale(cB,'SQL-CREDIT-1',pb);
     assert.notEqual(other,first);
