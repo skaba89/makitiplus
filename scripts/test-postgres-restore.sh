@@ -33,7 +33,7 @@ FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
 WHERE n.nspname IN ('public','auth','storage') AND c.relkind IN ('r','p')
 ORDER BY n.nspname,c.relname
 \gexec
-SELECT 'policy',schemaname,tablename,policyname,permissive,roles,cmd,qual,with_check FROM pg_policies
+SELECT 'policy',schemaname,tablename,policyname,permissive,(SELECT string_agg(r::text,',' ORDER BY r::text) FROM unnest(roles) r),cmd,qual,with_check FROM pg_policies
 WHERE schemaname IN ('public','auth','storage') ORDER BY schemaname,tablename,policyname;
 SELECT 'constraint',n.nspname,c.relname,k.conname,k.convalidated,pg_get_constraintdef(k.oid)
 FROM pg_constraint k JOIN pg_class c ON c.oid=k.conrelid JOIN pg_namespace n ON n.oid=c.relnamespace
@@ -41,16 +41,16 @@ WHERE n.nspname IN ('public','auth','storage') ORDER BY n.nspname,c.relname,k.co
 SELECT 'index',schemaname,tablename,indexname,indexdef FROM pg_indexes
 WHERE schemaname IN ('public','auth','storage') ORDER BY schemaname,tablename,indexname;
 SELECT 'relation',n.nspname,c.relname,c.relrowsecurity,c.relforcerowsecurity,
-  (SELECT string_agg(a::text,',' ORDER BY a::text) FROM unnest(c.relacl) a)
+  (SELECT string_agg(a::text,',' ORDER BY a::text) FROM unnest(coalesce(c.relacl,acldefault(CASE WHEN c.relkind='S' THEN 's'::"char" ELSE 'r'::"char" END,c.relowner))) a)
 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN ('public','auth','storage') AND c.relkind IN ('r','p','v','m','S') ORDER BY n.nspname,c.relname;
 SELECT 'function',n.nspname,p.proname,pg_get_function_identity_arguments(p.oid),md5(pg_get_functiondef(p.oid)),
-  (SELECT string_agg(a::text,',' ORDER BY a::text) FROM unnest(p.proacl) a)
+  (SELECT string_agg(a::text,',' ORDER BY a::text) FROM unnest(coalesce(p.proacl,acldefault('f',p.proowner))) a)
 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname IN ('public','auth','storage') AND p.prokind IN ('f','p') ORDER BY n.nspname,p.proname,pg_get_function_identity_arguments(p.oid);
 SELECT 'sequence',schemaname,sequencename,last_value FROM pg_sequences
 WHERE schemaname IN ('public','auth','storage') ORDER BY schemaname,sequencename;
 SQL
 }
-fingerprint psql_source > "$work/before"
+fingerprint psql_source | LC_ALL=C sort > "$work/before"
 watermark_before=$(psql_source -c 'SELECT max(created_at)::text FROM public.sales')
 test -n "$watermark_before"
 backup_started=$SECONDS
@@ -61,16 +61,31 @@ restore_started=$SECONDS
 
 # Independent cluster with its own data directory and Unix socket; no TCP
 # listener and no job execution. Only the three known fixture roles exist.
+source_collation=$(psql_source -c 'SELECT datcollate FROM pg_database WHERE datname=current_database()')
+source_ctype=$(psql_source -c 'SELECT datctype FROM pg_database WHERE datname=current_database()')
+test -n "$source_collation" && test -n "$source_ctype"
+test "$(psql_source -c "SELECT datlocprovider='c' FROM pg_database WHERE datname=current_database()")" = t
 initdb -D "$work/cluster" -U postgres --auth=trust --encoding=UTF8 \
-  --locale="$(psql_source -c 'SHOW lc_collate')" --lc-ctype="$(psql_source -c 'SHOW lc_ctype')" >/dev/null
+  --locale-provider=libc --locale="$source_collation" --lc-ctype="$source_ctype" >/dev/null
 pg_ctl -D "$work/cluster" -l "$work/server.log" -o "-p 55433 -k $work -c listen_addresses='' -c shared_preload_libraries=pg_cron -c cron.launch_active_jobs=off" -w start >/dev/null
 started=1
 test "$(psql_target -c "SELECT current_setting('cron.launch_active_jobs')='off' AND to_regnamespace('auth') IS NULL")" = t
 psql_target -c 'CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN; CREATE ROLE service_role NOLOGIN BYPASSRLS;'
 pg_restore "${target_db[@]}" --exit-on-error --single-transaction --no-password "$work/backup.dump"
 
-fingerprint psql_target > "$work/after"
-cmp -s "$work/before" "$work/after" || { echo 'Restore fingerprint mismatch (details suppressed)' >&2; exit 1; }
+fingerprint psql_target | LC_ALL=C sort > "$work/after"
+if ! cmp -s "$work/before" "$work/after"; then
+  echo 'Restore fingerprint mismatch (object names only):' >&2
+  # Show catalog keys, never row values, function bodies or ACL contents.
+  LC_ALL=C comm -3 "$work/before" "$work/after" | awk -F '|' '
+    { side=(substr($0,1,1)=="\t"?"restored":"source"); sub(/^\t/,"",$1); }
+    $1 ~ /^(policy|constraint|index)$/ {print side, $1, $2, $3, $4; next}
+    $1 ~ /^(relation|function|sequence)$/ {print side, $1, $2, $3; next}
+    $1 ~ /^(public|auth|storage)\.[a-zA-Z0-9_]+$/ {print side, "table", $1; next}
+    {print side, "unclassified fingerprint"}
+  ' >&2
+  exit 1
+fi
 watermark_after=$(psql_target -c 'SELECT max(created_at)::text FROM public.sales')
 test "$watermark_before" = "$watermark_after"
 test "$(psql_target -c "SELECT current_setting('cron.launch_active_jobs')='off' AND to_regnamespace('net') IS NULL AND NOT EXISTS (SELECT 1 FROM cron.job) AND NOT EXISTS (SELECT 1 FROM cron.job_run_details)")" = t
