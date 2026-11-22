@@ -179,6 +179,10 @@ try {
     ['20260715100000_hide_super_admin_from_org_admins.sql','af7b6639e177250bd5fabb429014ede0767932e13e26a7e95cb48243e19155f0'],
     ['20260715110000_fix_login_broken_by_rls.sql','2dcb1829d16f2f13ee20f3fc8ffb48ba4c6f6a288e785a1886fcb4c7dcf2222e'],
     ['20260715120000_emergency_login_fix.sql','b6eec7a71d79cad7948a23625cd0a7ae4d1e5dcd201674d034a9c218b360923f','42804'],
+    ['20260715200000_CONSOLIDATED_ALL_FIXES.sql','c86784f3e2c4614333b40cfafd7a9349855cdc2548301d4a8c0c9db9cce8c8e9','outer-transaction'],
+    ['20260716100000_admin_analytics_advanced_rpcs.sql','e9b40e5b1387c59166ffcd5bab0deed49b8a518edc4689866cfa1be615cf8eec'],
+    ['20260716120000_super_admin_rls_all_tables.sql','6adfed9213d197f4d176fe15bd4711820fa4416f67f72e65c2b69c001f7d1ebb'],
+    ['20260719100000_security_fixes_audit.sql','9c2d340376285854fd7260481bd98264b0d7eac66b153172a2a57c26fe3f193c'],
   ];
   assert.deepEqual(numbered.slice(prefix.length,prefix.length+next.length),next.map(([name])=>name));
   const policyState=async()=> (await db.query(`SELECT p.polname, c.relname, p.polcmd, p.polroles,
@@ -191,6 +195,14 @@ try {
     for (const [name,hash,code] of next) {
       const historical=readFileSync(new URL(name,directory),'utf8');
       assert.equal(createHash('sha256').update(historical).digest('hex'),hash);
+      if (name==='20260715200000_CONSOLIDATED_ALL_FIXES.sql') {
+        const {rows:[state]}=await db.query(`SELECT NOT EXISTS (SELECT 1 FROM public.stores) AS stores_empty,
+          NOT EXISTS (SELECT 1 FROM public.organizations) AS organizations_empty,
+          NOT EXISTS (SELECT 1 FROM public.profiles) AS profiles_empty,
+          NOT EXISTS (SELECT 1 FROM public.user_roles) AS roles_empty,
+          NOT EXISTS (SELECT 1 FROM auth.users) AS users_empty`);
+        assert.ok(Object.values(state).every(Boolean),'Historical consolidated identity/cleanup requires empty fixture data');
+      }
       if (name==='20260715090000_fix_duplicate_store_on_org_creation.sql') {
         const {rows:[state]}=await db.query(`SELECT NOT EXISTS (SELECT 1 FROM public.stores) AS stores_empty,
           NOT EXISTS (SELECT 1 FROM public.organizations) AS organizations_empty`);
@@ -204,6 +216,7 @@ try {
           '20260712190000_fix_payment_method_enum_cast.sql':[17,176],
           '20260712195000_harden_sales_store_scope.sql':[32,269],
           '20260713200000_FINAL_CONSOLIDATED_ALL_FIXES.sql':[19,371],
+          '20260715200000_CONSOLIDATED_ALL_FIXES.sql':[20,323],
         }[name];
         assert.ok(boundaries,`Unreviewed transaction wrapper: ${name}`);
         const lines=historical.split('\n');
@@ -216,6 +229,12 @@ try {
         await db.query('SAVEPOINT historical_wrapper');
         await db.query(body);
         await db.query('RELEASE SAVEPOINT historical_wrapper');
+        if (name==='20260715200000_CONSOLIDATED_ALL_FIXES.sql') {
+          const {rows:[state]}=await db.query(`SELECT prosrc FROM pg_proc WHERE oid='public.is_super_admin()'::regprocedure`);
+          assert.match(state.prosrc,/owner_user_id/,'Historical owner fallback changed; reassess finding');
+          console.log('Historical consolidated helper reintroduces owner privilege fallback (P0); restoring explicit role in rollback probe');
+          await db.query(readFileSync(new URL('20261121200439_restrict_super_admin_to_explicit_role.sql',directory),'utf8'));
+        }
         continue;
       }
       // Do not admit historical files that could close the enclosing rollback.
@@ -324,9 +343,13 @@ try {
       (SELECT count(*)=12 AND bool_and(polroles=ARRAY['authenticated'::regrole::oid] AND
         CASE WHEN polcmd='a' THEN polwithcheck IS NOT NULL ELSE polqual IS NOT NULL END)
         FROM pg_policy WHERE polrelid IN ('public.suppliers'::regclass,'public.expenses'::regclass,'public.customers'::regclass)
-        AND polname IN ('suppliers_select_own_org','suppliers_insert_own_org','suppliers_update_own_org','suppliers_delete_own_org',
-          'expenses_select_own_org','expenses_insert_own_org','expenses_update_own_org','expenses_delete_own_org',
-          'customers_select_own_org','customers_insert_own_org','customers_update_own_org','customers_delete_own_org')) AS business_policy_catalog,
+        AND polname IN ('suppliers_select_own_org','suppliers_insert_scoped','suppliers_update_scoped','suppliers_delete_scoped',
+          'expenses_select_own_org','expenses_insert_scoped','expenses_update_scoped','expenses_delete_scoped',
+          'customers_select_own_org','customers_insert_scoped','customers_update_scoped','customers_delete_scoped')) AS business_policy_catalog,
+      EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public.products'::regclass AND conname='products_stock_quantity_nonneg' AND convalidated) AS stock_nonnegative,
+      to_regprocedure('public.has_role(uuid,text)') IS NOT NULL AS text_role_helper,
+      (SELECT count(*)=5 AND bool_and(proretset) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN
+        ('get_admin_users_per_org','get_admin_seller_performance','get_admin_org_kpis','get_admin_global_kpis','get_admin_product_ranking_detailed')) AS admin_analytics_contract,
       (SELECT count(*)=8 FROM pg_attribute WHERE attrelid='public.suppliers'::regclass AND NOT attisdropped AND
         attname IN ('city','country','notes','email','address','phone','is_active','store_id')) AS supplier_columns,
       EXISTS (SELECT 1 FROM public.plans WHERE id='pilot_national' AND has_supplier_management AND has_offline_advanced AND has_loyalty_program) AS pilot_features,
@@ -359,7 +382,7 @@ try {
   assert.deepEqual(await policyState(),before,'Historical prefix leaked policy changes');
   const {rows:[rolledBack]}=await db.query("SELECT to_regclass('public.idx_single_admin') IS NULL AS clean");
   assert.ok(rolledBack.clean,'Historical constraint escaped transaction');
-  console.log('Native historical prefix PASS: 116 migrations accounted for, 2 reconciled persistently in local snapshot, 113 exercised and rolled back (4 transaction wrappers adapted, 4 verified no-ops), 1 cron registration not executed');
+  console.log('Native historical prefix PASS: 120 migrations accounted for, 2 reconciled persistently in local snapshot, 117 exercised and rolled back (5 transaction wrappers adapted, 4 verified no-ops), 1 cron registration not executed');
 
   const fixtures=[];
   for (const suffix of ['a','b']) {
