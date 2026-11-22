@@ -94,6 +94,22 @@ try {
     ['20260702010001_add_suppliers_table.sql','7cdf1d5723b3e33cb105df93fd66bb6b0e260cda3465412de00a94bec32ed3b9'],
     ['20260702020000_race_condition_fixes.sql','02b55a5afed0e16e34dfd93d7148550a85d5b3a064af8dcff0924819ebab128e'],
     ['20260702030000_dashboard_rpc_aggregation.sql','de0096caf6115b127f37d27afafdb4739606cc0a5b5a3a930f2a2121646c51b5'],
+    ['20260702040000_data_correctness_and_performance.sql','fb31ad93c4022ee3f6ab68e969d58102ef0dbb40f96a730cb2f9394d93d5d40a'],
+    ['20260702050000_org_scoping_and_shared_hooks.sql','c3e772d694939dc980d083bebb6e90e3d708750b9830c6b4fd55726d6a6f2d73'],
+    ['20260702060000_add_suppliers_and_supplier_products.sql','9fc6f09a1076f19c21c3dd8f92e3d1c47b7ff5a59f7b717117b5ceea0def3702'],
+    ['20260702070000_admin_multi_store_analytics.sql','135901a4190738f054740212f57a897f08f3776b76d9165224f36a3fdd9e02ed'],
+    ['20260702080000_security_hardening_rpc.sql','00785fd8351a1871dff0aaf58bbb1da7d051971cc597ff4ef84b1b7ce32d97e1'],
+    ['20260702090000_p0_security_remove_client_identity_params.sql','d0cd23a9aa393908e68f5b98d41a5bb1801c8a8e29e807f4e457b79cbed8b9e7'],
+    ['20260702100000_fix_register_user_first_admin.sql','c5e56300a0c2e0b9228208b947a55b2748cce6a583188674e6fd5622e0b85aa7'],
+    ['20260702110000_saas_foundation_plans_subscriptions.sql','efc9d2e48cf980f2b2bed35e954272a66c82b56220ceceef7b96459ca01cb43b'],
+    ['20260702120000_multi_store_support.sql','b297862fd6fb072685a4ab15d9a0be78694dafe444982830fb2b4b4a7a660ec2'],
+    ['20260702130000_fix_subscription_events_and_lifecycle.sql','4823d6b73e82c821bc0db886491f4afee6dba961f213696f32b723a299ca8448'],
+    ['20260702130001_purchase_orders.sql','a89db37c0cbc96bdbe319678b909d745b3abcfe11938f3bf05c8d03a8685b787'],
+    ['20260702140000_saas_metrics_rpcs.sql','92d93a7791bf3bf78c5a9f65a014103d44c9fce1fb75cafe4f10c85c701e3f2c'],
+    ['20260702150000_onboarding_premium.sql','beba0b94a141173dab78891102c7535b0e7f871f6e58c20d1884774256e4fd4c'],
+    ['20260702160000_stock_transfers.sql','5cad38a80b1625f33614a287d1258304ee9bbf869c680e815643853a3b5b0689'],
+    ['20260702170000_smart_restock_suggestions.sql','fa720ff96323ef3c970b4178a3fa4a47b1a6e124b64fb254ad6be6fd59e63973'],
+    ['20260702180000_loyalty_program.sql','e9d600919cd856a128042a10c3ba2714e6746ecbc64a97a8311a67361cafce16'],
   ];
   assert.deepEqual(numbered.slice(prefix.length,prefix.length+next.length),next.map(([name])=>name));
   const policyState=async()=> (await db.query(`SELECT p.polname, c.relname, p.polcmd, p.polroles,
@@ -133,14 +149,19 @@ try {
       (SELECT relrowsecurity FROM pg_class WHERE oid='public.suppliers'::regclass) AS supplier_rls,
       EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='suppliers') AS supplier_realtime,
       EXISTS (SELECT 1 FROM pg_policy WHERE polrelid='storage.objects'::regclass AND polname='org_admins_upload_logos') AS logo_policy,
-      to_regprocedure('public.adjust_product_stock(uuid,text,integer,text,uuid,uuid)') IS NOT NULL AS adjust_stock,
-      to_regprocedure('public.get_dashboard_stats(uuid,timestamptz,timestamptz,timestamptz,timestamptz)') IS NOT NULL AS dashboard`);
+      to_regprocedure('public.adjust_product_stock(uuid,text,integer,text)') IS NOT NULL AND
+        to_regprocedure('public.adjust_product_stock(uuid,text,integer,text,uuid,uuid)') IS NULL AS adjust_stock,
+      to_regprocedure('public.get_dashboard_stats(timestamptz,timestamptz,timestamptz,timestamptz)') IS NOT NULL AND
+        to_regprocedure('public.get_dashboard_stats(uuid,timestamptz,timestamptz,timestamptz,timestamptz)') IS NULL AS dashboard,
+      (SELECT count(*)=6 AND bool_and(relrowsecurity) FROM pg_class WHERE oid IN
+        ('public.stores'::regclass,'public.subscriptions'::regclass,'public.purchase_orders'::regclass,
+         'public.stock_transfers'::regclass,'public.loyalty_accounts'::regclass,'public.loyalty_transactions'::regclass)) AS business_rls`);
     assert.ok(Object.values(contracts).every(Boolean),'Historical prefix contract mismatch');
   } finally { await db.query('ROLLBACK'); }
   assert.deepEqual(await policyState(),before,'Historical prefix leaked policy changes');
   const {rows:[rolledBack]}=await db.query("SELECT to_regclass('public.idx_single_admin') IS NULL AS clean");
   assert.ok(rolledBack.clean,'Historical constraint escaped transaction');
-  console.log('Native historical prefix PASS: 31 migrations accounted for, 2 reconciled persistently in local snapshot, 28 exercised and rolled back, 1 cron registration not executed');
+  console.log('Native historical prefix PASS: 47 migrations accounted for, 2 reconciled persistently in local snapshot, 44 exercised and rolled back, 1 cron registration not executed');
 
   const fixtures=[];
   for (const suffix of ['a','b']) {
