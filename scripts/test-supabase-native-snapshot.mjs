@@ -194,6 +194,12 @@ try {
     ['20260720130000_fix_kpi_rpcs_sale_items_fanout.sql','5f59d5ce16d149c05175f251967605f712b3304b6b7ab793e01d4735b564b29a'],
     ['20260720140000_fix_admin_kpis_fanout_and_bad_column.sql','ebe19e089a7961f6107decb0ccd3ff3e4ad27830be34d564f30248946c6a129e'],
     ['20260720150000_fix_create_full_sale_orphaned_overload.sql','03ac4e627e04918967b3fc01b5d13fa1375de9d78670623f8d161a4f970d9b2c'],
+    ['20260720151000_OPTIONAL_backfill_sale_items_cost_price.sql','6d9313da69ecc9ac7d12760f15dc6919bf145a4080972b63cc92c7ecc336f24e'],
+    ['20260720160000_reassert_hide_super_admin_from_audit_log.sql','5c69d689b97b552c8ff57be97be97d9035f71c4b0660fb2c0733433a42c841fd'],
+    ['20260720170000_document_live_receive_purchase_order.sql','8eb1ede146fdb4370c2f6b3cd59d51c6b0f34449f50a65eef28d626c53823b4a'],
+    ['20260720180000_document_live_generate_order_number.sql','638c621cc0bf7c88dd81424354d8cc195791ad35efc01794d524ae4bda3d2a18'],
+    ['20260722100000_document_live_p1_2_drift_functions.sql','e4c97c2d0a997fb565ed399202f59ffeec1d2c7795952b31711c6dbd060ffb60'],
+    ['20260722110000_fix_admin_product_ranking_rownumber.sql','7a30ef8355b911c7baa64c3037505324c58731fdd86511ef839b744e6fb5cd9f'],
   ];
   assert.deepEqual(numbered.slice(prefix.length,prefix.length+next.length),next.map(([name])=>name));
   const policyState=async()=> (await db.query(`SELECT p.polname, c.relname, p.polcmd, p.polroles,
@@ -206,6 +212,12 @@ try {
     for (const [name,hash,code] of next) {
       const historical=readFileSync(new URL(name,directory),'utf8');
       assert.equal(createHash('sha256').update(historical).digest('hex'),hash);
+      if (name==='20260720151000_OPTIONAL_backfill_sale_items_cost_price.sql') {
+        const executable=historical.replace(/^\s*--[^\n]*$/gm,'').trim();
+        assert.match(executable,/^SELECT\b/i);
+        assert.equal(executable.split(';').filter(s=>s.trim()).length,1);
+        assert.doesNotMatch(executable,/\b(UPDATE|INSERT|DELETE|TRUNCATE)\b/i);
+      }
       if (name==='20260715200000_CONSOLIDATED_ALL_FIXES.sql') {
         const {rows:[state]}=await db.query(`SELECT NOT EXISTS (SELECT 1 FROM public.stores) AS stores_empty,
           NOT EXISTS (SELECT 1 FROM public.organizations) AS organizations_empty,
@@ -322,7 +334,11 @@ try {
          'public.customer_credits'::regclass,'public.subscriptions'::regclass,'public.backups'::regclass)) AS forced_rls,
       to_regprocedure('public.admin_update_organization_subscription(uuid,text,text,text,text)') IS NOT NULL AS manual_subscription_rpc,
       to_regprocedure('public.check_feature_access(text)') IS NOT NULL AND to_regprocedure('public.check_plan_limit(text)') IS NOT NULL AS plan_checks,
-      to_regprocedure('public.update_organization_subscription(text,text,text)') IS NULL AS unsafe_subscription_absent,
+      pg_get_function_result('public.update_organization_subscription(text,text,text)'::regprocedure)='jsonb' AND
+        pg_get_function_result('public.select_plan(text)'::regprocedure)='uuid' AND
+        pg_get_function_result('public.ensure_user_has_organization(text)'::regprocedure)='uuid' AS historical_subscription_drift,
+      pg_get_function_result('public.receive_purchase_order(uuid,jsonb,text)'::regprocedure)='void' AND
+        pg_get_function_result('public.generate_order_number(text)'::regprocedure)='text' AS purchase_order_drift,
       to_regprocedure('public.create_first_organization(text,text,text,public.store_category,text,text)') IS NULL AS obsolete_onboarding_rpc_absent,
       (SELECT relrowsecurity FROM pg_class WHERE oid='public.user_activity_logs'::regclass) AS activity_rls,
       (SELECT count(*)=2 AND bool_and(confdeltype='n' AND convalidated) FROM pg_constraint
@@ -408,11 +424,27 @@ try {
       if (['get_seller_kpis_detailed','get_enhanced_dashboard_stats'].includes(f.proname)) assert.match(f.prosrc,/sale_items_agg AS/i);
     }
     console.log('Historical KPI scope now derives tenant for ordinary callers; NULL tenant remains an open fail-open risk. Orphan sale overload removed; stock scope still open.');
+    const {rows:[ranking]}=await db.query(`SELECT prosrc FROM pg_proc WHERE oid='public.get_admin_product_ranking_detailed(text,uuid,integer)'::regprocedure`);
+    assert.match(ranking.prosrc,/ranked AS \(/i);
+    assert.match(ranking.prosrc,/WHERE r\.rank_top <= p_limit/i);
+    assert.match(ranking.prosrc,/WHERE s2\.created_at >= v_start_date/i);
+    assert.match(ranking.prosrc,/pr\.stock_quantity::NUMERIC/i);
+    const {rows:[audit]}=await db.query(`SELECT pg_get_expr(polqual,polrelid) AS predicate FROM pg_policy WHERE polrelid='public.user_audit_log'::regclass AND polname='admins_view_audit_log'`);
+    assert.match(audit.predicate,/get_user_organization_id/);
+    assert.match(audit.predicate,/super_admin/);
+    const {rows:[receipt]}=await db.query(`SELECT prosrc FROM pg_proc WHERE oid='public.receive_purchase_order(uuid,jsonb,text)'::regprocedure`);
+    assert.match(receipt.prosrc,/organization_id = v_org_id/);
+    assert.match(receipt.prosrc,/SET status = 'received'/);
+    const {rows:[plan]}=await db.query(`SELECT prosecdef,prosrc FROM pg_proc WHERE oid='public.update_organization_subscription(text,text,text)'::regprocedure`);
+    assert.ok(plan.prosecdef);
+    assert.match(plan.prosrc,/auth\.uid\(\)/);
+    assert.doesNotMatch(plan.prosrc,/has_role|is_super_admin/);
+    console.log('Historical subscription self-service RPC restored without role guard; receipt replay and numbering concurrency remain open P0 findings.');
   } finally { await db.query('ROLLBACK'); }
   assert.deepEqual(await policyState(),before,'Historical prefix leaked policy changes');
   const {rows:[rolledBack]}=await db.query("SELECT to_regclass('public.idx_single_admin') IS NULL AS clean");
   assert.ok(rolledBack.clean,'Historical constraint escaped transaction');
-  console.log('Native historical prefix PASS: 131 migrations accounted for, 2 reconciled persistently in local snapshot, 128 exercised and rolled back (5 transaction wrappers adapted, 4 verified no-ops), 1 cron registration not executed');
+  console.log('Native historical prefix PASS: 137 migrations accounted for, 2 reconciled persistently in local snapshot, 134 exercised and rolled back (5 transaction wrappers adapted, 4 verified no-ops), 1 cron registration not executed');
 
   const fixtures=[];
   for (const suffix of ['a','b']) {
