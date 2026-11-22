@@ -176,7 +176,10 @@ These results concern a PostgreSQL compatibility reconstruction, not a full nati
 - PR #160 passed all three workflows (CI run 45070477827), proving actual lock dependency in the disposable compatibility cluster.
 - Add a second fresh, unlinked native CI stack; preserve the original rollback and Auth/PostgREST checks. Only after final catalog and sequential transaction checks, commit the reconstructed schema and synthetic fixtures in the second stack, verify no cron jobs, and test two distinct authenticated connections with observed blocking, identical sale ID, one stock decrement and one credit ledger row. Stop the stack without backup. Pending native CI; real production and strict migration reconstruction remain unvalidated.
 
-1. Extend committed native tests to rollback of the winning transaction and changed-payload concurrent retries; store-level product scope and cash replay payload validation remain open.
+- PR #161 passed all three workflows (native run 45071524251), with observed blocking in the committed native reconstruction and verified single ledger, stock delta and customer balance.
+- Extend the committed native concurrency test to two additional races: changed amount rejected with SQLSTATE 23505 after the first writer commits, and blocked retry succeeds after the first writer rolls back. Verify the abandoned sale ID is absent, the committed amount and cumulative balance are correct, and both tenants' stocks remain accurate. Pending CI.
+
+1. Close store-level product scope and cash replay payload validation; exercise final-schema PostgREST on the isolated committed reconstruction.
 2. Resolve historical prerequisites, duplicate definitions and return-type changes without altering deployed migration history; shrink the baseline with evidence.
 3. Validate full platform extensions and complete schema reconstruction on local Supabase, then remove the baseline and enforce strict mode.
 4. Perform the isolated staging backup/restore drill and record RTO/RPO.
