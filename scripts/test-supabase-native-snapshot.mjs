@@ -101,6 +101,46 @@ async function testFinalTransactions(db) {
   assert.deepEqual(await state(a,'NATIVE-CASH'),{sales:1,items:1,credits:0,stock:18});
   assert.deepEqual(await state(b,'NATIVE-CASH'),{sales:0,items:0,credits:0,stock:19});
   console.log('Final native schema cash PASS: mixed basket rollback, foreign product and negative quantity denial, private helper denial, repeated cash sale');
+  // Diagnose the remaining P0 and exercise a candidate guard WITHOUT
+  // committing it or changing historical migration files. Restore the exact
+  // original definition and fixture state even in committed replay mode.
+  await db.query('SAVEPOINT store_scope_probe');
+  try {
+    const store1=randomUUID(),store2=randomUUID();
+    await db.query("INSERT INTO public.stores(id,organization_id,name,slug) VALUES ($1,$3,'Replay A','replay-a'),($2,$3,'Replay B','replay-b')",[store1,store2,a.org]);
+    await db.query('UPDATE public.products SET store_id=$1 WHERE id=$2',[store2,a.product]);
+    const scopedCash=(number,store)=>()=>db.query('SELECT public.create_sale_with_limit($1,100,100,$2::jsonb,p_store_id=>$3) AS id',
+      [number,JSON.stringify([item(a.product)]),store]);
+    await db.query('SAVEPOINT vulnerable_sale');
+    const unsafe=(await asTenant(a,scopedCash('NATIVE-STORE-PROBE',store1))).rows[0].id;
+    assert.ok(unsafe);
+    assert.deepEqual(await state(a,'NATIVE-STORE-PROBE'),{sales:1,items:1,credits:0,stock:17});
+    assert.equal((await db.query('SELECT store_id FROM public.sales WHERE id=$1',[unsafe])).rows[0].store_id,store1);
+    await db.query('ROLLBACK TO SAVEPOINT vulnerable_sale');
+    await db.query('RELEASE SAVEPOINT vulnerable_sale');
+    console.log('OPEN P0: reproduced same-organization cross-store stock decrement; reverted probe');
+    const signature='public.create_full_sale(uuid,uuid,text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text,numeric,uuid,text)';
+    const {rows:[definition]}=await db.query('SELECT pg_get_functiondef($1::regprocedure) AS sql',[signature]);
+    const readPredicate='AND organization_id = p_organization_id;';
+    const writePredicate='AND organization_id = p_organization_id AND stock_quantity >=';
+    assert.equal(definition.sql.split(readPredicate).length,2);
+    assert.equal(definition.sql.split(writePredicate).length,2);
+    const candidate=definition.sql
+      .replace(readPredicate,'AND organization_id = p_organization_id AND store_id IS NOT DISTINCT FROM v_resolved_store_id;')
+      .replace(writePredicate,'AND organization_id = p_organization_id AND store_id IS NOT DISTINCT FROM v_resolved_store_id AND stock_quantity >=');
+    await db.query(candidate);
+    await asTenant(a,scopedCash('NATIVE-STORE-PROBE',store1),{code:'42501'});
+    assert.deepEqual(await state(a,'NATIVE-STORE-PROBE'),{sales:0,items:0,credits:0,stock:18});
+    const legitimate=(await asTenant(a,scopedCash('NATIVE-STORE-OWN',store2))).rows[0].id;
+    assert.ok(legitimate);
+    assert.deepEqual(await state(a,'NATIVE-STORE-OWN'),{sales:1,items:1,credits:0,stock:17});
+    console.log('Candidate store guard PASS: mismatched store denied, matching store succeeds; not a deployed fix');
+  } finally {
+    await db.query('ROLLBACK TO SAVEPOINT store_scope_probe');
+    await db.query('RELEASE SAVEPOINT store_scope_probe');
+  }
+  assert.deepEqual(await state(a,'NATIVE-STORE-PROBE'),{sales:0,items:0,credits:0,stock:18});
+  assert.deepEqual(await state(a,'NATIVE-STORE-OWN'),{sales:0,items:0,credits:0,stock:18});
   return tenants;
 }
 
