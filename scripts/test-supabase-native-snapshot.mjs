@@ -104,6 +104,15 @@ async function testFinalTransactions(db) {
   assert.deepEqual(await state(a,'NATIVE-CASH'),{sales:1,items:1,credits:0,stock:18});
   assert.deepEqual(await state(b,'NATIVE-CASH'),{sales:0,items:0,credits:0,stock:19});
   console.log('Final native schema cash PASS: mixed basket rollback, foreign product and negative quantity denial, private helper denial, repeated cash sale');
+  // P0 diagnostic only: the existing cash replay path accepts a changed
+  // amount or foreign basket under an existing key. Keep this explicit until
+  // a forward migration replaces the diagnostic with rejection assertions.
+  assert.equal(await asTenant(a,cash('NATIVE-CASH',[item(a.product,2)],200)),cashId);
+  assert.equal(await asTenant(a,cash('NATIVE-CASH',[item(b.product)])),cashId);
+  assert.deepEqual(await state(a,'NATIVE-CASH'),{sales:1,items:1,credits:0,stock:18});
+  assert.deepEqual(await state(b,'NATIVE-CASH'),{sales:0,items:0,credits:0,stock:19});
+  console.warn('P0 OPEN: cash replay accepts changed amount/basket and foreign product under existing sale number');
+
   // Permanent regression on the actual forward migration. Roll back only
   // synthetic store mutations, not the migration definition.
   await db.query('SAVEPOINT store_scope_probe');
@@ -179,11 +188,14 @@ async function testNativeConcurrency(db, dbUrl, tenants) {
     const sale=async (c,number,amount=100)=>(await c.query(
       "SELECT public.create_credit_sale_atomic($1,$2,$2,$3::jsonb,p_customer_name=>'Replay customer',p_customer_phone=>'00000001') AS id",
       [number,amount,JSON.stringify([{product_id:a.product,product_name:'Replay fixture',quantity:1,unit_price:amount,total_price:amount}])])).rows[0].id;
-    async function race(number,amount=100,rollback=false) {
+    const cash=async (c,number,amount=100)=>(await c.query(
+      'SELECT public.create_sale_with_limit($1,$2,$2,$3::jsonb) AS id',
+      [number,amount,JSON.stringify([{product_id:a.product,product_name:'Replay fixture',quantity:1,unit_price:amount,total_price:amount}])])).rows[0].id;
+    async function race(number,amount=100,rollback=false,write=sale) {
       await c1.query('BEGIN');
-      const winner=await sale(c1,number);
+      const winner=await write(c1,number);
       assert.ok(winner);
-      retry=sale(c2,number,amount).then(id=>({id}),error=>({error}));
+      retry=write(c2,number,amount).then(id=>({id}),error=>({error}));
       const deadline=Date.now()+5000;
       let blocked=false;
       while (Date.now()<deadline) {
@@ -226,6 +238,29 @@ async function testNativeConcurrency(db, dbUrl, tenants) {
     assert.equal((await db.query('SELECT id FROM public.sales WHERE id=$1',[aborted.winner])).rowCount,0);
     await check('NATIVE-CONCURRENT-ABORT',aborted.result.id,15,400);
     console.log('Final native conflict and abort PASS: changed amount denied, blocked retry succeeds after rollback, no duplicate ledger or stock movement');
+    async function checkCash(number,id,stock) {
+      const {rows:[state]}=await db.query(`SELECT
+        (SELECT count(*)::int FROM public.sales WHERE organization_id=$2 AND sale_number=$3) AS sales,
+        (SELECT count(*)::int FROM public.sale_items WHERE sale_id=$1) AS items,
+        (SELECT count(*)::int FROM public.customer_credits WHERE organization_id=$2 AND sale_number=$3) AS credits,
+        (SELECT stock_quantity FROM public.products WHERE id=$4) AS stock,
+        (SELECT stock_quantity FROM public.products WHERE id=$5) AS foreign_stock,
+        (SELECT total_credit::int FROM public.customers WHERE organization_id=$2 AND phone='00000001') AS balance,
+        (SELECT total_amount::int FROM public.sales WHERE id=$1 AND organization_id=$2 AND sale_number=$3) AS amount`,
+        [id,a.org,number,a.product,b.product]);
+      assert.deepEqual(state,{sales:1,items:1,credits:0,stock,foreign_stock:19,balance:400,amount:100});
+    }
+    const cashReplay=await race('NATIVE-CASH-CONCURRENT',100,false,cash);
+    if (cashReplay.result.error) throw cashReplay.result.error;
+    assert.equal(cashReplay.result.id,cashReplay.winner);
+    await checkCash('NATIVE-CASH-CONCURRENT',cashReplay.winner,14);
+    const cashAbort=await race('NATIVE-CASH-ABORT',100,true,cash);
+    if (cashAbort.result.error) throw cashAbort.result.error;
+    assert.ok(cashAbort.result.id);
+    assert.notEqual(cashAbort.result.id,cashAbort.winner);
+    assert.equal((await db.query('SELECT id FROM public.sales WHERE id=$1',[cashAbort.winner])).rowCount,0);
+    await checkCash('NATIVE-CASH-ABORT',cashAbort.result.id,13);
+    console.log('Final native cash concurrency PASS: identical replay and rollback, one stock movement each, no credit ledger');
   } finally {
     // End the winner first, releasing its locks before draining the retry.
     await c1.end();
