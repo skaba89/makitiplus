@@ -1,0 +1,54 @@
+name: Generate P0 cash-replay migration candidate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/generate-cash-replay-candidate.yml'
+      - 'scripts/admin/cash_replay_guard.sql.example'
+
+permissions:
+  contents: read
+
+jobs:
+  generate-candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fetch pinned review-only source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          umask 077
+          gh api --method GET -H 'Accept: application/vnd.github.raw+json' \
+            "repos/$GITHUB_REPOSITORY/contents/scripts/admin/cash_replay_guard.sql.example" \
+            -f ref="$GITHUB_SHA" > "$RUNNER_TEMP/mkp-cash-source.sql"
+          test "$(git hash-object "$RUNNER_TEMP/mkp-cash-source.sql")" = 1a730a63c73f2dabb960ebd0f6ad4775cf84427a
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Generate migration in fresh unlinked directory
+        env:
+          SUPABASE_TELEMETRY_DISABLED: 'true'
+        run: |
+          set -euo pipefail
+          umask 077
+          scratch=$(mktemp -d "$RUNNER_TEMP/mkp-cash-XXXXXXXX")
+          cd "$scratch"
+          supabase migration new --help >/dev/null
+          supabase init
+          supabase migration new harden_cash_sale_replay
+          shopt -s nullglob
+          candidates=(supabase/migrations/*_harden_cash_sale_replay.sql)
+          test "${#candidates[@]}" -eq 1
+          cp "$RUNNER_TEMP/mkp-cash-source.sql" "${candidates[0]}"
+          mkdir -p "$RUNNER_TEMP/mkp-cash-candidate"
+          cp "${candidates[0]}" "$RUNNER_TEMP/mkp-cash-candidate/"
+          basename "${candidates[0]}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cash-replay-migration-review-only
+          path: ${{ runner.temp }}/mkp-cash-candidate/*.sql
+          if-no-files-found: error
+          retention-days: 7
