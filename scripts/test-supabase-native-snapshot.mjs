@@ -212,6 +212,12 @@ try {
     ['20260724140000_fix_stripe_events_rls_disabled.sql','1df8a9454f6ab34df877a713a931f8090daaf8dcd7acf89a02fa5ad844918541'],
     ['20260727150000_create_cash_register_sessions.sql','c173168e558cfd7df69c0453ee09dfd5a4051c8f992c5d94078ee1f38900a72c'],
     ['20260728190000_fix_cash_closing_expense_store_scope.sql','998475c0c5c1805800a3126d712ea6b848becf99a1a3cc8261e3a5f36331028b'],
+    ['20260728193000_add_reject_cash_register_session.sql','89dfd0b462496b6dce9a05fe4d7e21bee2df7c35ecb0c5c031775ffefed49cf4'],
+    ['20260731010000_add_pilot_national_to_feature_flags.sql','7bea9ec2329c3932a0dedb324819bd15a253d280b12aa8bce6f7ffa1d8700625'],
+    ['20260731020000_add_mobile_money_payment_reference.sql','3101e34390feb6ba886755f5c5af8f321dc0780331245ee81a027b51b8020ca3'],
+    ['20260731030000_seller_lists_exclude_non_selling_roles.sql','6109a76c6fc2825cc3ca5e9444ecf9d1455ccd849a31e92000a9bbff9ce3ced2'],
+    ['20260801010000_fix_rls_super_admin_hiding_self_defeating_subquery.sql','2a8f304dc99db2c2a5f184ff677c5797220040966fb8ca45564773003fb24265'],
+    ['20260801020000_fix_get_categories_missing_icon_color.sql','54bb47af45b0b4868c2e6d39e7345c54f6d71de7c7a8bef2b3afb9d4186819b8'],
   ];
   assert.deepEqual(numbered.slice(prefix.length,prefix.length+next.length),next.map(([name])=>name));
   const policyState=async()=> (await db.query(`SELECT p.polname, c.relname, p.polcmd, p.polroles,
@@ -373,10 +379,15 @@ try {
       pg_get_function_result('public.get_organization_subscription()'::regprocedure)='jsonb' AND
         pg_get_function_result('public.check_feature_access(text)'::regprocedure)='jsonb' AND
         pg_get_function_result('public.check_plan_limit(text)'::regprocedure)='jsonb' AS subscription_json_contract,
-      pg_get_function_result('public.create_sale_with_limit(text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text,numeric,uuid)'::regprocedure)='uuid' AND
+      pg_get_function_result('public.create_sale_with_limit(text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text,numeric,uuid,text)'::regprocedure)='uuid' AND
+        to_regprocedure('public.create_sale_with_limit(text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text,numeric,uuid)') IS NULL AND
         to_regprocedure('public.create_sale_with_limit(text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text,numeric)') IS NULL AND
         to_regprocedure('public.create_sale_with_limit(text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text)') IS NULL AS store_sale_contract,
-      pg_get_function_result('public.create_full_sale(uuid,uuid,text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text,numeric,uuid)'::regprocedure)='uuid' AS full_store_sale_contract,
+      pg_get_function_result('public.create_full_sale(uuid,uuid,text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text,numeric,uuid,text)'::regprocedure)='uuid' AND
+        to_regprocedure('public.create_full_sale(uuid,uuid,text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text,numeric,uuid)') IS NULL AS full_store_sale_contract,
+      EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='public.sales'::regclass AND attname='payment_reference' AND atttypid='text'::regtype AND NOT attnotnull AND NOT attisdropped) AS payment_reference,
+      (SELECT count(*)>0 AND bool_and(coalesce('pilot_national'=ANY(allowed_plans),false)) FROM public.feature_flags) AS pilot_flag_access,
+      pg_get_function_result('public.get_categories()'::regprocedure) LIKE '%icon text, color text,%is_default boolean%' AS categories_metadata,
       pg_get_function_result('public.get_reports_stats(uuid,timestamptz,timestamptz)'::regprocedure)='jsonb' AS reports_contract,
       pg_get_function_result('public.create_product(text,numeric,uuid,text,text,integer,integer,numeric,uuid,uuid,text,text,boolean)'::regprocedure)='uuid' AS product_contract,
       pg_get_function_result('public.create_first_organization(text,text,text,text,text,text)'::regprocedure)='uuid' AND
@@ -419,13 +430,17 @@ try {
     // Historical audit evidence, not a security acceptance criterion: the
     // consolidated function is privileged and its stock predicate lacks tenant scope.
     const {rows:[historicalSale]}=await db.query(`SELECT prosecdef, prosrc FROM pg_proc
-      WHERE oid='public.create_full_sale(uuid,uuid,text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text,numeric,uuid)'::regprocedure`);
+      WHERE oid='public.create_full_sale(uuid,uuid,text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text,numeric,uuid,text)'::regprocedure`);
     assert.ok(historicalSale.prosecdef);
     const stockUpdate=historicalSale.prosrc.match(/UPDATE products\s+SET[\s\S]*?;/i)?.[0];
     assert.ok(stockUpdate,'Historical sale stock update not found');
     assert.doesNotMatch(stockUpdate,/organization_id|store_id/i,'Historical stock predicate changed; reassess audit finding');
     console.log('Historical consolidated sale: privileged stock update lacks tenant/store predicate (P0 remediation open)');
     assert.match(historicalSale.prosrc,/cost_price/);
+    assert.match(historicalSale.prosrc,/NULLIF\(TRIM\(p_payment_reference\), ''\)/i);
+    const {rows:[paymentWrapper]}=await db.query(`SELECT prosrc,pronargdefaults FROM pg_proc WHERE oid='public.create_sale_with_limit(text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text,numeric,uuid,text)'::regprocedure`);
+    assert.equal(paymentWrapper.pronargdefaults,10);
+    assert.match(paymentWrapper.prosrc,/p_payment_reference\s*\n\s*\);/i);
     assert.match(historicalSale.prosrc,/RETURN v_existing_sale_id;/i);
     assert.match(historicalSale.prosrc,/EXCEPTION WHEN unique_violation THEN/i);
     const {rows:[phoneCredit]}=await db.query(`SELECT prosecdef,prosrc FROM pg_proc WHERE oid='public.increment_customer_credit_by_phone(text,text,numeric,uuid,text)'::regprocedure`);
@@ -454,6 +469,12 @@ try {
     const {rows:[audit]}=await db.query(`SELECT pg_get_expr(polqual,polrelid) AS predicate FROM pg_policy WHERE polrelid='public.user_audit_log'::regclass AND polname='admins_view_audit_log'`);
     assert.match(audit.predicate,/get_user_organization_id/);
     assert.match(audit.predicate,/super_admin/);
+    assert.match(audit.predicate,/NOT is_user_super_admin\(actor_id\)/i);
+    const {rows:[profilesScope]}=await db.query(`SELECT pg_get_expr(polqual,polrelid) AS predicate FROM pg_policy WHERE polrelid='public.profiles'::regclass AND polname='profiles_select_scoped'`);
+    assert.match(profilesScope.predicate,/NOT is_user_super_admin\(user_id\)/i);
+    const {rows:sellerLists}=await db.query(`SELECT prosrc FROM pg_proc WHERE oid IN ('public.get_seller_performance(timestamptz,timestamptz)'::regprocedure,'public.get_seller_kpis_detailed(text,uuid)'::regprocedure)`);
+    assert.equal(sellerLists.length,2);
+    for (const f of sellerLists) assert.match(f.prosrc,/IN \('admin', 'manager', 'vendeur'\)/i);
     const {rows:[receipt]}=await db.query(`SELECT prosrc FROM pg_proc WHERE oid='public.receive_purchase_order(uuid,jsonb,text)'::regprocedure`);
     assert.match(receipt.prosrc,/organization_id = v_org_id/);
     assert.match(receipt.prosrc,/SET quantity_received = LEAST\(/i);
@@ -478,6 +499,11 @@ try {
     const {rows:[cashSummary]}=await db.query(`SELECT prosrc FROM pg_proc WHERE oid='public.get_cash_closing_summary(uuid)'::regprocedure`);
     assert.match(cashSummary.prosrc,/FROM public\.expenses\s+WHERE organization_id = v_session\.organization_id\s+AND \(v_session\.store_id IS NULL OR store_id = v_session\.store_id\)/i);
     assert.match(cashSummary.prosrc,/v_session\.organization_id <> v_org_id/i);
+    const {rows:[rejectCash]}=await db.query(`SELECT prosrc,pg_get_function_result(oid) AS result FROM pg_proc WHERE oid='public.reject_cash_register_session(uuid,text)'::regprocedure`);
+    assert.equal(rejectCash.result,'void');
+    assert.match(rejectCash.prosrc,/FOR UPDATE/i);
+    assert.match(rejectCash.prosrc,/p_rejection_reason IS NULL OR btrim\(p_rejection_reason\) = ''/i);
+    assert.match(rejectCash.prosrc,/v_session\.organization_id <> public\.get_user_organization_id\(\)/i);
     console.log('Historical cash summary uses nullable tenant inequality; no-organization access and caller-dependent totals require runtime review. Role lookup helper exposes arbitrary user tenant unless ACL restricted.');
     const {rows:[seller]}=await db.query(`SELECT prosrc FROM pg_proc WHERE oid='public.get_admin_seller_performance(text,uuid)'::regprocedure`);
     assert.match(seller.prosrc,/ur\.role = ANY \(ARRAY\[/i);
@@ -492,7 +518,7 @@ try {
   assert.deepEqual(await policyState(),before,'Historical prefix leaked policy changes');
   const {rows:[rolledBack]}=await db.query("SELECT to_regclass('public.idx_single_admin') IS NULL AS clean");
   assert.ok(rolledBack.clean,'Historical constraint escaped transaction');
-  console.log('Native historical prefix PASS: 149 migrations accounted for, 2 reconciled persistently in local snapshot, 146 exercised and rolled back (5 transaction wrappers adapted, 4 verified no-ops), 1 cron registration not executed');
+  console.log('Native historical prefix PASS: 155 migrations accounted for, 2 reconciled persistently in local snapshot, 152 exercised and rolled back (5 transaction wrappers adapted, 4 verified no-ops), 1 cron registration not executed');
 
   const fixtures=[];
   for (const suffix of ['a','b']) {
