@@ -61,6 +61,47 @@ try {
     (SELECT relrowsecurity FROM pg_class WHERE oid='public.customers'::regclass) AS customer_rls,
     (SELECT relrowsecurity FROM pg_class WHERE oid='public.customer_credits'::regclass) AS credit_rls`);
   assert.ok(Object.values(reconciled).every(Boolean),'First native repairs did not preserve expected security');
+  // The next historical prefix temporarily introduces global admin policies
+  // and a single-admin constraint. Keep ALL changes uncommitted and roll them
+  // back before creating any Auth identities or sending any Data API requests.
+  const next=[
+    ['20260423040958_42cc2233-086f-4864-a7d3-64cb40a81ed5.sql','e592a50fc8d540aeb2e777c8382202efd4d09a5c143799c4433f582aeb441cea'],
+    ['20260423042235_125de771-f1c8-4b67-90db-2b6d811096ca.sql','e347b905bb0996416ac1affd81c3e070419042b670d2318a317e98deaf723623'],
+    ['20260424042936_db7e40cf-c001-4513-9126-a0596e12f542.sql','9dedd4c7befd8eb1f1c4b13f026daba928ad7b611ee48671dc74cb46680c3149','42P07'],
+    ['20260424042947_b1941d89-89c0-4cb2-bdbc-6aaebc400cbb.sql','68891e26833fab4f1a79edf157eb39e4df6d8b99c777800fea32b01b2332153b'],
+    ['20260424045251_3195f18f-7faa-4f1f-9d47-323cb8b7fac7.sql','3fb671516569685a263f7237bfbdfea768baa3a8e5aac512c6598dde69ed6499','42710'],
+    ['20260425041530_c56455ad-2249-438f-b9a2-15f7f64df5e5.sql','afb2237998ef0c18f553bdabdb574cbeb0c0a59a92ab050e18f4688901be6226'],
+  ];
+  assert.deepEqual(numbered.slice(prefix.length,prefix.length+next.length),next.map(([name])=>name));
+  const policyState=async()=> (await db.query(`SELECT p.polname, c.relname, p.polcmd, p.polroles,
+    pg_get_expr(p.polqual,p.polrelid) AS predicate, pg_get_expr(p.polwithcheck,p.polrelid) AS check_expr
+    FROM pg_policy p JOIN pg_class c ON c.oid=p.polrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' ORDER BY c.relname,p.polname`)).rows;
+  const before=await policyState();
+  await db.query('BEGIN');
+  try {
+    for (const [name,hash,code] of next) {
+      const historical=readFileSync(new URL(name,directory),'utf8');
+      assert.equal(createHash('sha256').update(historical).digest('hex'),hash);
+      if (code) {
+        assert.deepEqual(baseline[name].slice(0,2),[code,hash]);
+        await db.query('SAVEPOINT original');
+        await assert.rejects(db.query(historical),{code});
+        await db.query('ROLLBACK TO SAVEPOINT original');
+        await repairHistoricalMigration(db,name,historical);
+        await db.query('RELEASE SAVEPOINT original');
+      } else await db.query(historical);
+    }
+    const {rows:[contracts]}=await db.query(`SELECT
+      to_regclass('public.idx_single_admin') IS NOT NULL AS legacy_index,
+      public.resolve_stock_conflict(10,7,8)=5 AND public.resolve_stock_conflict(10,0,2)=0 AS stock_delta,
+      EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='public.organizations'::regclass AND attname='default_tax_rate' AND NOT attisdropped) AS tax`);
+    assert.ok(Object.values(contracts).every(Boolean),'Historical prefix contract mismatch');
+  } finally { await db.query('ROLLBACK'); }
+  assert.deepEqual(await policyState(),before,'Historical prefix leaked policy changes');
+  const {rows:[rolledBack]}=await db.query("SELECT to_regclass('public.idx_single_admin') IS NULL AS clean");
+  assert.ok(rolledBack.clean,'Historical constraint escaped transaction');
+  console.log('Native historical prefix PASS: 8 migrations examined, 2 reconciled persistently in local snapshot, 6 exercised and rolled back');
 
   const fixtures=[];
   for (const suffix of ['a','b']) {
