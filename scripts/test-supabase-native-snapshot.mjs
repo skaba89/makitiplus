@@ -143,6 +143,14 @@ try {
     ['20260708020000_p3_security_fixes.sql','a973fc203333fd0c9034cf91c2910ccd94eb4ee553177163bccd258b7baa58e3'],
     ['20260708030000_p3_1_create_update_updated_at_column.sql','33d10cd83ef1c1de9461266ba599035cf5a6e4f3f1a0c04c4cd740704fdbefd5'],
     ['20260708040000_tenant_isolation_user_roles_profiles.sql','076ea9b899258b0aeb2b8aca5a51ad890efb1331ab65bb90d5898d19c556e3fc'],
+    ['20260708050000_fix_delete_organization_cascade.sql','b18170f83a9a696659e77d206bc640a62dbea9b5c4081b8051a18fd347391fc2'],
+    ['20260708060000_fix_admin_get_all_subscriptions_type_cast.sql','fb220ab52b50294e4c1c6a224c013c46f2cc117d68101fbdee5c6734ce18200c'],
+    ['20260708070000_fix_get_seller_performance_fields.sql','944c7e39e578888df45ee2a4be4d7146a417710f9783429be05a539c3529cc4f'],
+    ['20260708080000_fix_rpc_returns_jsonb_global.sql','68d771fbed0ffc0761bb00bc8841b93ce3470f412bc3e03a8794750fe541f3a5'],
+    ['20260708090000_fix_all_returns_table_rpcs.sql','2b5ef58d70c870086e9f26ce33f007eab2f182d906003b60225683a0146a2bbd'],
+    ['20260709010000_fix_seller_activity_production.sql','788d85abe0131dad42616c97d9d53b23771442ada150e193d48349543b9a31c9','42P13'],
+    ['20260711060000_fix_seller_performance_exclude_super_admin.sql','ab90baadcef0fb263724c5fc3b961baf500885c0fdf6fc2c39797f71f67875c5'],
+    ['20260712120000_add_discount_amount_to_sale_rpc.sql','191f55394cac2c77e583bfe20163a667ed13cae6b19b477395cef639e43495a3'],
   ];
   assert.deepEqual(numbered.slice(prefix.length,prefix.length+next.length),next.map(([name])=>name));
   const policyState=async()=> (await db.query(`SELECT p.polname, c.relname, p.polcmd, p.polroles,
@@ -228,13 +236,20 @@ try {
       EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='public.user_activity_logs'::regclass AND attname='action' AND atttypid='public.app_activity_action'::regtype AND NOT attisdropped)
         AND to_regprocedure('public.log_user_activity(text,text,jsonb)') IS NULL AS activity_enum,
       EXISTS (SELECT 1 FROM pg_policy WHERE polrelid='public.profiles'::regclass AND polname='profiles_select_scoped') AND
-        EXISTS (SELECT 1 FROM pg_policy WHERE polrelid='public.user_roles'::regclass AND polname='user_roles_select_scoped') AS scoped_policies`);
+        EXISTS (SELECT 1 FROM pg_policy WHERE polrelid='public.user_roles'::regclass AND polname='user_roles_select_scoped') AS scoped_policies,
+      pg_get_function_result('public.get_seller_performance(timestamptz,timestamptz)'::regprocedure) LIKE 'TABLE(%' AND
+        pg_get_function_result('public.get_seller_activities(uuid,integer)'::regprocedure) LIKE 'TABLE(%' AS seller_table_contract,
+      pg_get_function_result('public.get_organization_subscription()'::regprocedure)='jsonb' AND
+        pg_get_function_result('public.check_feature_access(text)'::regprocedure)='jsonb' AND
+        pg_get_function_result('public.check_plan_limit(text)'::regprocedure)='jsonb' AS subscription_json_contract,
+      pg_get_function_result('public.create_sale_with_limit(text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text,numeric)'::regprocedure)='uuid' AND
+        to_regprocedure('public.create_sale_with_limit(text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text)') IS NULL AS discount_sale_contract`);
     for (const [name,passed] of Object.entries(contracts)) assert.equal(passed,true,`Historical prefix contract mismatch: ${name}`);
   } finally { await db.query('ROLLBACK'); }
   assert.deepEqual(await policyState(),before,'Historical prefix leaked policy changes');
   const {rows:[rolledBack]}=await db.query("SELECT to_regclass('public.idx_single_admin') IS NULL AS clean");
   assert.ok(rolledBack.clean,'Historical constraint escaped transaction');
-  console.log('Native historical prefix PASS: 80 migrations accounted for, 2 reconciled persistently in local snapshot, 77 exercised and rolled back, 1 cron registration not executed');
+  console.log('Native historical prefix PASS: 88 migrations accounted for, 2 reconciled persistently in local snapshot, 85 exercised and rolled back, 1 cron registration not executed');
 
   const fixtures=[];
   for (const suffix of ['a','b']) {
