@@ -63,7 +63,20 @@ jobs:
         run: python3 scripts/check_migration_safety.py
 
       - name: Execute migrations on disposable PostgreSQL 16 (P0 regression gate)
-        run: node scripts/test-postgres-replay.mjs
+        env:
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          docker exec -u root "$POSTGRES_CONTAINER" sh -ec 'apt-get update && apt-get install -y --no-install-recommends postgresql-16-cron'
+          docker exec "$POSTGRES_CONTAINER" psql -U postgres -v ON_ERROR_STOP=1 -c "ALTER SYSTEM SET shared_preload_libraries = 'pg_cron'"
+          docker exec "$POSTGRES_CONTAINER" psql -U postgres -v ON_ERROR_STOP=1 -c "ALTER SYSTEM SET cron.launch_active_jobs = 'off'"
+          docker restart "$POSTGRES_CONTAINER"
+          for attempt in $(seq 1 30); do
+            if docker exec "$POSTGRES_CONTAINER" pg_isready -U postgres; then break; fi
+            sleep 1
+          done
+          docker exec "$POSTGRES_CONTAINER" psql -U postgres -v ON_ERROR_STOP=1 -c 'SHOW cron.launch_active_jobs'
+          node scripts/test-postgres-replay.mjs
 
       - name: Test tenant RPC guard (MKP-007)
         run: python3 -m unittest discover -s scripts -p 'test_tenant_rpc_guard.py' -v

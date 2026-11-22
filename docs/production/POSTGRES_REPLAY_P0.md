@@ -12,7 +12,7 @@ Baseline: main `56619a4`, 21 November 2026. First incremental PR; no application
 
 ## Run
 
-Start a fresh PostgreSQL 16 instance on loopback port 55432 with the disposable `postgres` user/password (CI configuration). Never point the harness at a forwarded production database. Run `npm ci`, `python3 scripts/check_migration_safety.py`, then `node scripts/test-postgres-replay.mjs`. Use `--strict` to measure release readiness; it is expected to fail until all historical exceptions are resolved.
+Start a fresh PostgreSQL 16 instance on loopback port 55432 with the disposable `postgres` user/password (CI configuration). Install pg_cron, set `shared_preload_libraries = 'pg_cron'` and `cron.launch_active_jobs = off` before starting PostgreSQL; leave pg_net uninstalled. The CI provisions these prerequisites automatically. Never point the harness at a forwarded production database. Run `npm ci`, `python3 scripts/check_migration_safety.py`, then `node scripts/test-postgres-replay.mjs`. Use `--strict` to measure release readiness; it rejects compatibility repairs and the isolated cron registration.
 
 ## 2026-11-21 — Historical permissions and billing isolation
 
@@ -82,6 +82,13 @@ These results concern a PostgreSQL compatibility reconstruction, not a full nati
 - Added a SHA/SQLSTATE-bound compatibility repair for the duplicate tenant policy migration. It requires empty identity and business tables, verifies RLS, tenant UUID columns and all 30 corresponding policy names, roles and commands, including the five more restrictive snapshot write policies.
 - Preserves the newer RLS policies and does not execute historical orphan reassignment to a named business. Replays only original index/trigger/assignment-helper DDL after checking the existing tenant helpers.
 - Extended actual PostgreSQL regression tests to assert organization SELECT and UPDATE isolation in both directions. No historical migration files or production data modified. Expected compatibility result: 13 explicit repairs and one unresolved cron migration; CI execution is required to confirm this result. Native/strict reconstruction remains blocked.
+
+## 2026-11-22 — Historical cron registration in isolation
+
+- The CI installs the real pg_cron extension in the disposable PostgreSQL 16 service. Job launch is explicitly disabled before the database restarts; pg_net is not installed. The harness checks both safety prerequisites before migration replay.
+- The historical daily test-account rotation statement is verified by its original SHA-256, executed inside a transaction, and checked against the real cron catalog for precisely the original name, schedule, command and local database. The transaction is rolled back. Both immediately and at the end of replay, the scheduler must have zero jobs and zero runs; no external HTTP request is sent.
+- The old cron failure is removed from the failure baseline, but the registration is separately classified as isolated validation, not an unmodified applied migration. Expected compatibility totals: 167 migrations, 153 unmodified successes, 13 repairs, one isolated registration, zero unresolved failures; confirmation requires blocking CI. Any unresolved failure now fails the gate, and strict mode still rejects repairs/isolated registration.
+- The pg_net payload execution, Edge Function behavior and native Supabase reconstruction remain unvalidated. Do not enable or invoke the historical rotation in production based on this check.
 
 ## Follow-up sequence
 
