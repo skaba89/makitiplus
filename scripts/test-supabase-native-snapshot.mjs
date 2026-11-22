@@ -108,7 +108,14 @@ async function testFinalTransactions(db) {
   try {
     const auditSql=readFileSync(new URL('./admin/audit_product_store_scope.sql.example',import.meta.url),'utf8');
     const audit=async()=>Object.fromEntries((await db.query(auditSql)).rows.map(row=>[row.scope_status,row.product_count]));
+    // The organization creation trigger provisions a main store. Explicitly
+    // model an organization with no active store, inside this savepoint only.
+    const initial=await audit();
+    await db.query('UPDATE public.stores SET is_active=false WHERE organization_id=$1',[b.org]);
+    await db.query('UPDATE public.profiles SET current_store_id=NULL WHERE user_id=$1',[b.user]);
     const before=await audit();
+    assert.equal(before.unassigned_with_active_store??0,(initial.unassigned_with_active_store??0)-1);
+    assert.equal(before.unassigned_without_active_store,(initial.unassigned_without_active_store??0)+1);
     const store1=randomUUID(),store2=randomUUID();
     await db.query("INSERT INTO public.stores(id,organization_id,name,slug) VALUES ($1,$3,'Replay A','replay-a'),($2,$3,'Replay B','replay-b')",[store1,store2,a.org]);
     await db.query('UPDATE public.products SET store_id=$1 WHERE id=$2',[store2,a.product]);
@@ -116,8 +123,8 @@ async function testFinalTransactions(db) {
     await db.query("INSERT INTO public.products(id,user_id,organization_id,name,price,stock_quantity) VALUES ($1,$2,$3,'Legacy unassigned fixture',100,20)",[legacyProduct,a.user,a.org]);
     const after=await audit();
     assert.equal(after.assigned_active_store,(before.assigned_active_store??0)+1);
-    assert.equal(after.unassigned_with_active_store,(before.unassigned_with_active_store??0)+1);
-    assert.equal(after.unassigned_without_active_store??0,(before.unassigned_without_active_store??0)-1);
+    assert.equal(after.unassigned_with_active_store??0,before.unassigned_with_active_store??0);
+    assert.equal(after.unassigned_without_active_store??0,before.unassigned_without_active_store??0);
     console.log('Store scope preflight PASS: assigned and both legacy unassigned categories distinguished');
     const scopedCash=(number,store)=>()=>db.query('SELECT public.create_sale_with_limit($1,100,100,$2::jsonb,p_store_id=>$3) AS id',
       [number,JSON.stringify([item(a.product)]),store]);
