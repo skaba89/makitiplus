@@ -170,6 +170,9 @@ These results concern a PostgreSQL compatibility reconstruction, not a full nati
 - PR #158 passed all three workflows (native run 45069075253), including live final-schema credit transaction checks and blocking Playwright regression tests.
 - Extend final-schema runtime checks to cash sales: mixed-tenant basket rollback, foreign product denial, negative quantity rejection, direct private helper denial, identical cash replay and independent stock/cash/credit row counts for both tenants. Pending native CI; no schema changes, additional grants or committed fixture data.
 
+- PR #159 passed all three workflows (native run 45069816623), including cash replay and mixed basket atomicity.
+- Strengthen the committed compatibility PostgreSQL concurrency gate: prove the second backend is blocked by the first using pg_blocking_pids before committing, verify identical sale ID and existing stock/ledger assertions, bound waiting and clean up on failure. Pending CI. The native rollback replay still cannot expose uncommitted DDL to another session.
+
 1. Extend final-schema tests to simultaneous sessions in an isolated committed reconstruction; store-level product scope and cash replay payload validation remain open.
 2. Resolve historical prerequisites, duplicate definitions and return-type changes without altering deployed migration history; shrink the baseline with evidence.
 3. Validate full platform extensions and complete schema reconstruction on local Supabase, then remove the baseline and enforce strict mode.
