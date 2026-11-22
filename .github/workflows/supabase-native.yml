@@ -45,3 +45,18 @@ jobs:
           fi
           supabase status -o json >local-status.json
           node "$repo/scripts/test-supabase-native-snapshot.mjs" "$native_dir/local-status.json"
+          # Preserve the rollback/API test above. Use a separate fresh stack
+          # for committed final schema; never link to a remote project.
+          supabase stop --no-backup >/dev/null 2>&1
+          concurrent_dir=$(mktemp -d "$RUNNER_TEMP/mkp-native-concurrent-XXXXXXXX")
+          cd "$concurrent_dir"
+          supabase init
+          mkdir -p supabase/migrations
+          cp "$repo/supabase/00000_initial_schema.sql" supabase/migrations/20260101000000_initial_snapshot.sql
+          if ! supabase start >start.log 2>&1; then
+            echo 'Second disposable native stack startup failed; logs withheld' >&2
+            docker ps -a --format '{{.Names}} {{.Status}}'
+            exit 1
+          fi
+          supabase status -o json >local-status.json
+          node "$repo/scripts/test-supabase-native-snapshot.mjs" "$concurrent_dir/local-status.json" --ci-committed-replay
