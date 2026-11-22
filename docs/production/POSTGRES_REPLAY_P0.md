@@ -61,6 +61,14 @@ These results concern a PostgreSQL compatibility reconstruction, not a full nati
 - Real PostgreSQL tests show orphan stock-movement sale references and customer organization references fail (23503), and authenticated tenants can insert/read their own sync conflicts but cannot impersonate another user or organization (42501). Existing financial, identity, backup and support tests pass.
 - Referential existence alone does not prove cross-tenant relationship integrity for every table. Strict replay, native Supabase reset and the recovery drill remain outstanding.
 
+## 2026-11-21 — Reset token access and historical role policy
+
+- PostgreSQL 16.16: 167 numbered migrations, 153 unmodified successes, 10 explicit compatibility repairs, 4 unresolved failures. The two historical failures remain bound to their original SHA and SQLSTATE.
+- The obsolete duplicate self-role policy is removed during the disposable reconstruction rather than reintroduced; subsequent historical security migrations establish the current role contract. The reset-token repair retains the snapshot policies and runs remaining original schema/index/backfill statements. It explicitly omits pg_cron/pg_net installation in the compatibility environment; the separate scheduler migration remains unresolved and no remote HTTP job runs.
+- The new forward migration preserves the existing reset history UI's explicit metadata columns, excludes token hashes, denies browser DML and anonymous access, and limits row visibility to the same organization or explicit platform administrator. Only the server service role may mint/redeem tokens. Existing records are not modified.
+- Real PostgreSQL tests exercise service-role insert/update, two administrators reading only their own metadata, denial of hash reads, forged inserts and updates, and anonymous privilege denial. Existing financial, identity, backup, support and sync tests pass.
+- Native Supabase Data API and Edge Function end-to-end redemption still require staging verification; this is not a production deployment. Historical role assignment provenance and strict reconstruction remain open.
+
 ## Follow-up sequence
 
 1. Add real two-tenant fixtures and RPC tests with forced rollback, replay, simultaneous sessions and cross-tenant writes; investigate missing organization predicate on the latest `create_full_sale` stock update before production rollout.

@@ -39,6 +39,24 @@ export async function testCreditTransactions(db, connect) {
     return r;
   }
   try {
+    // Only the trusted server may mint or redeem reset tokens. The browser
+    // may read the existing history panel's metadata, never token hashes.
+    const server = await connect();
+    try {
+      await server.query('SET ROLE service_role');
+      for (const [user, org, hash] of [[a,oa,'fixture-hash-a'],[b,ob,'fixture-hash-b']]) {
+        await server.query("INSERT INTO public.password_reset_tokens(user_id,organization_id,token_hash,channel,destination,created_by,expires_at) VALUES ($1,$2,$3,'email','fixture@example.invalid',$1,now()+interval '1 hour')",[user,org,hash]);
+      }
+      assert.equal((await server.query("UPDATE public.password_reset_tokens SET used_at=now() WHERE token_hash='fixture-hash-a'")).rowCount,1);
+    } finally { await server.end(); }
+    for (const [c,user] of [[c1,a],[cB,b]]) {
+      assert.deepEqual((await c.query('SELECT user_id FROM public.password_reset_tokens')).rows,[{user_id:user}]);
+      await assert.rejects(c.query('SELECT token_hash FROM public.password_reset_tokens'),{code:'42501'});
+      await assert.rejects(c.query("UPDATE public.password_reset_tokens SET used_at=NULL"),{code:'42501'});
+      await assert.rejects(c.query("INSERT INTO public.password_reset_tokens(user_id,token_hash) VALUES ($1,'forged')",[user]),{code:'42501'});
+    }
+    assert.equal((await db.query("SELECT has_column_privilege('anon','public.password_reset_tokens','id','SELECT') AS allowed")).rows[0].allowed,false);
+    console.log('Reset tokens: server mint/redeem, scoped browser metadata and hash/write denial passed');
     // A missing sale or organization must fail referential integrity checks.
     const missing = '99999999-9999-4999-8999-999999999999';
     await assert.rejects(db.query("INSERT INTO public.stock_movements(user_id,product_id,type,quantity,previous_quantity,new_quantity,reference_id,organization_id) VALUES ($1,$2,'sale',1,20,19,$3,$4)",[a,pa,missing,oa]), {code:'23503'});
