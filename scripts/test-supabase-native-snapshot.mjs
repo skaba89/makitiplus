@@ -170,6 +170,21 @@ try {
         await db.query('RELEASE SAVEPOINT original');
       } else await db.query(historical);
     }
+    // Native Supabase may grant EXECUTE directly to anon via default ACLs.
+    // The historical REVOKE FROM PUBLIC does not remove that direct grant.
+    const {rows:[bootstrap]}=await db.query(`SELECT
+      has_function_privilege('anon','public.auth_bootstrap_status()','EXECUTE') AS anon_execute,
+      NOT EXISTS (SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+        WHERE p.oid='public.auth_bootstrap_status()'::regprocedure AND a.grantee=0 AND a.privilege_type='EXECUTE') AS public_revoked`);
+    assert.ok(bootstrap.public_revoked,'Historical bootstrap PUBLIC grant was not revoked');
+    await db.query('SAVEPOINT bootstrap_anon');
+    await db.query('SET LOCAL ROLE anon');
+    await assert.rejects(db.query('SELECT * FROM public.auth_bootstrap_status()'),{code:bootstrap.anon_execute?'P0001':'42501'});
+    await db.query('ROLLBACK TO SAVEPOINT bootstrap_anon');
+    await db.query('RELEASE SAVEPOINT bootstrap_anon');
+    // Prove the explicit remediation in the disposable transaction only.
+    console.log(`Historical bootstrap direct anon EXECUTE: ${bootstrap.anon_execute}`);
+    await db.query('REVOKE EXECUTE ON FUNCTION public.auth_bootstrap_status() FROM anon');
     const {rows:[contracts]}=await db.query(`SELECT
       to_regclass('public.idx_single_admin') IS NULL AS legacy_index_removed,
       public.resolve_stock_conflict(10,7,8)=5 AND public.resolve_stock_conflict(10,0,2)=0 AS stock_delta,
@@ -214,7 +229,7 @@ try {
         AND to_regprocedure('public.log_user_activity(text,text,jsonb)') IS NULL AS activity_enum,
       EXISTS (SELECT 1 FROM pg_policy WHERE polrelid='public.profiles'::regclass AND polname='profiles_select_scoped') AND
         EXISTS (SELECT 1 FROM pg_policy WHERE polrelid='public.user_roles'::regclass AND polname='user_roles_select_scoped') AS scoped_policies`);
-    assert.ok(Object.values(contracts).every(Boolean),'Historical prefix contract mismatch');
+    for (const [name,passed] of Object.entries(contracts)) assert.equal(passed,true,`Historical prefix contract mismatch: ${name}`);
   } finally { await db.query('ROLLBACK'); }
   assert.deepEqual(await policyState(),before,'Historical prefix leaked policy changes');
   const {rows:[rolledBack]}=await db.query("SELECT to_regclass('public.idx_single_admin') IS NULL AS clean");
