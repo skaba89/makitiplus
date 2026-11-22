@@ -78,6 +78,29 @@ async function testFinalTransactions(db) {
     });
   }
   console.log('Final native schema credit PASS: replay, changed payload denial, ledger failure rollback, foreign product denial, two-tenant RLS');
+  const item=(product_id,quantity=1)=>({product_id,product_name:'Replay fixture',quantity,unit_price:100,total_price:100*quantity});
+  const cash=(number,items,amount=100)=>async ()=>
+    (await db.query('SELECT public.create_sale_with_limit($1,$2,$2,$3::jsonb) AS id',
+      [number,amount,JSON.stringify(items)])).rows[0].id;
+  // A mixed basket with a valid first item must not leave a partial sale.
+  await asTenant(a,cash('NATIVE-MIXED',[item(a.product),item(b.product)],200),{code:'42501'});
+  await asTenant(b,cash('NATIVE-FOREIGN-CASH',[item(a.product)]),{code:'42501'});
+  await asTenant(a,cash('NATIVE-NEGATIVE',[item(a.product,-1)]),{code:'22023'});
+  for (const number of ['NATIVE-MIXED','NATIVE-NEGATIVE','NATIVE-FOREIGN-CASH']) {
+    for (const tenant of tenants) {
+      assert.deepEqual(await state(tenant,number),{sales:0,items:0,credits:0,stock:19});
+    }
+  }
+  // The internal sale helper must not be executable by an authenticated client.
+  await asTenant(a,()=>db.query('SELECT public.create_full_sale($1,$2,$3,100,100,$4::jsonb)',
+    [b.user,b.org,'NATIVE-DIRECT',JSON.stringify([item(b.product)])]),{code:'42501'});
+  assert.deepEqual(await state(b,'NATIVE-DIRECT'),{sales:0,items:0,credits:0,stock:19});
+  const cashId=await asTenant(a,cash('NATIVE-CASH',[item(a.product)]));
+  assert.ok(cashId);
+  assert.equal(await asTenant(a,cash('NATIVE-CASH',[item(a.product)])),cashId);
+  assert.deepEqual(await state(a,'NATIVE-CASH'),{sales:1,items:1,credits:0,stock:18});
+  assert.deepEqual(await state(b,'NATIVE-CASH'),{sales:0,items:0,credits:0,stock:19});
+  console.log('Final native schema cash PASS: mixed basket rollback, foreign product and negative quantity denial, private helper denial, repeated cash sale');
 }
 
 // Only a freshly initialized, unlinked local CLI stack is supported.

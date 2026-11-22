@@ -167,7 +167,10 @@ These results concern a PostgreSQL compatibility reconstruction, not a full nati
 - PR #157 passed all three workflows (native run 45066748407), confirming coverage of all 167 numbered migrations.
 - Add final-schema SQL runtime checks inside the existing outer rollback: two synthetic tenants, authenticated role and claim, credit replay, changed amount rejection, ledger failure rollback, foreign product denial and RLS reads. No extra grants or committed fixtures. Pending native CI; this does not test concurrent sessions or real PostgREST on the final schema.
 
-1. Extend final-schema tests to simultaneous sessions and cash/mixed baskets in an isolated committed reconstruction; store-level product scope and cash replay payload validation remain open.
+- PR #158 passed all three workflows (native run 45069075253), including live final-schema credit transaction checks and blocking Playwright regression tests.
+- Extend final-schema runtime checks to cash sales: mixed-tenant basket rollback, foreign product denial, negative quantity rejection, direct private helper denial, identical cash replay and independent stock/cash/credit row counts for both tenants. Pending native CI; no schema changes, additional grants or committed fixture data.
+
+1. Extend final-schema tests to simultaneous sessions in an isolated committed reconstruction; store-level product scope and cash replay payload validation remain open.
 2. Resolve historical prerequisites, duplicate definitions and return-type changes without altering deployed migration history; shrink the baseline with evidence.
 3. Validate full platform extensions and complete schema reconstruction on local Supabase, then remove the baseline and enforce strict mode.
 4. Perform the isolated staging backup/restore drill and record RTO/RPO.
