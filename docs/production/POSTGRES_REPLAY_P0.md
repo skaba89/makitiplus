@@ -69,6 +69,14 @@ These results concern a PostgreSQL compatibility reconstruction, not a full nati
 - Real PostgreSQL tests exercise service-role insert/update, two administrators reading only their own metadata, denial of hash reads, forged inserts and updates, and anonymous privilege denial. Existing financial, identity, backup, support and sync tests pass.
 - Native Supabase Data API and Edge Function end-to-end redemption still require staging verification; this is not a production deployment. Historical role assignment provenance and strict reconstruction remain open.
 
+## 2026-11-22 — Customer and sync snapshot reconstruction
+
+- PostgreSQL 16.16: 167 numbered migrations, 153 unmodified successes, 12 explicit compatibility repairs, 2 unresolved failures. The two historical duplicate-table failures remain bound to their original SHA and SQLSTATE.
+- The customer/credit repair verifies the snapshot's column types and nullability, primary keys, RLS, validated sale/customer/credit foreign-key relationships and enabled update trigger. It preserves the existing tenant-aware schema and newer deletion semantics instead of recreating older user-only policies.
+- The sync-conflict repair checks its original column contract, primary key, RLS, required index and scoped insert policy, then executes its original account-status and stock-delta functions and audit indexes. It does not restore broad historical policies.
+- Real SQL tests exercise the customer update trigger, authenticated account status and stock delta calculation including the nonnegative floor, in addition to existing tenant-conflict and financial tests. No production data or migration SQL changed.
+- Remaining failures: historical organization/product policy duplication and cron scheduling; strict and native Supabase reconstruction remain blocked.
+
 ## Follow-up sequence
 
 1. Add real two-tenant fixtures and RPC tests with forced rollback, replay, simultaneous sessions and cross-tenant writes; investigate missing organization predicate on the latest `create_full_sale` stock update before production rollout.

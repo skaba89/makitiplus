@@ -30,10 +30,15 @@ const hasCredentials = !!(TEST_EMAIL && TEST_PASSWORD);
  * hamburger n'est pas rendu (classe lg:hidden).
  */
 async function openMobileMenuIfNeeded(page: import("@playwright/test").Page): Promise<void> {
-  const menuButton = page.getByRole("button", { name: /ouvrir le menu/i });
-  const isMobileMenuButtonVisible = await menuButton.isVisible({ timeout: 2_000 }).catch(() => false);
-  if (isMobileMenuButtonVisible) {
-    await menuButton.click();
+  // URL alone does not guarantee that the authenticated layout and role are ready.
+  await expect(page.locator("aside nav").getByRole("link", { name: "Tableau de bord", exact: true })).toBeAttached();
+  if (await page.evaluate(() => matchMedia("(max-width: 1023px)").matches)) {
+    const header = page.locator("header");
+    const openButton = header.getByRole("button", { name: "Ouvrir le menu", exact: true });
+    const closeButton = header.getByRole("button", { name: "Fermer le menu", exact: true });
+    await expect(openButton.or(closeButton)).toBeVisible();
+    if (await openButton.isVisible()) await openButton.click();
+    await expect(closeButton).toBeVisible();
   }
 }
 
@@ -228,15 +233,12 @@ test.describe("Scénario 6 — Billing selon rôle", () => {
     // la session en mémoire.
     await openMobileMenuIfNeeded(page);
     await page.getByRole("link", { name: "Abonnement" }).first().click();
-    await page.waitForLoadState("networkidle");
+    await expect(page).toHaveURL(/\/dashboard\/billing$/);
 
-    // La page charge
-    const hasBillingContent = await page.getByText(/abonnement|billing|plan|facturation/i)
-      .first()
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false);
-
-    expect(hasBillingContent).toBe(true);
+    // Wait for the actual page heading, not a possibly hidden sidebar label.
+    await expect(page.getByRole("main").getByRole("heading", {
+      name: /abonnement|billing|facturation/i, level: 1,
+    })).toBeVisible();
 
     // Si admin boutique : ne doit PAS voir "Gestion manuelle des abonnements"
     // Si super_admin : peut le voir
@@ -276,27 +278,19 @@ test.describe("Scénario 7 — Route super_admin organisations", () => {
     // est elle-même une forme valide d'accès refusé (l'option n'est même pas
     // proposée), donc on ne force pas le clic si le lien n'existe pas.
     await openMobileMenuIfNeeded(page);
-    const orgMenuLink = page.getByRole("link", { name: "Organisations" }).first();
-    const hasOrgMenuLink = await orgMenuLink.isVisible({ timeout: 5_000 }).catch(() => false);
+    const orgMenuLink = page.locator("aside nav").getByRole("link", { name: "Organisations", exact: true });
+    const hasOrgMenuLink = (await orgMenuLink.count()) > 0;
     if (hasOrgMenuLink) {
       await orgMenuLink.click();
-      await page.waitForLoadState("networkidle");
+      await expect(page).toHaveURL(/\/dashboard\/admin\/organizations$/);
+      const main = page.getByRole("main");
+      const denied = main.getByRole("heading", { name: /accès refusé|access denied/i });
+      const list = main.getByRole("heading", { name: /gestion des organisations/i, level: 1 });
+      await expect(denied.or(list)).toBeVisible();
+    } else {
+      // The role-filtered menu is now mounted; absence is a valid outcome.
+      await expect(orgMenuLink).toHaveCount(0);
     }
-
-    // Soit "Accès refusé" (non-super_admin), soit la liste des organisations (super_admin),
-    // soit le lien de menu absent (accès refusé au niveau du menu lui-même)
-    const hasAccessDenied = !hasOrgMenuLink || await page.getByText(/accès refusé|access denied/i)
-      .first()
-      .isVisible({ timeout: 5_000 })
-      .catch(() => false);
-
-    const hasOrgList = hasOrgMenuLink && await page.getByText(/organisation|organization/i)
-      .first()
-      .isVisible({ timeout: 5_000 })
-      .catch(() => false);
-
-    // Un des deux doit être vrai
-    expect(hasAccessDenied || hasOrgList).toBe(true);
 
     // IMPORTANT: ne jamais cliquer sur un bouton de changement de plan dans ce test
   });
