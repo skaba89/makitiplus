@@ -224,8 +224,14 @@ try {
     ['20261102100000_credit_by_phone_idempotent.sql','c0a6ff76595107fd41d8818be79d5c055845cbc6183cbdbf84a1758432d459cf','outer-transaction'],
     ['20261103160000_atomic_credit_sale.sql','ee6e24802886ca0001cefd578296afca204a14dd9639edf8a6d0e8988cc12267','outer-transaction'],
     ['20261121200439_restrict_super_admin_to_explicit_role.sql','111959f0f1fec8e687f59169fee725d3a5625096b0f5808e46f1a684f473281b'],
+    ['20261121201546_harden_sale_write_tenant_scope.sql','c0302fada5808c72865a3aa88222f0df9593528f29206313c4df60861490ddc0'],
+    ['20261121203512_retire_unsafe_subscription_rpcs.sql','abe79a66cd074b0ce790de4ce1e4b78c2256377cbd865b3c27d2fb4a8eb699e9'],
+    ['20261121211158_harden_seller_reporting.sql','d2e5257c8e24cb059d8635065aaa62bc7ec31105dc73b59853e67ddfc7115f29'],
+    ['20261121212415_restore_support_schema_and_acl.sql','969f66a8b04268a61042190aebeed953742f70f3b833df872d0818ff583fa8f3'],
+    ['20261121214326_retire_unsafe_backup_rpc.sql','b3013c42bbb6cf21a73195d381ddd8258ab6405e211c9853601df027943f4f6f'],
+    ['20261121222237_restrict_password_reset_token_access.sql','d34c81c0bb95fa8d72e7920a5c89ea726bd8df29982f604378c568932535620f'],
   ];
-  assert.deepEqual(numbered.slice(prefix.length,prefix.length+next.length),next.map(([name])=>name));
+  assert.deepEqual(numbered.slice(prefix.length),next.map(([name])=>name),'New migration requires explicit native replay review');
   const policyState=async()=> (await db.query(`SELECT p.polname, c.relname, p.polcmd, p.polroles,
     pg_get_expr(p.polqual,p.polrelid) AS predicate, pg_get_expr(p.polwithcheck,p.polrelid) AS check_expr
     FROM pg_policy p JOIN pg_class c ON c.oid=p.polrelid JOIN pg_namespace n ON n.oid=c.relnamespace
@@ -360,9 +366,9 @@ try {
          'public.customer_credits'::regclass,'public.subscriptions'::regclass,'public.backups'::regclass)) AS forced_rls,
       to_regprocedure('public.admin_update_organization_subscription(uuid,text,text,text,text)') IS NOT NULL AS manual_subscription_rpc,
       to_regprocedure('public.check_feature_access(text)') IS NOT NULL AND to_regprocedure('public.check_plan_limit(text)') IS NOT NULL AS plan_checks,
-      pg_get_function_result('public.update_organization_subscription(text,text,text)'::regprocedure)='jsonb' AND
-        pg_get_function_result('public.select_plan(text)'::regprocedure)='uuid' AND
-        pg_get_function_result('public.ensure_user_has_organization(text)'::regprocedure)='uuid' AS historical_subscription_drift,
+      to_regprocedure('public.update_organization_subscription(text,text,text)') IS NULL AND
+        to_regprocedure('public.select_plan(text)') IS NULL AND
+        pg_get_function_result('public.ensure_user_has_organization(text)'::regprocedure)='uuid' AS subscription_rpc_retirement,
       pg_get_function_result('public.receive_purchase_order(uuid,jsonb,text)'::regprocedure)='void' AND
         pg_get_function_result('public.generate_order_number(text)'::regprocedure)='text' AS purchase_order_drift,
       EXISTS (SELECT 1 FROM pg_index WHERE indexrelid=to_regclass('public.customers_org_phone_unique') AND indrelid='public.customers'::regclass AND indisunique AND indisvalid AND indpred IS NOT NULL AND pg_get_indexdef(indexrelid) LIKE '%(organization_id, phone)%') AS phone_unique,
@@ -435,15 +441,19 @@ try {
         ((attname='description' AND atttypid='text'::regtype) OR (attname='expiry_date' AND atttypid='date'::regtype) OR
          (attname='is_active' AND atttypid='boolean'::regtype))) AS product_columns`);
     for (const [name,passed] of Object.entries(contracts)) assert.equal(passed,true,`Historical prefix contract mismatch: ${name}`);
-    // Historical audit evidence, not a security acceptance criterion: the
-    // consolidated function is privileged and its stock predicate lacks tenant scope.
+    // The forward-only sale repair supersedes the historical unscoped predicate.
     const {rows:[historicalSale]}=await db.query(`SELECT prosecdef, prosrc FROM pg_proc
       WHERE oid='public.create_full_sale(uuid,uuid,text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text,numeric,uuid,text)'::regprocedure`);
     assert.ok(historicalSale.prosecdef);
-    const stockUpdate=historicalSale.prosrc.match(/UPDATE products\s+SET[\s\S]*?;/i)?.[0];
+    const stockUpdate=historicalSale.prosrc.match(/UPDATE public\.products\s+SET[\s\S]*?;/i)?.[0];
     assert.ok(stockUpdate,'Historical sale stock update not found');
-    assert.doesNotMatch(stockUpdate,/organization_id|store_id/i,'Historical stock predicate changed; reassess audit finding');
-    console.log('Historical consolidated sale: privileged stock update lacks tenant/store predicate (P0 remediation open)');
+    assert.match(stockUpdate,/organization_id = p_organization_id/i);
+    assert.match(historicalSale.prosrc,/p_user_id IS DISTINCT FROM auth.uid\(\)/i);
+    assert.match(historicalSale.prosrc,/p_organization_id IS DISTINCT FROM public\.get_user_organization_id\(\)/i);
+    assert.ok(historicalSale.prosrc.indexOf('IF auth.uid() IS NULL') < historicalSale.prosrc.indexOf('SELECT id INTO v_existing_sale_id'));
+    const {rows:[saleAcl]}=await db.query(`SELECT NOT has_function_privilege('anon',oid,'EXECUTE') AND NOT has_function_privilege('authenticated',oid,'EXECUTE') AS private FROM pg_proc WHERE oid='public.create_full_sale(uuid,uuid,text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text,numeric,uuid,text)'::regprocedure`);
+    assert.ok(saleAcl.private);
+    console.log('Forward sale repair scopes stock to tenant and denies direct browser execution; store-level product scope still requires review.');
     assert.match(historicalSale.prosrc,/cost_price/);
     assert.match(historicalSale.prosrc,/NULLIF\(TRIM\(p_payment_reference\), ''\)/i);
     const {rows:[paymentWrapper]}=await db.query(`SELECT prosrc,pronargdefaults FROM pg_proc WHERE oid='public.create_sale_with_limit(text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text,numeric,uuid,text)'::regprocedure`);
@@ -477,7 +487,7 @@ try {
     assert.equal(operators.result,'TABLE(user_id uuid, owner_name text)');
     assert.match(operators.prosrc,/ur\.role IN \('admin', 'manager', 'vendeur'\)/i);
     assert.match(operators.prosrc,/public\.get_user_organization_id\(\) = p_organization_id/i);
-    console.log('Historical atomic credit and phone-ledger replay guards present; cash operator NULL membership, underlying sale tenant scope and legacy replay payload mismatch remain open findings.');
+    console.log('Atomic credit and phone-ledger replay guards present; cash operator NULL membership and legacy replay payload mismatch remain open findings.');
     const {rows:costFunctions}=await db.query(`SELECT proname, prosecdef, prosrc FROM pg_proc WHERE oid IN (
       'public.get_product_kpis_by_period(text,uuid)'::regprocedure,
       'public.get_seller_kpis_detailed(text,uuid)'::regprocedure,
@@ -488,9 +498,10 @@ try {
       assert.ok(f.prosecdef);
       assert.match(f.prosrc,/IF public\.is_super_admin\(\) THEN\s*v_org_id := p_organization_id;\s*ELSE\s*v_org_id := public\.get_user_organization_id\(\);/i);
       assert.match(f.prosrc,/v_org_id IS NULL OR/i);
+      if (f.proname==='get_seller_kpis_detailed') assert.match(f.prosrc,/IF v_org_id IS NULL OR NOT public\.is_member_of_organization\(v_org_id\)/i);
       if (['get_seller_kpis_detailed','get_enhanced_dashboard_stats'].includes(f.proname)) assert.match(f.prosrc,/sale_items_agg AS/i);
     }
-    console.log('Historical KPI scope now derives tenant for ordinary callers; NULL tenant remains an open fail-open risk. Orphan sale overload removed; stock scope still open.');
+    console.log('Seller KPI now rejects missing tenant; other three KPI routines retain nullable tenant risk.');
     const {rows:[ranking]}=await db.query(`SELECT prosrc FROM pg_proc WHERE oid='public.get_admin_product_ranking_detailed(text,uuid,integer)'::regprocedure`);
     assert.match(ranking.prosrc,/ranked AS \(/i);
     assert.match(ranking.prosrc,/WHERE r\.rank_top <= p_limit/i);
@@ -539,16 +550,19 @@ try {
     assert.match(seller.prosrc,/ur\.role = ANY \(ARRAY\[/i);
     const {rows:[orgKpis]}=await db.query(`SELECT prosrc FROM pg_proc WHERE oid='public.get_admin_org_kpis(text)'::regprocedure`);
     for (const alias of ['st','s','e','c','pr']) assert.ok(orgKpis.prosrc.includes(`GROUP BY ${alias}.organization_id`));
-    const {rows:[plan]}=await db.query(`SELECT prosecdef,prosrc FROM pg_proc WHERE oid='public.update_organization_subscription(text,text,text)'::regprocedure`);
-    assert.ok(plan.prosecdef);
-    assert.match(plan.prosrc,/auth\.uid\(\)/);
-    assert.doesNotMatch(plan.prosrc,/has_role|is_super_admin/);
-    console.log('Historical subscription self-service RPC restored without role guard; receipt replay and numbering concurrency remain open P0 findings.');
+    const {rows:[finalAcl]}=await db.query(`SELECT
+      (SELECT count(*)=3 AND bool_and(NOT has_function_privilege('anon',oid,'EXECUTE') AND has_function_privilege('authenticated',oid,'EXECUTE')) FROM pg_proc WHERE oid IN ('public.get_seller_performance(timestamptz,timestamptz)'::regprocedure,'public.get_seller_activities(uuid,integer)'::regprocedure,'public.get_seller_kpis_detailed(text,uuid)'::regprocedure)) AS seller_acl,
+      NOT has_table_privilege('authenticated','public.support_tickets','INSERT,UPDATE,DELETE') AND NOT has_table_privilege('authenticated','public.support_ticket_messages','INSERT,UPDATE,DELETE') AND has_table_privilege('authenticated','public.support_tickets','SELECT') AS support_acl,
+      NOT has_function_privilege('authenticated','public.generate_ticket_number()','EXECUTE') AND NOT has_function_privilege('anon','public.get_support_stats()','EXECUTE') AND has_function_privilege('authenticated','public.get_support_stats()','EXECUTE') AS support_rpc_acl,
+      NOT has_table_privilege('authenticated','public.password_reset_tokens','SELECT,INSERT,UPDATE,DELETE') AND NOT has_column_privilege('authenticated','public.password_reset_tokens','token_hash','SELECT') AND has_column_privilege('authenticated','public.password_reset_tokens','id','SELECT') AND NOT has_any_column_privilege('anon','public.password_reset_tokens','SELECT') AND has_table_privilege('service_role','public.password_reset_tokens','SELECT') AS reset_acl,
+      (SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid='public.password_reset_tokens'::regclass) AS reset_rls`);
+    for (const [name,passed] of Object.entries(finalAcl)) assert.equal(passed,true,`Final ACL contract: ${name}`);
+    console.log('Unsafe subscription and backup RPCs retired; receipt replay and numbering concurrency remain open P0 findings.');
   } finally { await db.query('ROLLBACK'); }
   assert.deepEqual(await policyState(),before,'Historical prefix leaked policy changes');
   const {rows:[rolledBack]}=await db.query("SELECT to_regclass('public.idx_single_admin') IS NULL AS clean");
   assert.ok(rolledBack.clean,'Historical constraint escaped transaction');
-  console.log('Native historical prefix PASS: 161 migrations accounted for, 2 reconciled persistently in local snapshot, 158 exercised and rolled back (7 transaction wrappers adapted, 4 verified no-ops), 1 cron registration not executed');
+  console.log('Native historical coverage PASS: 167 migrations accounted for, 2 reconciled persistently in local snapshot, 164 exercised and rolled back (7 transaction wrappers adapted, 4 verified no-ops), 1 cron registration not executed');
 
   const fixtures=[];
   for (const suffix of ['a','b']) {
