@@ -175,6 +175,10 @@ try {
     ['20260715060000_fix_super_admin_create_organization_rpc.sql','dc61ddbf819a9cd2df88a7107def8f053e97acf0df9d743155a16eef817117f6'],
     ['20260715070000_fix_super_admin_create_organization_owner.sql','4eb04637d8afb0c29dcb00fba238026f1f32a546ec1118494f8ff9920de4d32b'],
     ['20260715080000_fix_super_admin_can_read_all_stores.sql','4151ca32d90a9d34547d4bdf59c684c9106cb6b1729f696c1eac6a984592432c'],
+    ['20260715090000_fix_duplicate_store_on_org_creation.sql','100fbfd043db31a858914eb63266c852a4af73ddfc9d44dd70cf21196a43e896'],
+    ['20260715100000_hide_super_admin_from_org_admins.sql','af7b6639e177250bd5fabb429014ede0767932e13e26a7e95cb48243e19155f0'],
+    ['20260715110000_fix_login_broken_by_rls.sql','2dcb1829d16f2f13ee20f3fc8ffb48ba4c6f6a288e785a1886fcb4c7dcf2222e'],
+    ['20260715120000_emergency_login_fix.sql','b6eec7a71d79cad7948a23625cd0a7ae4d1e5dcd201674d034a9c218b360923f','42804'],
   ];
   assert.deepEqual(numbered.slice(prefix.length,prefix.length+next.length),next.map(([name])=>name));
   const policyState=async()=> (await db.query(`SELECT p.polname, c.relname, p.polcmd, p.polroles,
@@ -187,6 +191,11 @@ try {
     for (const [name,hash,code] of next) {
       const historical=readFileSync(new URL(name,directory),'utf8');
       assert.equal(createHash('sha256').update(historical).digest('hex'),hash);
+      if (name==='20260715090000_fix_duplicate_store_on_org_creation.sql') {
+        const {rows:[state]}=await db.query(`SELECT NOT EXISTS (SELECT 1 FROM public.stores) AS stores_empty,
+          NOT EXISTS (SELECT 1 FROM public.organizations) AS organizations_empty`);
+        assert.ok(Object.values(state).every(Boolean),'Historical store cleanup requires empty fixture data');
+      }
       if (code==='outer-transaction') {
         // Exact, digest-pinned wrappers only: preserve all SQL between them,
         // while the existing outer transaction provides atomic execution.
@@ -224,7 +233,7 @@ try {
       }
       if (code) {
         assert.deepEqual(baseline[name].slice(0,2),[code,hash]);
-        if (name==='20260715050000_fix_super_admin_visibility.sql') {
+        if (['20260715050000_fix_super_admin_visibility.sql','20260715120000_emergency_login_fix.sql'].includes(name)) {
           const {rows:[identity]}=await db.query(`SELECT
             NOT EXISTS (SELECT 1 FROM public.profiles) AS profiles_empty,
             NOT EXISTS (SELECT 1 FROM public.user_roles) AS roles_empty,
@@ -328,6 +337,11 @@ try {
       pg_get_function_result('public.super_admin_create_organization(text,text,text,text,text,text,text,text)'::regprocedure)='TABLE(org_id uuid, store_id uuid, success boolean, error text)' AS admin_org_contract,
       EXISTS (SELECT 1 FROM pg_proc WHERE oid='public.is_super_admin()'::regprocedure AND prosrc LIKE '%user_roles%' AND prosrc NOT LIKE '%owner_user_id%') AS explicit_admin_role,
       EXISTS (SELECT 1 FROM pg_policy WHERE polrelid='public.stores'::regclass AND polname='stores_select_org_member' AND polroles=ARRAY['authenticated'::regrole::oid] AND pg_get_expr(polqual,polrelid) LIKE '%is_super_admin()%') AS store_visibility_policy,
+      (SELECT count(*)=2 AND bool_and(polroles=ARRAY['authenticated'::regrole::oid] AND polcmd='r' AND
+        pg_get_expr(polqual,polrelid) LIKE '%auth.uid()%' AND pg_get_expr(polqual,polrelid) LIKE '%is_super_admin()%') FROM pg_policy
+        WHERE (polrelid='public.profiles'::regclass AND polname='profiles_select_scoped') OR
+        (polrelid='public.user_roles'::regclass AND polname='user_roles_select_scoped')) AS repaired_login_policies,
+      EXISTS (SELECT 1 FROM pg_policy WHERE polrelid='public.user_audit_log'::regclass AND polname='admins_view_audit_log') AS audit_scope_policy,
       (SELECT count(*)=3 FROM pg_attribute WHERE attrelid='public.products'::regclass AND NOT attisdropped AND
         ((attname='description' AND atttypid='text'::regtype) OR (attname='expiry_date' AND atttypid='date'::regtype) OR
          (attname='is_active' AND atttypid='boolean'::regtype))) AS product_columns`);
@@ -345,7 +359,7 @@ try {
   assert.deepEqual(await policyState(),before,'Historical prefix leaked policy changes');
   const {rows:[rolledBack]}=await db.query("SELECT to_regclass('public.idx_single_admin') IS NULL AS clean");
   assert.ok(rolledBack.clean,'Historical constraint escaped transaction');
-  console.log('Native historical prefix PASS: 112 migrations accounted for, 2 reconciled persistently in local snapshot, 109 exercised and rolled back (4 transaction wrappers adapted, 4 verified no-ops), 1 cron registration not executed');
+  console.log('Native historical prefix PASS: 116 migrations accounted for, 2 reconciled persistently in local snapshot, 113 exercised and rolled back (4 transaction wrappers adapted, 4 verified no-ops), 1 cron registration not executed');
 
   const fixtures=[];
   for (const suffix of ['a','b']) {
