@@ -101,6 +101,62 @@ async function testFinalTransactions(db) {
   assert.deepEqual(await state(a,'NATIVE-CASH'),{sales:1,items:1,credits:0,stock:18});
   assert.deepEqual(await state(b,'NATIVE-CASH'),{sales:0,items:0,credits:0,stock:19});
   console.log('Final native schema cash PASS: mixed basket rollback, foreign product and negative quantity denial, private helper denial, repeated cash sale');
+  return tenants;
+}
+
+// Only called in a second disposable native CI stack after the final schema
+// and synthetic fixtures are committed. Both actors use authenticated SQL.
+async function testNativeConcurrency(db, dbUrl, tenants) {
+  const [a,b]=tenants;
+  const c1=new Client({connectionString:dbUrl.href,ssl:false});
+  const c2=new Client({connectionString:dbUrl.href,ssl:false});
+  let retry;
+  try {
+    await c1.connect();
+    await c2.connect();
+    for (const c of [c1,c2]) {
+      await c.query('SET ROLE authenticated');
+      await c.query("SELECT set_config('request.jwt.claim.sub',$1,false)",[a.user]);
+      assert.equal((await c.query('SELECT auth.uid() AS id')).rows[0].id,a.user);
+      await c.query("SET statement_timeout = '15s'");
+    }
+    const pid1=(await c1.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    const pid2=(await c2.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    const sale=async c=>(await c.query(
+      "SELECT public.create_credit_sale_atomic('NATIVE-CONCURRENT',100,100,$1::jsonb,p_customer_name=>'Replay customer',p_customer_phone=>'00000001') AS id",
+      [JSON.stringify([{product_id:a.product,product_name:'Replay fixture',quantity:1,unit_price:100,total_price:100}])])).rows[0].id;
+    await c1.query('BEGIN');
+    const winner=await sale(c1);
+    assert.ok(winner);
+    retry=sale(c2).then(id=>({id}),error=>({error}));
+    const deadline=Date.now()+5000;
+    let blocked=false;
+    while (Date.now()<deadline) {
+      const {rows:[lock]}=await db.query('SELECT $1::int = ANY(pg_blocking_pids($2::int)) AS blocked',[pid1,pid2]);
+      if (lock.blocked) { blocked=true; break; }
+      await new Promise(resolve=>setTimeout(resolve,25));
+    }
+    assert.equal(blocked,true,'Native retry must wait for the winning transaction');
+    await c1.query('COMMIT');
+    const result=await retry;
+    if (result.error) throw result.error;
+    assert.equal(result.id,winner);
+    const {rows:[state]}=await db.query(`SELECT
+      (SELECT count(*)::int FROM public.sales WHERE sale_number='NATIVE-CONCURRENT') AS sales,
+      (SELECT count(*)::int FROM public.sale_items WHERE sale_id=$1) AS items,
+      (SELECT count(*)::int FROM public.customer_credits WHERE organization_id=$2 AND sale_number='NATIVE-CONCURRENT') AS credits,
+      (SELECT stock_quantity FROM public.products WHERE id=$3) AS stock,
+      (SELECT stock_quantity FROM public.products WHERE id=$4) AS foreign_stock,
+      (SELECT total_credit::int FROM public.customers WHERE organization_id=$2 AND phone='00000001') AS balance`,
+      [winner,a.org,a.product,b.product]);
+    assert.deepEqual(state,{sales:1,items:1,credits:1,stock:17,foreign_stock:19,balance:200});
+    console.log('Final committed native schema concurrency PASS: observed lock, one sale, one ledger entry, one stock decrement, scoped balance');
+  } finally {
+    // End the winner first, releasing its locks before draining the retry.
+    await c1.end();
+    if (retry) await retry;
+    await c2.end();
+  }
 }
 
 // Only a freshly initialized, unlinked local CLI stack is supported.
@@ -108,6 +164,9 @@ const status = JSON.parse(readFileSync(process.argv[2], 'utf8'));
 const api = new URL(status.API_URL);
 const dbUrl = new URL(status.DB_URL);
 const local = url => ['127.0.0.1','localhost'].includes(url.hostname);
+const committedReplay=process.argv[3]==='--ci-committed-replay';
+assert.ok(!process.argv[3] || committedReplay,'Unknown native replay mode');
+assert.ok(!committedReplay || process.env.GITHUB_ACTIONS==='true','Committed replay requires disposable GitHub CI');
 assert.ok(local(api) && api.protocol==='http:' && api.port==='54321');
 assert.ok(local(dbUrl) && dbUrl.protocol==='postgresql:' && dbUrl.port==='54322' && dbUrl.pathname==='/postgres');
 const publicKey = status.ANON_KEY ?? status.PUBLISHABLE_KEY;
@@ -335,6 +394,8 @@ try {
     FROM pg_policy p JOIN pg_class c ON c.oid=p.polrelid JOIN pg_namespace n ON n.oid=c.relnamespace
     WHERE n.nspname IN ('public','storage') ORDER BY n.nspname,c.relname,p.polname`)).rows;
   const before=await policyState();
+  let finalTenants;
+  let committed=false;
   await db.query('BEGIN');
   try {
     for (const [name,hash,code] of next) {
@@ -656,8 +717,19 @@ try {
       (SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid='public.password_reset_tokens'::regclass) AS reset_rls`);
     for (const [name,passed] of Object.entries(finalAcl)) assert.equal(passed,true,`Final ACL contract: ${name}`);
     console.log('Unsafe subscription and backup RPCs retired; receipt replay and numbering concurrency remain open P0 findings.');
-    await testFinalTransactions(db);
-  } finally { await db.query('ROLLBACK'); }
+    finalTenants=await testFinalTransactions(db);
+    if (committedReplay) {
+      // No real job registration is allowed in the second local stack.
+      if ((await db.query("SELECT to_regclass('cron.job') AS jobs")).rows[0].jobs) {
+        assert.equal((await db.query('SELECT count(*)::int AS count FROM cron.job')).rows[0].count,0);
+      }
+      await db.query('COMMIT');
+      committed=true;
+    }
+  } finally { if (!committed) await db.query('ROLLBACK'); }
+  if (committedReplay) {
+    await testNativeConcurrency(db,dbUrl,finalTenants);
+  } else {
   assert.deepEqual(await policyState(),before,'Historical prefix leaked policy changes');
   const {rows:[rolledBack]}=await db.query("SELECT to_regclass('public.idx_single_admin') IS NULL AS clean");
   assert.ok(rolledBack.clean,'Historical constraint escaped transaction');
@@ -727,4 +799,5 @@ try {
   assert.deepEqual(finalRows.map(row=>row.id),fixtures.map(f=>f.product).sort());
   console.log('Native Supabase write isolation PASS: positive CRUD, cross-tenant insert/update/delete and reassignment denial, anonymous write denial, SQL state verified');
   console.log('Native Supabase snapshot PASS: real Auth, PostgREST, two-tenant RLS, anonymous denial; first two historical collisions reconciled, self-role escalation denied');
+  }
 } finally { await db.end(); }
