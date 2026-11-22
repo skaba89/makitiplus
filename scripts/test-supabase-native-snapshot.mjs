@@ -183,6 +183,11 @@ try {
     ['20260716100000_admin_analytics_advanced_rpcs.sql','e9b40e5b1387c59166ffcd5bab0deed49b8a518edc4689866cfa1be615cf8eec'],
     ['20260716120000_super_admin_rls_all_tables.sql','6adfed9213d197f4d176fe15bd4711820fa4416f67f72e65c2b69c001f7d1ebb'],
     ['20260719100000_security_fixes_audit.sql','9c2d340376285854fd7260481bd98264b0d7eac66b153172a2a57c26fe3f193c'],
+    ['20260719120000_product_kpis_rpc_fixed.sql','b7e5309ac77b9eafe8aebadc6736db7842d31ce4f1cb1069c4189487dd3c481f'],
+    ['20260719130000_add_sale_items_cost_price_snapshot.sql','9831e0018cc175a9c49e9c422be3e141df0ad780dd3a77e81307f95f61e5aed9'],
+    ['20260719130000_product_kpis_fix_rownumber.sql','8afeb4be4b8bfd0d3639b0cb7d52733b2d07eb779e59b470ded446c166f05cfe'],
+    ['20260719140000_update_create_full_sale_cost_price.sql','aaf288848c3e33a7595ef5e70f84dc5a127f30bba41cb3b8efc76ff2984cf7de'],
+    ['20260719150000_enhanced_dashboard_stats_rpc.sql','a2c6002b557ac474dd936f06ca23fc81154043d70b0dd77a8feeaebbbffb55f6'],
   ];
   assert.deepEqual(numbered.slice(prefix.length,prefix.length+next.length),next.map(([name])=>name));
   const policyState=async()=> (await db.query(`SELECT p.polname, c.relname, p.polcmd, p.polroles,
@@ -350,6 +355,11 @@ try {
       to_regprocedure('public.has_role(uuid,text)') IS NOT NULL AS text_role_helper,
       (SELECT count(*)=5 AND bool_and(proretset) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN
         ('get_admin_users_per_org','get_admin_seller_performance','get_admin_org_kpis','get_admin_global_kpis','get_admin_product_ranking_detailed')) AS admin_analytics_contract,
+      EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='public.sale_items'::regclass AND attname='cost_price' AND atttypid='numeric'::regtype AND NOT attisdropped) AND
+        EXISTS (SELECT 1 FROM pg_index WHERE indexrelid=to_regclass('public.idx_sale_items_cost_price') AND indisvalid AND indrelid='public.sale_items'::regclass) AS historical_cost_storage,
+      pg_get_function_result('public.get_product_kpis_by_period(text,uuid)'::regprocedure) LIKE 'TABLE(%' AND
+        pg_get_function_result('public.get_enhanced_dashboard_stats(text,uuid)'::regprocedure) LIKE 'TABLE(%' AS product_dashboard_contract,
+      pg_get_function_result('public.create_full_sale(text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text)'::regprocedure)='uuid' AS historical_cost_sale_overload,
       (SELECT count(*)=8 FROM pg_attribute WHERE attrelid='public.suppliers'::regclass AND NOT attisdropped AND
         attname IN ('city','country','notes','email','address','phone','is_active','store_id')) AS supplier_columns,
       EXISTS (SELECT 1 FROM public.plans WHERE id='pilot_national' AND has_supplier_management AND has_offline_advanced AND has_loyalty_program) AS pilot_features,
@@ -378,11 +388,24 @@ try {
     assert.ok(stockUpdate,'Historical sale stock update not found');
     assert.doesNotMatch(stockUpdate,/organization_id|store_id/i,'Historical stock predicate changed; reassess audit finding');
     console.log('Historical consolidated sale: privileged stock update lacks tenant/store predicate (P0 remediation open)');
+    const {rows:costFunctions}=await db.query(`SELECT proname, prosecdef, prosrc FROM pg_proc WHERE oid IN (
+      'public.create_full_sale(text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text)'::regprocedure,
+      'public.get_product_kpis_by_period(text,uuid)'::regprocedure,
+      'public.get_enhanced_dashboard_stats(text,uuid)'::regprocedure)`);
+    const costSale=costFunctions.find(f=>f.proname==='create_full_sale');
+    assert.match(costSale.prosrc,/cost_price/);
+    assert.match(costSale.prosrc,/UPDATE products[\s\S]*?AND organization_id = v_org_id[\s\S]*?RETURNING stock_quantity/i);
+    for (const f of costFunctions.filter(f=>f.proname!=='create_full_sale')) {
+      assert.ok(f.prosecdef);
+      assert.match(f.prosrc,/v_org_id\s*:=\s*p_organization_id/i);
+      assert.doesNotMatch(f.prosrc,/is_super_admin\s*\(|get_user_organization_id\s*\(|auth\.uid\s*\(/i);
+    }
+    console.log('Historical cost sale overload coexists with older privileged store sale; KPI/dashboard lack tenant authorization (P0 findings)');
   } finally { await db.query('ROLLBACK'); }
   assert.deepEqual(await policyState(),before,'Historical prefix leaked policy changes');
   const {rows:[rolledBack]}=await db.query("SELECT to_regclass('public.idx_single_admin') IS NULL AS clean");
   assert.ok(rolledBack.clean,'Historical constraint escaped transaction');
-  console.log('Native historical prefix PASS: 120 migrations accounted for, 2 reconciled persistently in local snapshot, 117 exercised and rolled back (5 transaction wrappers adapted, 4 verified no-ops), 1 cron registration not executed');
+  console.log('Native historical prefix PASS: 125 migrations accounted for, 2 reconciled persistently in local snapshot, 122 exercised and rolled back (5 transaction wrappers adapted, 4 verified no-ops), 1 cron registration not executed');
 
   const fixtures=[];
   for (const suffix of ['a','b']) {
