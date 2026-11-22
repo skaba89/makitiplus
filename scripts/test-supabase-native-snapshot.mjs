@@ -81,12 +81,25 @@ try {
     ['20260614020000_add_missing_foreign_keys.sql','5def3711cd78411e400d12c9f4f21f9fdf10e4a5788d8c6af98e3066841e3433','42710'],
     ['20260614030000_tighten_rls_policies.sql','4054f1b5d9d04090ef110c28deb6f49e884245cc56e01506780470233347656f','42710'],
     ['20260614040000_grant_admin_exists_to_anon.sql','56c1f0234ce7129842a1a21b5d32c3937342abd778ec71461611196e60e8039f'],
+    ['20260629010000_add_super_admin_role.sql','63240141e721f21844434de4334d26cda0a5baa26c644d58512ebb09279e5cc3'],
+    ['20260629010001_store_settings_and_default_categories.sql','85b07eddff49d2297a12cde6fe80a1a61f76b2dbfd07a2801220703c0431258b'],
+    ['20260629020000_add_store_category.sql','aa27c63b1248f17b77ae6cda5d82ab62243ccff7e22af7ec45ffa436eb0f640d'],
+    ['20260701010000_fix_rls_self_escalation_and_super_admin.sql','352d1193ed743f0bd2923cb6223ad518ce8e61be70bc6761bd7af71ad3acf1b2'],
+    ['20260701010001_phase1_security_and_rpc.sql','b9a47a91250ff04145cde8ad22e0841c58abf7fccd63131ce1e086f059173624'],
+    ['20260701020000_critical_audit_fixes.sql','414d2fc4601c222a64c33c293b6b792ae93d7cd1d59e848bbd00362478517aa2'],
+    ['20260701030000_high_audit_fixes.sql','afca86a04084fc1b2ce2b280e92de2065068d4af1dec97eb6973b6a16b3c80f9'],
+    ['20260701040000_add_nfc_enabled_to_profiles.sql','64b237f6685239b6a3d6bd189c060427d0f2cecb3f931e2935e9e57b0f866492'],
+    ['20260701050000_fix_create_full_sale_race_condition.sql','aa7347a09cc881b6b488427752fde51db829838c9582756511279fc7e536bd2c'],
+    ['20260702010000_add_missing_indexes.sql','6753dfcaf0f97e9b14586919e6c55a36cc84067fd5a7cb8eb7e2294d4e5a82e0'],
+    ['20260702010001_add_suppliers_table.sql','7cdf1d5723b3e33cb105df93fd66bb6b0e260cda3465412de00a94bec32ed3b9'],
+    ['20260702020000_race_condition_fixes.sql','02b55a5afed0e16e34dfd93d7148550a85d5b3a064af8dcff0924819ebab128e'],
+    ['20260702030000_dashboard_rpc_aggregation.sql','de0096caf6115b127f37d27afafdb4739606cc0a5b5a3a930f2a2121646c51b5'],
   ];
   assert.deepEqual(numbered.slice(prefix.length,prefix.length+next.length),next.map(([name])=>name));
   const policyState=async()=> (await db.query(`SELECT p.polname, c.relname, p.polcmd, p.polroles,
     pg_get_expr(p.polqual,p.polrelid) AS predicate, pg_get_expr(p.polwithcheck,p.polrelid) AS check_expr
     FROM pg_policy p JOIN pg_class c ON c.oid=p.polrelid JOIN pg_namespace n ON n.oid=c.relnamespace
-    WHERE n.nspname='public' ORDER BY c.relname,p.polname`)).rows;
+    WHERE n.nspname IN ('public','storage') ORDER BY n.nspname,c.relname,p.polname`)).rows;
   const before=await policyState();
   await db.query('BEGIN');
   try {
@@ -109,20 +122,25 @@ try {
       } else await db.query(historical);
     }
     const {rows:[contracts]}=await db.query(`SELECT
-      to_regclass('public.idx_single_admin') IS NOT NULL AS legacy_index,
+      to_regclass('public.idx_single_admin') IS NULL AS legacy_index_removed,
       public.resolve_stock_conflict(10,7,8)=5 AND public.resolve_stock_conflict(10,0,2)=0 AS stock_delta,
       EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='public.organizations'::regclass AND attname='default_tax_rate' AND NOT attisdropped) AS tax,
       NOT has_function_privilege('anon','public.is_user_active(uuid)','EXECUTE') AS private_status,
       has_function_privilege('service_role','public.is_user_active(uuid)','EXECUTE') AS service_status,
       has_function_privilege('anon','public.admin_exists()','EXECUTE') AS signup,
       EXISTS (SELECT 1 FROM pg_policy WHERE polrelid='public.password_reset_tokens'::regclass AND polname='admins_view_reset_tokens_org') AS token_scope,
-      EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public.stock_movements'::regclass AND contype='f' AND confrelid='public.sales'::regclass AND convalidated) AS sale_fk`);
+      EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public.stock_movements'::regclass AND contype='f' AND confrelid='public.sales'::regclass AND convalidated) AS sale_fk,
+      (SELECT relrowsecurity FROM pg_class WHERE oid='public.suppliers'::regclass) AS supplier_rls,
+      EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='suppliers') AS supplier_realtime,
+      EXISTS (SELECT 1 FROM pg_policy WHERE polrelid='storage.objects'::regclass AND polname='org_admins_upload_logos') AS logo_policy,
+      to_regprocedure('public.adjust_product_stock(uuid,text,integer,text,uuid,uuid)') IS NOT NULL AS adjust_stock,
+      to_regprocedure('public.get_dashboard_stats(uuid,timestamptz,timestamptz,timestamptz,timestamptz)') IS NOT NULL AS dashboard`);
     assert.ok(Object.values(contracts).every(Boolean),'Historical prefix contract mismatch');
   } finally { await db.query('ROLLBACK'); }
   assert.deepEqual(await policyState(),before,'Historical prefix leaked policy changes');
   const {rows:[rolledBack]}=await db.query("SELECT to_regclass('public.idx_single_admin') IS NULL AS clean");
   assert.ok(rolledBack.clean,'Historical constraint escaped transaction');
-  console.log('Native historical prefix PASS: 18 migrations accounted for, 2 reconciled persistently in local snapshot, 15 exercised and rolled back, 1 cron registration not executed');
+  console.log('Native historical prefix PASS: 31 migrations accounted for, 2 reconciled persistently in local snapshot, 28 exercised and rolled back, 1 cron registration not executed');
 
   const fixtures=[];
   for (const suffix of ['a','b']) {
