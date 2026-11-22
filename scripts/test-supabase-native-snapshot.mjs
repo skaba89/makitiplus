@@ -162,6 +162,10 @@ try {
     ['20260713100000_CLEANUP_RESET_PROJECT.sql','8c1dd99015ce1316853e5600e4ba970c12b1601285a2ef2ad7661017105f25ae','neutralized'],
     ['20260713110000_RECOVERY_CREATE_ORG.sql','f0c7a4652aa53d4992b47db93d0e080dddd211cbc864b9857f4974434b57a976','neutralized'],
     ['20260713120000_fix_create_first_organization_conflict.sql','54dc0ea277913743f1a487b0f5fbd7e0f65d05518c8a92cb300b7b5363dc4a3f'],
+    ['20260713200000_FINAL_CONSOLIDATED_ALL_FIXES.sql','0e430141cff5435fb6f927a5ede2349ac1b37d2fdc047a635b2fc6af0ff997c0','outer-transaction'],
+    ['20260713210000_fix_rls_policies_suppliers_expenses_customers.sql','f08735ada21c2dad0134fd89b3384ebf33af98e0349dd7b49fde423ed864e06d'],
+    ['20260713220000_enable_all_features_starter.sql','781db53d40ff41257bc74230ed4528fc3ef2333655466f395a40593af13c3751'],
+    ['20260713230000_add_missing_suppliers_columns.sql','25510a1cf69e5cc1f72a3651a4f2e61060065460a1ca9b5ea6346fb342471efe'],
   ];
   assert.deepEqual(numbered.slice(prefix.length,prefix.length+next.length),next.map(([name])=>name));
   const policyState=async()=> (await db.query(`SELECT p.polname, c.relname, p.polcmd, p.polroles,
@@ -181,6 +185,7 @@ try {
           '20260712180000_CONSOLIDATED_all_critical_fixes.sql':[21,593],
           '20260712190000_fix_payment_method_enum_cast.sql':[17,176],
           '20260712195000_harden_sales_store_scope.sql':[32,269],
+          '20260713200000_FINAL_CONSOLIDATED_ALL_FIXES.sql':[19,371],
         }[name];
         assert.ok(boundaries,`Unreviewed transaction wrapper: ${name}`);
         const lines=historical.split('\n');
@@ -290,15 +295,33 @@ try {
       pg_get_function_result('public.create_first_organization(text,text,text,text,text,text)'::regprocedure)='uuid' AND
         (SELECT count(*)=1 FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname='create_first_organization') AND
         has_function_privilege('authenticated','public.create_first_organization(text,text,text,text,text,text)','EXECUTE') AS onboarding_text_contract,
+      (SELECT count(*)=12 AND bool_and(polroles=ARRAY['authenticated'::regrole::oid] AND
+        CASE WHEN polcmd='a' THEN polwithcheck IS NOT NULL ELSE polqual IS NOT NULL END)
+        FROM pg_policy WHERE polrelid IN ('public.suppliers'::regclass,'public.expenses'::regclass,'public.customers'::regclass)
+        AND polname IN ('suppliers_select_own_org','suppliers_insert_own_org','suppliers_update_own_org','suppliers_delete_own_org',
+          'expenses_select_own_org','expenses_insert_own_org','expenses_update_own_org','expenses_delete_own_org',
+          'customers_select_own_org','customers_insert_own_org','customers_update_own_org','customers_delete_own_org')) AS business_policy_catalog,
+      (SELECT count(*)=8 FROM pg_attribute WHERE attrelid='public.suppliers'::regclass AND NOT attisdropped AND
+        attname IN ('city','country','notes','email','address','phone','is_active','store_id')) AS supplier_columns,
+      EXISTS (SELECT 1 FROM public.plans WHERE id='starter' AND has_supplier_management AND has_offline_advanced AND has_loyalty_program) AS starter_pilot_features,
       (SELECT count(*)=3 FROM pg_attribute WHERE attrelid='public.products'::regclass AND NOT attisdropped AND
         ((attname='description' AND atttypid='text'::regtype) OR (attname='expiry_date' AND atttypid='date'::regtype) OR
          (attname='is_active' AND atttypid='boolean'::regtype))) AS product_columns`);
     for (const [name,passed] of Object.entries(contracts)) assert.equal(passed,true,`Historical prefix contract mismatch: ${name}`);
+    // Historical audit evidence, not a security acceptance criterion: the
+    // consolidated function is privileged and its stock predicate lacks tenant scope.
+    const {rows:[historicalSale]}=await db.query(`SELECT prosecdef, prosrc FROM pg_proc
+      WHERE oid='public.create_full_sale(uuid,uuid,text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text,numeric,uuid)'::regprocedure`);
+    assert.ok(historicalSale.prosecdef);
+    const stockUpdate=historicalSale.prosrc.match(/UPDATE products\s+SET[\s\S]*?;/i)?.[0];
+    assert.ok(stockUpdate,'Historical sale stock update not found');
+    assert.doesNotMatch(stockUpdate,/organization_id|store_id/i,'Historical stock predicate changed; reassess audit finding');
+    console.log('Historical consolidated sale: privileged stock update lacks tenant/store predicate (P0 remediation open)');
   } finally { await db.query('ROLLBACK'); }
   assert.deepEqual(await policyState(),before,'Historical prefix leaked policy changes');
   const {rows:[rolledBack]}=await db.query("SELECT to_regclass('public.idx_single_admin') IS NULL AS clean");
   assert.ok(rolledBack.clean,'Historical constraint escaped transaction');
-  console.log('Native historical prefix PASS: 99 migrations accounted for, 2 reconciled persistently in local snapshot, 96 exercised and rolled back (3 transaction wrappers adapted, 2 verified no-ops), 1 cron registration not executed');
+  console.log('Native historical prefix PASS: 103 migrations accounted for, 2 reconciled persistently in local snapshot, 100 exercised and rolled back (4 transaction wrappers adapted, 2 verified no-ops), 1 cron registration not executed');
 
   const fixtures=[];
   for (const suffix of ['a','b']) {
