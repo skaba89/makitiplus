@@ -68,14 +68,16 @@ jobs:
         run: |
           set -euo pipefail
           docker exec -u root "$POSTGRES_CONTAINER" sh -ec 'apt-get update && apt-get install -y --no-install-recommends postgresql-16-cron'
-          docker exec "$POSTGRES_CONTAINER" psql -U postgres -v ON_ERROR_STOP=1 -c "ALTER SYSTEM SET shared_preload_libraries = 'pg_cron'"
-          docker exec "$POSTGRES_CONTAINER" psql -U postgres -v ON_ERROR_STOP=1 -c "ALTER SYSTEM SET cron.launch_active_jobs = 'off'"
+          # The custom GUC is not registered until pg_cron is preloaded.
+          # Configure both settings before the first restart, never start an
+          # enabled scheduler even briefly.
+          docker exec -u postgres "$POSTGRES_CONTAINER" sh -ec 'printf "\n%s\n" "shared_preload_libraries = '\''pg_cron'\''" "cron.launch_active_jobs = off" >> "$PGDATA/postgresql.conf"'
           docker restart "$POSTGRES_CONTAINER"
           for attempt in $(seq 1 30); do
             if docker exec "$POSTGRES_CONTAINER" pg_isready -U postgres; then break; fi
             sleep 1
           done
-          docker exec "$POSTGRES_CONTAINER" psql -U postgres -v ON_ERROR_STOP=1 -c 'SHOW cron.launch_active_jobs'
+          test "$(docker exec "$POSTGRES_CONTAINER" psql -U postgres -v ON_ERROR_STOP=1 -Atc 'SHOW cron.launch_active_jobs')" = off
           node scripts/test-postgres-replay.mjs
 
       - name: Test tenant RPC guard (MKP-007)
