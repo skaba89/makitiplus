@@ -206,6 +206,12 @@ try {
     ['20260724090000_fix_seller_performance_role_cast.sql','2ed49925ca117cb0b5de3286f228da3e12b207b7396f2e7060bf39d544827118'],
     ['20260724091000_fix_org_kpis_ambiguous_column.sql','1ad2346d6992a8557a7bfa8f8d301b552110eed1c635a9fc14381e7fb8b3154b'],
     ['20260724100000_fix_organizations_update_cross_tenant.sql','13a828dc7046f258562920763fc552f95e4423ea523982fba683f7961e774e32'],
+    ['20260724110000_fix_password_reset_tokens_org_scope.sql','be1916f75dac92fb0e584b2cc4eea76929c54ef44656f4fa4dc30169e9ca26a8'],
+    ['20260724120000_fix_user_roles_select_org_scope.sql','deef1b76bae09502d34179b825383846ab74bbf34f95bef1917ebd1e20382e57'],
+    ['20260724130000_fix_user_audit_log_insert_forgery.sql','ded60ef338ffe16015e045178623c46ca98755bfcc0ae8acbc6f07637dc1705c'],
+    ['20260724140000_fix_stripe_events_rls_disabled.sql','1df8a9454f6ab34df877a713a931f8090daaf8dcd7acf89a02fa5ad844918541'],
+    ['20260727150000_create_cash_register_sessions.sql','c173168e558cfd7df69c0453ee09dfd5a4051c8f992c5d94078ee1f38900a72c'],
+    ['20260728190000_fix_cash_closing_expense_store_scope.sql','998475c0c5c1805800a3126d712ea6b848becf99a1a3cc8261e3a5f36331028b'],
   ];
   assert.deepEqual(numbered.slice(prefix.length,prefix.length+next.length),next.map(([name])=>name));
   const policyState=async()=> (await db.query(`SELECT p.polname, c.relname, p.polcmd, p.polroles,
@@ -455,6 +461,24 @@ try {
     assert.match(receipt.prosrc,/stock_quantity = stock_quantity \+ \(v_item->>'quantity'\)::INTEGER/i);
     const {rows:[orgPolicy]}=await db.query(`SELECT pg_get_expr(polqual,polrelid) AS predicate,pg_get_expr(polwithcheck,polrelid) AS check_expr FROM pg_policy WHERE polrelid='public.organizations'::regclass AND polname='admin_can_update_org' AND polcmd='w' AND polroles=ARRAY['authenticated'::regrole::oid]`);
     for (const predicate of [orgPolicy.predicate,orgPolicy.check_expr]) assert.match(predicate,/id = get_user_organization_id\(\)/i);
+    const {rows:securityPolicies}=await db.query(`SELECT polname,polcmd,pg_get_expr(polqual,polrelid) AS predicate,pg_get_expr(polwithcheck,polrelid) AS check_expr FROM pg_policy WHERE polroles=ARRAY['authenticated'::regrole::oid] AND ((polrelid='public.password_reset_tokens'::regclass AND polname IN ('admins_insert_reset_tokens','admins_update_reset_tokens')) OR (polrelid='public.user_roles'::regclass AND polname='user_roles_select_scoped') OR (polrelid='public.user_audit_log'::regclass AND polname='admins_insert_audit_log') OR (polrelid='public.stripe_events'::regclass AND polname='stripe_events_select_authenticated'))`);
+    assert.equal(securityPolicies.length,5);
+    for (const policy of securityPolicies) {
+      const predicate=policy.polcmd==='a'?policy.check_expr:policy.predicate;
+      if (policy.polname==='admins_insert_audit_log') assert.match(predicate,/actor_id = auth.uid\(\)/i);
+      else if (policy.polname==='user_roles_select_scoped') assert.match(predicate,/get_organization_id_of_user\(user_id\) = get_user_organization_id\(\)/i);
+      else assert.match(predicate,/organization_id = get_user_organization_id\(\)/i);
+    }
+    const {rows:[cashSecurity]}=await db.query(`SELECT
+      (SELECT bool_and(relrowsecurity AND relforcerowsecurity) FROM pg_class WHERE oid IN ('public.stripe_events'::regclass,'public.cash_register_sessions'::regclass)) AS forced_rls,
+      NOT has_table_privilege('authenticated','public.stripe_events','INSERT,UPDATE,DELETE') AND NOT has_table_privilege('authenticated','public.cash_register_sessions','INSERT,UPDATE,DELETE') AS no_direct_write,
+      EXISTS (SELECT 1 FROM pg_index WHERE indexrelid=to_regclass('public.uniq_open_cash_session_per_user_store') AND indisunique AND indisvalid AND indpred IS NOT NULL AND indrelid='public.cash_register_sessions'::regclass) AS unique_session,
+      pg_get_function_result('public.open_cash_register_session(uuid,numeric,text)'::regprocedure)='uuid' AND pg_get_function_result('public.close_cash_register_session(uuid,numeric,text)'::regprocedure)='jsonb' AND pg_get_function_result('public.approve_cash_register_session(uuid,text)'::regprocedure)='void' AND pg_get_function_result('public.get_cash_closing_summary(uuid)'::regprocedure)='jsonb' AS cash_rpc`);
+    for (const [name,passed] of Object.entries(cashSecurity)) assert.equal(passed,true,`Cash/security contract: ${name}`);
+    const {rows:[cashSummary]}=await db.query(`SELECT prosrc FROM pg_proc WHERE oid='public.get_cash_closing_summary(uuid)'::regprocedure`);
+    assert.match(cashSummary.prosrc,/FROM public\.expenses\s+WHERE organization_id = v_session\.organization_id\s+AND \(v_session\.store_id IS NULL OR store_id = v_session\.store_id\)/i);
+    assert.match(cashSummary.prosrc,/v_session\.organization_id <> v_org_id/i);
+    console.log('Historical cash summary uses nullable tenant inequality; no-organization access and caller-dependent totals require runtime review. Role lookup helper exposes arbitrary user tenant unless ACL restricted.');
     const {rows:[seller]}=await db.query(`SELECT prosrc FROM pg_proc WHERE oid='public.get_admin_seller_performance(text,uuid)'::regprocedure`);
     assert.match(seller.prosrc,/ur\.role = ANY \(ARRAY\[/i);
     const {rows:[orgKpis]}=await db.query(`SELECT prosrc FROM pg_proc WHERE oid='public.get_admin_org_kpis(text)'::regprocedure`);
@@ -468,7 +492,7 @@ try {
   assert.deepEqual(await policyState(),before,'Historical prefix leaked policy changes');
   const {rows:[rolledBack]}=await db.query("SELECT to_regclass('public.idx_single_admin') IS NULL AS clean");
   assert.ok(rolledBack.clean,'Historical constraint escaped transaction');
-  console.log('Native historical prefix PASS: 143 migrations accounted for, 2 reconciled persistently in local snapshot, 140 exercised and rolled back (5 transaction wrappers adapted, 4 verified no-ops), 1 cron registration not executed');
+  console.log('Native historical prefix PASS: 149 migrations accounted for, 2 reconciled persistently in local snapshot, 146 exercised and rolled back (5 transaction wrappers adapted, 4 verified no-ops), 1 cron registration not executed');
 
   const fixtures=[];
   for (const suffix of ['a','b']) {
