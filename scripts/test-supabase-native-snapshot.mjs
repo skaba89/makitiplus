@@ -110,6 +110,16 @@ try {
     ['20260702160000_stock_transfers.sql','5cad38a80b1625f33614a287d1258304ee9bbf869c680e815643853a3b5b0689'],
     ['20260702170000_smart_restock_suggestions.sql','fa720ff96323ef3c970b4178a3fa4a47b1a6e124b64fb254ad6be6fd59e63973'],
     ['20260702180000_loyalty_program.sql','e9d600919cd856a128042a10c3ba2714e6746ecbc64a97a8311a67361cafce16'],
+    ['20260702190000_backup_restore.sql','03144e8c751ff8054075fa31a66b9f8660f6b897b5ebc27a15ae9ab45b33493a','42883'],
+    ['20260702200000_support_tickets.sql','de63a4a495c900e19c17eb13df0420126d33f9a0a76d7e34be9a29ea01d8af85'],
+    ['20260703010000_p0_hotfix_migrations.sql','b1acc46d4fc82a24d1b94fd750e482e8ba12aeb0d69ad5342586e02c99816c97'],
+    ['20260703020000_p1_server_side_plan_enforcement.sql','f8f3762393f8aaf4a1d5bba06f9447a2a528318076b5573983194472211af097'],
+    ['20260703030000_p1_grant_execute_fixes.sql','4fc88792977094d27b30f94b76ec50c6f473e64be13a55067bafc2fd6f8e5635','42883'],
+    ['20260703040000_p1_sale_limit_grant_stripe_idempotency.sql','fd0db4607b04025b1749dfc3ed2008e527175fb6c379de0f4d1f0b6bbefceddb'],
+    ['20260703050000_stripe_integration.sql','bd75c860e61b7666539fc1de1e3b95366a6c2d3d73f67b53d9d4dec5bebb87bd'],
+    ['20260704010000_fix_missing_rpcs_v5.sql','e200be26de0abcf1a39dd6447f3ff7832bf494da3d1743651a8045e5dc845288'],
+    ['20260704020000_add_stripe_customer_id_to_subscription_rpc.sql','e4908fd3ecfc287f6747784c59f1b27401fefb1976edf63ec6d7bc54acef735e'],
+    ['20260704030000_add_missing_grant_execute.sql','9b0b7cae54ef112c86eee8a6aa5e73f71519352c1bfa93679b02eda8d2b986b1'],
   ];
   assert.deepEqual(numbered.slice(prefix.length,prefix.length+next.length),next.map(([name])=>name));
   const policyState=async()=> (await db.query(`SELECT p.polname, c.relname, p.polcmd, p.polroles,
@@ -155,13 +165,18 @@ try {
         to_regprocedure('public.get_dashboard_stats(uuid,timestamptz,timestamptz,timestamptz,timestamptz)') IS NULL AS dashboard,
       (SELECT count(*)=6 AND bool_and(relrowsecurity) FROM pg_class WHERE oid IN
         ('public.stores'::regclass,'public.subscriptions'::regclass,'public.purchase_orders'::regclass,
-         'public.stock_transfers'::regclass,'public.loyalty_accounts'::regclass,'public.loyalty_transactions'::regclass)) AS business_rls`);
+         'public.stock_transfers'::regclass,'public.loyalty_accounts'::regclass,'public.loyalty_transactions'::regclass)) AS business_rls,
+      (SELECT count(*)=4 AND bool_and(relrowsecurity) FROM pg_class WHERE oid IN
+        ('public.backups'::regclass,'public.support_tickets'::regclass,'public.support_ticket_messages'::regclass,'public.stripe_events'::regclass)) AS operational_rls,
+      NOT has_table_privilege('authenticated','public.backups','SELECT') AND NOT has_table_privilege('anon','public.backups','SELECT') AS private_backups,
+      NOT EXISTS (SELECT 1 FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN ('create_backup','restore_backup')) AS legacy_backup_absent,
+      (SELECT count(*)=2 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename IN ('support_tickets','support_ticket_messages')) AS support_realtime`);
     assert.ok(Object.values(contracts).every(Boolean),'Historical prefix contract mismatch');
   } finally { await db.query('ROLLBACK'); }
   assert.deepEqual(await policyState(),before,'Historical prefix leaked policy changes');
   const {rows:[rolledBack]}=await db.query("SELECT to_regclass('public.idx_single_admin') IS NULL AS clean");
   assert.ok(rolledBack.clean,'Historical constraint escaped transaction');
-  console.log('Native historical prefix PASS: 47 migrations accounted for, 2 reconciled persistently in local snapshot, 44 exercised and rolled back, 1 cron registration not executed');
+  console.log('Native historical prefix PASS: 57 migrations accounted for, 2 reconciled persistently in local snapshot, 54 exercised and rolled back, 1 cron registration not executed');
 
   const fixtures=[];
   for (const suffix of ['a','b']) {
