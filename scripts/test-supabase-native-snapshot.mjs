@@ -151,6 +151,11 @@ try {
     ['20260709010000_fix_seller_activity_production.sql','788d85abe0131dad42616c97d9d53b23771442ada150e193d48349543b9a31c9','42P13'],
     ['20260711060000_fix_seller_performance_exclude_super_admin.sql','ab90baadcef0fb263724c5fc3b961baf500885c0fdf6fc2c39797f71f67875c5'],
     ['20260712120000_add_discount_amount_to_sale_rpc.sql','191f55394cac2c77e583bfe20163a667ed13cae6b19b477395cef639e43495a3'],
+    ['20260712130000_enrich_reports_stats_with_margin.sql','89d0d1411770541f3eaee542af6557d70d32b39b1010292bb75c2fe2bdd98bab'],
+    ['20260712140000_consolidate_create_product.sql','0a31a1f77a5f756bf43da2cfe9accb22920fe71b1b53f937b683cd40fca233d0'],
+    ['20260712150000_add_missing_rpc_stubs.sql','9d049357b95734481390861d215e13db9b7081305523b5be98c5fc5bf810088c'],
+    ['20260712160000_fix_check_plan_limit_jsonb_pattern.sql','53cf7a996296a737314d8503e62806e6d9c665ba2d61a6b7df356bb0ea63df0c'],
+    ['20260712170000_add_description_expiry_isactive_to_products.sql','c59fc589a6de95e8962b9ea3271360aadd3bc09c20c1452e60fc81a075b1ff00'],
   ];
   assert.deepEqual(numbered.slice(prefix.length,prefix.length+next.length),next.map(([name])=>name));
   const policyState=async()=> (await db.query(`SELECT p.polname, c.relname, p.polcmd, p.polroles,
@@ -163,6 +168,8 @@ try {
     for (const [name,hash,code] of next) {
       const historical=readFileSync(new URL(name,directory),'utf8');
       assert.equal(createHash('sha256').update(historical).digest('hex'),hash);
+      // Do not admit historical files that could close the enclosing rollback.
+      assert.doesNotMatch(historical,/^[\t ]*(?:COMMIT|ROLLBACK)\s*;/im,`Explicit transaction boundary in ${name}`);
       if (code==='skip-cron') {
         // The exact registration has a real external HTTP target. Never run
         // it on the native stack, even in a rolled-back transaction.
@@ -243,13 +250,19 @@ try {
         pg_get_function_result('public.check_feature_access(text)'::regprocedure)='jsonb' AND
         pg_get_function_result('public.check_plan_limit(text)'::regprocedure)='jsonb' AS subscription_json_contract,
       pg_get_function_result('public.create_sale_with_limit(text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text,numeric)'::regprocedure)='uuid' AND
-        to_regprocedure('public.create_sale_with_limit(text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text)') IS NULL AS discount_sale_contract`);
+        to_regprocedure('public.create_sale_with_limit(text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text)') IS NULL AS discount_sale_contract,
+      pg_get_function_result('public.get_reports_stats(uuid,timestamptz,timestamptz)'::regprocedure)='jsonb' AS reports_contract,
+      pg_get_function_result('public.create_product(text,numeric,uuid,text,text,integer,integer,numeric,uuid,uuid,text,text,boolean)'::regprocedure)='uuid' AS product_contract,
+      pg_get_function_result('public.create_first_organization(text,text,text,text,text,text)'::regprocedure)='uuid' AS onboarding_text_contract,
+      (SELECT count(*)=3 FROM pg_attribute WHERE attrelid='public.products'::regclass AND NOT attisdropped AND
+        ((attname='description' AND atttypid='text'::regtype) OR (attname='expiry_date' AND atttypid='date'::regtype) OR
+         (attname='is_active' AND atttypid='boolean'::regtype))) AS product_columns`);
     for (const [name,passed] of Object.entries(contracts)) assert.equal(passed,true,`Historical prefix contract mismatch: ${name}`);
   } finally { await db.query('ROLLBACK'); }
   assert.deepEqual(await policyState(),before,'Historical prefix leaked policy changes');
   const {rows:[rolledBack]}=await db.query("SELECT to_regclass('public.idx_single_admin') IS NULL AS clean");
   assert.ok(rolledBack.clean,'Historical constraint escaped transaction');
-  console.log('Native historical prefix PASS: 88 migrations accounted for, 2 reconciled persistently in local snapshot, 85 exercised and rolled back, 1 cron registration not executed');
+  console.log('Native historical prefix PASS: 93 migrations accounted for, 2 reconciled persistently in local snapshot, 90 exercised and rolled back, 1 cron registration not executed');
 
   const fixtures=[];
   for (const suffix of ['a','b']) {
