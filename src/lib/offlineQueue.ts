@@ -146,9 +146,12 @@ export async function enqueueMutation(mutation: Omit<QueuedMutation, "id" | "cre
     const storeName = mutation.operation === "RPC" ? STORES.RPC_QUEUE : STORES.MUTATION_QUEUE;
     const tx = db.transaction(storeName, "readwrite");
     const store = tx.objectStore(storeName);
-    const request = store.put(entry);
-    request.onsuccess = () => resolve(entry);
-    request.onerror = () => reject(request.error);
+    // A successful put is not a committed transaction. Never acknowledge a
+    // queued sale (and clear the cart) until IndexedDB confirms the commit.
+    tx.oncomplete = () => resolve(entry);
+    tx.onabort = () => reject(tx.error ?? new Error("Offline queue transaction aborted"));
+    tx.onerror = () => reject(tx.error ?? new Error("Offline queue transaction failed"));
+    store.put(entry);
   });
 }
 

@@ -115,6 +115,30 @@ afterEach(async () => {
   await resetDatabase();
 });
 
+describe("Zéro perte — validation de la transaction IndexedDB", () => {
+  it.each(["create_sale_with_limit", "create_credit_sale_atomic"])("ne confirme pas %s si la transaction est annulée après put", async (rpcName) => {
+    const { enqueueRPCMutation, getPendingMutations } = await import("@/lib/offlineQueue");
+    const originalPut = IDBObjectStore.prototype.put;
+    const spy = vi.spyOn(IDBObjectStore.prototype, "put").mockImplementation(function (this: IDBObjectStore, value, key?) {
+      const request = originalPut.call(this, value, key);
+      request.addEventListener("success", () => this.transaction.abort());
+      return request;
+    });
+    try {
+      await expect(enqueueRPCMutation({ rpcName, data: { p_sale_number: "VTE-ABORT" } })).rejects.toThrow(/aborted/i);
+      expect(await getPendingMutations()).toHaveLength(0);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("confirme une vente seulement après validation et la conserve pour le rejeu", async () => {
+    const { enqueueRPCMutation, getPendingMutations } = await import("@/lib/offlineQueue");
+    const entry = await enqueueRPCMutation({ rpcName: "create_sale_with_limit", data: { p_sale_number: "VTE-COMMIT" } });
+    expect(await getPendingMutations()).toEqual([entry]);
+  });
+});
+
 describe("Zéro perte — nettoyage de la file", () => {
   it("ne supprime JAMAIS une vente offline en échec, même > 24 h et retryCount >= 5", async () => {
     const { cleanupExpiredMutations, getFailedCount } = await import("@/lib/offlineQueue");
