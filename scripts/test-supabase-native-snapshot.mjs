@@ -71,6 +71,16 @@ try {
     ['20260424042947_b1941d89-89c0-4cb2-bdbc-6aaebc400cbb.sql','68891e26833fab4f1a79edf157eb39e4df6d8b99c777800fea32b01b2332153b'],
     ['20260424045251_3195f18f-7faa-4f1f-9d47-323cb8b7fac7.sql','3fb671516569685a263f7237bfbdfea768baa3a8e5aac512c6598dde69ed6499','42710'],
     ['20260425041530_c56455ad-2249-438f-b9a2-15f7f64df5e5.sql','afb2237998ef0c18f553bdabdb574cbeb0c0a59a92ab050e18f4688901be6226'],
+    ['20260426042420_f2188ae3-aeea-4b23-9b02-04b4b9938345.sql','566a1a762a949822a2d8d1c32bed738ce81adff7fadcebfbaf19804017cbd15f','42710'],
+    ['20260426042625_fac2f592-7105-47f9-b6d5-63e8c4135346.sql','1a843e3558ae11b55529f2d44c3a57d66432f20d127f7ba95227955104d4ddbc','skip-cron'],
+    ['20260427045819_7d242cc0-26f4-4887-a0d5-d687cb78cdba.sql','e964e8e1384bed9b590930780d48d471288f54d24dc54000d6c8a96c001eb5a0'],
+    ['20260612031944_ff09240b-7ecb-49e5-b88b-e9800618663b.sql','833cf9e382d1c3e26e8b7290cfc22fb2541da1ebceca7b4261004956d314b63e'],
+    ['20260612031957_f26f99b1-d459-4100-876b-f11b8ebf4985.sql','49b2c232b6a48bb8d27bc4479b4a589d01db74a1af7781b0ef2fa9778c356c69'],
+    ['20260612032011_a2f1b765-7ea2-46da-be0c-40a9e3e7f831.sql','85b80fee6d2d97e2bfada276097abd769e522681dfd47a3c6935fc98e42d46a9'],
+    ['20260614010000_batch_update_stock_rpc.sql','d46f34ebd4cac1480d1eaf436726a4af19dcab357f093b65c644a918f7466bee'],
+    ['20260614020000_add_missing_foreign_keys.sql','5def3711cd78411e400d12c9f4f21f9fdf10e4a5788d8c6af98e3066841e3433','42710'],
+    ['20260614030000_tighten_rls_policies.sql','4054f1b5d9d04090ef110c28deb6f49e884245cc56e01506780470233347656f','42710'],
+    ['20260614040000_grant_admin_exists_to_anon.sql','56c1f0234ce7129842a1a21b5d32c3937342abd778ec71461611196e60e8039f'],
   ];
   assert.deepEqual(numbered.slice(prefix.length,prefix.length+next.length),next.map(([name])=>name));
   const policyState=async()=> (await db.query(`SELECT p.polname, c.relname, p.polcmd, p.polroles,
@@ -83,6 +93,12 @@ try {
     for (const [name,hash,code] of next) {
       const historical=readFileSync(new URL(name,directory),'utf8');
       assert.equal(createHash('sha256').update(historical).digest('hex'),hash);
+      if (code==='skip-cron') {
+        // The exact registration has a real external HTTP target. Never run
+        // it on the native stack, even in a rolled-back transaction.
+        assert.equal(name,'20260426042625_fac2f592-7105-47f9-b6d5-63e8c4135346.sql');
+        continue;
+      }
       if (code) {
         assert.deepEqual(baseline[name].slice(0,2),[code,hash]);
         await db.query('SAVEPOINT original');
@@ -95,13 +111,18 @@ try {
     const {rows:[contracts]}=await db.query(`SELECT
       to_regclass('public.idx_single_admin') IS NOT NULL AS legacy_index,
       public.resolve_stock_conflict(10,7,8)=5 AND public.resolve_stock_conflict(10,0,2)=0 AS stock_delta,
-      EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='public.organizations'::regclass AND attname='default_tax_rate' AND NOT attisdropped) AS tax`);
+      EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='public.organizations'::regclass AND attname='default_tax_rate' AND NOT attisdropped) AS tax,
+      NOT has_function_privilege('anon','public.is_user_active(uuid)','EXECUTE') AS private_status,
+      has_function_privilege('service_role','public.is_user_active(uuid)','EXECUTE') AS service_status,
+      has_function_privilege('anon','public.admin_exists()','EXECUTE') AS signup,
+      EXISTS (SELECT 1 FROM pg_policy WHERE polrelid='public.password_reset_tokens'::regclass AND polname='admins_view_reset_tokens_org') AS token_scope,
+      EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public.stock_movements'::regclass AND contype='f' AND confrelid='public.sales'::regclass AND convalidated) AS sale_fk`);
     assert.ok(Object.values(contracts).every(Boolean),'Historical prefix contract mismatch');
   } finally { await db.query('ROLLBACK'); }
   assert.deepEqual(await policyState(),before,'Historical prefix leaked policy changes');
   const {rows:[rolledBack]}=await db.query("SELECT to_regclass('public.idx_single_admin') IS NULL AS clean");
   assert.ok(rolledBack.clean,'Historical constraint escaped transaction');
-  console.log('Native historical prefix PASS: 8 migrations examined, 2 reconciled persistently in local snapshot, 6 exercised and rolled back');
+  console.log('Native historical prefix PASS: 18 migrations accounted for, 2 reconciled persistently in local snapshot, 15 exercised and rolled back, 1 cron registration not executed');
 
   const fixtures=[];
   for (const suffix of ['a','b']) {
