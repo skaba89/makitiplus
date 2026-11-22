@@ -1,0 +1,21 @@
+-- Read-only aggregate preflight. Run with an authorized read-only role on
+-- isolated staging or a restored snapshot; do not infer any product's store.
+WITH classified AS (
+  SELECT CASE
+    WHEN p.organization_id IS NULL THEN 'missing_organization'
+    WHEN p.store_id IS NULL AND EXISTS (
+      SELECT 1 FROM public.stores candidate
+      WHERE candidate.organization_id = p.organization_id AND candidate.is_active
+    ) THEN 'unassigned_with_active_store'
+    WHEN p.store_id IS NULL THEN 'unassigned_without_active_store'
+    WHEN s.id IS NULL OR s.organization_id IS DISTINCT FROM p.organization_id THEN 'foreign_or_missing_store'
+    WHEN NOT s.is_active THEN 'inactive_store'
+    ELSE 'assigned_active_store'
+  END AS scope_status
+  FROM public.products p
+  LEFT JOIN public.stores s ON s.id = p.store_id
+)
+SELECT scope_status, count(*)::int AS product_count
+FROM classified
+GROUP BY scope_status
+ORDER BY scope_status;
