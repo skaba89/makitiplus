@@ -112,6 +112,21 @@ async function testFinalTransactions(db) {
   assert.deepEqual(await state(a,'NATIVE-CASH'),{sales:1,items:1,credits:0,stock:18});
   assert.deepEqual(await state(b,'NATIVE-CASH'),{sales:0,items:0,credits:0,stock:19});
   console.warn('P0 OPEN: cash replay accepts changed amount/basket and foreign product under existing sale number');
+  // Review candidate in isolation; restore the installed schema afterward.
+  await db.query('SAVEPOINT cash_replay_candidate');
+  try {
+    await db.query(readFileSync(new URL('./admin/cash_replay_guard.sql.example',import.meta.url),'utf8'));
+    assert.equal(await asTenant(a,cash('NATIVE-CASH',[item(a.product)])),cashId);
+    await asTenant(a,cash('NATIVE-CASH',[item(a.product,2)],200),{code:'23505'});
+    await asTenant(a,cash('NATIVE-CASH',[item(b.product)]),{code:'23505'});
+    await asTenant(a,cash('NATIVE-CASH',[item(a.product,2)]),{code:'23505'});
+    assert.deepEqual(await state(a,'NATIVE-CASH'),{sales:1,items:1,credits:0,stock:18});
+    assert.deepEqual(await state(b,'NATIVE-CASH'),{sales:0,items:0,credits:0,stock:19});
+    console.log('Cash replay candidate PASS: identical replay, changed amount/quantity and foreign basket rejection');
+  } finally {
+    await db.query('ROLLBACK TO SAVEPOINT cash_replay_candidate');
+    await db.query('RELEASE SAVEPOINT cash_replay_candidate');
+  }
 
   // Permanent regression on the actual forward migration. Roll back only
   // synthetic store mutations, not the migration definition.
