@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 // These are not production migrations. Never edit the historical SQL or accept
 // a new error: require both the original SHA-256 and original SQLSTATE.
 export const repairNames = new Set([
+  '20260207065000_da463d93-5048-43ec-bb39-482bb0ea3ab9.sql',
+  '20260424042936_db7e40cf-c001-4513-9126-a0596e12f542.sql',
   '20260202072852_917790af-3d14-44e9-bcdd-d88776ced82b.sql',
   '20260426042420_f2188ae3-aeea-4b23-9b02-04b4b9938345.sql',
   '20260614020000_add_missing_foreign_keys.sql',
@@ -21,7 +23,66 @@ function replaceExactlyOnce(sql, before, after) {
   return sql.replace(before, after);
 }
 
+async function verifySnapshotTable(client, table, columns) {
+  const {rows} = await client.query(`SELECT a.attname, format_type(a.atttypid,a.atttypmod) AS type,
+    a.attnotnull AS required FROM pg_attribute a
+    WHERE a.attrelid=to_regclass($1) AND a.attnum>0 AND NOT a.attisdropped`,['public.'+table]);
+  for (const [name,type,required] of columns) {
+    if (!rows.some(r=>r.attname===name && r.type===type && r.required===required)) {
+      throw new Error('Unexpected snapshot column: '+table+'.'+name);
+    }
+  }
+  const {rows:[state]} = await client.query(`SELECT relrowsecurity AS rls,
+    EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid=c.oid AND contype='p'
+      AND conkey=ARRAY[(SELECT attnum FROM pg_attribute WHERE attrelid=c.oid AND attname='id')]) AS pk
+    FROM pg_class c WHERE oid=to_regclass($1)`,['public.'+table]);
+  if (!state?.rls || !state.pk) throw new Error('Unexpected snapshot table security or primary key: '+table);
+}
+
 export async function repairHistoricalMigration(client, name, sql) {
+  if (name === '20260207065000_da463d93-5048-43ec-bb39-482bb0ea3ab9.sql') {
+    const uuid='uuid', t='text', ts='timestamp with time zone';
+    await verifySnapshotTable(client,'customers',[
+      ['id',uuid,true],['user_id',uuid,true],['name',t,true],['phone',t,false],
+      ['email',t,false],['address',t,false],['notes',t,false],['total_purchases','numeric',true],
+      ['total_credit','numeric',true],['created_at',ts,true],['updated_at',ts,true],['organization_id',uuid,false]]);
+    await verifySnapshotTable(client,'customer_credits',[
+      ['id',uuid,true],['user_id',uuid,true],['customer_id',uuid,true],['sale_id',uuid,false],
+      ['amount','numeric',true],['type',t,true],['description',t,false],['created_at',ts,true],['organization_id',uuid,false]]);
+    const {rows:[state]} = await client.query(`SELECT
+      EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public.sales'::regclass
+        AND conname='sales_customer_id_fkey' AND confrelid='public.customers'::regclass AND convalidated) AS sale_customer,
+      EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public.customer_credits'::regclass
+        AND conname='customer_credits_customer_id_fkey' AND confrelid='public.customers'::regclass AND convalidated) AS credit_customer,
+      EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public.customer_credits'::regclass
+        AND conname='customer_credits_sale_id_fkey' AND confrelid='public.sales'::regclass AND convalidated) AS credit_sale,
+      EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid='public.customers'::regclass
+        AND tgname='update_customers_updated_at' AND tgenabled<>'D'
+        AND tgfoid='public.update_updated_at_column()'::regprocedure) AS updated_trigger`);
+    if (!Object.values(state).every(Boolean)) throw new Error('Unexpected customer snapshot relationships');
+    // The original objects already exist; retain newer tenant policies and
+    // FK deletion semantics instead of re-adding old user-only policies.
+    return 'Verified existing customers, credits, relationships, RLS and update trigger; preserved snapshot';
+  }
+  if (name === '20260424042936_db7e40cf-c001-4513-9126-a0596e12f542.sql') {
+    const uuid='uuid', t='text', ts='timestamp with time zone';
+    await verifySnapshotTable(client,'sync_conflicts',[
+      ['id',uuid,true],['user_id',uuid,true],['organization_id',uuid,false],['entity_type',t,true],
+      ['entity_id',uuid,false],['entity_label',t,false],['device_id',t,false],['local_data','jsonb',false],
+      ['remote_data','jsonb',false],['resolved_data','jsonb',false],['resolution_strategy',t,true],
+      ['status',t,true],['error_message',t,false],['acknowledged','boolean',true],['acknowledged_at',ts,false],['created_at',ts,true]]);
+    const {rows:[state]} = await client.query(`SELECT
+      to_regclass('public.idx_sync_conflicts_user_acknowledged') IS NOT NULL AS indexed,
+      EXISTS (SELECT 1 FROM pg_policy WHERE polrelid='public.sync_conflicts'::regclass
+        AND polname='sync_conflicts_insert_own_org') AS scoped`);
+    if (!state.indexed || !state.scoped) throw new Error('Unexpected sync conflict snapshot');
+    // Preserve the more restrictive snapshot policies. Execute the original
+    // compatible function definitions and audit indexes from this boundary.
+    const boundary='-- Fonction : statut du compte connecté (pour polling client)';
+    if (sql.split(boundary).length!==2) throw new Error('Unexpected sync migration boundary');
+    await client.query(sql.slice(sql.indexOf(boundary)));
+    return 'Verified sync conflict snapshot and replayed original functions/indexes without broad policies';
+  }
   if (name === '20260202072852_917790af-3d14-44e9-bcdd-d88776ced82b.sql') {
     const {rows:[state]} = await client.query(`SELECT EXISTS (SELECT 1 FROM pg_policy
       WHERE polrelid='public.user_roles'::regclass AND polname='Users can create their own role' AND polcmd='a') AS present`);

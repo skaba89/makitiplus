@@ -39,6 +39,15 @@ export async function testCreditTransactions(db, connect) {
     return r;
   }
   try {
+    // Reconstructed snapshot tables must retain real trigger behavior and
+    // account-status / stock-delta function contracts.
+    const {rows:[customer]} = await db.query("INSERT INTO public.customers(user_id,organization_id,name,updated_at) VALUES ($1,$2,'Snapshot fixture','2000-01-01') RETURNING id",[a,oa]);
+    const {rows:[updated]} = await db.query("UPDATE public.customers SET name='Snapshot updated' WHERE id=$1 RETURNING updated_at > '2000-01-01'::timestamptz AS updated",[customer.id]);
+    assert.equal(updated.updated,true);
+    assert.equal((await c1.query('SELECT is_active FROM public.check_account_status()')).rows[0].is_active,true);
+    assert.equal((await db.query('SELECT public.resolve_stock_conflict(10,7,8) AS quantity')).rows[0].quantity,5);
+    assert.equal((await db.query('SELECT public.resolve_stock_conflict(10,0,1) AS quantity')).rows[0].quantity,0);
+    console.log('Snapshot tables: customer update trigger, account status and stock delta contracts passed');
     // Only the trusted server may mint or redeem reset tokens. The browser
     // may read the existing history panel's metadata, never token hashes.
     const server = await connect();
