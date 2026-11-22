@@ -18,7 +18,10 @@ async function testFinalTransactions(db) {
     await db.query('ALTER TABLE public.organizations ENABLE TRIGGER trigger_auto_create_store_settings');
     await db.query("INSERT INTO public.profiles(user_id,organization_id,business_name,owner_name) VALUES ($1,$2,'Replay fixture','Replay fixture')",[user,org]);
     await db.query("INSERT INTO public.user_roles(user_id,role) VALUES ($1,'admin')",[user]);
-    await db.query("INSERT INTO public.products(id,user_id,organization_id,name,price,stock_quantity) VALUES ($1,$2,$3,'Replay fixture',100,20)",[product,user,org]);
+    const {rows:[mainStore]}=await db.query('SELECT id FROM public.stores WHERE organization_id=$1 AND is_active ORDER BY is_headquarters DESC,created_at,id LIMIT 1',[org]);
+    assert.ok(mainStore?.id,'Fixture main store missing');
+    await db.query('UPDATE public.profiles SET current_store_id=$1 WHERE user_id=$2',[mainStore.id,user]);
+    await db.query("INSERT INTO public.products(id,user_id,organization_id,store_id,name,price,stock_quantity) VALUES ($1,$2,$3,$4,'Replay fixture',100,20)",[product,user,org,mainStore.id]);
     tenants.push({user,org,product});
   }
   // Savepoints allow expected SQL errors without aborting the schema replay.
@@ -101,15 +104,15 @@ async function testFinalTransactions(db) {
   assert.deepEqual(await state(a,'NATIVE-CASH'),{sales:1,items:1,credits:0,stock:18});
   assert.deepEqual(await state(b,'NATIVE-CASH'),{sales:0,items:0,credits:0,stock:19});
   console.log('Final native schema cash PASS: mixed basket rollback, foreign product and negative quantity denial, private helper denial, repeated cash sale');
-  // Diagnose the remaining P0 and exercise a candidate guard WITHOUT
-  // committing it or changing historical migration files. Restore the exact
-  // original definition and fixture state even in committed replay mode.
+  // Permanent regression on the actual forward migration. Roll back only
+  // synthetic store mutations, not the migration definition.
   await db.query('SAVEPOINT store_scope_probe');
   try {
     const auditSql=readFileSync(new URL('./admin/audit_product_store_scope.sql.example',import.meta.url),'utf8');
     const audit=async()=>Object.fromEntries((await db.query(auditSql)).rows.map(row=>[row.scope_status,row.product_count]));
     // The organization creation trigger provisions a main store. Explicitly
     // model an organization with no active store, inside this savepoint only.
+    await db.query('UPDATE public.products SET store_id=NULL WHERE id IN ($1,$2)',[a.product,b.product]);
     const initial=await audit();
     await db.query('UPDATE public.stores SET is_active=false WHERE organization_id=$1',[b.org]);
     await db.query('UPDATE public.profiles SET current_store_id=NULL WHERE user_id=$1',[b.user]);
@@ -128,24 +131,6 @@ async function testFinalTransactions(db) {
     console.log('Store scope preflight PASS: assigned and both legacy unassigned categories distinguished');
     const scopedCash=(number,store)=>()=>db.query('SELECT public.create_sale_with_limit($1,100,100,$2::jsonb,p_store_id=>$3) AS id',
       [number,JSON.stringify([item(a.product)]),store]);
-    await db.query('SAVEPOINT vulnerable_sale');
-    const unsafe=(await asTenant(a,scopedCash('NATIVE-STORE-PROBE',store1))).rows[0].id;
-    assert.ok(unsafe);
-    assert.deepEqual(await state(a,'NATIVE-STORE-PROBE'),{sales:1,items:1,credits:0,stock:17});
-    assert.equal((await db.query('SELECT store_id FROM public.sales WHERE id=$1',[unsafe])).rows[0].store_id,store1);
-    await db.query('ROLLBACK TO SAVEPOINT vulnerable_sale');
-    await db.query('RELEASE SAVEPOINT vulnerable_sale');
-    console.log('OPEN P0: reproduced same-organization cross-store stock decrement; reverted probe');
-    const signature='public.create_full_sale(uuid,uuid,text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text,numeric,uuid,text)';
-    const {rows:[definition]}=await db.query('SELECT pg_get_functiondef($1::regprocedure) AS sql',[signature]);
-    const readPredicate='AND organization_id = p_organization_id;';
-    const writePredicate='AND organization_id = p_organization_id AND stock_quantity >=';
-    assert.equal(definition.sql.split(readPredicate).length,2);
-    assert.equal(definition.sql.split(writePredicate).length,2);
-    const candidate=definition.sql
-      .replace(readPredicate,'AND organization_id = p_organization_id AND store_id IS NOT DISTINCT FROM v_resolved_store_id;')
-      .replace(writePredicate,'AND organization_id = p_organization_id AND store_id IS NOT DISTINCT FROM v_resolved_store_id AND stock_quantity >=');
-    await db.query(candidate);
     await asTenant(a,()=>db.query('SELECT public.create_sale_with_limit($1,100,100,$2::jsonb,p_store_id=>$3)',
       ['NATIVE-STORE-LEGACY',JSON.stringify([item(legacyProduct)]),store1]),{code:'42501'});
     assert.equal((await db.query('SELECT stock_quantity FROM public.products WHERE id=$1',[legacyProduct])).rows[0].stock_quantity,20);
@@ -155,11 +140,14 @@ async function testFinalTransactions(db) {
     assert.equal((await db.query('SELECT store_id FROM public.sales WHERE id=$1',[noStore])).rows[0].store_id,null);
     assert.deepEqual(await state(b,'NATIVE-STORE-NONE'),{sales:1,items:1,credits:0,stock:18});
     await asTenant(a,scopedCash('NATIVE-STORE-PROBE',store1),{code:'42501'});
+    await asTenant(a,()=>db.query('SELECT public.create_credit_sale_atomic($1,100,100,$2::jsonb,p_customer_name=>$3,p_customer_phone=>$4,p_store_id=>$5)',
+      ['NATIVE-STORE-CREDIT',JSON.stringify([item(a.product)]),'Store credit fixture','00000999',store1]),{code:'42501'});
+    assert.deepEqual(await state(a,'NATIVE-STORE-CREDIT'),{sales:0,items:0,credits:0,stock:18});
     assert.deepEqual(await state(a,'NATIVE-STORE-PROBE'),{sales:0,items:0,credits:0,stock:18});
     const legitimate=(await asTenant(a,scopedCash('NATIVE-STORE-OWN',store2))).rows[0].id;
     assert.ok(legitimate);
     assert.deepEqual(await state(a,'NATIVE-STORE-OWN'),{sales:1,items:1,credits:0,stock:17});
-    console.log('Candidate store guard PASS: mismatched store denied, matching store succeeds; not a deployed fix');
+    console.log('Final migration store guard PASS: mismatched cash and credit denied, matching store succeeds');
   } finally {
     await db.query('ROLLBACK TO SAVEPOINT store_scope_probe');
     await db.query('RELEASE SAVEPOINT store_scope_probe');
@@ -474,6 +462,7 @@ try {
     ['20261121212415_restore_support_schema_and_acl.sql','969f66a8b04268a61042190aebeed953742f70f3b833df872d0818ff583fa8f3'],
     ['20261121214326_retire_unsafe_backup_rpc.sql','b3013c42bbb6cf21a73195d381ddd8258ab6405e211c9853601df027943f4f6f'],
     ['20261121222237_restrict_password_reset_token_access.sql','d34c81c0bb95fa8d72e7920a5c89ea726bd8df29982f604378c568932535620f'],
+    ['20261122220633_harden_sale_product_store_scope.sql','1b80cc7284c7ad570ea861a95fcdd5b83cf69b69794218ca4337d0c477089edb'],
   ];
   assert.deepEqual(numbered.slice(prefix.length),next.map(([name])=>name),'New migration requires explicit native replay review');
   const policyState=async()=> (await db.query(`SELECT p.polname, c.relname, p.polcmd, p.polroles,
@@ -699,7 +688,9 @@ try {
     assert.ok(historicalSale.prosrc.indexOf('IF auth.uid() IS NULL') < historicalSale.prosrc.indexOf('SELECT id INTO v_existing_sale_id'));
     const {rows:[saleAcl]}=await db.query(`SELECT NOT has_function_privilege('anon',oid,'EXECUTE') AND NOT has_function_privilege('authenticated',oid,'EXECUTE') AS private FROM pg_proc WHERE oid='public.create_full_sale(uuid,uuid,text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text,numeric,uuid,text)'::regprocedure`);
     assert.ok(saleAcl.private);
-    console.log('Forward sale repair scopes stock to tenant and denies direct browser execution; store-level product scope still requires review.');
+    assert.match(stockUpdate,/store_id IS NOT DISTINCT FROM v_resolved_store_id/i);
+    assert.match(historicalSale.prosrc,/FROM public\.products\s+WHERE id = [\s\S]*?AND organization_id = p_organization_id AND store_id IS NOT DISTINCT FROM v_resolved_store_id;/i);
+    console.log('Forward sale repair scopes stock to tenant and store and denies direct browser execution.');
     assert.match(historicalSale.prosrc,/cost_price/);
     assert.match(historicalSale.prosrc,/NULLIF\(TRIM\(p_payment_reference\), ''\)/i);
     const {rows:[paymentWrapper]}=await db.query(`SELECT prosrc,pronargdefaults FROM pg_proc WHERE oid='public.create_sale_with_limit(text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text,numeric,uuid,text)'::regprocedure`);
@@ -821,7 +812,7 @@ try {
   const {rows:[rolledBack]}=await db.query("SELECT to_regclass('public.idx_single_admin') IS NULL AS clean");
   assert.ok(rolledBack.clean,'Historical constraint escaped transaction');
   assert.equal((await db.query('SELECT count(*)::int AS count FROM auth.users')).rows[0].count,0,'Final transaction fixtures escaped rollback');
-  console.log('Native historical coverage PASS: 167 migrations accounted for, 2 reconciled persistently in local snapshot, 164 exercised and rolled back (7 transaction wrappers adapted, 4 verified no-ops), 1 cron registration not executed');
+  console.log('Native historical coverage PASS: 168 migrations accounted for, 2 reconciled persistently in local snapshot, 165 exercised and rolled back (7 transaction wrappers adapted, 4 verified no-ops), 1 cron registration not executed');
 
   const fixtures=[];
   for (const suffix of ['a','b']) {

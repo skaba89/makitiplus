@@ -193,9 +193,9 @@ describe("Régression : pattern check_plan_limit JSONB cassé", () => {
     const latest = getLatestFunctionDef(allMigrations, "create_full_sale");
 
     expect(latest).not.toBeNull();
-    // La dernière version peut être dans harden_sales_store_scope (20260712195000)
-    // ou dans fix_payment_method_enum_cast (20260712190000)
+    // Chaque redéfinition approuvée doit conserver le cast explicite.
     const validNames = [
+      "20261122220633_harden_sale_product_store_scope.sql",
       "20261121201546_harden_sale_write_tenant_scope.sql",
       "20260731020000_add_mobile_money_payment_reference.sql",
       "20260723130000_fix_sale_idempotency.sql",

@@ -21,7 +21,10 @@ export async function testCreditTransactions(db, connect) {
     await db.query('COMMIT');
     await db.query("INSERT INTO public.profiles(user_id,organization_id,business_name,owner_name) VALUES ($1,$2,'Fixture','Fixture')", [user,org]);
     await db.query("INSERT INTO public.user_roles(user_id,role) VALUES ($1,'admin')", [user]);
-    await db.query("INSERT INTO public.products(id,user_id,organization_id,name,price,stock_quantity) VALUES ($1,$2,$3,'Fixture',100,20)", [product,user,org]);
+    const {rows:[store]}=await db.query('SELECT id FROM public.stores WHERE organization_id=$1 AND is_active ORDER BY is_headquarters DESC,created_at,id LIMIT 1',[org]);
+    assert.ok(store?.id,'Fixture main store missing');
+    await db.query('UPDATE public.profiles SET current_store_id=$1 WHERE user_id=$2',[store.id,user]);
+    await db.query("INSERT INTO public.products(id,user_id,organization_id,store_id,name,price,stock_quantity) VALUES ($1,$2,$3,$4,'Fixture',100,20)", [product,user,org,store.id]);
   }
   async function session(user) {
     const c = await connect();
