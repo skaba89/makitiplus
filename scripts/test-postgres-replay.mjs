@@ -15,6 +15,16 @@ try {
   const { rows: [state] } = await client.query("SELECT current_setting('server_version_num')::int AS version, to_regnamespace('auth') IS NULL AND to_regclass('public.profiles') IS NULL AS empty");
   if (!state.empty || state.version < 160000 || state.version >= 170000) throw new Error('Requires a fresh disposable PostgreSQL 16 database');
   await client.query(read('scripts/postgres-test-bootstrap.sql'));
+  // Real extension, but the worker must never launch a job. Do not install
+  // pg_net or permit the historical HTTP target to be contacted.
+  const {rows:[cronState]} = await client.query(`SELECT
+    current_setting('cron.launch_active_jobs', true) = 'off' AS disabled,
+    to_regnamespace('net') IS NULL AND NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname='pg_net') AS no_net`);
+  if (!cronState.disabled || !cronState.no_net) throw new Error('Replay requires disabled pg_cron jobs and no pg_net');
+  await client.query('CREATE EXTENSION pg_cron WITH SCHEMA pg_catalog');
+  const cronFile = '20260426042625_fac2f592-7105-47f9-b6d5-63e8c4135346.sql';
+  const cronHash = '1a843e3558ae11b55529f2d44c3a57d66432f20d127f7ba95227955104d4ddbc';
+  const isolated = [];
   await client.query(read('supabase/00000_initial_schema.sql'));
   const files = readdirSync(fromRoot('supabase/migrations')).filter(n => /^\d{14}_.+\.sql$/.test(n)).sort();
   const failures = [];
@@ -22,6 +32,26 @@ try {
   const baseline = JSON.parse(read('scripts/postgres-replay-known-failures.json'));
   for (const name of files) {
     const sql = read(`supabase/migrations/${name}`);
+    if (name === cronFile) {
+      if (createHash('sha256').update(sql).digest('hex') !== cronHash) throw new Error('Historical cron source changed');
+      const command = sql.match(/\$\$([\s\S]+?)\$\$/)?.[1];
+      if (!command) throw new Error('Historical cron command missing');
+      const {rows:[safe]} = await client.query(`SELECT current_setting('cron.launch_active_jobs')='off'
+        AND to_regnamespace('net') IS NULL AND NOT EXISTS (SELECT 1 FROM cron.job) AS safe`);
+      if (!safe.safe) throw new Error('Unsafe scheduler state');
+      await client.query('BEGIN');
+      try {
+        await client.query(sql);
+        const {rows:[job]} = await client.query(`SELECT count(*)::int=1 AS valid FROM cron.job
+          WHERE jobname='rotate-test-accounts-daily' AND schedule='0 3 * * *' AND command=$1 AND database=current_database()`,[command]);
+        if (!job.valid) throw new Error('Historical cron registration did not match');
+      } finally { await client.query('ROLLBACK'); }
+      const {rows:[clean]} = await client.query(`SELECT NOT EXISTS (SELECT 1 FROM cron.job)
+        AND NOT EXISTS (SELECT 1 FROM cron.job_run_details) AS clean`);
+      if (!clean.clean) throw new Error('Cron test must leave no jobs or runs');
+      isolated.push({name, validation:'Real pg_cron registration verified and rolled back; HTTP execution deliberately not tested'});
+      continue;
+    }
     try {
       await client.query(sql);
     } catch (err) {
@@ -44,10 +74,12 @@ try {
     to_regclass('public.customer_credits') IS NOT NULL AS credit_ledger,
     to_regprocedure('public.update_organization_subscription(text,text,text)') IS NULL AS unsafe_subscription_absent,
     to_regprocedure('public.select_plan(text)') IS NULL AS unsafe_select_plan_absent,
-    to_regprocedure('public.admin_update_organization_subscription(uuid,text,text,text,text)') IS NOT NULL AS guarded_subscription_rpc`);
+    to_regprocedure('public.admin_update_organization_subscription(uuid,text,text,text,text)') IS NOT NULL AS guarded_subscription_rpc,
+    current_setting('cron.launch_active_jobs')='off' AND to_regnamespace('net') IS NULL
+      AND NOT EXISTS (SELECT 1 FROM cron.job) AND NOT EXISTS (SELECT 1 FROM cron.job_run_details) AS scheduler_isolated`);
   if (!Object.values(contracts).every(Boolean)) throw new Error(`Missing critical schema contracts: ${JSON.stringify(contracts)}`);
-  console.log(JSON.stringify({ total: files.length, passed: files.length - failures.length - repaired.length, repaired, failures, unexpected, resolved, missingRepairs }, null, 2));
-  if (unexpected.length || resolved.length || missingRepairs.length || (process.argv.includes('--strict') && (failures.length || repaired.length))) process.exitCode = 1;
+  console.log(JSON.stringify({ total: files.length, passed: files.length - failures.length - repaired.length - isolated.length, repaired, isolated, failures, unexpected, resolved, missingRepairs }, null, 2));
+  if (failures.length || resolved.length || missingRepairs.length || isolated.length!==1 || (process.argv.includes('--strict') && (repaired.length || isolated.length))) process.exitCode = 1;
   else await testCreditTransactions(client, async () => { const c = new Client(settings); await c.connect(); return c; });
 } finally {
   await client.end();

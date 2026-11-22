@@ -4,7 +4,6 @@
   "20260424042936_db7e40cf-c001-4513-9126-a0596e12f542.sql": ["42P07", "9dedd4c7befd8eb1f1c4b13f026daba928ad7b611ee48671dc74cb46680c3149", "Sync conflicts already in initial snapshot"],
   "20260424045251_3195f18f-7faa-4f1f-9d47-323cb8b7fac7.sql": ["42710", "3fb671516569685a263f7237bfbdfea768baa3a8e5aac512c6598dde69ed6499", "Duplicate product policy"],
   "20260426042420_f2188ae3-aeea-4b23-9b02-04b4b9938345.sql": ["42710", "566a1a762a949822a2d8d1c32bed738ce81adff7fadcebfbaf19804017cbd15f", "Duplicate password reset policy"],
-  "20260426042625_fac2f592-7105-47f9-b6d5-63e8c4135346.sql": ["3F000", "1a843e3558ae11b55529f2d44c3a57d66432f20d127f7ba95227955104d4ddbc", "Cron integration not provisioned; never schedule remote calls in CI"],
   "20260614020000_add_missing_foreign_keys.sql": ["42710", "5def3711cd78411e400d12c9f4f21f9fdf10e4a5788d8c6af98e3066841e3433", "Duplicate stock movement constraint"],
   "20260614030000_tighten_rls_policies.sql": ["42710", "4054f1b5d9d04090ef110c28deb6f49e884245cc56e01506780470233347656f", "Duplicate sync conflict policy"],
   "20260702190000_backup_restore.sql": ["42883", "03144e8c751ff8054075fa31a66b9f8660f6b897b5ebc27a15ae9ab45b33493a", "Missing is_org_admin prerequisite"],
