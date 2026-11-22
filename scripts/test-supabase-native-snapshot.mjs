@@ -166,6 +166,10 @@ try {
     ['20260713210000_fix_rls_policies_suppliers_expenses_customers.sql','f08735ada21c2dad0134fd89b3384ebf33af98e0349dd7b49fde423ed864e06d'],
     ['20260713220000_enable_all_features_starter.sql','781db53d40ff41257bc74230ed4528fc3ef2333655466f395a40593af13c3751'],
     ['20260713230000_add_missing_suppliers_columns.sql','25510a1cf69e5cc1f72a3651a4f2e61060065460a1ca9b5ea6346fb342471efe'],
+    ['20260713240000_create_test_users.sql','2ebca1a1f10e3ba088381bb9abe4a865e440c58e5f1c6577f09b444d078490e8','neutralized'],
+    ['20260713260000_clean_transactional_data.sql','21e4c03745755f0ad941cb8dfe4f4e6a56f905fea19cb7570d63b5a12f45fa58','neutralized'],
+    ['20260714010000_create_pilot_plan_restore_starter.sql','149ada95d98193bcc1bdba573e66b1cd2bc9a9264e66ed0d7ec11cd8ee826d4b'],
+    ['20260714020000_store_management_enhanced.sql','e0dcd7303d3006d9589e2c12083feedd602b82b072aa38b6b1c2b8aa7752b61f'],
   ];
   assert.deepEqual(numbered.slice(prefix.length,prefix.length+next.length),next.map(([name])=>name));
   const policyState=async()=> (await db.query(`SELECT p.polname, c.relname, p.polcmd, p.polroles,
@@ -303,7 +307,11 @@ try {
           'customers_select_own_org','customers_insert_own_org','customers_update_own_org','customers_delete_own_org')) AS business_policy_catalog,
       (SELECT count(*)=8 FROM pg_attribute WHERE attrelid='public.suppliers'::regclass AND NOT attisdropped AND
         attname IN ('city','country','notes','email','address','phone','is_active','store_id')) AS supplier_columns,
-      EXISTS (SELECT 1 FROM public.plans WHERE id='starter' AND has_supplier_management AND has_offline_advanced AND has_loyalty_program) AS starter_pilot_features,
+      EXISTS (SELECT 1 FROM public.plans WHERE id='pilot_national' AND has_supplier_management AND has_offline_advanced AND has_loyalty_program) AS pilot_features,
+      EXISTS (SELECT 1 FROM public.plans WHERE id='starter' AND NOT has_supplier_management AND NOT has_offline_advanced AND NOT has_loyalty_program AND max_stores=1 AND max_users=2 AND max_products=2000 AND max_sales_per_month=500) AS starter_commercial_limits,
+      pg_get_function_result('public.delete_store(uuid)'::regprocedure)='jsonb' AND
+        pg_get_function_result('public.create_store(uuid,text,text,public.store_category,text,text,text)'::regprocedure)='uuid' AS store_management_contract,
+      (SELECT count(*)=2 FROM pg_attribute WHERE attrelid='public.stores'::regclass AND NOT attisdropped AND attname IN ('city','address') AND atttypid='text'::regtype) AS store_address_columns,
       (SELECT count(*)=3 FROM pg_attribute WHERE attrelid='public.products'::regclass AND NOT attisdropped AND
         ((attname='description' AND atttypid='text'::regtype) OR (attname='expiry_date' AND atttypid='date'::regtype) OR
          (attname='is_active' AND atttypid='boolean'::regtype))) AS product_columns`);
@@ -321,7 +329,7 @@ try {
   assert.deepEqual(await policyState(),before,'Historical prefix leaked policy changes');
   const {rows:[rolledBack]}=await db.query("SELECT to_regclass('public.idx_single_admin') IS NULL AS clean");
   assert.ok(rolledBack.clean,'Historical constraint escaped transaction');
-  console.log('Native historical prefix PASS: 103 migrations accounted for, 2 reconciled persistently in local snapshot, 100 exercised and rolled back (4 transaction wrappers adapted, 2 verified no-ops), 1 cron registration not executed');
+  console.log('Native historical prefix PASS: 107 migrations accounted for, 2 reconciled persistently in local snapshot, 104 exercised and rolled back (4 transaction wrappers adapted, 4 verified no-ops), 1 cron registration not executed');
 
   const fixtures=[];
   for (const suffix of ['a','b']) {
