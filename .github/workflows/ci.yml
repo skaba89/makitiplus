@@ -80,6 +80,11 @@ jobs:
           test "$(docker exec "$POSTGRES_CONTAINER" psql -U postgres -v ON_ERROR_STOP=1 -Atc 'SHOW cron.launch_active_jobs')" = off
           node scripts/test-postgres-replay.mjs
 
+      - name: Restore reconstructed synthetic database into a second isolated cluster (MKP-005)
+        env:
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+        run: docker exec -i -u postgres "$POSTGRES_CONTAINER" bash -s < scripts/test-postgres-restore.sh
+
       - name: Test tenant RPC guard (MKP-007)
         run: python3 -m unittest discover -s scripts -p 'test_tenant_rpc_guard.py' -v
 
