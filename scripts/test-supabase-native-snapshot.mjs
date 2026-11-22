@@ -127,6 +127,14 @@ try {
     ['20260705040000_admin_subscription_management.sql','865dd755a3b23412d11fb9c58e7f9ad6258aafd331f35c6df57cee99ad0cc25d'],
     ['20260705050000_secure_manual_subscription_management.sql','754476ed61135198e704068e205f11cca9876974e9442531e0a542e68bb95e72'],
     ['20260705060000_force_row_level_security.sql','6eac6972e73efecdddcf8aadb4c4d2447f1c4309d14f80ef7a00ed95036b8f00'],
+    ['20260706010000_fix_store_deletion.sql','c29648bd0cf1f4ee7a3ab95866212fad77dce24d47323212dcb3a3918db456e8'],
+    ['20260706020000_increase_product_limits.sql','3c2733a98c44ed31c322ba93d4bc2d26447ae4a6e452c52b33edd71ff1b1c9c7'],
+    ['20260706030000_fix_delete_organization_no_stores.sql','5f4d642f6627767173c35b2bfbdf1c585bb8e092532b0304cdb42aee8fc40df4'],
+    ['20260706040000_fix_delete_organization_check_constraint.sql','127c14fc40aba428d998f0c9f5dd43c93d1d6d1761c0f0d574767851cafd8634'],
+    ['20260706050000_comprehensive_audit_fix.sql','ea5b6d400a3d88b85d4026ca803f58c4c6cdbd5855f866dc49d4ec1bce20808e'],
+    ['20260706060000_user_activity_tracking.sql','7b9d38795420d73c3e918a459031fb258c6a744d44a213a87947be620dfd5b00'],
+    ['20260706100000_create_first_organization_rpc.sql','6518267107dfb5bf7fbe758c454b5fa795dba09afad5ebb4a0058856acdeebc1'],
+    ['20260706180000_remove_unsafe_update_organization_subscription.sql','3977aa039c83ed33af269df8a464446929bcb2ccab2f10e4b29bc3bab1397521','42883'],
   ];
   assert.deepEqual(numbered.slice(prefix.length,prefix.length+next.length),next.map(([name])=>name));
   const policyState=async()=> (await db.query(`SELECT p.polname, c.relname, p.polcmd, p.polroles,
@@ -182,13 +190,18 @@ try {
         ('public.organizations'::regclass,'public.products'::regclass,'public.sales'::regclass,
          'public.customer_credits'::regclass,'public.subscriptions'::regclass,'public.backups'::regclass)) AS forced_rls,
       to_regprocedure('public.admin_update_organization_subscription(uuid,text,text,text,text)') IS NOT NULL AS manual_subscription_rpc,
-      to_regprocedure('public.check_feature_access(text)') IS NOT NULL AND to_regprocedure('public.check_plan_limit(text)') IS NOT NULL AS plan_checks`);
+      to_regprocedure('public.check_feature_access(text)') IS NOT NULL AND to_regprocedure('public.check_plan_limit(text)') IS NOT NULL AS plan_checks,
+      to_regprocedure('public.update_organization_subscription(text,text,text)') IS NULL AS unsafe_subscription_absent,
+      to_regprocedure('public.create_first_organization(text,text,text,public.store_category,text,text)') IS NOT NULL AS onboarding_rpc,
+      (SELECT relrowsecurity FROM pg_class WHERE oid='public.user_activity_logs'::regclass) AS activity_rls,
+      (SELECT count(*)=2 AND bool_and(confdeltype='n' AND convalidated) FROM pg_constraint
+        WHERE conrelid='public.stock_transfers'::regclass AND conname IN ('stock_transfers_from_store_id_fkey','stock_transfers_to_store_id_fkey')) AS transfer_fk`);
     assert.ok(Object.values(contracts).every(Boolean),'Historical prefix contract mismatch');
   } finally { await db.query('ROLLBACK'); }
   assert.deepEqual(await policyState(),before,'Historical prefix leaked policy changes');
   const {rows:[rolledBack]}=await db.query("SELECT to_regclass('public.idx_single_admin') IS NULL AS clean");
   assert.ok(rolledBack.clean,'Historical constraint escaped transaction');
-  console.log('Native historical prefix PASS: 64 migrations accounted for, 2 reconciled persistently in local snapshot, 61 exercised and rolled back, 1 cron registration not executed');
+  console.log('Native historical prefix PASS: 72 migrations accounted for, 2 reconciled persistently in local snapshot, 69 exercised and rolled back, 1 cron registration not executed');
 
   const fixtures=[];
   for (const suffix of ['a','b']) {
