@@ -200,6 +200,12 @@ try {
     ['20260720180000_document_live_generate_order_number.sql','638c621cc0bf7c88dd81424354d8cc195791ad35efc01794d524ae4bda3d2a18'],
     ['20260722100000_document_live_p1_2_drift_functions.sql','e4c97c2d0a997fb565ed399202f59ffeec1d2c7795952b31711c6dbd060ffb60'],
     ['20260722110000_fix_admin_product_ranking_rownumber.sql','7a30ef8355b911c7baa64c3037505324c58731fdd86511ef839b744e6fb5cd9f'],
+    ['20260723120000_fix_customer_credit_upsert_by_phone.sql','122c35726ae044d6ee5dfc720b9973f277901be38c5bcb5fe0e8f67790c52539'],
+    ['20260723130000_fix_sale_idempotency.sql','5f08f679b4a9760e4a457893eeba9d4464912f0b32a0c0a80907dba15ec5cd61'],
+    ['20260723140000_fix_receive_purchase_order_partial.sql','6cca457ab54623f10b0a1457f931687e556b549d315281b189f040b9a821e645'],
+    ['20260724090000_fix_seller_performance_role_cast.sql','2ed49925ca117cb0b5de3286f228da3e12b207b7396f2e7060bf39d544827118'],
+    ['20260724091000_fix_org_kpis_ambiguous_column.sql','1ad2346d6992a8557a7bfa8f8d301b552110eed1c635a9fc14381e7fb8b3154b'],
+    ['20260724100000_fix_organizations_update_cross_tenant.sql','13a828dc7046f258562920763fc552f95e4423ea523982fba683f7961e774e32'],
   ];
   assert.deepEqual(numbered.slice(prefix.length,prefix.length+next.length),next.map(([name])=>name));
   const policyState=async()=> (await db.query(`SELECT p.polname, c.relname, p.polcmd, p.polroles,
@@ -339,6 +345,9 @@ try {
         pg_get_function_result('public.ensure_user_has_organization(text)'::regprocedure)='uuid' AS historical_subscription_drift,
       pg_get_function_result('public.receive_purchase_order(uuid,jsonb,text)'::regprocedure)='void' AND
         pg_get_function_result('public.generate_order_number(text)'::regprocedure)='text' AS purchase_order_drift,
+      EXISTS (SELECT 1 FROM pg_index WHERE indexrelid=to_regclass('public.customers_org_phone_unique') AND indrelid='public.customers'::regclass AND indisunique AND indisvalid AND indpred IS NOT NULL AND pg_get_indexdef(indexrelid) LIKE '%(organization_id, phone)%') AS phone_unique,
+      EXISTS (SELECT 1 FROM pg_index WHERE indexrelid=to_regclass('public.sales_org_sale_number_unique') AND indrelid='public.sales'::regclass AND indisunique AND indisvalid AND indpred IS NULL AND pg_get_indexdef(indexrelid) LIKE '%(organization_id, sale_number)%') AS sale_unique,
+      pg_get_function_result('public.increment_customer_credit_by_phone(text,text,numeric,uuid,text)'::regprocedure)='uuid' AS phone_credit_contract,
       to_regprocedure('public.create_first_organization(text,text,text,public.store_category,text,text)') IS NULL AS obsolete_onboarding_rpc_absent,
       (SELECT relrowsecurity FROM pg_class WHERE oid='public.user_activity_logs'::regclass) AS activity_rls,
       (SELECT count(*)=2 AND bool_and(confdeltype='n' AND convalidated) FROM pg_constraint
@@ -411,6 +420,13 @@ try {
     assert.doesNotMatch(stockUpdate,/organization_id|store_id/i,'Historical stock predicate changed; reassess audit finding');
     console.log('Historical consolidated sale: privileged stock update lacks tenant/store predicate (P0 remediation open)');
     assert.match(historicalSale.prosrc,/cost_price/);
+    assert.match(historicalSale.prosrc,/RETURN v_existing_sale_id;/i);
+    assert.match(historicalSale.prosrc,/EXCEPTION WHEN unique_violation THEN/i);
+    const {rows:[phoneCredit]}=await db.query(`SELECT prosecdef,prosrc FROM pg_proc WHERE oid='public.increment_customer_credit_by_phone(text,text,numeric,uuid,text)'::regprocedure`);
+    assert.ok(phoneCredit.prosecdef);
+    assert.match(phoneCredit.prosrc,/ON CONFLICT \(organization_id, phone\)/i);
+    assert.doesNotMatch(phoneCredit.prosrc,/get_user_organization_id|is_member_of_organization/i);
+    console.log('Historical phone credit trusts caller tenant and lacks replay protection; later migrations must remediate. Sale replay guard does not establish caller authorization.');
     const {rows:costFunctions}=await db.query(`SELECT proname, prosecdef, prosrc FROM pg_proc WHERE oid IN (
       'public.get_product_kpis_by_period(text,uuid)'::regprocedure,
       'public.get_seller_kpis_detailed(text,uuid)'::regprocedure,
@@ -434,7 +450,15 @@ try {
     assert.match(audit.predicate,/super_admin/);
     const {rows:[receipt]}=await db.query(`SELECT prosrc FROM pg_proc WHERE oid='public.receive_purchase_order(uuid,jsonb,text)'::regprocedure`);
     assert.match(receipt.prosrc,/organization_id = v_org_id/);
-    assert.match(receipt.prosrc,/SET status = 'received'/);
+    assert.match(receipt.prosrc,/SET quantity_received = LEAST\(/i);
+    assert.match(receipt.prosrc,/CASE WHEN v_all_received THEN 'received' ELSE 'partial' END/i);
+    assert.match(receipt.prosrc,/stock_quantity = stock_quantity \+ \(v_item->>'quantity'\)::INTEGER/i);
+    const {rows:[orgPolicy]}=await db.query(`SELECT pg_get_expr(polqual,polrelid) AS predicate,pg_get_expr(polwithcheck,polrelid) AS check_expr FROM pg_policy WHERE polrelid='public.organizations'::regclass AND polname='admin_can_update_org' AND polcmd='w' AND polroles=ARRAY['authenticated'::regrole::oid]`);
+    for (const predicate of [orgPolicy.predicate,orgPolicy.check_expr]) assert.match(predicate,/id = get_user_organization_id\(\)/i);
+    const {rows:[seller]}=await db.query(`SELECT prosrc FROM pg_proc WHERE oid='public.get_admin_seller_performance(text,uuid)'::regprocedure`);
+    assert.match(seller.prosrc,/ur\.role = ANY \(ARRAY\[/i);
+    const {rows:[orgKpis]}=await db.query(`SELECT prosrc FROM pg_proc WHERE oid='public.get_admin_org_kpis(text)'::regprocedure`);
+    for (const alias of ['st','s','e','c','pr']) assert.ok(orgKpis.prosrc.includes(`GROUP BY ${alias}.organization_id`));
     const {rows:[plan]}=await db.query(`SELECT prosecdef,prosrc FROM pg_proc WHERE oid='public.update_organization_subscription(text,text,text)'::regprocedure`);
     assert.ok(plan.prosecdef);
     assert.match(plan.prosrc,/auth\.uid\(\)/);
@@ -444,7 +468,7 @@ try {
   assert.deepEqual(await policyState(),before,'Historical prefix leaked policy changes');
   const {rows:[rolledBack]}=await db.query("SELECT to_regclass('public.idx_single_admin') IS NULL AS clean");
   assert.ok(rolledBack.clean,'Historical constraint escaped transaction');
-  console.log('Native historical prefix PASS: 137 migrations accounted for, 2 reconciled persistently in local snapshot, 134 exercised and rolled back (5 transaction wrappers adapted, 4 verified no-ops), 1 cron registration not executed');
+  console.log('Native historical prefix PASS: 143 migrations accounted for, 2 reconciled persistently in local snapshot, 140 exercised and rolled back (5 transaction wrappers adapted, 4 verified no-ops), 1 cron registration not executed');
 
   const fixtures=[];
   for (const suffix of ['a','b']) {
