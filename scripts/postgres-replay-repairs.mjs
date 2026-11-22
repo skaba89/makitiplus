@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 // These are not production migrations. Never edit the historical SQL or accept
 // a new error: require both the original SHA-256 and original SQLSTATE.
 export const repairNames = new Set([
+  '20260424045251_3195f18f-7faa-4f1f-9d47-323cb8b7fac7.sql',
   '20260207065000_da463d93-5048-43ec-bb39-482bb0ea3ab9.sql',
   '20260424042936_db7e40cf-c001-4513-9126-a0596e12f542.sql',
   '20260202072852_917790af-3d14-44e9-bcdd-d88776ced82b.sql',
@@ -40,6 +41,56 @@ async function verifySnapshotTable(client, table, columns) {
 }
 
 export async function repairHistoricalMigration(client, name, sql) {
+  if (name === '20260424045251_3195f18f-7faa-4f1f-9d47-323cb8b7fac7.sql') {
+    // The initial snapshot already includes this tenant conversion. Never
+    // replay the historical hard-coded orphan assignment or permissive
+    // member-write policies over its newer policies.
+    const tables = ['profiles','products','categories','customers','customer_credits','sales','sale_items','expenses','stock_movements'];
+    for (const table of ['organizations', ...tables]) {
+      const {rows:[state]} = await client.query(`SELECT
+        c.relrowsecurity AS rls,
+        EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid=c.oid AND attname=$2
+          AND atttypid='uuid'::regtype AND NOT attisdropped) AS tenant
+        FROM pg_class c WHERE c.oid=to_regclass($1)`,['public.'+table,table==='organizations'?'id':'organization_id']);
+      if (!state?.rls || !state.tenant) throw new Error('Unexpected tenant snapshot: '+table);
+      const {rows:[empty]} = await client.query(`SELECT NOT EXISTS (SELECT 1 FROM public.${table}) AS empty`);
+      if (!empty.empty) throw new Error('Tenant replay repair requires empty business data: '+table);
+    }
+    const {rows:[identity]} = await client.query(`SELECT NOT EXISTS (SELECT 1 FROM auth.users)
+      AND NOT EXISTS (SELECT 1 FROM public.user_roles) AS empty`);
+    if (!identity.empty) throw new Error('Tenant replay repair requires empty identity data');
+    const replacements = {
+      org_members_update_products:'org_admins_update_products',
+      org_members_update_categories:'org_admins_update_categories',
+      org_members_update_customers:'org_admins_update_customers',
+      org_members_insert_credits:'org_admins_insert_credits',
+      org_members_update_credits:'org_admins_update_credits',
+    };
+    const policies = [...sql.matchAll(/CREATE POLICY "([^"]+)" ON public\.(\w+)\s+FOR (SELECT|INSERT|UPDATE|DELETE) TO authenticated/g)];
+    if (policies.length!==30) throw new Error('Unexpected tenant policy migration contract: '+policies.length);
+    for (const [,original,table,operation] of policies) {
+      const policy = replacements[original] ?? original;
+      const {rows:[state]} = await client.query(`SELECT polpermissive AND polroles=ARRAY[(SELECT oid FROM pg_roles WHERE rolname='authenticated')]
+        AND polcmd=$3::"char" AS valid,
+        pg_get_expr(polqual,polrelid) AS using_expr, pg_get_expr(polwithcheck,polrelid) AS check_expr
+        FROM pg_policy WHERE polrelid=to_regclass($1) AND polname=$2`,['public.'+table,policy,{SELECT:'r',INSERT:'a',UPDATE:'w',DELETE:'d'}[operation]]);
+      const scoped = expr => !!expr && expr.includes('has_role') && expr.includes('get_user_organization_id');
+      if (!state?.valid || (replacements[original] &&
+          (!scoped(state.check_expr) || (operation==='UPDATE' && !scoped(state.using_expr)))) ) {
+        throw new Error('Unexpected tenant snapshot policy: '+policy);
+      }
+    }
+    // Preserve the snapshot's policies; execute the original index, trigger
+    // and assignment-helper DDL, whose contract is compatible with it.
+    const boundary='-- 7. INDEX POUR PERFORMANCES';
+    if (sql.split(boundary).length!==2) throw new Error('Unexpected tenant migration boundary');
+    for (const signature of ['get_user_organization_id()','is_member_of_organization(uuid)']) {
+      const {rows:[state]} = await client.query('SELECT to_regprocedure($1) IS NOT NULL AS present',['public.'+signature]);
+      if (!state.present) throw new Error('Missing tenant helper: '+signature);
+    }
+    await client.query(sql.slice(sql.indexOf(boundary)));
+    return 'Verified empty tenant snapshot, preserved role-scoped policies and replayed original indexes and triggers';
+  }
   if (name === '20260207065000_da463d93-5048-43ec-bb39-482bb0ea3ab9.sql') {
     const uuid='uuid', t='text', ts='timestamp with time zone';
     await verifySnapshotTable(client,'customers',[

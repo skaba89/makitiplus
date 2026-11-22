@@ -39,6 +39,7 @@ export async function testCreditTransactions(db, connect) {
     return r;
   }
   try {
+    await assert.rejects(repairHistoricalMigration(db,'20260424045251_3195f18f-7faa-4f1f-9d47-323cb8b7fac7.sql',''), /requires empty business data/);
     // Reconstructed snapshot tables must retain real trigger behavior and
     // account-status / stock-delta function contracts.
     const {rows:[customer]} = await db.query("INSERT INTO public.customers(user_id,organization_id,name,updated_at) VALUES ($1,$2,'Snapshot fixture','2000-01-01') RETURNING id",[a,oa]);
@@ -133,6 +134,17 @@ export async function testCreditTransactions(db, connect) {
         const { rows } = await c.query(`SELECT DISTINCT organization_id FROM public.${table}`);
         assert.deepEqual(rows,[{organization_id:org}],`RLS ${table} for ${org}`);
       }
+    }
+    // Exercise final organization policies directly with two tenants. The
+    // compatibility shim grants only the columns needed by this RLS test.
+    await db.query('GRANT SELECT ON public.organizations TO authenticated; GRANT UPDATE(name) ON public.organizations TO authenticated');
+    for (const [c, own, foreign] of [[c1,oa,ob],[cB,ob,oa]]) {
+      assert.deepEqual((await c.query('SELECT id FROM public.organizations')).rows,[{id:own}]);
+      await c.query('BEGIN');
+      try {
+        assert.equal((await c.query("UPDATE public.organizations SET name='Own tenant' WHERE id=$1",[own])).rowCount,1);
+        assert.equal((await c.query("UPDATE public.organizations SET name='Foreign tenant' WHERE id=$1",[foreign])).rowCount,0);
+      } finally { await c.query('ROLLBACK'); }
     }
     // Real write isolation, including a mixed basket that must roll back entirely.
     const item = (product_id, quantity = 1) => ({product_id,product_name:'Fixture',quantity,unit_price:100,total_price:100*quantity});

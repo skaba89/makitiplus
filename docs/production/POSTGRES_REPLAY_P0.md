@@ -77,6 +77,12 @@ These results concern a PostgreSQL compatibility reconstruction, not a full nati
 - Real SQL tests exercise the customer update trigger, authenticated account status and stock delta calculation including the nonnegative floor, in addition to existing tenant-conflict and financial tests. No production data or migration SQL changed.
 - Remaining failures: historical organization/product policy duplication and cron scheduling; strict and native Supabase reconstruction remain blocked.
 
+## 2026-11-22 — Organization policy snapshot reconciliation
+
+- Added a SHA/SQLSTATE-bound compatibility repair for the duplicate tenant policy migration. It requires empty identity and business tables, verifies RLS, tenant UUID columns and all 30 corresponding policy names, roles and commands, including the five more restrictive snapshot write policies.
+- Preserves the newer RLS policies and does not execute historical orphan reassignment to a named business. Replays only original index/trigger/assignment-helper DDL after checking the existing tenant helpers.
+- Extended actual PostgreSQL regression tests to assert organization SELECT and UPDATE isolation in both directions. No historical migration files or production data modified. Expected compatibility result: 13 explicit repairs and one unresolved cron migration; CI execution is required to confirm this result. Native/strict reconstruction remains blocked.
+
 ## Follow-up sequence
 
 1. Add real two-tenant fixtures and RPC tests with forced rollback, replay, simultaneous sessions and cross-tenant writes; investigate missing organization predicate on the latest `create_full_sale` stock update before production rollout.
