@@ -106,9 +106,26 @@ async function testFinalTransactions(db) {
   // original definition and fixture state even in committed replay mode.
   await db.query('SAVEPOINT store_scope_probe');
   try {
+    const auditSql=readFileSync(new URL('./admin/audit_product_store_scope.sql.example',import.meta.url),'utf8');
+    const audit=async()=>Object.fromEntries((await db.query(auditSql)).rows.map(row=>[row.scope_status,row.product_count]));
+    // The organization creation trigger provisions a main store. Explicitly
+    // model an organization with no active store, inside this savepoint only.
+    const initial=await audit();
+    await db.query('UPDATE public.stores SET is_active=false WHERE organization_id=$1',[b.org]);
+    await db.query('UPDATE public.profiles SET current_store_id=NULL WHERE user_id=$1',[b.user]);
+    const before=await audit();
+    assert.equal(before.unassigned_with_active_store??0,(initial.unassigned_with_active_store??0)-1);
+    assert.equal(before.unassigned_without_active_store,(initial.unassigned_without_active_store??0)+1);
     const store1=randomUUID(),store2=randomUUID();
     await db.query("INSERT INTO public.stores(id,organization_id,name,slug) VALUES ($1,$3,'Replay A','replay-a'),($2,$3,'Replay B','replay-b')",[store1,store2,a.org]);
     await db.query('UPDATE public.products SET store_id=$1 WHERE id=$2',[store2,a.product]);
+    const legacyProduct=randomUUID();
+    await db.query("INSERT INTO public.products(id,user_id,organization_id,name,price,stock_quantity) VALUES ($1,$2,$3,'Legacy unassigned fixture',100,20)",[legacyProduct,a.user,a.org]);
+    const after=await audit();
+    assert.equal(after.assigned_active_store,(before.assigned_active_store??0)+1);
+    assert.equal(after.unassigned_with_active_store??0,before.unassigned_with_active_store??0);
+    assert.equal(after.unassigned_without_active_store??0,before.unassigned_without_active_store??0);
+    console.log('Store scope preflight PASS: assigned and both legacy unassigned categories distinguished');
     const scopedCash=(number,store)=>()=>db.query('SELECT public.create_sale_with_limit($1,100,100,$2::jsonb,p_store_id=>$3) AS id',
       [number,JSON.stringify([item(a.product)]),store]);
     await db.query('SAVEPOINT vulnerable_sale');
@@ -129,6 +146,14 @@ async function testFinalTransactions(db) {
       .replace(readPredicate,'AND organization_id = p_organization_id AND store_id IS NOT DISTINCT FROM v_resolved_store_id;')
       .replace(writePredicate,'AND organization_id = p_organization_id AND store_id IS NOT DISTINCT FROM v_resolved_store_id AND stock_quantity >=');
     await db.query(candidate);
+    await asTenant(a,()=>db.query('SELECT public.create_sale_with_limit($1,100,100,$2::jsonb,p_store_id=>$3)',
+      ['NATIVE-STORE-LEGACY',JSON.stringify([item(legacyProduct)]),store1]),{code:'42501'});
+    assert.equal((await db.query('SELECT stock_quantity FROM public.products WHERE id=$1',[legacyProduct])).rows[0].stock_quantity,20);
+    assert.equal((await db.query("SELECT count(*)::int AS count FROM public.sales WHERE organization_id=$1 AND sale_number='NATIVE-STORE-LEGACY'",[a.org])).rows[0].count,0);
+    const noStore=await asTenant(b,cash('NATIVE-STORE-NONE',[item(b.product)]));
+    assert.ok(noStore);
+    assert.equal((await db.query('SELECT store_id FROM public.sales WHERE id=$1',[noStore])).rows[0].store_id,null);
+    assert.deepEqual(await state(b,'NATIVE-STORE-NONE'),{sales:1,items:1,credits:0,stock:18});
     await asTenant(a,scopedCash('NATIVE-STORE-PROBE',store1),{code:'42501'});
     assert.deepEqual(await state(a,'NATIVE-STORE-PROBE'),{sales:0,items:0,credits:0,stock:18});
     const legitimate=(await asTenant(a,scopedCash('NATIVE-STORE-OWN',store2))).rows[0].id;
@@ -141,6 +166,7 @@ async function testFinalTransactions(db) {
   }
   assert.deepEqual(await state(a,'NATIVE-STORE-PROBE'),{sales:0,items:0,credits:0,stock:18});
   assert.deepEqual(await state(a,'NATIVE-STORE-OWN'),{sales:0,items:0,credits:0,stock:18});
+  assert.deepEqual(await state(b,'NATIVE-STORE-NONE'),{sales:0,items:0,credits:0,stock:19});
   return tenants;
 }
 
