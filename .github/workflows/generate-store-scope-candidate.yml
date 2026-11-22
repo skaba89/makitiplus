@@ -14,9 +14,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
+      # Only one immutable SQL blob is needed; avoid walking the unrelated
+      # legacy gitlink with missing .gitmodules metadata.
+      - name: Fetch pinned source SQL using read-only repository access
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          umask 077
+          gh api --method GET -H 'Accept: application/vnd.github.raw+json' \
+            "repos/$GITHUB_REPOSITORY/contents/supabase/migrations/20261121201546_harden_sale_write_tenant_scope.sql" \
+            -f ref="$GITHUB_SHA" > "$RUNNER_TEMP/mkp-store-source.sql"
+          test "$(git hash-object "$RUNNER_TEMP/mkp-store-source.sql")" = d44749a52506389217f3e465154bf30fd590b392
       - uses: supabase/setup-cli@v1
         with:
           version: 2.81.3
@@ -26,7 +35,6 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
-          repo="$PWD"
           scratch=$(mktemp -d "$RUNNER_TEMP/mkp-migration-XXXXXXXX")
           cd "$scratch"
           supabase migration --help >/dev/null
@@ -37,7 +45,7 @@ jobs:
           candidates=(supabase/migrations/*_harden_sale_product_store_scope.sql)
           test "${#candidates[@]}" -eq 1
           candidate="${candidates[0]}"
-          source="$repo/supabase/migrations/20261121201546_harden_sale_write_tenant_scope.sql"
+          source="$RUNNER_TEMP/mkp-store-source.sql"
           test "$(git hash-object "$source")" = d44749a52506389217f3e465154bf30fd590b392
           node --input-type=module - "$source" "$candidate" <<'NODE'
           import assert from 'node:assert/strict';
