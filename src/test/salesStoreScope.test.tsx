@@ -14,11 +14,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type ReactNode } from "react";
+import { renderHook, act } from "@testing-library/react";
 import fs from "fs";
 import path from "path";
 
 // ─── Mocks ──────────────────────────────────────────────────
 const rpcMock = vi.fn();
+const receiptRead = vi.fn();
+const clearCart = vi.fn();
 const enqueueMock = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("@/integrations/supabase/client", () => ({
@@ -28,7 +31,7 @@ vi.mock("@/integrations/supabase/client", () => ({
       return Promise.resolve({ data: "test-sale-id", error: null });
     },
     from: () => ({
-      select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: { id: "test-sale-id" }, error: null }) }) }),
+      select: () => ({ eq: () => ({ single: () => receiptRead() }) }),
     }),
   },
 }));
@@ -70,6 +73,14 @@ vi.mock("@/contexts/StoreContext", () => ({
   }),
 }));
 vi.mock("@/hooks/useOrgTaxRate", () => ({ useOrgTaxRate: () => 0 }));
+vi.mock("@/hooks/useOrgSelector", () => ({ useOrgSelector: () => ({ effectiveOrgId: "org-1" }) }));
+vi.mock("@/hooks/useCurrency", () => ({ useCurrency: () => ({ currency: { symbol: "GNF", position: "after" } }) }));
+vi.mock("@/contexts/POSCartContext", () => ({
+  usePOSCartStore: (selector: (state: unknown) => unknown) => selector({ items: [{ product: { id: "p1", name: "Riz", price: 5000 }, quantity: 1 }], clearCart }),
+  useCartTotal: () => 5000,
+  useCartSubtotal: () => 5000,
+  useCartDiscount: () => 0,
+}));
 vi.mock("@/lib/offlineQueue", () => ({
   enqueueRPCMutation: (...args: unknown[]) => enqueueMock(...args),
   enqueueMutation: vi.fn().mockResolvedValue(undefined),
@@ -112,6 +123,30 @@ function getAllMigrations(): { name: string; content: string }[] {
 beforeEach(() => {
   rpcMock.mockClear();
   enqueueMock.mockClear();
+  receiptRead.mockReset();
+  clearCart.mockClear();
+});
+
+describe("Vente confirmée — lecture du reçu indisponible", () => {
+  it.each(["cash", "credit"] as const)("ne recrée pas la vente %s après échec de lecture", async (paymentMethod) => {
+    for (const failure of ["response", "throw"]) {
+      rpcMock.mockClear();
+      clearCart.mockClear();
+      if (failure === "throw") receiptRead.mockRejectedValueOnce(new Error("network"));
+      else receiptRead.mockResolvedValueOnce({ data: null, error: { message: "network" } });
+      const onSaleComplete = vi.fn();
+      const { result, unmount } = renderHook(() => useOfflineSale({ onSaleComplete }), { wrapper: createWrapper() });
+      await act(async () => {
+        const sale = await result.current.mutateAsync({ paymentMethod, amountPaid: 5000, customerName: "Client" });
+        expect(sale).toMatchObject({ offline: false, sale: { id: "test-sale-id", sale_number: "test-sale-id", payment_method: paymentMethod, amount_paid: 5000 } });
+      });
+      expect(rpcMock.mock.calls.map(([name]) => name)).toEqual(["generate_sale_number", paymentMethod === "credit" ? "create_credit_sale_atomic" : "create_sale_with_limit"]);
+      expect(enqueueMock).not.toHaveBeenCalled();
+      expect(clearCart).toHaveBeenCalledTimes(1);
+      expect(onSaleComplete).toHaveBeenCalledTimes(1);
+      unmount();
+    }
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════
