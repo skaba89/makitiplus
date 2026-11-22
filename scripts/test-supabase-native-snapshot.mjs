@@ -120,6 +120,13 @@ try {
     ['20260704010000_fix_missing_rpcs_v5.sql','e200be26de0abcf1a39dd6447f3ff7832bf494da3d1743651a8045e5dc845288'],
     ['20260704020000_add_stripe_customer_id_to_subscription_rpc.sql','e4908fd3ecfc287f6747784c59f1b27401fefb1976edf63ec6d7bc54acef735e'],
     ['20260704030000_add_missing_grant_execute.sql','9b0b7cae54ef112c86eee8a6aa5e73f71519352c1bfa93679b02eda8d2b986b1'],
+    ['20260704040000_fix_cron_secret_and_schedules.sql','5c6a492c486460348e6652cb62f119670abe43795067be302760c8bdc783f881'],
+    ['20260705010000_update_pricing_and_starter_trial.sql','b86dc12998b8d51b54b9b009acd551ef55ce2f15408da1f1bb87b139e74499ce'],
+    ['20260705020000_fix_feature_access_and_trialing.sql','5e4571492a9a25198f87efb9815356d0708e86fa8a06166ee7241ad7cd2f47ff'],
+    ['20260705030000_fix_super_admin_rls_and_has_role.sql','6ca5ed6c7d49ac4ba811acfa4cacabdd4ae025ad69ed9466d5c6b020c5df2431'],
+    ['20260705040000_admin_subscription_management.sql','865dd755a3b23412d11fb9c58e7f9ad6258aafd331f35c6df57cee99ad0cc25d'],
+    ['20260705050000_secure_manual_subscription_management.sql','754476ed61135198e704068e205f11cca9876974e9442531e0a542e68bb95e72'],
+    ['20260705060000_force_row_level_security.sql','6eac6972e73efecdddcf8aadb4c4d2447f1c4309d14f80ef7a00ed95036b8f00'],
   ];
   assert.deepEqual(numbered.slice(prefix.length,prefix.length+next.length),next.map(([name])=>name));
   const policyState=async()=> (await db.query(`SELECT p.polname, c.relname, p.polcmd, p.polroles,
@@ -170,13 +177,18 @@ try {
         ('public.backups'::regclass,'public.support_tickets'::regclass,'public.support_ticket_messages'::regclass,'public.stripe_events'::regclass)) AS operational_rls,
       NOT has_table_privilege('authenticated','public.backups','SELECT') AND NOT has_table_privilege('anon','public.backups','SELECT') AS private_backups,
       NOT EXISTS (SELECT 1 FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN ('create_backup','restore_backup')) AS legacy_backup_absent,
-      (SELECT count(*)=2 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename IN ('support_tickets','support_ticket_messages')) AS support_realtime`);
+      (SELECT count(*)=2 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename IN ('support_tickets','support_ticket_messages')) AS support_realtime,
+      (SELECT count(*)=6 AND bool_and(relrowsecurity AND relforcerowsecurity) FROM pg_class WHERE oid IN
+        ('public.organizations'::regclass,'public.products'::regclass,'public.sales'::regclass,
+         'public.customer_credits'::regclass,'public.subscriptions'::regclass,'public.backups'::regclass)) AS forced_rls,
+      to_regprocedure('public.admin_update_organization_subscription(uuid,text,text,text,text)') IS NOT NULL AS manual_subscription_rpc,
+      to_regprocedure('public.check_feature_access(text)') IS NOT NULL AND to_regprocedure('public.check_plan_limit(text)') IS NOT NULL AS plan_checks`);
     assert.ok(Object.values(contracts).every(Boolean),'Historical prefix contract mismatch');
   } finally { await db.query('ROLLBACK'); }
   assert.deepEqual(await policyState(),before,'Historical prefix leaked policy changes');
   const {rows:[rolledBack]}=await db.query("SELECT to_regclass('public.idx_single_admin') IS NULL AS clean");
   assert.ok(rolledBack.clean,'Historical constraint escaped transaction');
-  console.log('Native historical prefix PASS: 57 migrations accounted for, 2 reconciled persistently in local snapshot, 54 exercised and rolled back, 1 cron registration not executed');
+  console.log('Native historical prefix PASS: 64 migrations accounted for, 2 reconciled persistently in local snapshot, 61 exercised and rolled back, 1 cron registration not executed');
 
   const fixtures=[];
   for (const suffix of ['a','b']) {
