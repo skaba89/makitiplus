@@ -14,7 +14,15 @@ const first = {
 const second = { ...first, order_id: "order-b" };
 let counter = 0;
 
-beforeEach(() => {
+beforeEach(async () => {
+  // fake-indexeddb persists across tests in the same worker. Each case needs
+  // a clean receipt outbox, otherwise previous pending UUIDs leak into it.
+  await new Promise<void>((resolve, reject) => {
+    const request = indexedDB.deleteDatabase("makitiplus-po-receipt-outbox");
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error ?? new Error("Reset IndexedDB impossible"));
+    request.onblocked = () => reject(new Error("IndexedDB encore ouvert entre deux tests"));
+  });
   counter = 0;
   vi.stubGlobal("crypto", { randomUUID: () => `00000000-0000-4000-8000-${String(++counter).padStart(12, "0")}` });
 });
