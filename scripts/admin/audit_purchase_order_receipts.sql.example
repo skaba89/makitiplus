@@ -1,0 +1,43 @@
+-- P0 READ-ONLY preflight: supplier purchase-order receipts.
+-- Run only against an authorized staging/production read replica.
+-- No writes, no locks, no migration ledger modifications.
+-- Count and review anomalies by organization/store before deploying a guard.
+WITH lines AS (
+  SELECT po.organization_id, po.store_id, po.id AS order_id,
+         po.order_number, po.status, poi.id AS line_id,
+         poi.product_id, poi.quantity_ordered, poi.quantity_received,
+         pr.organization_id AS product_organization_id,
+         pr.store_id AS product_store_id
+  FROM public.purchase_orders po
+  JOIN public.purchase_order_items poi ON poi.purchase_order_id=po.id
+  LEFT JOIN public.products pr ON pr.id=poi.product_id
+), flagged AS (
+  SELECT *,
+    CASE
+      WHEN quantity_ordered < 0 THEN 'negative_ordered'
+      WHEN quantity_received < 0 THEN 'negative_received'
+      WHEN quantity_received > quantity_ordered THEN 'over_received'
+      WHEN product_id IS NOT NULL AND product_organization_id IS NULL THEN 'missing_product'
+      WHEN product_id IS NOT NULL AND product_organization_id IS DISTINCT FROM organization_id THEN 'foreign_product'
+      WHEN product_id IS NOT NULL AND product_store_id IS DISTINCT FROM store_id THEN 'store_mismatch'
+      WHEN status='received' AND quantity_received < quantity_ordered THEN 'received_status_incomplete'
+      WHEN status='partial' AND quantity_received >= quantity_ordered THEN 'partial_status_line_complete_review'
+      ELSE NULL
+    END AS finding
+  FROM lines
+)
+SELECT organization_id, store_id, finding, count(*)::bigint AS affected_lines,
+       count(DISTINCT order_id)::bigint AS affected_orders
+FROM flagged WHERE finding IS NOT NULL
+GROUP BY organization_id, store_id, finding
+ORDER BY organization_id, store_id NULLS FIRST, finding;
+
+-- Review remaining operational risk in the latest receive_purchase_order:
+-- 1. No SELECT ... FOR UPDATE on the parent PO before processing receipts.
+-- 2. Accepts arbitrary product_id within the organization, not order lines.
+-- 3. Quantity can be negative, zero, or exceed remaining ordered quantity.
+-- 4. Replaying the same receipt increments stock twice.
+-- 5. A duplicate product_id entry in one JSON basket can increment twice.
+-- 6. Product stock updates are tenant-scoped but not scoped to the PO store.
+-- No corrective migration is safe to apply until fixtures and concurrency
+-- behavior are reviewed. The result is diagnostic, not automatic remediation.
