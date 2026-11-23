@@ -104,29 +104,13 @@ async function testFinalTransactions(db) {
   assert.deepEqual(await state(a,'NATIVE-CASH'),{sales:1,items:1,credits:0,stock:18});
   assert.deepEqual(await state(b,'NATIVE-CASH'),{sales:0,items:0,credits:0,stock:19});
   console.log('Final native schema cash PASS: mixed basket rollback, foreign product and negative quantity denial, private helper denial, repeated cash sale');
-  // P0 diagnostic only: the existing cash replay path accepts a changed
-  // amount or foreign basket under an existing key. Keep this explicit until
-  // a forward migration replaces the diagnostic with rejection assertions.
-  assert.equal(await asTenant(a,cash('NATIVE-CASH',[item(a.product,2)],200)),cashId);
-  assert.equal(await asTenant(a,cash('NATIVE-CASH',[item(b.product)])),cashId);
+  // Permanent P0 regression: same key must never conceal a changed payload.
+  await asTenant(a,cash('NATIVE-CASH',[item(a.product,2)],200),{code:'23505'});
+  await asTenant(a,cash('NATIVE-CASH',[item(b.product)]),{code:'23505'});
+  await asTenant(a,cash('NATIVE-CASH',[item(a.product,2)]),{code:'23505'});
   assert.deepEqual(await state(a,'NATIVE-CASH'),{sales:1,items:1,credits:0,stock:18});
   assert.deepEqual(await state(b,'NATIVE-CASH'),{sales:0,items:0,credits:0,stock:19});
-  console.warn('P0 OPEN: cash replay accepts changed amount/basket and foreign product under existing sale number');
-  // Review candidate in isolation; restore the installed schema afterward.
-  await db.query('SAVEPOINT cash_replay_candidate');
-  try {
-    await db.query(readFileSync(new URL('./admin/cash_replay_guard.sql.example',import.meta.url),'utf8'));
-    assert.equal(await asTenant(a,cash('NATIVE-CASH',[item(a.product)])),cashId);
-    await asTenant(a,cash('NATIVE-CASH',[item(a.product,2)],200),{code:'23505'});
-    await asTenant(a,cash('NATIVE-CASH',[item(b.product)]),{code:'23505'});
-    await asTenant(a,cash('NATIVE-CASH',[item(a.product,2)]),{code:'23505'});
-    assert.deepEqual(await state(a,'NATIVE-CASH'),{sales:1,items:1,credits:0,stock:18});
-    assert.deepEqual(await state(b,'NATIVE-CASH'),{sales:0,items:0,credits:0,stock:19});
-    console.log('Cash replay candidate PASS: identical replay, changed amount/quantity and foreign basket rejection');
-  } finally {
-    await db.query('ROLLBACK TO SAVEPOINT cash_replay_candidate');
-    await db.query('RELEASE SAVEPOINT cash_replay_candidate');
-  }
+  console.log('Final native cash replay guard PASS: changed amount, basket and foreign product rejected');
 
   // Permanent regression on the actual forward migration. Roll back only
   // synthetic store mutations, not the migration definition.
@@ -185,9 +169,7 @@ async function testFinalTransactions(db) {
 // Only called in a second disposable native CI stack after the final schema
 // and synthetic fixtures are committed. Both actors use authenticated SQL.
 async function testNativeConcurrency(db, dbUrl, tenants) {
-  // Install the review-only guard only on the disposable committed CI stack.
-  // This enables two independent connections to exercise the candidate.
-  await db.query(readFileSync(new URL('./admin/cash_replay_guard.sql.example',import.meta.url),'utf8'));
+  // Exercise the installed forward-only SQL migration without test overrides.
   const [a,b]=tenants;
   const c1=new Client({connectionString:dbUrl.href,ssl:false});
   const c2=new Client({connectionString:dbUrl.href,ssl:false});
@@ -275,7 +257,7 @@ async function testNativeConcurrency(db, dbUrl, tenants) {
     const cashConflict=await race('NATIVE-CASH-CONFLICT',200,false,cash);
     assert.equal(cashConflict.result.error?.code,'23505', 'Changed amount must fail after the concurrent winner commits');
     await checkCash('NATIVE-CASH-CONFLICT',cashConflict.winner,13);
-    console.log('Native cash replay candidate concurrency PASS: changed payload rejected after lock, one sale and one stock decrement');
+    console.log('Native permanent cash replay concurrency PASS: changed payload rejected after lock, one sale and one stock decrement');
     const cashAbort=await race('NATIVE-CASH-ABORT',100,true,cash);
     if (cashAbort.result.error) throw cashAbort.result.error;
     assert.ok(cashAbort.result.id);
@@ -520,6 +502,7 @@ try {
     ['20261121214326_retire_unsafe_backup_rpc.sql','b3013c42bbb6cf21a73195d381ddd8258ab6405e211c9853601df027943f4f6f'],
     ['20261121222237_restrict_password_reset_token_access.sql','d34c81c0bb95fa8d72e7920a5c89ea726bd8df29982f604378c568932535620f'],
     ['20261122220633_harden_sale_product_store_scope.sql','1b80cc7284c7ad570ea861a95fcdd5b83cf69b69794218ca4337d0c477089edb'],
+    ['20261122231130_harden_cash_sale_replay.sql','de02b211e582bed3b20ebfc42d86bfb18fffdaa7dfe9ddb084c65108d1d7d810'],
   ];
   assert.deepEqual(numbered.slice(prefix.length),next.map(([name])=>name),'New migration requires explicit native replay review');
   const policyState=async()=> (await db.query(`SELECT p.polname, c.relname, p.polcmd, p.polroles,
@@ -742,7 +725,7 @@ try {
     assert.match(stockUpdate,/organization_id = p_organization_id/i);
     assert.match(historicalSale.prosrc,/p_user_id IS DISTINCT FROM auth.uid\(\)/i);
     assert.match(historicalSale.prosrc,/p_organization_id IS DISTINCT FROM public\.get_user_organization_id\(\)/i);
-    assert.ok(historicalSale.prosrc.indexOf('IF auth.uid() IS NULL') < historicalSale.prosrc.indexOf('SELECT id INTO v_existing_sale_id'));
+    assert.ok(historicalSale.prosrc.indexOf('IF auth.uid() IS NULL') < historicalSale.prosrc.indexOf('SELECT * INTO v_existing_sale'));
     const {rows:[saleAcl]}=await db.query(`SELECT NOT has_function_privilege('anon',oid,'EXECUTE') AND NOT has_function_privilege('authenticated',oid,'EXECUTE') AS private FROM pg_proc WHERE oid='public.create_full_sale(uuid,uuid,text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text,numeric,uuid,text)'::regprocedure`);
     assert.ok(saleAcl.private);
     assert.match(stockUpdate,/store_id IS NOT DISTINCT FROM v_resolved_store_id/i);
@@ -753,7 +736,9 @@ try {
     const {rows:[paymentWrapper]}=await db.query(`SELECT prosrc,pronargdefaults FROM pg_proc WHERE oid='public.create_sale_with_limit(text,numeric,numeric,jsonb,numeric,text,numeric,numeric,text,text,text,numeric,uuid,text)'::regprocedure`);
     assert.equal(paymentWrapper.pronargdefaults,10);
     assert.match(paymentWrapper.prosrc,/p_payment_reference\s*\n\s*\);/i);
-    assert.match(historicalSale.prosrc,/RETURN v_existing_sale_id;/i);
+    assert.match(historicalSale.prosrc,/RETURN v_existing_sale\.id;/i);
+    assert.match(historicalSale.prosrc,/jsonb_agg\(line ORDER BY line\)/i);
+    assert.match(historicalSale.prosrc,/Conflit de rejeu de vente/i);
     assert.match(historicalSale.prosrc,/EXCEPTION WHEN unique_violation THEN/i);
     const {rows:[phoneCredit]}=await db.query(`SELECT prosecdef,prosrc FROM pg_proc WHERE oid='public.increment_customer_credit_by_phone(text,text,numeric,uuid,text)'::regprocedure`);
     assert.ok(phoneCredit.prosecdef);
@@ -869,7 +854,7 @@ try {
   const {rows:[rolledBack]}=await db.query("SELECT to_regclass('public.idx_single_admin') IS NULL AS clean");
   assert.ok(rolledBack.clean,'Historical constraint escaped transaction');
   assert.equal((await db.query('SELECT count(*)::int AS count FROM auth.users')).rows[0].count,0,'Final transaction fixtures escaped rollback');
-  console.log('Native historical coverage PASS: 168 migrations accounted for, 2 reconciled persistently in local snapshot, 165 exercised and rolled back (7 transaction wrappers adapted, 4 verified no-ops), 1 cron registration not executed');
+  console.log('Native historical coverage PASS: 169 migrations accounted for, 2 reconciled persistently in local snapshot, 166 exercised and rolled back (7 transaction wrappers adapted, 4 verified no-ops), 1 cron registration not executed');
 
   const fixtures=[];
   for (const suffix of ['a','b']) {
