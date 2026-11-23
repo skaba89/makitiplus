@@ -221,6 +221,12 @@ async function testFinalTransactions(db) {
     // Simulate the final RPC permission cutover inside THIS disposable
     // transaction only. Existing live and review candidate paths are otherwise
     // unchanged, and the outer savepoint restores their original privileges.
+    const gateSql=readFileSync(new URL('./admin/audit_purchase_receipt_cutover.sql.example',import.meta.url),'utf8');
+    const preflight=(await db.query(gateSql)).rows;
+    assert.ok(preflight.some(check=>check.check_id==='legacy_2_authenticated_denied' && check.passed===false),
+      'Go/No-Go must detect open legacy two-arg receipt RPC');
+    assert.ok(preflight.some(check=>check.check_id==='legacy_3_authenticated_denied' && check.passed===false),
+      'Go/No-Go must detect open legacy three-arg receipt RPC');
     for (const signature of [
       'public.receive_purchase_order(uuid,jsonb)',
       'public.receive_purchase_order(uuid,jsonb,text)',
@@ -228,11 +234,29 @@ async function testFinalTransactions(db) {
       const reg=(await db.query('SELECT to_regprocedure($1) AS id',[signature])).rows[0].id;
       if (reg) await db.query(`REVOKE EXECUTE ON FUNCTION ${signature} FROM PUBLIC, anon, authenticated`);
     }
-    const gateSql=readFileSync(new URL('./admin/audit_purchase_receipt_cutover.sql.example',import.meta.url),'utf8');
     const {rows:gateResults}=await db.query(gateSql);
     assert.ok(gateResults.length>=9,'Cutover checks missing');
     const blocked=gateResults.filter(item=>item.passed!==true);
     assert.deepEqual(blocked,[],`Native receipt RPC cutover failed: ${JSON.stringify(blocked)}`);
+
+    // Deliberately break the gate in a nested savepoint: a client-accessible
+    // old RPC or client-readable private ledger must produce a NO-GO.
+    await db.query('SAVEPOINT receipt_gate_negative');
+    try {
+      await db.query('GRANT EXECUTE ON FUNCTION public.receive_purchase_order(uuid,jsonb,text) TO authenticated');
+      await db.query('GRANT SELECT ON public.purchase_order_receipt_requests TO authenticated');
+      const unsafe=(await db.query(gateSql)).rows;
+      assert.ok(unsafe.some(check=>check.check_id==='legacy_3_authenticated_denied' && check.passed===false),
+        'Go/No-Go must detect a re-exposed legacy three-arg RPC');
+      assert.ok(unsafe.some(check=>check.check_id==='ledger_authenticated_table_access_denied' && check.passed===false),
+        'Go/No-Go must detect direct authenticated access to the receipt ledger');
+    } finally {
+      await db.query('ROLLBACK TO SAVEPOINT receipt_gate_negative');
+      await db.query('RELEASE SAVEPOINT receipt_gate_negative');
+    }
+    const restored=(await db.query(gateSql)).rows;
+    assert.deepEqual(restored.filter(check=>check.passed!==true),[],
+      'Go/No-Go must recover after unsafe grants are rolled back');
     await asTenant(actor,()=>db.query(
       'SELECT public.receive_purchase_order(p_order_id=>$1::uuid,p_received_items=>$2::jsonb,p_notes=>$3::text)',
       [orderId,JSON.stringify(line(actor.product,1)),null],
