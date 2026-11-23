@@ -195,6 +195,7 @@ describe("Régression : pattern check_plan_limit JSONB cassé", () => {
     expect(latest).not.toBeNull();
     // Chaque redéfinition approuvée doit conserver le cast explicite.
     const validNames = [
+      "20261122231130_harden_cash_sale_replay.sql",
       "20261122220633_harden_sale_product_store_scope.sql",
       "20261121201546_harden_sale_write_tenant_scope.sql",
       "20260731020000_add_mobile_money_payment_reference.sql",
