@@ -1,0 +1,111 @@
+-- REVIEW-ONLY candidate. NOT a numbered migration. Never run on production.
+-- Assumes one PO item per product; rejects ambiguous historical duplicates.
+-- Remaining P0: incremental replay has no stable receipt UUID, so identical
+-- partial requests can be counted twice. Must add a receipt ledger before rollout.
+CREATE OR REPLACE FUNCTION public.receive_purchase_order(
+  p_order_id uuid,
+  p_received_items jsonb,
+  p_notes text DEFAULT NULL
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_org_id uuid;
+  v_actor uuid;
+  v_order public.purchase_orders%ROWTYPE;
+  v_line public.purchase_order_items%ROWTYPE;
+  v_item jsonb;
+  v_product_id uuid;
+  v_qty integer;
+  v_new_stock integer;
+  v_all_received boolean;
+  v_seen uuid[] := ARRAY[]::uuid[];
+BEGIN
+  v_actor := auth.uid();
+  v_org_id := public.get_user_organization_id();
+  IF v_actor IS NULL OR v_org_id IS NULL
+     OR NOT public.is_member_of_organization(v_org_id)
+     OR NOT EXISTS (
+       SELECT 1 FROM public.user_roles ur
+       WHERE ur.user_id = v_actor AND ur.role IN ('admin','manager')
+     ) THEN
+    RAISE EXCEPTION 'Accès refusé à la réception' USING ERRCODE='42501';
+  END IF;
+
+  SELECT * INTO v_order FROM public.purchase_orders
+    WHERE id = p_order_id AND organization_id = v_org_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Commande introuvable' USING ERRCODE='42501';
+  END IF;
+  IF v_order.status NOT IN ('sent','confirmed','partial') THEN
+    RAISE EXCEPTION 'Statut de commande incompatible avec réception' USING ERRCODE='22023';
+  END IF;
+  IF jsonb_typeof(p_received_items) IS DISTINCT FROM 'array'
+     OR jsonb_array_length(p_received_items)=0 THEN
+    RAISE EXCEPTION 'Lignes de réception obligatoires' USING ERRCODE='22023';
+  END IF;
+
+  FOR v_item IN SELECT * FROM jsonb_array_elements(p_received_items)
+  LOOP
+    IF jsonb_typeof(v_item) IS DISTINCT FROM 'object'
+       OR (v_item->>'product_id') IS NULL
+       OR (v_item->>'quantity') IS NULL THEN
+      RAISE EXCEPTION 'Ligne de réception invalide' USING ERRCODE='22023';
+    END IF;
+    v_product_id := (v_item->>'product_id')::uuid;
+    v_qty := (v_item->>'quantity')::integer;
+    IF v_qty <= 0 OR v_product_id=ANY(v_seen) THEN
+      RAISE EXCEPTION 'Quantité non positive ou produit dupliqué' USING ERRCODE='22023';
+    END IF;
+    v_seen := array_append(v_seen,v_product_id);
+
+    -- Guard against multiple PO lines for the same product; otherwise one
+    -- stock addition could inadvertently update multiple received totals.
+    IF (SELECT count(*) FROM public.purchase_order_items
+        WHERE purchase_order_id=p_order_id AND product_id=v_product_id) <> 1 THEN
+      RAISE EXCEPTION 'Produit absent ou ambigu dans la commande' USING ERRCODE='22023';
+    END IF;
+    SELECT * INTO v_line FROM public.purchase_order_items
+      WHERE purchase_order_id=p_order_id AND product_id=v_product_id FOR UPDATE;
+    IF v_qty > v_line.quantity_ordered - COALESCE(v_line.quantity_received,0) THEN
+      RAISE EXCEPTION 'Quantité supérieure au reliquat' USING ERRCODE='22023';
+    END IF;
+
+    UPDATE public.products
+    SET stock_quantity=stock_quantity+v_qty, updated_at=now()
+    WHERE id=v_product_id
+      AND organization_id=v_org_id
+      AND store_id IS NOT DISTINCT FROM v_order.store_id
+    RETURNING stock_quantity INTO v_new_stock;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Produit hors organisation ou boutique' USING ERRCODE='42501';
+    END IF;
+
+    UPDATE public.purchase_order_items
+    SET quantity_received=COALESCE(quantity_received,0)+v_qty
+    WHERE id=v_line.id;
+    INSERT INTO public.stock_movements(
+      product_id,type,quantity,previous_quantity,new_quantity,reason,
+      user_id,organization_id,store_id
+    ) VALUES (
+      v_product_id,'restock',v_qty,v_new_stock-v_qty,v_new_stock,
+      'Réception commande '||v_order.order_number,v_actor,v_org_id,v_order.store_id
+    );
+  END LOOP;
+
+  SELECT NOT EXISTS (
+    SELECT 1 FROM public.purchase_order_items
+    WHERE purchase_order_id=p_order_id
+      AND COALESCE(quantity_received,0)<quantity_ordered
+  ) INTO v_all_received;
+  UPDATE public.purchase_orders
+  SET status=(CASE WHEN v_all_received THEN 'received' ELSE 'partial' END)::public.po_status,
+      received_date=CASE WHEN v_all_received THEN current_date ELSE received_date END,
+      notes=COALESCE(p_notes,notes),updated_at=now()
+  WHERE id=p_order_id AND organization_id=v_org_id;
+END;
+$$;
+-- Explicitly preserve existing RPC exposure model. Candidate has no GRANT.
