@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { reportError } from "@/lib/sentry";
+import { buildReceiptPayload, remainingToReceive } from "@/lib/purchaseOrderReceipt";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +23,7 @@ interface OrderItem {
   quantity_ordered: number;
   quantity_received: number;
   unit_cost: number;
+  quantity_to_receive: number;
 }
 
 export const ReceiveOrderForm = ({
@@ -53,7 +55,7 @@ export const ReceiveOrderForm = ({
       setItems(
         orderItems.map((item) => ({
           ...item,
-          quantity_received: item.quantity_received || item.quantity_ordered,
+          quantity_to_receive: remainingToReceive(item),
         }))
       );
     }
@@ -61,7 +63,7 @@ export const ReceiveOrderForm = ({
 
   const updateReceivedQty = (index: number, qty: number) => {
     const updated = [...items];
-    updated[index] = { ...updated[index], quantity_received: qty };
+    updated[index] = { ...updated[index], quantity_to_receive: qty };
     setItems(updated);
   };
 
@@ -72,12 +74,7 @@ export const ReceiveOrderForm = ({
     try {
       // Build the items payload for the RPC — product_id/quantity, pas id/quantity_received
       // (la fonction receive_purchase_order lit v_item->>'product_id' et v_item->>'quantity')
-      const rpcItems = items
-        .filter((item) => item.product_id)
-        .map((item) => ({
-          product_id: item.product_id,
-          quantity: item.quantity_received,
-        }));
+      const rpcItems = buildReceiptPayload(items);
 
       const { error } = await supabase.rpc("receive_purchase_order", {
         p_order_id: orderId,
@@ -118,16 +115,16 @@ export const ReceiveOrderForm = ({
             <div className="flex-1 min-w-0">
               <p className="font-medium text-sm truncate">{item.product_name}</p>
               <p className="text-xs text-muted-foreground">
-                Commandé : {item.quantity_ordered}
+                Commandé : {item.quantity_ordered} · Déjà reçu : {item.quantity_received} · Reste : {remainingToReceive(item)}
               </p>
             </div>
             <div className="w-28">
-              <Label className="text-xs">Qté reçue</Label>
+              <Label className="text-xs">À recevoir maintenant</Label>
               <Input
                 type="number"
                 min={0}
-                max={item.quantity_ordered}
-                value={item.quantity_received}
+                max={remainingToReceive(item)}
+                value={item.quantity_to_receive}
                 onChange={(e) =>
                   updateReceivedQty(index, parseInt(e.target.value) || 0)
                 }
