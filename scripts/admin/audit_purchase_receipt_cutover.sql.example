@@ -1,0 +1,66 @@
+-- READ ONLY: P0 supplier receipt cutover gate.
+-- Run against an explicitly selected STAGING database using a read-only
+-- admin role. This query never changes grants, schema, receipts, or stock.
+--
+-- "pass" here means a structural prerequisite only. It does NOT replace
+-- synthetic data tests, an end-to-end cutover, or a restoration drill.
+WITH objects AS (
+  SELECT
+    to_regprocedure('public.receive_purchase_order(uuid,jsonb)') AS legacy_2,
+    to_regprocedure('public.receive_purchase_order(uuid,jsonb,text)') AS legacy_3,
+    to_regprocedure('public.receive_purchase_order_once(uuid,jsonb,uuid,text)') AS once_rpc,
+    to_regclass('public.purchase_order_receipt_requests') AS ledger
+), checks AS (
+  SELECT 'new_idempotent_rpc_present' AS check_id,
+         once_rpc IS NOT NULL AS passed,
+         'New receipt RPC must exist before switching the client' AS details
+    FROM objects
+  UNION ALL
+  SELECT 'receipt_ledger_present', ledger IS NOT NULL,
+         'Private persistent receipt UUID registry required' FROM objects
+  UNION ALL
+  SELECT 'ledger_rls_enabled',
+         COALESCE((SELECT relrowsecurity AND relforcerowsecurity
+                   FROM pg_class WHERE oid=ledger),false),
+         'Receipt ledger must enforce RLS (ENABLE + FORCE)' FROM objects
+  UNION ALL
+  SELECT 'ledger_authenticated_table_access_denied',
+         ledger IS NOT NULL AND
+           NOT COALESCE(has_table_privilege('authenticated',ledger,'SELECT'),false) AND
+           NOT COALESCE(has_table_privilege('authenticated',ledger,'INSERT'),false) AND
+           NOT COALESCE(has_table_privilege('authenticated',ledger,'UPDATE'),false) AND
+           NOT COALESCE(has_table_privilege('authenticated',ledger,'DELETE'),false),
+         'The public app role must not directly access the receipt ledger' FROM objects
+  UNION ALL
+  SELECT 'new_rpc_authenticated_executable',
+         once_rpc IS NOT NULL AND
+           COALESCE(has_function_privilege('authenticated',once_rpc,'EXECUTE'),false),
+         'Authenticated users must be able to call the reviewed new RPC' FROM objects
+  UNION ALL
+  SELECT 'new_rpc_anon_denied',
+         once_rpc IS NOT NULL AND
+           NOT COALESCE(has_function_privilege('anon',once_rpc,'EXECUTE'),true),
+         'Anonymous users must not call the receiving RPC' FROM objects
+  UNION ALL
+  SELECT 'legacy_3_authenticated_denied',
+         legacy_3 IS NULL OR
+           NOT COALESCE(has_function_privilege('authenticated',legacy_3,'EXECUTE'),true),
+         'Legacy 3-argument RPC must be retired when all clients switch' FROM objects
+  UNION ALL
+  SELECT 'legacy_2_authenticated_denied',
+         legacy_2 IS NULL OR
+           NOT COALESCE(has_function_privilege('authenticated',legacy_2,'EXECUTE'),true),
+         'Legacy 2-argument overload must not bypass the receipt ledger' FROM objects
+  UNION ALL
+  SELECT 'new_rpc_security_definer',
+         COALESCE((SELECT prosecdef FROM pg_proc WHERE oid=once_rpc),false),
+         'Reviewed RPC must retain SECURITY DEFINER and explicit auth checks' FROM objects
+)
+SELECT check_id,passed,details
+FROM checks
+ORDER BY check_id;
+
+-- RELEASE DECISION: All checks above must pass AND native concurrency,
+-- offline retry, business acceptance, tenant isolation, backup/restore,
+-- migration reconciliation, and rollback tests must be evidenced.
+-- Never use this read-only report to auto-deploy to production.
