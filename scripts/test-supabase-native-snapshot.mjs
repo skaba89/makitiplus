@@ -234,11 +234,11 @@ async function testFinalTransactions(db) {
     const blocked=gateResults.filter(item=>item.passed!==true);
     assert.deepEqual(blocked,[],`Native receipt RPC cutover failed: ${JSON.stringify(blocked)}`);
     await asTenant(actor,()=>db.query(
-      'SELECT public.receive_purchase_order($1,$2::jsonb,$3)',
+      'SELECT public.receive_purchase_order(p_order_id=>$1::uuid,p_received_items=>$2::jsonb,p_notes=>$3::text)',
       [orderId,JSON.stringify(line(actor.product,1)),null],
     ),{code:'42501'});
     await asTenant(actor,()=>db.query(
-      'SELECT public.receive_purchase_order($1,$2::jsonb)',
+      'SELECT public.receive_purchase_order(p_order_id=>$1::uuid,p_items=>$2::jsonb)',
       [orderId,JSON.stringify([{id:orderLineId,quantity_received:1}])],
     ),{code:'42501'});
     const finalId=randomUUID();
