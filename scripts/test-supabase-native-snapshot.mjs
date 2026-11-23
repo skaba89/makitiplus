@@ -163,6 +163,64 @@ async function testFinalTransactions(db) {
   assert.deepEqual(await state(a,'NATIVE-STORE-PROBE'),{sales:0,items:0,credits:0,stock:18});
   assert.deepEqual(await state(a,'NATIVE-STORE-OWN'),{sales:0,items:0,credits:0,stock:18});
   assert.deepEqual(await state(b,'NATIVE-STORE-NONE'),{sales:0,items:0,credits:0,stock:19});
+  // Test both review-only receipt SQL candidates in a disposable savepoint.
+  // This does not install a migration or modify production.
+  await db.query('SAVEPOINT purchase_receipt_probe');
+  try {
+    await db.query(readFileSync(new URL('./admin/receive_purchase_order_guard.sql.example',import.meta.url),'utf8'));
+    await db.query(readFileSync(new URL('./admin/receive_purchase_order_once.sql.example',import.meta.url),'utf8'));
+    const [actor, foreign]=tenants;
+    const mainStore=(await db.query('SELECT current_store_id AS id FROM public.profiles WHERE user_id=$1',[actor.user])).rows[0].id;
+    const supplierId=randomUUID(), orderId=randomUUID(), orderLineId=randomUUID(), receiptId=randomUUID();
+    await db.query("INSERT INTO public.suppliers(id,user_id,organization_id,name) VALUES ($1,$2,$3,'Native receipt supplier')",
+      [supplierId,actor.user,actor.org]);
+    await db.query("INSERT INTO public.purchase_orders(id,organization_id,store_id,supplier_id,order_number,status) VALUES ($1,$2,$3,$4,'NATIVE-RECEIPT-001','sent')",
+      [orderId,actor.org,mainStore,supplierId]);
+    await db.query("INSERT INTO public.purchase_order_items(id,purchase_order_id,product_id,product_name,quantity_ordered,quantity_received) VALUES ($1,$2,$3,'Replay fixture',10,0)",
+      [orderLineId,orderId,actor.product]);
+    const invoke=(receipt,items,notes=null)=>()=>db.query(
+      'SELECT public.receive_purchase_order_once($1,$2::jsonb,$3,$4)',
+      [orderId,JSON.stringify(items),receipt,notes]
+    );
+    const line=(product,quantity)=>[{product_id:product,quantity}];
+    const stock=async()=>(await db.query('SELECT stock_quantity FROM public.products WHERE id=$1',[actor.product])).rows[0].stock_quantity;
+    const received=async()=>(await db.query('SELECT quantity_received FROM public.purchase_order_items WHERE id=$1',[orderLineId])).rows[0].quantity_received;
+    const movementCount=async()=>(await db.query('SELECT count(*)::int AS n FROM public.stock_movements WHERE organization_id=$1 AND reason=$2',
+      [actor.org,'Réception commande NATIVE-RECEIPT-001'])).rows[0].n;
+    const initialStock=await stock();
+    await asTenant(actor,invoke(receiptId,line(actor.product,2)));
+    assert.equal(await stock(),initialStock+2);
+    assert.equal(await received(),2);
+    assert.equal(await movementCount(),1);
+    await asTenant(actor,invoke(receiptId,line(actor.product,2)));
+    assert.equal(await stock(),initialStock+2);
+    assert.equal(await received(),2);
+    assert.equal(await movementCount(),1);
+    await asTenant(actor,invoke(receiptId,line(actor.product,3)),{code:'23505'});
+    await asTenant(actor,invoke(receiptId,line(actor.product,2),'modified'),{code:'23505'});
+    assert.equal(await stock(),initialStock+2);
+    const rejectedReceipt=randomUUID();
+    await asTenant(actor,invoke(rejectedReceipt,line(foreign.product,1)),{code:'22023'});
+    assert.equal((await db.query('SELECT count(*)::int AS n FROM public.purchase_order_receipt_requests WHERE receipt_id=$1',[rejectedReceipt])).rows[0].n,0);
+    await asTenant(actor,invoke(randomUUID(),line(actor.product,9)),{code:'22023'});
+    await asTenant(actor,invoke(randomUUID(),line(actor.product,-1)),{code:'22023'});
+    await asTenant(actor,invoke(randomUUID(),[...line(actor.product,1),...line(actor.product,1)]),{code:'22023'});
+    assert.equal(await stock(),initialStock+2);
+    const secondId=randomUUID();
+    await asTenant(actor,invoke(secondId,line(actor.product,3)));
+    assert.equal(await stock(),initialStock+5);
+    assert.equal(await received(),5);
+    assert.equal(await movementCount(),2);
+    await asTenant(actor,invoke(secondId,line(actor.product,3)));
+    assert.equal(await movementCount(),2);
+    assert.equal((await db.query('SELECT count(*)::int AS n FROM public.purchase_order_receipt_requests WHERE purchase_order_id=$1',[orderId])).rows[0].n,2);
+    await asTenant(foreign,invoke(receiptId,line(actor.product,2)),{code:'42501'});
+    assert.equal(await stock(),initialStock+5);
+    console.log('Native receipt candidate PASS: idempotent retry, conflicting UUID, over-receipt, foreign product, rollback and tenant isolation');
+  } finally {
+    await db.query('ROLLBACK TO SAVEPOINT purchase_receipt_probe');
+    await db.query('RELEASE SAVEPOINT purchase_receipt_probe');
+  }
   return tenants;
 }
 
