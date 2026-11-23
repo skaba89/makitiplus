@@ -1,0 +1,76 @@
+import "fake-indexeddb/auto";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  acknowledgePurchaseReceipt, loadPendingPurchaseReceipt, preparePurchaseReceipt,
+} from "@/lib/purchaseOrderReceiptOutbox";
+
+const first = {
+  organization_id: "tenant-a",
+  actor_id: "actor-a",
+  order_id: "order-a",
+  items: [{ product_id: "product-a", quantity: 2 }],
+  notes: null,
+};
+const second = { ...first, order_id: "order-b" };
+let counter = 0;
+
+beforeEach(() => {
+  counter = 0;
+  vi.stubGlobal("crypto", { randomUUID: () => `00000000-0000-4000-8000-${String(++counter).padStart(12, "0")}` });
+});
+
+describe("Durable supplier receipt outbox (not yet activated)", () => {
+  it("persists exactly one immutable UUID and canonical payload for repeated retry", async () => {
+    const submitted = await preparePurchaseReceipt(first);
+    const retry = await preparePurchaseReceipt({ ...first, items: [...first.items].reverse() });
+    expect(retry).toEqual(submitted);
+    expect(counter).toBe(1);
+    expect(await loadPendingPurchaseReceipt("tenant-a", "actor-a", "order-a")).toEqual(submitted);
+  });
+
+  it("rejects any changed amount or notes while a receipt is pending", async () => {
+    const original = await preparePurchaseReceipt(first);
+    await expect(preparePurchaseReceipt({ ...first, items: [{ product_id: "product-a", quantity: 3 }] }))
+      .rejects.toThrow("Réception en attente différente");
+    await expect(preparePurchaseReceipt({ ...first, notes: "new notes" }))
+      .rejects.toThrow("Réception en attente différente");
+    expect(await loadPendingPurchaseReceipt("tenant-a", "actor-a", "order-a")).toEqual(original);
+    expect(counter).toBe(1);
+  });
+
+  it("isolates different actors and orders and never clears pending data on network failure", async () => {
+    const a = await preparePurchaseReceipt(first);
+    const b = await preparePurchaseReceipt(second);
+    const c = await preparePurchaseReceipt({ ...first, actor_id: "actor-b" });
+    expect(new Set([a.receipt_id, b.receipt_id, c.receipt_id]).size).toBe(3);
+    expect(await loadPendingPurchaseReceipt("tenant-b", "actor-a", "order-a")).toBeUndefined();
+    expect(await loadPendingPurchaseReceipt("tenant-a", "actor-a", "order-a")).toEqual(a);
+  });
+
+  it("acknowledges only the exact committed UUID; next business receipt gets a new UUID", async () => {
+    const receipt = await preparePurchaseReceipt(first);
+    await expect(acknowledgePurchaseReceipt({ ...receipt, receipt_id: "forged-uuid" }))
+      .rejects.toThrow("Identifiant de réception différent");
+    expect(await loadPendingPurchaseReceipt("tenant-a", "actor-a", "order-a")).toEqual(receipt);
+    await acknowledgePurchaseReceipt(receipt);
+    expect(await loadPendingPurchaseReceipt("tenant-a", "actor-a", "order-a")).toBeUndefined();
+    const next = await preparePurchaseReceipt(first);
+    expect(next.receipt_id).not.toBe(receipt.receipt_id);
+  });
+
+  it("rejects missing identity, empty, negative, fractional and duplicate product lines", async () => {
+    await expect(preparePurchaseReceipt({ ...first, order_id: "" })).rejects.toThrow();
+    for (const n of [0, -1, 0.5, Number.NaN]) {
+      await expect(preparePurchaseReceipt({ ...first, items: [{ product_id: "product-a", quantity: n }] })).rejects.toThrow();
+    }
+    await expect(preparePurchaseReceipt({ ...first, items: [] })).rejects.toThrow();
+    await expect(preparePurchaseReceipt({ ...first, items: [...first.items, ...first.items] })).rejects.toThrow();
+  });
+
+  it("normalizes item ordering without losing the committed receipt identity", async () => {
+    const items = [{ product_id: "product-b", quantity: 1 }, { product_id: "product-a", quantity: 2 }];
+    const stored = await preparePurchaseReceipt({ ...first, items });
+    expect(stored.items.map(x => x.product_id)).toEqual(["product-a", "product-b"]);
+    expect(await preparePurchaseReceipt({ ...first, items: [...items].reverse() })).toEqual(stored);
+  });
+});
