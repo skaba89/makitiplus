@@ -185,6 +185,9 @@ async function testFinalTransactions(db) {
 // Only called in a second disposable native CI stack after the final schema
 // and synthetic fixtures are committed. Both actors use authenticated SQL.
 async function testNativeConcurrency(db, dbUrl, tenants) {
+  // Install the review-only guard only on the disposable committed CI stack.
+  // This enables two independent connections to exercise the candidate.
+  await db.query(readFileSync(new URL('./admin/cash_replay_guard.sql.example',import.meta.url),'utf8'));
   const [a,b]=tenants;
   const c1=new Client({connectionString:dbUrl.href,ssl:false});
   const c2=new Client({connectionString:dbUrl.href,ssl:false});
@@ -269,12 +272,16 @@ async function testNativeConcurrency(db, dbUrl, tenants) {
     if (cashReplay.result.error) throw cashReplay.result.error;
     assert.equal(cashReplay.result.id,cashReplay.winner);
     await checkCash('NATIVE-CASH-CONCURRENT',cashReplay.winner,14);
+    const cashConflict=await race('NATIVE-CASH-CONFLICT',200,false,cash);
+    assert.equal(cashConflict.result.error?.code,'23505', 'Changed amount must fail after the concurrent winner commits');
+    await checkCash('NATIVE-CASH-CONFLICT',cashConflict.winner,13);
+    console.log('Native cash replay candidate concurrency PASS: changed payload rejected after lock, one sale and one stock decrement');
     const cashAbort=await race('NATIVE-CASH-ABORT',100,true,cash);
     if (cashAbort.result.error) throw cashAbort.result.error;
     assert.ok(cashAbort.result.id);
     assert.notEqual(cashAbort.result.id,cashAbort.winner);
     assert.equal((await db.query('SELECT id FROM public.sales WHERE id=$1',[cashAbort.winner])).rowCount,0);
-    await checkCash('NATIVE-CASH-ABORT',cashAbort.result.id,13);
+    await checkCash('NATIVE-CASH-ABORT',cashAbort.result.id,12);
     console.log('Final native cash concurrency PASS: identical replay and rollback, one stock movement each, no credit ledger');
   } finally {
     // End the winner first, releasing its locks before draining the retry.
