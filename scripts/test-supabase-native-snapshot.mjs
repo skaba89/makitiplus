@@ -323,6 +323,57 @@ async function testNativeConcurrency(db, dbUrl, tenants) {
     assert.equal((await db.query('SELECT id FROM public.sales WHERE id=$1',[cashAbort.winner])).rowCount,0);
     await checkCash('NATIVE-CASH-ABORT',cashAbort.result.id,12);
     console.log('Final native cash concurrency PASS: identical replay and rollback, one stock movement each, no credit ledger');
+
+    // Both candidates are installed only in the SECOND, disposable CI stack.
+    // A real pair of authenticated connections tests the parent order lock.
+    await db.query(readFileSync(new URL('./admin/receive_purchase_order_guard.sql.example',import.meta.url),'utf8'));
+    await db.query(readFileSync(new URL('./admin/receive_purchase_order_once.sql.example',import.meta.url),'utf8'));
+    const supplierId=randomUUID();
+    await db.query("INSERT INTO public.suppliers(id,user_id,organization_id,name) VALUES ($1,$2,$3,'Concurrent receipt supplier')",
+      [supplierId,a.user,a.org]);
+    const mainStore=(await db.query('SELECT current_store_id FROM public.profiles WHERE user_id=$1',[a.user])).rows[0].current_store_id;
+    const receiptCall=async(c,orderId,receiptId,qty)=>c.query(
+      'SELECT public.receive_purchase_order_once($1,$2::jsonb,$3)',
+      [orderId,JSON.stringify([{product_id:a.product,quantity:qty}]),receiptId]);
+    async function receiptRace(kind,loserQty,rollback=false) {
+      const orderId=randomUUID(),lineId=randomUUID(),receiptId=randomUUID();
+      await db.query("INSERT INTO public.purchase_orders(id,organization_id,store_id,supplier_id,order_number,status) VALUES ($1,$2,$3,$4,$5,'sent')",
+        [orderId,a.org,mainStore,supplierId,'NATIVE-RACE-'+kind]);
+      await db.query("INSERT INTO public.purchase_order_items(id,purchase_order_id,product_id,product_name,quantity_ordered,quantity_received) VALUES ($1,$2,$3,'Replay fixture',10,0)",
+        [lineId,orderId,a.product]);
+      const before=(await db.query('SELECT stock_quantity FROM public.products WHERE id=$1',[a.product])).rows[0].stock_quantity;
+      await c1.query('BEGIN');
+      await receiptCall(c1,orderId,receiptId,2);
+      retry=receiptCall(c2,orderId,receiptId,loserQty).then(()=>({ok:true}),error=>({error}));
+      const deadline=Date.now()+5000;
+      let blocked=false;
+      while(Date.now()<deadline) {
+        const row=(await db.query('SELECT $1::int = ANY(pg_blocking_pids($2::int)) AS blocked',[pid1,pid2])).rows[0];
+        if(row.blocked) { blocked=true; break; }
+        await new Promise(resolve=>setTimeout(resolve,25));
+      }
+      assert.equal(blocked,true,'Receipt replay must block on parent order: '+kind);
+      await c1.query(rollback?'ROLLBACK':'COMMIT');
+      const result=await retry;
+      retry=undefined;
+      const observed=(await db.query(`SELECT
+        (SELECT stock_quantity FROM public.products WHERE id=$1) AS stock,
+        (SELECT quantity_received FROM public.purchase_order_items WHERE id=$2) AS received,
+        (SELECT count(*)::int FROM public.purchase_order_receipt_requests WHERE purchase_order_id=$3) AS ledger,
+        (SELECT count(*)::int FROM public.stock_movements WHERE organization_id=$4 AND reason=$5) AS movements`,
+        [a.product,lineId,orderId,a.org,'Réception commande NATIVE-RACE-'+kind])).rows[0];
+      assert.deepEqual(observed,{stock:before+2,received:2,ledger:1,movements:1});
+      return result;
+    }
+    const identicalReceipt=await receiptRace('IDENTICAL',2);
+    assert.equal(identicalReceipt.ok,true,'Identical concurrent replay should be a no-op');
+    const changedReceipt=await receiptRace('CONFLICT',3);
+    assert.equal(changedReceipt.error?.code,'23505','Changed concurrent receipt must be rejected');
+    const abortedReceipt=await receiptRace('ABORT',2,true);
+    assert.equal(abortedReceipt.ok,true,'Second actor should process after first rolls back');
+    assert.equal((await db.query('SELECT stock_quantity FROM public.products WHERE id=$1',[b.product])).rows[0].stock_quantity,19);
+    console.log('Native receipt concurrency candidate PASS: observed lock, identical retry, changed payload conflict, winner rollback, exactly one stock increment each');
+
   } finally {
     // End the winner first, releasing its locks before draining the retry.
     await c1.end();
