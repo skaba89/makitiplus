@@ -1,0 +1,96 @@
+-- REVIEW-ONLY. Not a numbered migration; not safe to deploy standalone.
+-- Prerequisite: reviewed receive_purchase_order guard candidate from #175
+-- must be installed in the SAME disposable transaction before this candidate.
+-- Retire the legacy 3-arg RPC from authenticated only AFTER all clients have
+-- migrated; an unguarded legacy RPC remains a bypass until then.
+CREATE TABLE IF NOT EXISTS public.purchase_order_receipt_requests (
+  receipt_id uuid PRIMARY KEY,
+  organization_id uuid NOT NULL REFERENCES public.organizations(id),
+  purchase_order_id uuid NOT NULL REFERENCES public.purchase_orders(id),
+  actor_id uuid NOT NULL REFERENCES auth.users(id),
+  request_payload jsonb NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_po_receipt_requests_order
+  ON public.purchase_order_receipt_requests (organization_id, purchase_order_id);
+ALTER TABLE public.purchase_order_receipt_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.purchase_order_receipt_requests FORCE ROW LEVEL SECURITY;
+REVOKE ALL ON public.purchase_order_receipt_requests FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.receive_purchase_order_once(
+  p_order_id uuid,
+  p_received_items jsonb,
+  p_receipt_id uuid,
+  p_notes text DEFAULT NULL
+)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_org_id uuid;
+  v_actor_id uuid;
+  v_existing public.purchase_order_receipt_requests%ROWTYPE;
+  v_payload jsonb;
+  v_lines jsonb;
+BEGIN
+  v_actor_id := auth.uid();
+  v_org_id := public.get_user_organization_id();
+  IF v_actor_id IS NULL OR v_org_id IS NULL
+     OR NOT public.is_member_of_organization(v_org_id)
+     OR NOT EXISTS (
+       SELECT 1 FROM public.user_roles
+       WHERE user_id = v_actor_id AND role IN ('admin', 'manager')
+     ) THEN
+    RAISE EXCEPTION 'Accès refusé à la réception' USING ERRCODE='42501';
+  END IF;
+  IF p_receipt_id IS NULL OR p_order_id IS NULL OR
+     jsonb_typeof(p_received_items) IS DISTINCT FROM 'array'
+     OR jsonb_array_length(p_received_items)=0 THEN
+    RAISE EXCEPTION 'Identifiant et lignes de réception obligatoires' USING ERRCODE='22023';
+  END IF;
+
+  -- Canonicalize by product and quantity: object keys or item ordering cannot
+  -- cause a false conflict. The guarded receipt RPC validates actual quantities.
+  SELECT COALESCE(jsonb_agg(
+    jsonb_build_object(
+      'product_id',(item->>'product_id')::uuid,
+      'quantity',(item->>'quantity')::integer
+    ) ORDER BY (item->>'product_id')::uuid, (item->>'quantity')::integer
+  ), '[]'::jsonb)
+  INTO v_lines FROM jsonb_array_elements(p_received_items) AS item;
+  v_payload := jsonb_build_object('items',v_lines,'notes',p_notes);
+
+  -- One parent PO row lock serializes both the committed duplicate and
+  -- competing receipt ids for the same order.
+  PERFORM 1 FROM public.purchase_orders
+    WHERE id=p_order_id AND organization_id=v_org_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Commande introuvable' USING ERRCODE='42501';
+  END IF;
+
+  SELECT * INTO v_existing FROM public.purchase_order_receipt_requests
+    WHERE receipt_id=p_receipt_id FOR UPDATE;
+  IF FOUND THEN
+    IF v_existing.organization_id IS DISTINCT FROM v_org_id
+       OR v_existing.purchase_order_id IS DISTINCT FROM p_order_id
+       OR v_existing.actor_id IS DISTINCT FROM v_actor_id
+       OR v_existing.request_payload IS DISTINCT FROM v_payload THEN
+      RAISE EXCEPTION 'Conflit de rejeu de réception' USING ERRCODE='23505';
+    END IF;
+    RETURN;
+  END IF;
+
+  -- Insert and guarded stock write are in one PostgreSQL statement transaction.
+  -- Any failure rolls both back; the same key can then safely retry.
+  INSERT INTO public.purchase_order_receipt_requests (
+    receipt_id,organization_id,purchase_order_id,actor_id,request_payload
+  ) VALUES (p_receipt_id,v_org_id,p_order_id,v_actor_id,v_payload);
+  PERFORM public.receive_purchase_order(p_order_id,p_received_items,p_notes);
+END;
+$$;
+REVOKE EXECUTE ON FUNCTION public.receive_purchase_order_once(uuid,jsonb,uuid,text)
+  FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.receive_purchase_order_once(uuid,jsonb,uuid,text)
+  TO authenticated;
+-- Critical rollout blocker: the existing receive_purchase_order(uuid,jsonb,text)
+-- is still executable by clients. A controlled cutover and revocation are
+-- necessary; this candidate intentionally performs neither.
