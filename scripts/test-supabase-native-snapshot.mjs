@@ -502,7 +502,7 @@ try {
     ['20261121214326_retire_unsafe_backup_rpc.sql','b3013c42bbb6cf21a73195d381ddd8258ab6405e211c9853601df027943f4f6f'],
     ['20261121222237_restrict_password_reset_token_access.sql','d34c81c0bb95fa8d72e7920a5c89ea726bd8df29982f604378c568932535620f'],
     ['20261122220633_harden_sale_product_store_scope.sql','1b80cc7284c7ad570ea861a95fcdd5b83cf69b69794218ca4337d0c477089edb'],
-    ['20261122231130_harden_cash_sale_replay.sql','de02b211e582bed3b20ebfc42d86bfb18fffdaa7dfe9ddb084c65108d1d7d810'],
+    ['20261122231130_harden_cash_sale_replay.sql','a0ea8b181f57a33d075bfbf498d1a3d7edf9490724ba74a930d649a71d70ac4e'],
   ];
   assert.deepEqual(numbered.slice(prefix.length),next.map(([name])=>name),'New migration requires explicit native replay review');
   const policyState=async()=> (await db.query(`SELECT p.polname, c.relname, p.polcmd, p.polroles,
