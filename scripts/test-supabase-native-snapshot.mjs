@@ -217,6 +217,39 @@ async function testFinalTransactions(db) {
     await asTenant(foreign,invoke(receiptId,line(actor.product,2)),{code:'42501'});
     assert.equal(await stock(),initialStock+5);
     console.log('Native receipt candidate PASS: idempotent retry, conflicting UUID, over-receipt, foreign product, rollback and tenant isolation');
+
+    // Simulate the final RPC permission cutover inside THIS disposable
+    // transaction only. Existing live and review candidate paths are otherwise
+    // unchanged, and the outer savepoint restores their original privileges.
+    for (const signature of [
+      'public.receive_purchase_order(uuid,jsonb)',
+      'public.receive_purchase_order(uuid,jsonb,text)',
+    ]) {
+      const reg=(await db.query('SELECT to_regprocedure($1) AS id',[signature])).rows[0].id;
+      if (reg) await db.query(`REVOKE EXECUTE ON FUNCTION ${signature} FROM PUBLIC, anon, authenticated`);
+    }
+    const gateSql=readFileSync(new URL('./admin/audit_purchase_receipt_cutover.sql.example',import.meta.url),'utf8');
+    const {rows:gateResults}=await db.query(gateSql);
+    assert.ok(gateResults.length>=9,'Cutover checks missing');
+    const blocked=gateResults.filter(item=>item.passed!==true);
+    assert.deepEqual(blocked,[],`Native receipt RPC cutover failed: ${JSON.stringify(blocked)}`);
+    await asTenant(actor,()=>db.query(
+      'SELECT public.receive_purchase_order($1,$2::jsonb,$3)',
+      [orderId,JSON.stringify(line(actor.product,1)),null],
+    ),{code:'42501'});
+    await asTenant(actor,()=>db.query(
+      'SELECT public.receive_purchase_order($1,$2::jsonb)',
+      [orderId,JSON.stringify([{id:orderLineId,quantity_received:1}])],
+    ),{code:'42501'});
+    const finalId=randomUUID();
+    await asTenant(actor,invoke(finalId,line(actor.product,1)));
+    assert.equal(await received(),6);
+    assert.equal(await stock(),initialStock+6);
+    await asTenant(actor,invoke(finalId,line(actor.product,1)));
+    assert.equal(await stock(),initialStock+6);
+    assert.equal(await received(),6);
+    console.log('Native receipt cutover PASS: all Go/No-Go gates true, both legacy overloads denied and new UUID RPC remains idempotent');
+
   } finally {
     await db.query('ROLLBACK TO SAVEPOINT purchase_receipt_probe');
     await db.query('RELEASE SAVEPOINT purchase_receipt_probe');
