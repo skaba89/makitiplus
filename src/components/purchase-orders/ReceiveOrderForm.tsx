@@ -47,6 +47,7 @@ export const ReceiveOrderForm = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingReceipt, setPendingReceipt] = useState<PendingPurchaseReceipt | undefined>();
   const [pendingLoading, setPendingLoading] = useState(useIdempotentReceipt);
+  const [pendingError, setPendingError] = useState<string | null>(null);
 
   // Fetch order items
   const { data: orderItems, isLoading } = useQuery({
@@ -77,6 +78,7 @@ export const ReceiveOrderForm = ({
     if (!useIdempotentReceipt) return;
     let active = true;
     setPendingReceipt(undefined);
+    setPendingError(null);
     if (!user?.id || !profile?.organization_id) {
       setPendingLoading(true);
       return () => { active = false; };
@@ -85,8 +87,8 @@ export const ReceiveOrderForm = ({
     loadPendingPurchaseReceipt(profile.organization_id, user.id, orderId)
       .then(value => { if (active) setPendingReceipt(value); })
       .catch(err => {
-        // Failing closed: do not allow new submission with an unknown outbox.
-        if (active) onError(err instanceof Error ? err.message : "Stockage local indisponible");
+        // Fail closed: an unreadable outbox must never yield a fresh UUID.
+        if (active) setPendingError(err instanceof Error ? err.message : "Stockage local indisponible");
       })
       .finally(() => { if (active) setPendingLoading(false); });
     return () => { active = false; };
@@ -99,7 +101,7 @@ export const ReceiveOrderForm = ({
   };
 
   const handleSubmit = async () => {
-    if (!user || isSubmitting || (useIdempotentReceipt && (pendingLoading || !profile?.organization_id))) return;
+    if (!user || isSubmitting || (useIdempotentReceipt && (pendingLoading || !!pendingError || !profile?.organization_id))) return;
     setIsSubmitting(true);
     try {
       if (useIdempotentReceipt) {
@@ -111,7 +113,8 @@ export const ReceiveOrderForm = ({
         const sender = createSupabaseReceiptOnceSender();
         if (pendingReceipt) {
           // Always replay the *stored* payload, never newly edited UI fields.
-          await retryPendingPurchaseReceipt(identity, sender);
+          const replayed = await retryPendingPurchaseReceipt(identity, sender);
+          if (!replayed) throw new Error("Réception en attente introuvable : réconciliation requise");
         } else {
           const rpcItems = buildReceiptPayload(items);
           await submitPurchaseReceipt({ ...identity, items: rpcItems }, sender);
@@ -136,7 +139,7 @@ export const ReceiveOrderForm = ({
           setPendingReceipt(stored);
         } catch {
           // Fail closed; storage failure must not trigger a new UUID.
-          setPendingLoading(true);
+          setPendingError("Stockage local inaccessible : veuillez vérifier la réception avant toute nouvelle tentative");
         }
       }
       reportError(err instanceof Error ? err : new Error(String(err)));
@@ -161,6 +164,11 @@ export const ReceiveOrderForm = ({
         Commande <strong>{orderNumber}</strong>
       </div>
 
+      {useIdempotentReceipt && pendingError && (
+        <div role="alert" className="rounded-md border border-destructive p-3 text-sm">
+          Synchronisation bloquée : {pendingError}. Aucune nouvelle réception ne sera transmise.
+        </div>
+      )}
       {useIdempotentReceipt && pendingReceipt && (
         <div role="status" className="rounded-md border border-amber-500/50 p-3 text-sm">
           Réception en attente de confirmation ({pendingReceipt.receipt_id}).
@@ -206,7 +214,7 @@ export const ReceiveOrderForm = ({
         >
           Annuler
         </Button>
-        <Button onClick={handleSubmit} disabled={isSubmitting || (useIdempotentReceipt && (pendingLoading || !profile?.organization_id))}>
+        <Button onClick={handleSubmit} disabled={isSubmitting || (useIdempotentReceipt && (pendingLoading || !!pendingError || !profile?.organization_id))}>
           {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
           {useIdempotentReceipt && pendingReceipt ? "Réessayer la réception en attente" : "Confirmer la réception"}
         </Button>
