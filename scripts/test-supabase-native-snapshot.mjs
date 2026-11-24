@@ -310,6 +310,27 @@ async function testFinalTransactions(db) {
     await db.query('ROLLBACK TO SAVEPOINT purchase_receipt_probe');
     await db.query('RELEASE SAVEPOINT purchase_receipt_probe');
   }
+
+  // Verify the standalone atomic cutover candidate, independently of the
+  // incremental candidate tests above. No permission or fixture survives.
+  await db.query('SAVEPOINT purchase_receipt_bundle_probe');
+  try {
+    const bundle=readFileSync(new URL('./admin/receive_purchase_order_atomic_cutover.sql.example',import.meta.url),'utf8');
+    const guard=readFileSync(new URL('./admin/receive_purchase_order_guard.sql.example',import.meta.url),'utf8');
+    const once=readFileSync(new URL('./admin/receive_purchase_order_once.sql.example',import.meta.url),'utf8');
+    assert.ok(bundle.includes(guard) && bundle.includes(once),
+      'Atomic receipt cutover bundle drifted from reviewed SQL candidates');
+    await db.query(bundle);
+    const audit=readFileSync(new URL('./admin/audit_purchase_receipt_cutover.sql.example',import.meta.url),'utf8');
+    const checks=(await db.query(audit)).rows;
+    assert.ok(checks.length>=9,'Atomic receipt cutover audit is incomplete');
+    assert.deepEqual(checks.filter(check=>check.passed!==true),[],
+      'Atomic receipt cutover candidate failed Go/No-Go checks');
+    console.log('Native atomic receipt cutover bundle PASS: reviewed SQL exact parity and all rights gates true');
+  } finally {
+    await db.query('ROLLBACK TO SAVEPOINT purchase_receipt_bundle_probe');
+    await db.query('RELEASE SAVEPOINT purchase_receipt_bundle_probe');
+  }
   return tenants;
 }
 
