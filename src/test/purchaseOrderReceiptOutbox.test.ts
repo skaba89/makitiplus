@@ -66,6 +66,43 @@ describe("Durable supplier receipt outbox (not yet activated)", () => {
     expect(next.receipt_id).not.toBe(receipt.receipt_id);
   });
 
+  it("serializes simultaneous same-order writes through IndexedDB to one durable UUID", async () => {
+    const [a, b] = await Promise.all([
+      preparePurchaseReceipt(first),
+      preparePurchaseReceipt({ ...first, items: [...first.items] }),
+    ]);
+    expect(a).toEqual(b);
+    expect(counter).toBe(1);
+    expect(await loadPendingPurchaseReceipt("tenant-a", "actor-a", "order-a")).toEqual(a);
+  });
+
+  it("rejects concurrent conflicting drafts rather than replacing a pending receipt", async () => {
+    const results = await Promise.allSettled([
+      preparePurchaseReceipt(first),
+      preparePurchaseReceipt({ ...first, items: [{ product_id: "product-a", quantity: 3 }] }),
+    ]);
+    const fulfilled = results.filter((x): x is PromiseFulfilledResult<Awaited<ReturnType<typeof preparePurchaseReceipt>>> => x.status === "fulfilled");
+    const rejected = results.filter((x): x is PromiseRejectedResult => x.status === "rejected");
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect(String(rejected[0].reason)).toContain("Réception en attente différente");
+    expect(await loadPendingPurchaseReceipt("tenant-a", "actor-a", "order-a")).toEqual(fulfilled[0].value);
+    expect(counter).toBe(1);
+  });
+
+  it("never acknowledges a changed payload even with a matching UUID", async () => {
+    const original = await preparePurchaseReceipt(first);
+    await expect(acknowledgePurchaseReceipt({
+      ...original, items: [{ product_id: "product-a", quantity: 200 }],
+    })).rejects.toThrow("Réception enregistrée modifiée");
+    await expect(acknowledgePurchaseReceipt({
+      ...original, organization_id: "tenant-b",
+    })).rejects.toThrow("Réception enregistrée modifiée");
+    expect(await loadPendingPurchaseReceipt("tenant-a", "actor-a", "order-a")).toEqual(original);
+    await acknowledgePurchaseReceipt(original);
+    expect(await loadPendingPurchaseReceipt("tenant-a", "actor-a", "order-a")).toBeUndefined();
+  });
+
   it("rejects missing identity, empty, negative, fractional and duplicate product lines", async () => {
     await expect(preparePurchaseReceipt({ ...first, order_id: "" })).rejects.toThrow();
     for (const n of [0, -1, 0.5, Number.NaN]) {

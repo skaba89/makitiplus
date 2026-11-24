@@ -144,6 +144,18 @@ export async function acknowledgePurchaseReceipt(receipt: PendingPurchaseReceipt
           tx.abort();
           return;
         }
+        // An acknowledgement must not erase an altered or corrupted pending
+        // payload even when another tab holds the same UUID. Refuse cleanup
+        // and require manual reconciliation instead of losing evidence.
+        if (saved.organization_id !== receipt.organization_id ||
+            saved.actor_id !== receipt.actor_id ||
+            saved.order_id !== receipt.order_id ||
+            JSON.stringify(saved.items) !== JSON.stringify(receipt.items) ||
+            saved.notes !== receipt.notes) {
+          error = new Error("Réception enregistrée modifiée : réconciliation requise");
+          tx.abort();
+          return;
+        }
         store.delete(receipt.key);
       };
       request.onerror = () => { error = request.error ?? new Error("Réception illisible"); };
