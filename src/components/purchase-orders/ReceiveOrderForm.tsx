@@ -7,6 +7,7 @@ import { buildReceiptPayload, remainingToReceive } from "@/lib/purchaseOrderRece
 import { loadPendingPurchaseReceipt, type PendingPurchaseReceipt } from "@/lib/purchaseOrderReceiptOutbox";
 import { retryPendingPurchaseReceipt, submitPurchaseReceipt } from "@/lib/purchaseOrderReceiptTransport";
 import { createSupabaseReceiptOnceSender } from "@/lib/purchaseOrderReceiptSupabaseAdapter";
+import { isPoReceiptOnceEnabled } from "@/lib/purchaseOrderReceiptFeatureGate";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,9 +16,7 @@ import { Loader2 } from "lucide-react";
 // Rollout must be explicitly authorized by deployment owners AFTER the new
 // server RPC and the old-PWA compatibility gate are fully validated.
 // Default is legacy flow, and merely merging this code never enables it.
-const useIdempotentReceipt =
-  import.meta.env.VITE_PO_RECEIPT_ONCE_ENABLED === "true" &&
-  import.meta.env.VITE_PO_RECEIPT_ONCE_RELEASE_APPROVED === "true";
+const useIdempotentReceipt = isPoReceiptOnceEnabled(import.meta.env);
 
 interface ReceiveOrderFormProps {
   orderId: string;
