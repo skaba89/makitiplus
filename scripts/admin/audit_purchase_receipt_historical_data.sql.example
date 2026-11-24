@@ -1,0 +1,56 @@
+-- READ ONLY: supplier receiving historical data preflight.
+-- Review against explicitly selected environment. No migrations or writes.
+-- Affected rows are counts, never expose personal or financial data.
+WITH issues AS (
+  SELECT 'null_po_product' AS issue_code, count(*)::bigint AS affected_rows,
+    'PO line cannot be matched to the product ID expected by guarded receipt' AS detail
+  FROM public.purchase_order_items WHERE product_id IS NULL
+  UNION ALL
+  SELECT 'duplicate_product_per_order', count(*)::bigint,
+    'Order/product appears on multiple PO lines and guarded receipt rejects ambiguity'
+  FROM (
+    SELECT purchase_order_id, product_id
+    FROM public.purchase_order_items
+    WHERE product_id IS NOT NULL
+    GROUP BY purchase_order_id, product_id HAVING count(*)>1
+  ) duplicates
+  UNION ALL
+  SELECT 'invalid_ordered_quantity', count(*)::bigint,
+    'Ordered quantity is NULL or non-positive'
+  FROM public.purchase_order_items WHERE quantity_ordered IS NULL OR quantity_ordered<=0
+  UNION ALL
+  SELECT 'invalid_received_quantity', count(*)::bigint,
+    'Received quantity is negative or exceeds ordered quantity'
+  FROM public.purchase_order_items
+  WHERE COALESCE(quantity_received,0)<0
+     OR COALESCE(quantity_received,0)>quantity_ordered
+  UNION ALL
+  SELECT 'missing_product_reference', count(*)::bigint,
+    'PO line refers to a missing product'
+  FROM public.purchase_order_items li
+  LEFT JOIN public.products p ON p.id=li.product_id
+  WHERE li.product_id IS NOT NULL AND p.id IS NULL
+  UNION ALL
+  SELECT 'product_organization_mismatch', count(*)::bigint,
+    'PO product organization differs from the order organization'
+  FROM public.purchase_order_items li
+  JOIN public.purchase_orders po ON po.id=li.purchase_order_id
+  JOIN public.products p ON p.id=li.product_id
+  WHERE p.organization_id IS DISTINCT FROM po.organization_id
+  UNION ALL
+  SELECT 'product_store_mismatch', count(*)::bigint,
+    'PO product store is different from order store, including NULL differences'
+  FROM public.purchase_order_items li
+  JOIN public.purchase_orders po ON po.id=li.purchase_order_id
+  JOIN public.products p ON p.id=li.product_id
+  WHERE p.store_id IS DISTINCT FROM po.store_id
+  UNION ALL
+  SELECT 'missing_order_reference', count(*)::bigint,
+    'PO line refers to an order no longer present'
+  FROM public.purchase_order_items li
+  LEFT JOIN public.purchase_orders po ON po.id=li.purchase_order_id
+  WHERE po.id IS NULL
+)
+SELECT issue_code,affected_rows,detail,
+  affected_rows=0 AS passed
+FROM issues ORDER BY issue_code;
