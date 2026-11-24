@@ -4,10 +4,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { reportError } from "@/lib/sentry";
 import { buildReceiptPayload, remainingToReceive } from "@/lib/purchaseOrderReceipt";
+import { loadPendingPurchaseReceipt, type PendingPurchaseReceipt } from "@/lib/purchaseOrderReceiptOutbox";
+import { retryPendingPurchaseReceipt, submitPurchaseReceipt } from "@/lib/purchaseOrderReceiptTransport";
+import { createSupabaseReceiptOnceSender } from "@/lib/purchaseOrderReceiptSupabaseAdapter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
+
+// Rollout must be explicitly authorized by deployment owners AFTER the new
+// server RPC and the old-PWA compatibility gate are fully validated.
+// Default is legacy flow, and merely merging this code never enables it.
+const useIdempotentReceipt =
+  import.meta.env.VITE_PO_RECEIPT_ONCE_ENABLED === "true" &&
+  import.meta.env.VITE_PO_RECEIPT_ONCE_RELEASE_APPROVED === "true";
 
 interface ReceiveOrderFormProps {
   orderId: string;
@@ -32,9 +42,11 @@ export const ReceiveOrderForm = ({
   onSuccess,
   onError,
 }: ReceiveOrderFormProps) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [items, setItems] = useState<OrderItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pendingReceipt, setPendingReceipt] = useState<PendingPurchaseReceipt | undefined>();
+  const [pendingLoading, setPendingLoading] = useState(useIdempotentReceipt);
 
   // Fetch order items
   const { data: orderItems, isLoading } = useQuery({
@@ -61,6 +73,25 @@ export const ReceiveOrderForm = ({
     }
   }, [orderItems]);
 
+  useEffect(() => {
+    if (!useIdempotentReceipt) return;
+    let active = true;
+    setPendingReceipt(undefined);
+    if (!user?.id || !profile?.organization_id) {
+      setPendingLoading(true);
+      return () => { active = false; };
+    }
+    setPendingLoading(true);
+    loadPendingPurchaseReceipt(profile.organization_id, user.id, orderId)
+      .then(value => { if (active) setPendingReceipt(value); })
+      .catch(err => {
+        // Failing closed: do not allow new submission with an unknown outbox.
+        if (active) onError(err instanceof Error ? err.message : "Stockage local indisponible");
+      })
+      .finally(() => { if (active) setPendingLoading(false); });
+    return () => { active = false; };
+  }, [user?.id, profile?.organization_id, orderId]);
+
   const updateReceivedQty = (index: number, qty: number) => {
     const updated = [...items];
     updated[index] = { ...updated[index], quantity_to_receive: qty };
@@ -68,22 +99,46 @@ export const ReceiveOrderForm = ({
   };
 
   const handleSubmit = async () => {
-    if (!user) return;
+    if (!user || isSubmitting || (useIdempotentReceipt && (pendingLoading || !profile?.organization_id))) return;
     setIsSubmitting(true);
-
     try {
-      // Build the items payload for the RPC — product_id/quantity, pas id/quantity_received
-      // (la fonction receive_purchase_order lit v_item->>'product_id' et v_item->>'quantity')
-      const rpcItems = buildReceiptPayload(items);
-
-      const { error } = await supabase.rpc("receive_purchase_order", {
-        p_order_id: orderId,
-        p_received_items: rpcItems,
-      });
-
-      if (error) throw error;
+      if (useIdempotentReceipt) {
+        const identity = {
+          organization_id: profile!.organization_id!,
+          actor_id: user.id,
+          order_id: orderId,
+        };
+        const sender = createSupabaseReceiptOnceSender();
+        if (pendingReceipt) {
+          // Always replay the *stored* payload, never newly edited UI fields.
+          await retryPendingPurchaseReceipt(identity, sender);
+        } else {
+          const rpcItems = buildReceiptPayload(items);
+          await submitPurchaseReceipt({ ...identity, items: rpcItems }, sender);
+        }
+        setPendingReceipt(undefined);
+      } else {
+        // Legacy path unchanged until controlled database/client cutover.
+        const rpcItems = buildReceiptPayload(items);
+        const { error } = await supabase.rpc("receive_purchase_order", {
+          p_order_id: orderId,
+          p_received_items: rpcItems,
+        });
+        if (error) throw error;
+      }
       onSuccess();
     } catch (err: unknown) {
+      // If network failed AFTER server COMMIT, the outbox MUST remain and be
+      // recovered even when the form closes. Never retry via legacy RPC.
+      if (useIdempotentReceipt && profile?.organization_id) {
+        try {
+          const stored = await loadPendingPurchaseReceipt(profile.organization_id, user.id, orderId);
+          setPendingReceipt(stored);
+        } catch {
+          // Fail closed; storage failure must not trigger a new UUID.
+          setPendingLoading(true);
+        }
+      }
       reportError(err instanceof Error ? err : new Error(String(err)));
       const message = err instanceof Error ? err.message : "Erreur lors de la réception";
       onError(message);
@@ -92,7 +147,7 @@ export const ReceiveOrderForm = ({
     }
   };
 
-  if (isLoading) {
+  if (isLoading || (useIdempotentReceipt && pendingLoading)) {
     return (
       <div className="flex items-center justify-center py-8">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -105,6 +160,13 @@ export const ReceiveOrderForm = ({
       <div className="text-sm text-muted-foreground">
         Commande <strong>{orderNumber}</strong>
       </div>
+
+      {useIdempotentReceipt && pendingReceipt && (
+        <div role="status" className="rounded-md border border-amber-500/50 p-3 text-sm">
+          Réception en attente de confirmation ({pendingReceipt.receipt_id}).
+          Les quantités sont verrouillées. Réessayez avec la même demande.
+        </div>
+      )}
 
       <div className="space-y-3 max-h-64 overflow-y-auto">
         {items.map((item, index) => (
@@ -128,6 +190,7 @@ export const ReceiveOrderForm = ({
                 onChange={(e) =>
                   updateReceivedQty(index, parseInt(e.target.value) || 0)
                 }
+                disabled={isSubmitting || (useIdempotentReceipt && !!pendingReceipt)}
                 className="h-8 text-sm"
               />
             </div>
@@ -143,9 +206,9 @@ export const ReceiveOrderForm = ({
         >
           Annuler
         </Button>
-        <Button onClick={handleSubmit} disabled={isSubmitting}>
+        <Button onClick={handleSubmit} disabled={isSubmitting || (useIdempotentReceipt && (pendingLoading || !profile?.organization_id))}>
           {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-          Confirmer la réception
+          {useIdempotentReceipt && pendingReceipt ? "Réessayer la réception en attente" : "Confirmer la réception"}
         </Button>
       </div>
     </div>
