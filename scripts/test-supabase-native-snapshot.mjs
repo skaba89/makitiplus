@@ -392,7 +392,7 @@ async function testNativeConcurrency(db, dbUrl, tenants) {
     const receiptCall=async(c,orderId,receiptId,qty)=>c.query(
       'SELECT public.receive_purchase_order_once($1,$2::jsonb,$3)',
       [orderId,JSON.stringify([{product_id:a.product,quantity:qty}]),receiptId]);
-    async function receiptRace(kind,loserQty,rollback=false) {
+    async function receiptRace(kind,loserQty,rollback=false,differentReceiptId=false) {
       const orderId=randomUUID(),lineId=randomUUID(),receiptId=randomUUID();
       await db.query("INSERT INTO public.purchase_orders(id,organization_id,store_id,supplier_id,order_number,status) VALUES ($1,$2,$3,$4,$5,'sent')",
         [orderId,a.org,mainStore,supplierId,'NATIVE-RACE-'+kind]);
@@ -401,7 +401,7 @@ async function testNativeConcurrency(db, dbUrl, tenants) {
       const before=(await db.query('SELECT stock_quantity FROM public.products WHERE id=$1',[a.product])).rows[0].stock_quantity;
       await c1.query('BEGIN');
       await receiptCall(c1,orderId,receiptId,2);
-      retry=receiptCall(c2,orderId,receiptId,loserQty).then(()=>({ok:true}),error=>({error}));
+      retry=receiptCall(c2,orderId,differentReceiptId?randomUUID():receiptId,loserQty).then(()=>({ok:true}),error=>({error}));
       const deadline=Date.now()+5000;
       let blocked=false;
       while(Date.now()<deadline) {
@@ -419,7 +419,13 @@ async function testNativeConcurrency(db, dbUrl, tenants) {
         (SELECT count(*)::int FROM public.purchase_order_receipt_requests WHERE purchase_order_id=$3) AS ledger,
         (SELECT count(*)::int FROM public.stock_movements WHERE organization_id=$4 AND reason=$5) AS movements`,
         [a.product,lineId,orderId,a.org,'Réception commande NATIVE-RACE-'+kind])).rows[0];
-      assert.deepEqual(observed,{stock:before+2,received:2,ledger:1,movements:1});
+      const additional=differentReceiptId && !rollback && loserQty<=8;
+      assert.deepEqual(observed,{
+        stock:before+(additional?2+loserQty:2),
+        received:additional?2+loserQty:2,
+        ledger:additional?2:1,
+        movements:additional?2:1,
+      });
       return result;
     }
     const identicalReceipt=await receiptRace('IDENTICAL',2);
@@ -428,8 +434,12 @@ async function testNativeConcurrency(db, dbUrl, tenants) {
     assert.equal(changedReceipt.error?.code,'23505','Changed concurrent receipt must be rejected');
     const abortedReceipt=await receiptRace('ABORT',2,true);
     assert.equal(abortedReceipt.ok,true,'Second actor should process after first rolls back');
+    const distinctReceipt=await receiptRace('DIFFERENT-UUID',3,false,true);
+    assert.equal(distinctReceipt.ok,true,'Two distinct receipt UUIDs should each add only their own quantity');
+    const overReceipt=await receiptRace('OVERRECEIPT',9,false,true);
+    assert.equal(overReceipt.error?.code,'22023','Concurrent distinct UUID must not overreceive after first receipt commits');
     assert.equal((await db.query('SELECT stock_quantity FROM public.products WHERE id=$1',[b.product])).rows[0].stock_quantity,19);
-    console.log('Native receipt concurrency candidate PASS: observed lock, identical retry, changed payload conflict, winner rollback, exactly one stock increment each');
+    console.log('Native receipt concurrency candidate PASS: observed lock, identical replay, changed payload conflict, winner rollback, two distinct UUID receipts and over-receipt rejection');
 
   } finally {
     // End the winner first, releasing its locks before draining the retry.
