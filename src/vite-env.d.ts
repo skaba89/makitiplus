@@ -11,6 +11,8 @@ interface ImportMetaEnv {
   readonly VITE_SENTRY_REPLAY_SAMPLE_RATE: string;
   readonly VITE_APP_VERSION: string;
   readonly VITE_DEMO_MODE: string;
+  readonly VITE_PO_RECEIPT_ONCE_ENABLED?: string;
+  readonly VITE_PO_RECEIPT_ONCE_RELEASE_APPROVED?: string;
 }
 
 interface ImportMeta {
