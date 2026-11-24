@@ -218,6 +218,38 @@ async function testFinalTransactions(db) {
     assert.equal(await stock(),initialStock+5);
     console.log('Native receipt candidate PASS: idempotent retry, conflicting UUID, over-receipt, foreign product, rollback and tenant isolation');
 
+    // Use real app_role enum labels and restore the original fixture role and
+    // all stock mutations inside a local disposable savepoint.
+    await db.query('SAVEPOINT receipt_role_matrix');
+    try {
+      const roleReceipt=randomUUID();
+      const roleLine=line(actor.product,1);
+      const baselineStock=await stock();
+      const baselineReceived=await received();
+      const baselineLedger=(await db.query('SELECT count(*)::int AS n FROM public.purchase_order_receipt_requests WHERE purchase_order_id=$1',[orderId])).rows[0].n;
+      for (const forbiddenRole of ['vendeur','comptable','super_admin']) {
+        await db.query('UPDATE public.user_roles SET role=$1::public.app_role WHERE user_id=$2',[forbiddenRole,actor.user]);
+        await asTenant(actor,invoke(roleReceipt,roleLine),{code:'42501'});
+        assert.equal(await stock(),baselineStock,`Denied ${forbiddenRole} changed stock`);
+        assert.equal(await received(),baselineReceived,`Denied ${forbiddenRole} changed received quantity`);
+        assert.equal((await db.query('SELECT count(*)::int AS n FROM public.purchase_order_receipt_requests WHERE purchase_order_id=$1',[orderId])).rows[0].n,baselineLedger,
+          `Denied ${forbiddenRole} created a receipt key`);
+      }
+      await db.query("UPDATE public.user_roles SET role='manager' WHERE user_id=$1",[actor.user]);
+      await asTenant(actor,invoke(roleReceipt,roleLine));
+      assert.equal(await stock(),baselineStock+1);
+      assert.equal(await received(),baselineReceived+1);
+      await asTenant(actor,invoke(roleReceipt,roleLine));
+      assert.equal(await stock(),baselineStock+1,'Manager UUID replay duplicated stock');
+      assert.equal((await db.query('SELECT count(*)::int AS n FROM public.purchase_order_receipt_requests WHERE purchase_order_id=$1',[orderId])).rows[0].n,baselineLedger+1);
+    } finally {
+      await db.query('ROLLBACK TO SAVEPOINT receipt_role_matrix');
+      await db.query('RELEASE SAVEPOINT receipt_role_matrix');
+    }
+    assert.equal(await received(),5,'Role matrix did not restore receipt totals');
+    console.log('Native receipt role matrix PASS: vendeur/comptable/super_admin denied; manager allowed without duplicate stock');
+
+
     // Simulate the final RPC permission cutover inside THIS disposable
     // transaction only. Existing live and review candidate paths are otherwise
     // unchanged, and the outer savepoint restores their original privileges.
