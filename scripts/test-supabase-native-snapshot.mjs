@@ -178,6 +178,28 @@ async function testFinalTransactions(db) {
       [orderId,actor.org,mainStore,supplierId]);
     await db.query("INSERT INTO public.purchase_order_items(id,purchase_order_id,product_id,product_name,quantity_ordered,quantity_received) VALUES ($1,$2,$3,'Replay fixture',10,0)",
       [orderLineId,orderId,actor.product]);
+    // Historical data audit is strictly read-only; inject an intentionally
+    // foreign-tenant product on a synthetic PO line and prove it is detected.
+    const auditHistorical=readFileSync(new URL('./admin/audit_purchase_receipt_historical_data.sql.example',import.meta.url),'utf8');
+    const baselineAudit=(await db.query(auditHistorical)).rows;
+    assert.equal(baselineAudit.length,8,'Missing historical receipt data checks');
+    assert.ok(baselineAudit.every(row=>row.passed===(Number(row.affected_rows)===0)));
+    const baselineOrg=Number(baselineAudit.find(row=>row.issue_code==='product_organization_mismatch').affected_rows);
+    const baselineStore=Number(baselineAudit.find(row=>row.issue_code==='product_store_mismatch').affected_rows);
+    await db.query('SAVEPOINT purchase_historical_bad_line');
+    try {
+      await db.query("INSERT INTO public.purchase_order_items(id,purchase_order_id,product_id,product_name,quantity_ordered,quantity_received) VALUES ($1,$2,$3,'Foreign tenant synthetic',1,0)",
+        [randomUUID(),orderId,foreign.product]);
+      const unsafe=(await db.query(auditHistorical)).rows;
+      assert.equal(Number(unsafe.find(row=>row.issue_code==='product_organization_mismatch').affected_rows),baselineOrg+1);
+      assert.equal(Number(unsafe.find(row=>row.issue_code==='product_store_mismatch').affected_rows),baselineStore+1);
+    } finally {
+      await db.query('ROLLBACK TO SAVEPOINT purchase_historical_bad_line');
+      await db.query('RELEASE SAVEPOINT purchase_historical_bad_line');
+    }
+    assert.deepEqual((await db.query(auditHistorical)).rows,baselineAudit,
+      'Read-only historical audit probe did not restore baseline counts');
+    console.log('Native receipt historical audit PASS: foreign-tenant/store anomalies detected without persisting data');
     const invoke=(receipt,items,notes=null)=>()=>db.query(
       'SELECT public.receive_purchase_order_once($1,$2::jsonb,$3,$4)',
       [orderId,JSON.stringify(items),receipt,notes]
