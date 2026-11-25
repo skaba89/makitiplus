@@ -240,6 +240,31 @@ async function testFinalTransactions(db) {
     assert.equal(await stock(),initialStock+5);
     console.log('Native receipt candidate PASS: idempotent retry, conflicting UUID, over-receipt, foreign product, rollback and tenant isolation');
 
+    // Mixed-client counterexample: the legacy incremental API has no UUID.
+    // A green probe demonstrates a known NO-GO, not safe coexistence.
+    await db.query('SAVEPOINT receipt_mixed_client_probe');
+    try {
+      const beforeStock=await stock();
+      const beforeReceived=await received();
+      const beforeMoves=await movementCount();
+      await asTenant(actor,()=>db.query(
+        'SELECT public.receive_purchase_order(p_order_id=>$1::uuid,p_received_items=>$2::jsonb,p_notes=>$3::text)',
+        [orderId,JSON.stringify(line(actor.product,2)),null],
+      ));
+      await asTenant(actor,invoke(receiptId,line(actor.product,2)));
+      assert.equal(await stock(),beforeStock+2,'Legacy call bypasses UUID replay protection');
+      assert.equal(await received(),beforeReceived+2);
+      assert.equal(await movementCount(),beforeMoves+1);
+      assert.equal((await db.query('SELECT count(*)::int AS n FROM public.purchase_order_receipt_requests WHERE purchase_order_id=$1',[orderId])).rows[0].n,2);
+      console.log('Native mixed-client receipt probe: known NO-GO reproduced; legacy write bypasses UUID ledger');
+    } finally {
+      await db.query('ROLLBACK TO SAVEPOINT receipt_mixed_client_probe');
+      await db.query('RELEASE SAVEPOINT receipt_mixed_client_probe');
+    }
+    assert.equal(await stock(),initialStock+5);
+    assert.equal(await received(),5);
+    assert.equal(await movementCount(),2);
+
     // Use real app_role enum labels and restore the original fixture role and
     // all stock mutations inside a local disposable savepoint.
     await db.query('SAVEPOINT receipt_role_matrix');
