@@ -344,6 +344,26 @@ async function testFinalTransactions(db) {
       'SELECT public.receive_purchase_order(p_order_id=>$1::uuid,p_items=>$2::jsonb)',
       [orderId,JSON.stringify([{id:orderLineId,quantity_received:1}])],
     ),{code:'42501'});
+    // During the controlled maintenance window, stale clients must fail
+    // without changing stock, receipt totals, movements or UUID ledger.
+    const frozenStock=await stock();
+    const frozenReceived=await received();
+    const frozenMoves=await movementCount();
+    const frozenLedger=(await db.query('SELECT count(*)::int AS n FROM public.purchase_order_receipt_requests WHERE purchase_order_id=$1',[orderId])).rows[0].n;
+    for (let attempt=0;attempt<2;attempt++) {
+      await asTenant(actor,()=>db.query(
+        'SELECT public.receive_purchase_order(p_order_id=>$1::uuid,p_received_items=>$2::jsonb,p_notes=>$3::text)',
+        [orderId,JSON.stringify(line(actor.product,1)),null],
+      ),{code:'42501'});
+      await asTenant(actor,()=>db.query(
+        'SELECT public.receive_purchase_order(p_order_id=>$1::uuid,p_items=>$2::jsonb)',
+        [orderId,JSON.stringify([{id:orderLineId,quantity_received:1}])],
+      ),{code:'42501'});
+      assert.equal(await stock(),frozenStock);
+      assert.equal(await received(),frozenReceived);
+      assert.equal(await movementCount(),frozenMoves);
+      assert.equal((await db.query('SELECT count(*)::int AS n FROM public.purchase_order_receipt_requests WHERE purchase_order_id=$1',[orderId])).rows[0].n,frozenLedger);
+    }
     const finalId=randomUUID();
     await asTenant(actor,invoke(finalId,line(actor.product,1)));
     assert.equal(await received(),6);
