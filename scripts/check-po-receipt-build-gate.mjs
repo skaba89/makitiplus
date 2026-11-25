@@ -26,6 +26,19 @@ export function evaluateReceiptCutoverBuildGate(viteEnv, releaseEnv = {}) {
   return { allowed: true, reason: "Explicit release attestations supplied; live readiness still requires external evidence" };
 }
 
+/**
+ * Applies the same gate to direct `vite build` invocations. The caller
+ * injects Vite's loadEnv so unit tests never load Vite/esbuild in jsdom.
+ */
+export function verifyReceiptCutoverViteBuild(config, loadEnvFn, releaseEnv = {}) {
+  const viteEnv = loadEnvFn(config.mode, config.root, "VITE_");
+  const result = evaluateReceiptCutoverBuildGate(viteEnv, releaseEnv);
+  if (!result.allowed) {
+    throw new Error(`[po-receipt-cutover] BUILD BLOCKED: ${result.reason}`);
+  }
+  return result;
+}
+
 const launchedDirectly = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
 if (launchedDirectly) {
   const mode = process.argv[2] ?? "production";

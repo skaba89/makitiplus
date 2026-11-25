@@ -4,7 +4,7 @@
 
 Le formulaire de réception propose une future branche `receive_purchase_order_once`, désactivée par défaut. Le service worker PWA utilise `autoUpdate` et les anciennes pages installées peuvent continuer à appeler `receive_purchase_order` jusqu'à leur mise à jour réelle.
 
-Les commandes `npm run build` et `npm run build:dev` lancent maintenant `scripts/check-po-receipt-build-gate.mjs`, qui lit les variables Vite du **même mode** avec `loadEnv`. La barrière est inactive pour les builds habituels, où les deux drapeaux du nouveau formulaire sont absents ou faux.
+Les commandes `npm run build` et `npm run build:dev` lancent `scripts/check-po-receipt-build-gate.mjs`, qui lit les variables Vite du **même mode** avec `loadEnv`. Le plugin de sécurité dans `vite.config.ts` applique aussi ce contrôle lors d'un appel direct à `vite build`, sans dépendre du passage par npm. La barrière est inactive pour les builds habituels, où les deux drapeaux du nouveau formulaire sont absents ou faux.
 
 ## Condition de passage lorsque la nouvelle API est activée
 
@@ -23,7 +23,7 @@ Les attestations sont des **affirmations de l'opérateur**, pas des preuves auto
 - Ne pas révoquer les anciennes RPC tant que des PWA peuvent encore les appeler.
 - Ne pas supposer que `autoUpdate` garantit la mise à jour instantanée d'onglets hors ligne.
 - Ne pas activer les deux flags avant la migration serveur et la recette réseau réel avec réponse perdue après COMMIT.
-- Ne pas contourner `npm run build` / `npm run build:dev` avec `vite build` directement : la barrière est exécutée par les scripts npm, pas par Vite lui-même.
+- Le contrôle est maintenant présent à la fois dans les scripts npm et dans le hook de build Vite. Il ne remplace ni une validation CI ni les politiques d'accès serveur.
 - Une compilation réussie n'est pas une autorisation de déploiement.
 
 Les tests `purchaseOrderReceiptBuildGate.test.ts` prouvent le refus des configurations contradictoires et des déploiements activés sans les deux attestations explicites.
