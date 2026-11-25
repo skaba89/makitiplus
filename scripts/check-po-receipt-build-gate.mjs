@@ -4,7 +4,6 @@
  * activate the new RPC before the database and old PWA clients are ready.
  * Only the build pipeline should hold the two additional NON-VITE attestations.
  */
-import { loadEnv } from "vite";
 import { fileURLToPath } from "node:url";
 
 export function evaluateReceiptCutoverBuildGate(viteEnv, releaseEnv = {}) {
@@ -30,6 +29,8 @@ export function evaluateReceiptCutoverBuildGate(viteEnv, releaseEnv = {}) {
 const launchedDirectly = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
 if (launchedDirectly) {
   const mode = process.argv[2] ?? "production";
+  // Load Vite only when executed as a CLI; avoid esbuild in Vitest jsdom.
+  const { loadEnv } = await import("vite");
   const viteEnv = loadEnv(mode, process.cwd(), "VITE_");
   const result = evaluateReceiptCutoverBuildGate(viteEnv, process.env);
   if (!result.allowed) {
