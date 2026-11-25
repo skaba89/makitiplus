@@ -1,4 +1,5 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
+import { verifyReceiptCutoverViteBuild } from "./scripts/check-po-receipt-build-gate.mjs";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
@@ -74,6 +75,15 @@ export default defineConfig(({ mode }) => ({
     },
   },
   plugins: [
+    // Protect even direct `vite build` and CI commands that bypass npm scripts.
+    // This hook runs only for builds; the normal development server is unaffected.
+    {
+      name: "po-receipt-cutover-build-gate",
+      apply: "build" as const,
+      configResolved(config: {mode: string; root: string}) {
+        verifyReceiptCutoverViteBuild(config, loadEnv, process.env);
+      },
+    },
     react(),
     mode === "development" && componentTagger(),
     VitePWA({
