@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateReceiptCutoverBuildGate } from "../../scripts/check-po-receipt-build-gate.mjs";
+import { evaluateReceiptCutoverBuildGate, verifyReceiptCutoverViteBuild } from "../../scripts/check-po-receipt-build-gate.mjs";
 
 const v = {
   VITE_PO_RECEIPT_ONCE_ENABLED: "true",
@@ -37,6 +37,20 @@ describe("Receipt cutover build gate", () => {
       PO_RECEIPT_LEGACY_PWA_COMPAT_VERIFIED: "true",
     }).allowed).toBe(false);
     expect(evaluateReceiptCutoverBuildGate(v, trusted).allowed).toBe(true);
+  });
+
+  it("enforces the same policy from a direct Vite build with mode-aware env loading", () => {
+    const config = { mode: "production", root: "/app" };
+    const calls: string[] = [];
+    const load = (mode: string, root: string, prefix: string) => {
+      calls.push(mode, root, prefix);
+      return { ...v };
+    };
+    expect(() => verifyReceiptCutoverViteBuild(config, load, {}))
+      .toThrow("BUILD BLOCKED");
+    expect(calls).toEqual(["production", "/app", "VITE_"]);
+    expect(verifyReceiptCutoverViteBuild(config, load, trusted).allowed).toBe(true);
+    expect(verifyReceiptCutoverViteBuild(config, () => ({}), {}).allowed).toBe(true);
   });
 
   it("requires exact literal true, rejecting loose environment values", () => {
