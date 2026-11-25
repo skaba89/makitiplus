@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "build:dev": "vite build --mode development",
+    "build": "node scripts/check-po-receipt-build-gate.mjs production && vite build",
+    "build:dev": "node scripts/check-po-receipt-build-gate.mjs development && vite build --mode development",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
     "typecheck:app": "tsc --noEmit -p tsconfig.app.json",
