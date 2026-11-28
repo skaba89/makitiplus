@@ -44,6 +44,8 @@ jobs:
             exit 1
           fi
           supabase status -o json >local-status.json
+          # MKP-008: temp-table arithmetic assertions on this disposable local stack.
+          node "$repo/scripts/test-mkp008-native-cost.mjs" "$native_dir/local-status.json"
           node "$repo/scripts/test-supabase-native-snapshot.mjs" "$native_dir/local-status.json"
           # Preserve the rollback/API test above. Use a separate fresh stack
           # for committed final schema; never link to a remote project.
