@@ -1,0 +1,54 @@
+-- MKP-008: disposable arithmetic characterization only.
+-- This script does NOT alter public tables, products, movements or receipt RPCs.
+-- Run with psql -v ON_ERROR_STOP=1 on a disposable PostgreSQL instance.
+BEGIN;
+CREATE TEMP TABLE mkp008_cost_cases (
+  scenario text PRIMARY KEY,
+  old_qty numeric NOT NULL,
+  old_cost numeric NOT NULL,
+  received_qty numeric NOT NULL,
+  received_cost numeric NOT NULL,
+  expected_cost numeric,
+  expected_valid boolean NOT NULL
+) ON COMMIT DROP;
+INSERT INTO mkp008_cost_cases VALUES
+  ('weighted receipt',10,100,5,160,120,true),
+  ('new product stock',0,100,5,160,160,true),
+  ('no incoming quantity',10,100,0,160,100,true),
+  ('fractional cost',3,10.25,1,12.25,10.75,true),
+  ('negative preexisting stock',-2,100,5,160,NULL,false),
+  ('negative receipt',10,100,-1,160,NULL,false),
+  ('negative old unit cost',10,-1,5,160,NULL,false),
+  ('negative new unit cost',10,100,5,-10,NULL,false),
+  ('zero stocks',0,0,0,0,0,true);
+
+DO $$
+DECLARE r record; actual numeric; valid boolean; checked integer := 0;
+BEGIN
+  FOR r IN SELECT * FROM mkp008_cost_cases ORDER BY scenario LOOP
+    valid := r.old_qty >= 0 AND r.received_qty >= 0
+      AND r.old_cost >= 0 AND r.received_cost >= 0;
+    IF valid THEN
+      actual := CASE
+        WHEN r.received_qty = 0 THEN r.old_cost
+        WHEN r.old_qty = 0 THEN r.received_cost
+        ELSE (r.old_qty * r.old_cost + r.received_qty * r.received_cost)
+             / (r.old_qty + r.received_qty)
+      END;
+    ELSE
+      actual := NULL;
+    END IF;
+    IF valid IS DISTINCT FROM r.expected_valid
+       OR (valid AND abs(actual-r.expected_cost) > 0.00000001) THEN
+      RAISE EXCEPTION 'MKP-008 arithmetic failed: % expected %, got % (valid=%)',
+        r.scenario,r.expected_cost,actual,valid;
+    END IF;
+    checked := checked + 1;
+  END LOOP;
+  RAISE NOTICE 'MKP-008 arithmetic characterization: % cases PASS',checked;
+END $$;
+ROLLBACK;
+
+-- This is ONLY arithmetic characterization, not a proof of transaction safety.
+-- Production implementation must place the weighted cost and receipt stock
+-- change inside the SAME guarded, idempotent, tenant-scoped transaction.
